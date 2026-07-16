@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "rewrite-editor-ui-imports",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"const fs=require('fs');const path=require('path');const root=path.join(process.cwd(),'components','editor');let files=0,changes=0,repls=0;const walk=d=>{for(const ent of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,ent.name);if(ent.isDirectory())walk(p);else if(/\\.(ts|tsx)$/.test(ent.name)){files++;const s=fs.readFileSync(p,'utf8');const n=(s.match(/@\\/components\\/ui\\//g)||[]).length;if(n){const out=s.split('@/components/ui/').join('@/components/editor/ui/');fs.writeFileSync(p,out);changes++;repls+=n;}}}};walk(root);console.log('FILES='+files);console.log('CHANGED='+changes);console.log('REPLACED='+repls);"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}
