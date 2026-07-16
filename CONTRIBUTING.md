@@ -38,7 +38,7 @@ bun run typecheck
 bun run test:e2e
 ```
 
-Run `bun run build:dev` when changing routes, server rendering, metadata,
+Run `bun run build` when changing routes, server rendering, metadata,
 configuration, or dependencies. Add or update tests when behavior changes.
 
 Pull requests should explain the problem, the chosen solution, verification

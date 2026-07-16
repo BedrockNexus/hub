@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - dev
   workflow_dispatch:
 
 permissions:
@@ -14,9 +13,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    environment: prod
     concurrency:
-      group: ghcr-${{ github.ref_name }}
+      group: ghcr-prod
       cancel-in-progress: true
     steps:
       - name: Checkout
@@ -62,7 +61,7 @@ jobs:
           done
 
           if [ "$missing" -ne 0 ]; then
-            echo "Validation failed. Set missing vars in the selected GitHub Environment (prod or dev)."
+            echo "Validation failed. Set missing vars in the prod GitHub Environment."
             exit 1
           fi
 
@@ -72,8 +71,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          cache-from: type=gha,scope=${{ github.ref_name }}
-          cache-to: type=gha,mode=max,scope=${{ github.ref_name }}
+          cache-from: type=gha,scope=prod
+          cache-to: type=gha,mode=max,scope=prod
           build-args: |
             CONVEX_DEPLOYMENT=${{ vars.CONVEX_DEPLOYMENT }}
             NEXT_PUBLIC_CONVEX_URL=${{ vars.NEXT_PUBLIC_CONVEX_URL }}
@@ -83,7 +82,7 @@ jobs:
             SITE_URL=${{ vars.SITE_URL }}
             BEDROCKNEXUS_API_URL=${{ vars.BEDROCKNEXUS_API_URL }}
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.ref_name == 'main' && 'latest' || 'dev' }}
+            ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
           labels: |
             org.opencontainers.image.source=${{ github.repository }}

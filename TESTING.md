@@ -7,7 +7,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [x] Run `bun run lint`.
 - [x] Run `bun run lint:framework` (passes with existing React Compiler/TanStack Table and image warnings only).
 - [x] Run `bun run typecheck`.
-- [ ] Run `bun run build:dev`.
+- [ ] Run `bun run build`.
 - [ ] Run `bun run test:e2e`.
 - [ ] Treat agent sandbox ACL failures as environment-only only after the same command passes in Git Bash or a normal local terminal.
 - [ ] Add seeded Playwright fixtures and storage-state generation for authenticated creator and admin flows.

@@ -68,24 +68,26 @@ use, the Convex CLI will prompt you to select or create a deployment.
 | `bun run lint:fix` | Apply safe Biome formatting and lint fixes |
 | `bun run lint:framework` | Run framework-specific ESLint checks |
 | `bun run typecheck` | Run TypeScript without emitting files |
-| `bun run build:dev` | Build using development deployment settings |
+| `bun run build` | Create a production build |
 | `bun run test:e2e` | Run Playwright end-to-end tests |
 
 ## GitHub Deployment
 
-Pull requests and pushes to `main` or `dev` run lint and typechecking. Image
-publishing uses GitHub Container Registry:
+Pull requests and pushes to `main` run lint and typechecking. Image publishing
+uses GitHub Container Registry:
 
 - `main` builds with the `prod` GitHub Environment and publishes `latest`.
-- `dev` builds with the `dev` GitHub Environment and publishes `dev`.
 - Every image also receives an immutable commit SHA tag.
 
-Create `prod` and `dev` GitHub Environments with these variables:
+Create a `prod` GitHub Environment with these variables:
 `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`,
 `NEXT_PUBLIC_CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`,
 `NEXT_PUBLIC_API_URL`, `SITE_URL`, and `BEDROCKNEXUS_API_URL`.
 Runtime secrets are configured in the deployment platform and are never copied
 into the image.
+
+Local development uses an ignored `.env.local` file and does not require a
+GitHub Environment.
 
 ## Repository Layout
 
