@@ -69,13 +69,9 @@ async function validateSiteImageUpload(
 		imageKind: SiteImageKind
 		key: string
 		label: string
-		userId: string
 	},
 ) {
-	if (
-		!args.key.startsWith(`${args.userId}/`) ||
-		!isSiteImageR2Key(args.key, args.imageKind)
-	) {
+	if (!isSiteImageR2Key(args.key, args.imageKind)) {
 		throw new Error(`Invalid ${args.label.toLowerCase()} upload`)
 	}
 
@@ -361,7 +357,6 @@ export const updateSeo = mutation({
 					imageKind: upload.imageKind,
 					key: upload.key,
 					label: upload.label,
-					userId: user._id,
 				})
 			}
 		}
@@ -454,7 +449,6 @@ export const generateSiteImageUploadUrl = mutation({
 			'Too many upload requests. Please wait before uploading again.',
 		)
 		const key = buildSiteImageR2ObjectKey({
-			userId: user._id,
 			imageKind: args.imageKind,
 			fileName: args.fileName,
 		})

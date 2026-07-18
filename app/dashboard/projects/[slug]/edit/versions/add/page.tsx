@@ -30,7 +30,11 @@ export default async function AddVersionPage({ params }: AddVersionPageProps) {
 				</p>
 			</div>
 
-			<AddVersionForm projectId={project._id} projectSlug={slug} />
+			<AddVersionForm
+				projectId={project._id}
+				projectSlug={slug}
+				projectType={project.type}
+			/>
 		</div>
 	)
 }

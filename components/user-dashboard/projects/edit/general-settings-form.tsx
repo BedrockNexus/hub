@@ -14,6 +14,7 @@ import { ProjectBasicFields } from '@/components/user-dashboard/projects/fields/
 import { ProjectIconField } from '@/components/user-dashboard/projects/fields/project-icon-field'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import { normalizeProjectType } from '@/lib/project-artifacts'
 import {
 	PROJECT_FORM_DEFAULTS,
 	type ProjectFormData,
@@ -66,7 +67,7 @@ export function ProjectGeneralSettingsForm({
 					project.ownerType === 'organization'
 						? project.ownerId
 						: undefined,
-				type: project.type,
+				type: normalizeProjectType(project.type),
 				name: project.name,
 				summary: project.summary,
 			})

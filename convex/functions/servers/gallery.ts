@@ -5,10 +5,10 @@ import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import {
-	assertValidGalleryImageMetadata,
 	MAX_GALLERY_IMAGES,
 	normalizeGalleryCaption,
 } from '../../lib/gallery'
+import { validateEntityImageUpload } from '../../lib/media'
 import { r2 } from '../../lib/r2'
 import { buildEntityImageR2ObjectKey } from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
@@ -145,7 +145,6 @@ export const generateUploadUrl = mutation({
 		)
 		await assertServerGalleryHasCapacity(ctx, args.serverId)
 		const key = buildEntityImageR2ObjectKey({
-			userId: user._id,
 			resourceType: 'servers',
 			entityId: args.serverId,
 			imageKind: 'gallery',
@@ -161,13 +160,16 @@ export const add = mutation({
 		serverId: v.id('servers'),
 		r2Key: v.string(),
 		fileName: v.string(),
-		fileSize: v.number(),
-		mimeType: v.string(),
 		caption: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const { user } = await assertCanManageServer(ctx, args.serverId)
-		assertValidGalleryImageMetadata(args)
+		const metadata = await validateEntityImageUpload(ctx, {
+			key: args.r2Key,
+			resourceType: 'servers',
+			entityId: args.serverId,
+			imageKind: 'gallery',
+		})
 		const existing = await assertServerGalleryHasCapacity(ctx, args.serverId)
 		const now = Date.now()
 
@@ -176,8 +178,8 @@ export const add = mutation({
 			ownerId: user._id,
 			r2Key: args.r2Key,
 			fileName: args.fileName,
-			fileSize: args.fileSize,
-			mimeType: args.mimeType,
+			fileSize: metadata.size,
+			mimeType: metadata.contentType,
 			caption: normalizeGalleryCaption(args.caption),
 			sortOrder: existing.length,
 			createdAt: now,

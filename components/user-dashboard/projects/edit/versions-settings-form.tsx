@@ -4,6 +4,7 @@ import {
 	Delete02Icon,
 	Download04Icon,
 	Package01Icon,
+	Refresh01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery } from 'convex/react'
@@ -49,6 +50,85 @@ interface ProjectVersionsFormProps {
 	projectId: Id<'projects'>
 }
 
+function VersionValidationBadge({ status }: { status?: string }) {
+	let label = 'Valid'
+	let variant: 'destructive' | 'outline' | 'secondary' = 'outline'
+	if (status === 'invalid') {
+		label = 'Rejected'
+		variant = 'destructive'
+	} else if (status === 'validating') {
+		label = 'Validating'
+		variant = 'secondary'
+	} else if (status === 'pending') {
+		label = 'Pending'
+		variant = 'secondary'
+	}
+
+	return <Badge variant={variant}>{label}</Badge>
+}
+
+function VersionDownloadButton({
+	downloadUrl,
+	fileName,
+}: {
+	downloadUrl?: string
+	fileName: string
+}) {
+	if (!downloadUrl) {
+		return null
+	}
+
+	return (
+		<Button
+			nativeButton={false}
+			render={
+				<a
+					aria-label={`Download ${fileName}`}
+					href={downloadUrl}
+					rel="noreferrer"
+					target="_blank"
+				/>
+			}
+			size="sm"
+			variant="outline"
+		>
+			<HugeiconsIcon className="size-4" icon={Download04Icon} />
+			Download
+		</Button>
+	)
+}
+
+function RetryValidationButton({
+	isLoading,
+	onRetry,
+	visible,
+}: {
+	isLoading: boolean
+	onRetry: () => void
+	visible: boolean
+}) {
+	if (!visible) {
+		return null
+	}
+
+	return (
+		<Button
+			disabled={isLoading}
+			onClick={onRetry}
+			size="sm"
+			type="button"
+			variant="outline"
+		>
+			{isLoading ? (
+				<Spinner className="size-4" />
+			) : (
+				<HugeiconsIcon className="size-4" icon={Refresh01Icon} />
+			)}
+			Retry
+		</Button>
+	)
+}
+
 export function ProjectVersionsForm({
 	slug,
 	projectId,
@@ -57,7 +137,13 @@ export function ProjectVersionsForm({
 		projectId,
 	})
 	const deleteVersion = useMutation(api.functions.projects.versions.remove)
+	const retryValidation = useMutation(
+		api.functions.projects.versions.retryValidation,
+	)
 	const [deletingId, setDeletingId] = useState<Id<'projectVersions'> | null>(
+		null,
+	)
+	const [retryingId, setRetryingId] = useState<Id<'projectVersions'> | null>(
 		null,
 	)
 
@@ -72,6 +158,22 @@ export function ProjectVersionsForm({
 			)
 		} finally {
 			setDeletingId(null)
+		}
+	}
+
+	const handleRetryValidation = async (id: Id<'projectVersions'>) => {
+		setRetryingId(id)
+		try {
+			await retryValidation({ versionId: id })
+			toast.success('Artifact validation queued again')
+		} catch (err) {
+			toast.error(
+				err instanceof Error
+					? err.message
+					: 'Failed to retry validation',
+			)
+		} finally {
+			setRetryingId(null)
 		}
 	}
 
@@ -113,6 +215,9 @@ export function ProjectVersionsForm({
 								<span className="font-mono font-semibold text-sm">
 									v{version.version}
 								</span>
+								<VersionValidationBadge
+									status={version.validationStatus}
+								/>
 								{version.gameVersions &&
 									version.gameVersions.length > 0 && (
 										<div className="flex flex-wrap gap-1">
@@ -137,31 +242,28 @@ export function ProjectVersionsForm({
 								{version.downloads.toLocaleString()} &bull;{' '}
 								{formatDate(version.createdAt)}
 							</p>
+							{version.validationError && (
+								<p className="text-destructive text-xs">
+									{version.validationError}
+								</p>
+							)}
 						</div>
 
 						<div className="flex items-center gap-2">
-							{version.downloadUrl && (
-								<Button
-									nativeButton={false}
-									render={
-										// biome-ignore lint/a11y/useAnchorContent: children injected by BaseUI render prop
-										<a
-											aria-label={`Download ${version.fileName}`}
-											href={version.downloadUrl}
-											rel="noreferrer"
-											target="_blank"
-										/>
-									}
-									size="sm"
-									variant="outline"
-								>
-									<HugeiconsIcon
-										className="size-4"
-										icon={Download04Icon}
-									/>
-									Download
-								</Button>
-							)}
+							<RetryValidationButton
+								isLoading={retryingId === version._id}
+								onRetry={() =>
+									handleRetryValidation(version._id)
+								}
+								visible={
+									version.validationCode ===
+									'VALIDATOR_UNAVAILABLE'
+								}
+							/>
+							<VersionDownloadButton
+								downloadUrl={version.downloadUrl}
+								fileName={version.fileName}
+							/>
 
 							<AlertDialog>
 								<AlertDialogTrigger

@@ -27,6 +27,7 @@ const NAV_LINKS = [
 	{ title: 'Home', href: '/' },
 	{ title: 'Servers', href: '/servers' },
 	{ title: 'Projects', href: '/projects' },
+	{ title: 'Server Ping', href: '/tools/server-ping' },
 	{ title: 'Blog', href: '/blog' },
 ]
 

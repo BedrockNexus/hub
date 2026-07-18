@@ -4,8 +4,12 @@ import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
+import { validateImageObjectMetadata } from '../../lib/media'
 import { r2 } from '../../lib/r2'
-import { buildUserR2ObjectKey } from '../../lib/r2Keys'
+import {
+	buildOrganizationMediaR2ObjectKey,
+	isOrganizationMediaR2Key,
+} from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
 
 const IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
@@ -194,8 +198,24 @@ export const updateProfile = mutation({
 		const { user } = await requireOrganizationMember(ctx, args.organizationId)
 		const existing = await ctx.db.query('organizationProfiles').withIndex('by_organization', (q) => q.eq('organizationId', args.organizationId)).first()
 		const nextBanner = args.bannerR2Key ?? existing?.bannerR2Key
-		if (args.bannerR2Key && !args.bannerR2Key.startsWith(`${user._id}/organizations/${args.organizationId}/banner/`)) {
+		if (
+			args.bannerR2Key &&
+			!isOrganizationMediaR2Key(
+				args.bannerR2Key,
+				args.organizationId,
+				'banner',
+			) &&
+			!args.bannerR2Key.startsWith(
+				`${user._id}/organizations/${args.organizationId}/banner/`,
+			)
+		) {
 			throw new Error('Invalid organization banner path')
+		}
+		if (
+			args.bannerR2Key &&
+			args.bannerR2Key !== existing?.bannerR2Key
+		) {
+			await validateImageObjectMetadata(ctx, args.bannerR2Key)
 		}
 		const values = {
 			about: args.about?.trim().slice(0, 2000) || undefined,
@@ -227,10 +247,9 @@ export const generateBannerUploadUrl = mutation({
 			user._id,
 			'Too many upload requests. Please wait before uploading again.',
 		)
-		const key = buildUserR2ObjectKey({
-			userId: user._id,
-			resourceType: 'organizations',
-			segments: [args.organizationId, 'banner'],
+		const key = buildOrganizationMediaR2ObjectKey({
+			organizationId: args.organizationId,
+			mediaKind: 'banner',
 			fileName: args.fileName,
 		})
 		return r2.generateUploadUrl(key)

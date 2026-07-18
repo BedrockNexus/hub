@@ -1,41 +1,42 @@
 # TODO
 
-## Launch MVP Priorities (Updated July 16, 2026)
+## Active Priorities (Updated July 18, 2026)
 
-Keep this list small. Add only work that blocks a reliable public launch or materially improves an already-shipped MVP flow.
-Testing and launch verification are tracked separately in `TESTING.md`.
+Keep this list limited to active product and engineering work. Completed work
+lives in Git history; automated checks and manual QA live in `TESTING.md`.
 
-## P0 - Must Fix Before Launch
+## P0 - Project Artifacts And Storage
 
-- [x] Diagnose and harden the full server add flow because real users hit errors: auth/session, owner or organization selection, connection fields, DNS and MOTD verification, logo/banner upload, publish, admin post-publication review, public visibility, and live status display.
-- [x] Add immediate/persistent server status refresh behavior: schedule a status check when a server is published, make owner refresh persist through Convex, and show `Checking` or `Unknown` when no status record exists yet.
-- [x] Audit launch-critical user flow code paths and fix blockers: register, login, email verification, account settings, organization switching, server create/edit/publish, project create/edit/submit, admin moderation, gallery uploads, project version downloads, and public listing/detail pages. Browser and build verification stay in `TESTING.md`.
-- [x] Harden the project publish flow: require at least one version file before owner review submission or admin approval, and show creator/admin guidance when a project is not ready.
-- [x] Make organization-owned projects manageable: include member-accessible org projects in the dashboard project table and switcher, and add an organization Projects dashboard page.
-- [x] Make the website faster for launch: reduce avoidable server fetches, cache safe public data, optimize images, review bundle size, and target good Core Web Vitals on home, listings, detail pages, auth pages, and dashboards.
-  - [x] Cache safe public site settings and public home stats at runtime.
-  - [x] Reduce public server/project listing query fan-out for stats, categories, and status data.
-  - [x] Scope MDX editor CSS to the dashboard and remove unnecessary public navbar image preload.
-  - [x] Add responsive image sizing hints for public server/project banners.
-  - [x] Move bundle output and Core Web Vitals verification to `TESTING.md` for the next launch build.
-- [x] Recheck SEO metadata across the site: titles, descriptions, canonical URLs, Open Graph images, favicon output, sitemap, robots, JSON-LD, and noindex rules for private/dashboard/admin pages.
-- [x] Add public Privacy Policy and Terms of Service pages, including essential-cookie and local-storage disclosure, canonical metadata, footer links, and sitemap entries.
-- [x] Add app-level rate limiting for content creation, server verification, manual status refreshes, R2 upload and deletion requests, reviews, favourites, analytics events, and project downloads.
+- [ ] Run `functions/projects/migrations:migrateTexturePacks` in production,
+  verify its counts, then remove the temporary `texture_pack` schema value and
+  compatibility normalization.
+- [ ] Run `functions/projects/migrations:seedDefaultProjectCategories` after
+  deployment and review the generated type-specific category lists in admin.
 
-## P1 - Important Improvements To Existing Features
+## P1 - Type-Specific Project Experience
 
-- [x] Add a practical backlink and search-authority plan: improve internal linking, add shareable creator/server/project links, prepare community/partner backlink targets, and make public pages worth linking to for Minecraft Bedrock searches. The outreach and measurement plan lives in `docs/SEO_AUTHORITY_PLAN.md`.
-- [x] Add a lightweight follow/favourite system for servers and projects: authenticated toggle, saved-items view, and aggregate counts; no notifications or social feed for MVP.
-- [x] Add public organization profiles: profile page, organization avatar/banner/about fields, linked servers/projects, owner/member display, and SEO metadata.
-- [x] Restore lightweight analytics for creators and admins: views, clicks/copies, downloads, referrers where available, and publish funnel stats.
-- [x] Add additional user profile fields: display name, bio, avatar/banner polish, social links, Minecraft username, and public creator stats.
-- [x] Diagnose dashboard polish issues that slow users down: sidebar collapsed states, admin empty/error states, form validation copy, loading states, and permission-denied states.
-- [x] Normalize project public visibility checks so listings, detail pages, gallery, versions, reviews, downloads, and sitemap all require the same published/approved state.
+- [ ] Make project creation, editing, categories, filters, cards, releases,
+  moderation, SEO, and analytics use the centralized five-type model and show
+  type-specific upload requirements and errors.
+- [ ] Add a skin release experience with PNG preview, explicit Classic/Steve
+  and Slim/Alex selection, a public interactive player renderer, and download
+  support through the existing tracked route.
+- [ ] Add a model release experience that parses and displays safe `.bbmodel`
+  metadata such as format version, model format, elements, bones, and textures;
+  use creator gallery images for previews until a stable rendering pipeline is
+  selected.
+- [ ] Prepare the private mixed R2 bucket for a future media Worker: only the
+  `media/` namespace may be exposed through a CDN, while `artifacts/` and
+  `temporary/` must continue using controlled or signed access.
 
-## P2 - Nice Later, Not Launch Blocking
+## P2 - Nice Later
 
-- [ ] Migrate remaining Lucide icons to Hugeicons using the [Hugeicons migration tool](https://hugeicons.com/docs/migration-tool).
+- [ ] Migrate remaining Lucide icons to Hugeicons using the
+  [Hugeicons migration tool](https://hugeicons.com/docs/migration-tool).
 
 ## Explicitly Deferred
 
-- [ ] Blog stays a placeholder for MVP. Do not add blog schema, admin publishing, RSS, or public post routes before launch unless the scope changes.
+- [ ] Blog publishing, schema, RSS, and public post routes remain deferred.
+- [ ] Interactive `.bbmodel` rendering remains deferred until a maintained,
+  sandboxable parser or conversion pipeline is selected; do not hand-roll a
+  renderer against Blockbench's evolving internal format.

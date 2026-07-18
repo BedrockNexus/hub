@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { components } from '../../_generated/api'
+import { components, internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
@@ -8,8 +8,30 @@ import { isPublicProject } from '../../lib/contentVisibility'
 import { r2 } from '../../lib/r2'
 import { buildProjectVersionR2ObjectKey } from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import {
+	getProjectArtifactPolicy,
+	normalizeProjectType,
+	validateProjectArtifactFile,
+} from '../../../lib/project-artifacts'
+import { skinModel } from '../../schemas/projects'
 
 const VERSION_DOWNLOAD_URL_EXPIRES_IN = 60 * 5
+const ARTIFACT_UPLOAD_EXPIRES_IN_MS = 1000 * 60 * 60 * 24
+
+function isValidatedVersion(version: { validationStatus?: string }) {
+	return version.validationStatus === undefined || version.validationStatus === 'valid'
+}
+
+function assertValidVersionString(version: string) {
+	if (version.length < 1 || version.length > 32) {
+		throw new Error('Invalid version string')
+	}
+	if (!/^[a-zA-Z0-9._+-]+$/.test(version)) {
+		throw new Error(
+			'Version may only contain letters, numbers, dots, underscores, hyphens, and plus signs',
+		)
+	}
+}
 
 function getUtcDayKey(epoch: number): string {
 	return new Date(epoch).toISOString().slice(0, 10)
@@ -25,6 +47,17 @@ function withDownloadUrl<T extends { _id: Id<'projectVersions'> }>(
 	return {
 		...version,
 		downloadUrl: `/api/projects/versions/${version._id}/download`,
+	}
+}
+
+function withCreatorDownloadUrl<
+	T extends { _id: Id<'projectVersions'>; validationStatus?: string },
+>(version: T) {
+	return {
+		...version,
+		downloadUrl: isValidatedVersion(version)
+			? `/api/projects/versions/${version._id}/download`
+			: undefined,
 	}
 }
 
@@ -85,7 +118,7 @@ export const list = query({
 			.order('desc')
 			.collect()
 
-		return versions.map(withDownloadUrl)
+		return versions.map(withCreatorDownloadUrl)
 	},
 })
 
@@ -105,7 +138,9 @@ export const listPublic = query({
 			.order('desc')
 			.collect()
 
-		return versions.map(withDownloadUrl)
+		return versions
+			.filter(isValidatedVersion)
+			.map((version) => withDownloadUrl(version))
 	},
 })
 
@@ -118,7 +153,9 @@ export const getLatest = query({
 			.order('desc')
 			.first()
 
-		return version ? withDownloadUrl(version) : null
+		return version && isValidatedVersion(version)
+			? withDownloadUrl(version)
+			: null
 	},
 })
 
@@ -135,7 +172,9 @@ export const getByVersion = query({
 			)
 			.first()
 
-		return version ? withDownloadUrl(version) : null
+		return version && isValidatedVersion(version)
+			? withDownloadUrl(version)
+			: null
 	},
 })
 
@@ -144,14 +183,35 @@ export const generateVersionUploadUrl = mutation({
 		projectId: v.id('projects'),
 		version: v.string(),
 		fileName: v.string(),
+		fileSize: v.number(),
 	},
-	returns: v.object({ key: v.string(), url: v.string() }),
+	returns: v.object({
+		uploadId: v.id('projectArtifactUploads'),
+		key: v.string(),
+		url: v.string(),
+	}),
 	handler: async (ctx, args) => {
-		const { user } = await assertCanManageProject(
+		const { project, user } = await assertCanManageProject(
 			ctx,
 			args.projectId,
 			'You must be logged in to upload version files',
 		)
+		assertValidVersionString(args.version)
+		const validationError = validateProjectArtifactFile({
+			type: project.type,
+			fileName: args.fileName,
+			fileSize: args.fileSize,
+		})
+		if (validationError) throw new Error(validationError)
+
+		const existing = await ctx.db
+			.query('projectVersions')
+			.withIndex('by_project_version', (q) =>
+				q.eq('projectId', args.projectId).eq('version', args.version),
+			)
+			.first()
+		if (existing) throw new Error(`Version ${args.version} already exists`)
+
 		await enforceRateLimit(
 			ctx,
 			'uploadUrl',
@@ -159,14 +219,32 @@ export const generateVersionUploadUrl = mutation({
 			'Too many upload requests. Please wait before uploading again.',
 		)
 
+		const artifactId = crypto.randomUUID()
+		const releaseId = crypto.randomUUID()
 		const key = buildProjectVersionR2ObjectKey({
-			userId: user._id,
 			projectId: args.projectId,
-			version: args.version,
+			releaseId,
+			artifactId,
 			fileName: args.fileName,
 		})
+		const now = Date.now()
+		const uploadId = await ctx.db.insert('projectArtifactUploads', {
+			projectId: args.projectId,
+			userId: user._id,
+			projectType: project.type,
+			version: args.version,
+			artifactId,
+			r2Key: key,
+			fileName: args.fileName,
+			declaredFileSize: args.fileSize,
+			maxFileSize: getProjectArtifactPolicy(project.type).maxFileSize,
+			status: 'pending',
+			createdAt: now,
+			expiresAt: now + ARTIFACT_UPLOAD_EXPIRES_IN_MS,
+		})
 
-		return r2.generateUploadUrl(key)
+		const upload = await r2.generateUploadUrl(key)
+		return { uploadId, ...upload }
 	},
 })
 
@@ -175,17 +253,17 @@ export const create = mutation({
 		projectId: v.id('projects'),
 		version: v.string(),
 		changelog: v.optional(v.string()),
-		r2Key: v.string(),
-		fileName: v.string(),
-		fileSize: v.number(),
+		uploadId: v.id('projectArtifactUploads'),
 		gameVersions: v.optional(v.array(v.string())),
+		skinModel: v.optional(skinModel),
 	},
 	handler: async (ctx, args) => {
-		await assertCanManageProject(
+		const { project, user } = await assertCanManageProject(
 			ctx,
 			args.projectId,
 			'You must be logged in to publish versions',
 		)
+		assertValidVersionString(args.version)
 
 		const existing = await ctx.db
 			.query('projectVersions')
@@ -198,19 +276,69 @@ export const create = mutation({
 			throw new Error(`Version ${args.version} already exists`)
 		}
 
+		const upload = await ctx.db.get(args.uploadId)
+		if (
+			!upload ||
+			upload.status !== 'pending' ||
+			upload.projectId !== args.projectId ||
+			upload.userId !== user._id ||
+			upload.version !== args.version
+		) {
+			throw new Error('The artifact upload is invalid or has expired')
+		}
+		if (upload.expiresAt < Date.now()) {
+			throw new Error('The artifact upload has expired. Upload it again.')
+		}
+		if (
+			normalizeProjectType(upload.projectType) !==
+			normalizeProjectType(project.type)
+		) {
+			throw new Error('The project type changed after this artifact was uploaded')
+		}
+
+		const policy = getProjectArtifactPolicy(project.type)
+		if (policy.requireSkinModel && !args.skinModel) {
+			throw new Error('Choose whether this skin uses the Classic or Slim model')
+		}
+		if (!policy.requireSkinModel && args.skinModel) {
+			throw new Error('Skin model metadata is only valid for skin projects')
+		}
+
+		const metadata = await r2.getMetadata(ctx, upload.r2Key)
+		const fileSize = metadata?.size
+		if (!metadata || fileSize === undefined) {
+			throw new Error('The uploaded artifact could not be found in storage')
+		}
+		const validationError = validateProjectArtifactFile({
+			type: project.type,
+			fileName: upload.fileName,
+			fileSize,
+		})
+		if (validationError || fileSize !== upload.declaredFileSize) {
+			const error = validationError ?? 'The uploaded file size does not match the reserved artifact'
+			await ctx.db.patch(upload._id, { status: 'rejected', error })
+			await r2.deleteObject(ctx, upload.r2Key)
+			return { ok: false as const, error }
+		}
+
 		const now = Date.now()
 
 		const versionId = await ctx.db.insert('projectVersions', {
 			projectId: args.projectId,
 			version: args.version,
 			changelog: args.changelog,
-			r2Key: args.r2Key,
-			fileName: args.fileName,
-			fileSize: args.fileSize,
+			r2Key: upload.r2Key,
+			fileName: upload.fileName,
+			fileSize,
+			artifactId: upload.artifactId,
+			skinModel: args.skinModel,
 			gameVersions: args.gameVersions,
 			downloads: 0,
+			validationStatus: 'pending',
+			validationAttempts: 0,
 			createdAt: now,
 		})
+		await ctx.db.patch(upload._id, { status: 'consumed' })
 
 		const versions = await ctx.db
 			.query('projectVersions')
@@ -218,14 +346,36 @@ export const create = mutation({
 			.collect()
 
 		await ctx.db.patch(args.projectId, {
-			latestVersionId: versionId,
-			latestVersionString: args.version,
-			latestVersionAt: now,
-			versionCount: versions.length,
+			versionCount: versions.filter(isValidatedVersion).length,
 			updatedAt: now,
 		})
+		await ctx.scheduler.runAfter(
+			0,
+			internal.functions.projects.artifactValidation.validateVersion,
+			{ versionId },
+		)
 
-		return versionId
+		return { ok: true as const, versionId }
+	},
+})
+
+export const discardUpload = mutation({
+	args: { uploadId: v.id('projectArtifactUploads') },
+	handler: async (ctx, args) => {
+		const upload = await ctx.db.get(args.uploadId)
+		if (!upload || upload.status !== 'pending') return
+
+		const { user } = await assertCanManageProject(
+			ctx,
+			upload.projectId,
+			'You must be logged in to discard artifact uploads',
+		)
+		if (upload.userId !== user._id && user.role !== 'admin') {
+			throw new Error('You cannot discard this artifact upload')
+		}
+
+		await r2.deleteObject(ctx, upload.r2Key)
+		await ctx.db.delete(upload._id)
 	},
 })
 
@@ -240,6 +390,13 @@ export const createDownloadUrl = mutation({
 				ok: false as const,
 				code: 'VERSION_NOT_FOUND' as const,
 				message: 'This release is no longer available.',
+			}
+		}
+		if (!isValidatedVersion(version)) {
+			return {
+				ok: false as const,
+				code: 'VERSION_NOT_VALIDATED' as const,
+				message: 'This release is still being validated.',
 			}
 		}
 
@@ -301,6 +458,34 @@ export const createDownloadUrl = mutation({
 	},
 })
 
+export const retryValidation = mutation({
+	args: { versionId: v.id('projectVersions') },
+	handler: async (ctx, args) => {
+		const version = await ctx.db.get(args.versionId)
+		if (!version) throw new Error('Version not found')
+		await assertCanManageProject(
+			ctx,
+			version.projectId,
+			'You must be logged in to retry artifact validation',
+		)
+		if (version.validationCode !== 'VALIDATOR_UNAVAILABLE') {
+			throw new Error('Upload a replacement for this rejected artifact')
+		}
+		const metadata = await r2.getMetadata(ctx, version.r2Key)
+		if (!metadata) throw new Error('The artifact file is no longer in storage')
+		await ctx.db.patch(version._id, {
+			validationStatus: 'pending',
+			validationCode: undefined,
+			validationError: undefined,
+		})
+		await ctx.scheduler.runAfter(
+			0,
+			internal.functions.projects.artifactValidation.validateVersion,
+			{ versionId: version._id },
+		)
+	},
+})
+
 export const remove = mutation({
 	args: { id: v.id('projectVersions') },
 	handler: async (ctx, args) => {
@@ -319,15 +504,13 @@ export const remove = mutation({
 		await ctx.db.delete(args.id)
 		await updateProjectDownloadStats(ctx, version.projectId)
 
-		const latestVersion = await ctx.db
+		const allVersions = await ctx.db
 			.query('projectVersions')
 			.withIndex('by_project', (q) => q.eq('projectId', version.projectId))
 			.order('desc')
-			.first()
-		const versions = await ctx.db
-			.query('projectVersions')
-			.withIndex('by_project', (q) => q.eq('projectId', version.projectId))
 			.collect()
+		const versions = allVersions.filter(isValidatedVersion)
+		const latestVersion = versions[0]
 
 		await ctx.db.patch(version.projectId, {
 			latestVersionId: latestVersion?._id,

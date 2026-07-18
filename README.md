@@ -50,6 +50,11 @@ actions cannot call a `localhost` API, so `BEDROCKNEXUS_API_URL` and
 `SERVER_VERIFICATION_API_URL` must be publicly reachable HTTPS endpoints when
 used by hosted Convex functions.
 
+Project release validation also requires a separately deployed validator
+worker. Configure `ARTIFACT_VALIDATOR_URL` in Convex and either share
+`BEDROCKNEXUS_API_KEY` with the worker or set a dedicated
+`ARTIFACT_VALIDATOR_API_KEY`.
+
 Start the frontend and Convex development processes:
 
 ```bash

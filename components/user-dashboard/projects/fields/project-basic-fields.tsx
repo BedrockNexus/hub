@@ -18,11 +18,8 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { OrgSelector } from '@/components/user-dashboard/org-selector'
-import {
-	PROJECT_TYPE_LABELS,
-	PROJECT_TYPES,
-	type ProjectFormData,
-} from '@/lib/schemas/projects'
+import { PROJECT_TYPE_LABELS, PROJECT_TYPES } from '@/lib/project-artifacts'
+import type { ProjectFormData } from '@/lib/schemas/projects'
 
 interface ProjectBasicFieldsProps {
 	control: Control<ProjectFormData>

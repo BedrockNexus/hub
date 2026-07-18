@@ -8,6 +8,7 @@ const TRAILING_SLASH_PATTERN = /\/$/
 export interface BedrockStatusResponse {
 	error?: string
 	gamemode?: string
+	latencyMs?: number
 	mapName?: string
 	motd?: string
 	online: boolean

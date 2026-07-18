@@ -61,7 +61,8 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [ ] Confirm reorder rejects duplicate, missing, or cross-entity gallery IDs.
 - [ ] Confirm deleting an image compacts the remaining sort order without gaps.
 - [ ] Upload and remove editor media.
-- [ ] Upload and delete a project version file.
+- [ ] Upload and delete one valid release artifact for each project type:
+  `.mcaddon`, `.mcworld`, skin `.png`, `.bbmodel`, and `.mcpack`.
 - [ ] Download a project version through the app route and confirm version and aggregate project counts increment.
 - [ ] Confirm each version download requests a fresh signed URL and shows a preparing state.
 - [ ] Confirm a missing R2 version file shows retry-friendly unavailable copy without incrementing download counts.
@@ -69,7 +70,30 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [ ] Confirm retrying a temporary download failure generates a new signed URL and starts the download.
 - [ ] Confirm aggregate download statistics remain correct after version deletion.
 - [ ] Confirm replaced, deleted, and stale unattached objects are removed from R2.
-- [ ] Confirm all R2 object keys follow the documented user/entity paths.
+- [ ] Confirm new R2 object keys use `media/`, `artifacts/`, or `temporary/`
+  namespaces with immutable entity, release, upload, and asset IDs.
+
+## Project Artifact Validation
+
+- [ ] Confirm each project type accepts only its configured extension, size,
+  MIME, and artifact count, on both the client and backend.
+- [ ] Confirm renamed files with allowed extensions are rejected when their
+  magic bytes or parsed contents do not match the expected artifact.
+- [ ] Confirm Addon, Map, and Resource Pack archives reject traversal paths,
+  malformed or mismatched manifests, excessive entries, and unsafe expansion
+  ratios without extracting files on the server.
+- [ ] Confirm a skin release accepts exactly one 64x64 PNG, stores Classic or
+  Slim metadata, rejects malformed or animated images, and renders correctly
+  on the public player preview.
+- [ ] Confirm `.bbmodel` validation rejects malformed JSON, unsupported model
+  metadata, and missing or external textures while exposing only sanitized
+  metadata publicly.
+- [ ] Confirm pending or invalid artifacts cannot be submitted for review,
+  approved, published, downloaded, or counted as a valid project release.
+- [ ] Confirm failed, cancelled, and abandoned uploads are deleted and cannot
+  be attached to another project, release, owner, or organization.
+- [ ] Confirm existing objects stored under legacy keys remain readable and
+  removable while every new upload uses the entity-first key scheme.
 
 ## Editor And Content
 

@@ -54,8 +54,11 @@ import {
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
-
-type ProjectType = 'addon' | 'skin' | 'map' | 'texture_pack'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_LABELS,
+	type StoredProjectType,
+} from '@/lib/project-artifacts'
 
 interface AdminProjectCategory {
 	_id: Id<'projectCategories'>
@@ -66,7 +69,7 @@ interface AdminProjectCategory {
 interface AdminProjectRow {
 	_id: Id<'projects'>
 	_creationTime: number
-	type: ProjectType
+	type: StoredProjectType
 	name: string
 	slug: string
 	status?: LifecycleStatus
@@ -81,13 +84,6 @@ interface AdminProjectRow {
 	totalDownloads: number
 	latestVersionString?: string
 	updatedAt: number
-}
-
-const TYPE_LABELS: Record<ProjectType, string> = {
-	addon: 'Addon',
-	skin: 'Skin',
-	map: 'Map',
-	texture_pack: 'Texture Pack',
 }
 
 function AdminProjectStats({ projects }: { projects: AdminProjectRow[] }) {
@@ -257,7 +253,11 @@ export function AdminProjectsTable() {
 				}) => <DataTableColumnHeader column={column} label="Type" />,
 				cell: ({ row }) => (
 					<Badge className="text-xs" variant="secondary">
-						{TYPE_LABELS[row.original.type]}
+						{
+							PROJECT_TYPE_LABELS[
+								normalizeProjectType(row.original.type)
+							]
+						}
 					</Badge>
 				),
 				enableColumnFilter: false,

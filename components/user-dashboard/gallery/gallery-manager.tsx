@@ -150,16 +150,12 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 					serverId: entityId as Id<'servers'>,
 					r2Key: uploadTarget.key,
 					fileName: file.name,
-					fileSize: file.size,
-					mimeType: file.type || 'application/octet-stream',
 				})
 			} else {
 				await addProjectImage({
 					projectId: entityId as Id<'projects'>,
 					r2Key: uploadTarget.key,
 					fileName: file.name,
-					fileSize: file.size,
-					mimeType: file.type || 'application/octet-stream',
 				})
 			}
 

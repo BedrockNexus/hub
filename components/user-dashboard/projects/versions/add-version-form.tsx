@@ -32,11 +32,23 @@ import {
 	FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { VersionFileUpload } from '@/components/uploads/version-file-upload'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import {
+	getProjectArtifactPolicy,
+	normalizeProjectType,
+	type StoredProjectType,
+} from '@/lib/project-artifacts'
 import {
 	VERSION_FORM_DEFAULTS,
 	type VersionFormData,
@@ -46,11 +58,13 @@ import {
 interface AddVersionFormProps {
 	projectId: Id<'projects'>
 	projectSlug: string
+	projectType: StoredProjectType
 }
 
 export function AddVersionForm({
 	projectId,
 	projectSlug,
+	projectType,
 }: AddVersionFormProps) {
 	const router = useRouter()
 	const createVersion = useMutation(api.functions.projects.versions.create)
@@ -72,31 +86,34 @@ export function AddVersionForm({
 	})
 
 	const versionValue = watch('version')
-	const r2Key = watch('r2Key')
-	useUnsavedChangesWarning((isDirty || !!r2Key) && !isSubmitting)
+	const uploadId = watch('uploadId')
+	const artifactPolicy = getProjectArtifactPolicy(projectType)
+	useUnsavedChangesWarning((isDirty || !!uploadId) && !isSubmitting)
 
 	const onSubmit = async (data: VersionFormData) => {
 		setIsSubmitting(true)
 		try {
-			await createVersion({
+			const result = await createVersion({
 				projectId,
 				version: data.version,
 				changelog: data.changelog || undefined,
-				r2Key: data.r2Key,
-				fileName: data.fileName,
-				fileSize: data.fileSize,
+				uploadId: data.uploadId as Id<'projectArtifactUploads'>,
+				skinModel: data.skinModel,
 				gameVersions:
 					data.gameVersions.length > 0
 						? data.gameVersions
 						: undefined,
 			})
-			toast.success(`Version ${data.version} published!`)
+			if (!result.ok) {
+				throw new Error(result.error)
+			}
+			toast.success(
+				`Version ${data.version} uploaded and queued for validation`,
+			)
 			router.push(`/dashboard/projects/${projectSlug}/edit/versions`)
 		} catch (err) {
 			toast.error(
-				err instanceof Error
-					? err.message
-					: 'Failed to publish version',
+				err instanceof Error ? err.message : 'Failed to upload version',
 			)
 		} finally {
 			setIsSubmitting(false)
@@ -131,25 +148,25 @@ export function AddVersionForm({
 				/>
 
 				{/* Version file */}
-				<Field data-invalid={!!errors.r2Key}>
+				<Field data-invalid={!!errors.uploadId}>
 					<FieldLabel>Version File *</FieldLabel>
 					<FieldDescription>
-						Upload your .mcpack, .mcworld, .mcaddon, .mctemplate, or
-						.zip file.
+						{artifactPolicy.requirement}
 					</FieldDescription>
 					<VersionFileUpload
 						disabled={isSubmitting || !versionValue}
-						onUploadComplete={(key, fileName, fileSize) => {
-							setValue('r2Key', key, { shouldValidate: true })
+						onUploadComplete={(id, _key, fileName, fileSize) => {
+							setValue('uploadId', id, { shouldValidate: true })
 							setValue('fileName', fileName)
 							setValue('fileSize', fileSize)
 						}}
 						onUploadRemoved={() => {
-							setValue('r2Key', '', { shouldValidate: true })
+							setValue('uploadId', '', { shouldValidate: true })
 							setValue('fileName', '')
 							setValue('fileSize', 0)
 						}}
 						projectId={projectId}
+						projectType={projectType}
 						version={versionValue || 'draft'}
 					/>
 					{!versionValue && (
@@ -161,8 +178,45 @@ export function AddVersionForm({
 							Enter a version string above before uploading
 						</p>
 					)}
-					{errors.r2Key && <FieldError errors={[errors.r2Key]} />}
+					{errors.uploadId && (
+						<FieldError errors={[errors.uploadId]} />
+					)}
 				</Field>
+
+				{normalizeProjectType(projectType) === 'skin' ? (
+					<Controller
+						control={control}
+						name="skinModel"
+						render={({ field, fieldState }) => (
+							<Field data-invalid={fieldState.invalid}>
+								<FieldLabel>Player Model *</FieldLabel>
+								<FieldDescription>
+									Choose the arm style this skin was designed
+									for.
+								</FieldDescription>
+								<Select
+									onValueChange={field.onChange}
+									value={field.value}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select a player model" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="classic">
+											Classic (Steve)
+										</SelectItem>
+										<SelectItem value="slim">
+											Slim (Alex)
+										</SelectItem>
+									</SelectContent>
+								</Select>
+								{fieldState.error ? (
+									<FieldError errors={[fieldState.error]} />
+								) : null}
+							</Field>
+						)}
+					/>
+				) : null}
 
 				{/* Game versions */}
 				<Controller
@@ -276,7 +330,7 @@ export function AddVersionForm({
 				>
 					Cancel
 				</Button>
-				<Button disabled={isSubmitting || !r2Key} type="submit">
+				<Button disabled={isSubmitting || !uploadId} type="submit">
 					{isSubmitting ? (
 						<>
 							<Spinner className="size-4" />

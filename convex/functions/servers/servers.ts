@@ -4,6 +4,7 @@ import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import { validateEntityImageUpload } from '../../lib/media'
 import { r2 } from '../../lib/r2'
 import { enforceRateLimit } from '../../lib/rateLimits'
 import { serverModerationStatus } from '../../schemas/servers'
@@ -1257,6 +1258,22 @@ export const update = mutation({
 					}
 				: {}),
 		}
+		if (nextLogoR2Key && nextLogoR2Key !== server.logoR2Key) {
+			await validateEntityImageUpload(ctx, {
+				key: nextLogoR2Key,
+				resourceType: 'servers',
+				entityId: server._id,
+				imageKind: 'logo',
+			})
+		}
+		if (nextBannerR2Key && nextBannerR2Key !== server.bannerR2Key) {
+			await validateEntityImageUpload(ctx, {
+				key: nextBannerR2Key,
+				resourceType: 'servers',
+				entityId: server._id,
+				imageKind: 'banner',
+			})
+		}
 
 		// Update slug if name changed
 		let slug = server.slug
@@ -1379,6 +1396,22 @@ export const updateAdmin = mutation({
 							nextBannerR2Key === null ? undefined : nextBannerR2Key,
 					}
 				: {}),
+		}
+		if (nextLogoR2Key && nextLogoR2Key !== server.logoR2Key) {
+			await validateEntityImageUpload(ctx, {
+				key: nextLogoR2Key,
+				resourceType: 'servers',
+				entityId: server._id,
+				imageKind: 'logo',
+			})
+		}
+		if (nextBannerR2Key && nextBannerR2Key !== server.bannerR2Key) {
+			await validateEntityImageUpload(ctx, {
+				key: nextBannerR2Key,
+				resourceType: 'servers',
+				entityId: server._id,
+				imageKind: 'banner',
+			})
 		}
 
 		// Update slug if name changed

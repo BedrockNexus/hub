@@ -6,8 +6,13 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import { projectType, moderationStatus as projectModerationStatus } from '../../schemas/projects'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
+import { validateEntityImageUpload } from '../../lib/media'
 import { r2 } from '../../lib/r2'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import {
+	normalizeProjectType,
+	type StoredProjectType,
+} from '../../../lib/project-artifacts'
 
 // =============================================================================
 // TYPES
@@ -48,6 +53,25 @@ async function resolveProjectIconUrl(
 	}
 
 	return undefined
+}
+
+async function assertCategoriesMatchProjectType(
+	ctx: MutationCtx,
+	categoryIds: Id<'projectCategories'>[],
+	type: StoredProjectType,
+) {
+	const categories = await Promise.all(categoryIds.map((id) => ctx.db.get(id)))
+	const normalizedType = normalizeProjectType(type)
+
+	if (
+		categories.some(
+			(category) =>
+				!category ||
+				normalizeProjectType(category.projectType) !== normalizedType,
+		)
+	) {
+		throw new Error('Every category must match the selected project type')
+	}
 }
 
 async function resolveProjectBannerUrl(
@@ -166,12 +190,16 @@ async function projectHasVersion(
 	ctx: QueryCtx | MutationCtx,
 	projectId: Id<'projects'>,
 ) {
-	const version = await ctx.db
+	const versions = await ctx.db
 		.query('projectVersions')
 		.withIndex('by_project', (q) => q.eq('projectId', projectId))
-		.first()
+		.collect()
 
-	return !!version
+	return versions.some(
+		(version) =>
+			version.validationStatus === undefined ||
+			version.validationStatus === 'valid',
+	)
 }
 
 async function assertProjectHasVersion(
@@ -180,7 +208,7 @@ async function assertProjectHasVersion(
 ) {
 	if (!(await projectHasVersion(ctx, projectId))) {
 		throw new Error(
-			'Upload at least one version file before this project can be submitted or published',
+			'Upload and validate at least one version file before this project can be submitted or published',
 		)
 	}
 }
@@ -912,6 +940,7 @@ export const create = mutation({
 			user._id,
 			'Too many projects created. Please wait before creating another project.',
 		)
+		await assertCategoriesMatchProjectType(ctx, args.categoryIds, args.type)
 
 		const slug = generateSlug(args.name)
 
@@ -928,7 +957,7 @@ export const create = mutation({
 		const now = Date.now()
 
 		const projectId = await ctx.db.insert('projects', {
-			type: args.type,
+			type: normalizeProjectType(args.type),
 			name: args.name,
 			slug,
 			summary: args.summary,
@@ -1022,6 +1051,39 @@ export const update = mutation({
 					}
 				: {}),
 		}
+		if (nextIconR2Key && nextIconR2Key !== item.iconR2Key) {
+			await validateEntityImageUpload(ctx, {
+				key: nextIconR2Key,
+				resourceType: 'projects',
+				entityId: item._id,
+				imageKind: 'icon',
+			})
+		}
+		if (nextBannerR2Key && nextBannerR2Key !== item.bannerR2Key) {
+			await validateEntityImageUpload(ctx, {
+				key: nextBannerR2Key,
+				resourceType: 'projects',
+				entityId: item._id,
+				imageKind: 'banner',
+			})
+		}
+
+		const nextType = args.type ?? item.type
+		const nextCategoryIds = args.categoryIds ?? item.categoryIds
+		await assertCategoriesMatchProjectType(ctx, nextCategoryIds, nextType)
+
+		if (
+			args.type &&
+			normalizeProjectType(args.type) !== normalizeProjectType(item.type)
+		) {
+			const existingVersion = await ctx.db
+				.query('projectVersions')
+				.withIndex('by_project', (q) => q.eq('projectId', item._id))
+				.first()
+			if (existingVersion) {
+				throw new Error('A project type cannot change after a release is added')
+			}
+		}
 		if (status === 'under_review' && item.status !== 'draft') {
 			throw new Error('Only draft projects can be submitted for review')
 		}
@@ -1076,6 +1138,9 @@ export const update = mutation({
 
 		await ctx.db.patch(id, {
 			...updates,
+			...(updates.type
+				? { type: normalizeProjectType(updates.type) }
+				: {}),
 			...mediaUpdates,
 			...lifecycleUpdates,
 			...ownerUpdates,

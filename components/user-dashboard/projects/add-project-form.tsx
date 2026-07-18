@@ -5,7 +5,7 @@ import { CheckmarkCircle02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery } from 'convex/react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { type Resolver, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import {
@@ -114,10 +114,6 @@ export function AddProjectForm() {
 	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
-	// Convex
-	const categories = useQuery(api.functions.projects.categories.list, {})
-	const createContent = useMutation(api.functions.projects.projects.create)
-
 	const form = useForm<ProjectFormData>({
 		// Project schema unions/coercions can infer a slightly wider resolver type.
 		// Keep explicit cast so field components stay strongly typed to ProjectFormData.
@@ -127,6 +123,22 @@ export function AddProjectForm() {
 		defaultValues: PROJECT_FORM_DEFAULTS,
 		mode: 'onChange',
 	})
+	const selectedType = form.watch('type')
+	const previousType = useRef(selectedType)
+	const categories = useQuery(api.functions.projects.categories.list, {
+		projectType: selectedType,
+	})
+	const createContent = useMutation(api.functions.projects.projects.create)
+
+	useEffect(() => {
+		if (previousType.current !== selectedType) {
+			form.setValue('categoryIds', [], {
+				shouldDirty: true,
+				shouldValidate: true,
+			})
+			previousType.current = selectedType
+		}
+	}, [form, selectedType])
 	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
 
 	const toggleCategory = createProjectCategoryToggler(

@@ -7,10 +7,15 @@ import { v } from 'convex/values'
 
 export const projectType = v.union(
 	v.literal('addon'),
-	v.literal('skin'),
 	v.literal('map'),
+	v.literal('skin'),
+	v.literal('model'),
+	v.literal('resource_pack'),
+	// Remove after functions/projects/migrations:migrateTexturePacks is run.
 	v.literal('texture_pack'),
 )
+
+export const skinModel = v.union(v.literal('classic'), v.literal('slim'))
 
 // =============================================================================
 // LIFECYCLE STATUS (replaces binary isActive going forward)
@@ -158,6 +163,34 @@ export const tables = {
 		r2Key: v.string(),
 		fileName: v.string(),
 		fileSize: v.number(),
+		artifactId: v.optional(v.string()),
+		skinModel: v.optional(skinModel),
+		validationStatus: v.optional(
+			v.union(
+				v.literal('pending'),
+				v.literal('validating'),
+				v.literal('valid'),
+				v.literal('invalid'),
+			),
+		),
+		validationCode: v.optional(v.string()),
+		validationError: v.optional(v.string()),
+		validationAttempts: v.optional(v.number()),
+		validationReport: v.optional(
+			v.object({
+				type: v.string(),
+				fileSize: v.number(),
+				entryCount: v.optional(v.number()),
+				totalUncompressedSize: v.optional(v.number()),
+				manifestCount: v.optional(v.number()),
+				width: v.optional(v.number()),
+				height: v.optional(v.number()),
+				modelFormat: v.optional(v.string()),
+				elementCount: v.optional(v.number()),
+				textureCount: v.optional(v.number()),
+			}),
+		),
+		validatedAt: v.optional(v.number()),
 
 		// Compatibility
 		gameVersions: v.optional(v.array(v.string())),
@@ -169,6 +202,29 @@ export const tables = {
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_version', ['projectId', 'version']),
+
+	projectArtifactUploads: defineTable({
+		projectId: v.id('projects'),
+		userId: v.string(),
+		projectType,
+		version: v.string(),
+		artifactId: v.string(),
+		r2Key: v.string(),
+		fileName: v.string(),
+		declaredFileSize: v.number(),
+		maxFileSize: v.number(),
+		status: v.union(
+			v.literal('pending'),
+			v.literal('consumed'),
+			v.literal('rejected'),
+		),
+		error: v.optional(v.string()),
+		createdAt: v.number(),
+		expiresAt: v.number(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_user', ['userId'])
+		.index('by_status_expires', ['status', 'expiresAt']),
 
 	projectStats: defineTable({
 		projectId: v.id('projects'),

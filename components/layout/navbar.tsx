@@ -3,11 +3,11 @@
 import {
 	DashboardBrowsingIcon,
 	Home01Icon,
-	News01Icon,
 	OfficeIcon,
 	Package01Icon,
 	ServerStack01Icon,
 	UserIcon,
+	Wifi01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import Image from 'next/image'
@@ -42,9 +42,9 @@ const mobileMenuItems: NavbarMenuItem[] = [
 		icon: Package01Icon,
 	},
 	{
-		title: 'Blog',
-		url: '/blog',
-		icon: News01Icon,
+		title: 'Ping',
+		url: '/tools/server-ping',
+		icon: Wifi01Icon,
 	},
 ]
 
@@ -60,9 +60,9 @@ const desktopMenuItems: NavbarMenuItem[] = [
 		icon: Package01Icon,
 	},
 	{
-		title: 'Blog',
-		url: '/blog',
-		icon: News01Icon,
+		title: 'Server Ping',
+		url: '/tools/server-ping',
+		icon: Wifi01Icon,
 	},
 ]
 

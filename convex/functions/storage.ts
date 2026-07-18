@@ -1,18 +1,103 @@
 import { ConvexError, v } from 'convex/values'
+import { components } from '../_generated/api'
 import type { MutationCtx } from '../_generated/server'
 import { internalMutation, mutation, query } from '../_generated/server'
 import { authComponent } from '../auth'
 import {
 	buildEntityImageR2ObjectKey,
-	buildUserR2ObjectKey,
+	buildProfileMediaR2ObjectKey,
 	isEditorMediaR2Key,
 	isManagedR2Key,
+	isTemporaryR2Key,
 } from '../lib/r2Keys'
 import { r2 } from '../lib/r2'
 import { enforceRateLimit } from '../lib/rateLimits'
 
 const R2_EDITOR_MEDIA_URL_EXPIRES_IN = 60 * 10
 const STALE_MANAGED_UPLOAD_AGE_MS = 1000 * 60 * 60 * 24
+
+function collectEditorMediaKeysFromMarkdown(
+	keys: Set<string>,
+	markdown?: string,
+) {
+	if (!markdown) return
+	const matches = markdown.matchAll(
+		/\/api\/r2\/editor-media\/([^\s)"'<>]+)/g,
+	)
+	for (const match of matches) {
+		try {
+			keys.add(
+				match[1]
+					.split('/')
+					.map((segment) => decodeURIComponent(segment))
+					.join('/'),
+			)
+		} catch {
+			// Invalid encoded URLs are not valid managed references.
+		}
+	}
+}
+
+async function isOrganizationMember(
+	ctx: MutationCtx,
+	organizationId: string,
+	userId: string,
+) {
+	const member = (await ctx.runQuery(
+		components.betterAuth.adapter.findOne,
+		{
+			model: 'member',
+			where: [
+				{ field: 'organizationId', value: organizationId },
+				{ field: 'userId', value: userId },
+			],
+		},
+	)) as { id?: string } | null
+	return Boolean(member)
+}
+
+async function assertCanManageImageEntity(
+	ctx: MutationCtx,
+	args: {
+		resourceType: 'projects' | 'servers'
+		entityId: string
+		userId: string
+		role?: string | null
+	},
+) {
+	if (args.role === 'admin') return
+
+	if (args.resourceType === 'projects') {
+		const id = ctx.db.normalizeId('projects', args.entityId)
+		const project = id ? await ctx.db.get(id) : null
+		if (!project) throw new ConvexError('Project not found')
+		if (project.ownerType === 'user' && project.ownerId === args.userId) return
+		if (
+			project.ownerType === 'organization' &&
+			(await isOrganizationMember(ctx, project.ownerId, args.userId))
+		) {
+			return
+		}
+		throw new ConvexError('You do not have permission to upload project images')
+	}
+
+	const id = ctx.db.normalizeId('servers', args.entityId)
+	const server = id ? await ctx.db.get(id) : null
+	if (!server) throw new ConvexError('Server not found')
+	if (
+		server.ownerType === 'user' &&
+		(server.ownerId === args.userId || server.registeredBy === args.userId)
+	) {
+		return
+	}
+	if (
+		server.ownerType === 'organization' &&
+		(await isOrganizationMember(ctx, server.ownerId, args.userId))
+	) {
+		return
+	}
+	throw new ConvexError('You do not have permission to upload server images')
+}
 
 async function collectReferencedManagedR2Keys(ctx: MutationCtx) {
 	const keys = new Set<string>()
@@ -21,6 +106,7 @@ async function collectReferencedManagedR2Keys(ctx: MutationCtx) {
 	for (const server of servers) {
 		if (server.logoR2Key) keys.add(server.logoR2Key)
 		if (server.bannerR2Key) keys.add(server.bannerR2Key)
+		collectEditorMediaKeysFromMarkdown(keys, server.description)
 	}
 
 	const serverGallery = await ctx.db.query('serverGallery').collect()
@@ -32,6 +118,7 @@ async function collectReferencedManagedR2Keys(ctx: MutationCtx) {
 	for (const project of projects) {
 		if (project.iconR2Key) keys.add(project.iconR2Key)
 		if (project.bannerR2Key) keys.add(project.bannerR2Key)
+		collectEditorMediaKeysFromMarkdown(keys, project.description)
 	}
 
 	const projectGallery = await ctx.db.query('projectGallery').collect()
@@ -42,6 +129,7 @@ async function collectReferencedManagedR2Keys(ctx: MutationCtx) {
 	const projectVersions = await ctx.db.query('projectVersions').collect()
 	for (const version of projectVersions) {
 		keys.add(version.r2Key)
+		collectEditorMediaKeysFromMarkdown(keys, version.changelog)
 	}
 
 	const organizationProfiles = await ctx.db.query('organizationProfiles').collect()
@@ -110,9 +198,14 @@ export const generateImageUploadUrl = mutation({
 		if (args.resourceType === 'servers' && args.imageKind === 'icon') {
 			throw new ConvexError('Servers use logos, not icons')
 		}
+		await assertCanManageImageEntity(ctx, {
+			resourceType: args.resourceType,
+			entityId: args.entityId,
+			userId: user._id,
+			role: user.role,
+		})
 
 		const key = buildEntityImageR2ObjectKey({
-			userId: user._id,
 			resourceType: args.resourceType,
 			entityId: args.entityId,
 			imageKind: args.imageKind,
@@ -144,10 +237,9 @@ export const generateEditorMediaUploadUrl = mutation({
 			'Too many upload requests. Please wait before uploading again.',
 		)
 
-		const key = buildUserR2ObjectKey({
+		const key = buildProfileMediaR2ObjectKey({
 			userId: user._id,
-			resourceType: 'editor',
-			segments: ['media', args.mediaKind],
+			mediaKind: `editor-${args.mediaKind}`,
 			fileName: args.fileName,
 		})
 
@@ -180,7 +272,11 @@ export const deleteR2Object = mutation({
 			'Too many file deletion requests. Please wait before trying again.',
 		)
 
-		if (!args.key.startsWith(`${user._id}/`) || !isManagedR2Key(args.key)) {
+		const canDelete =
+			isEditorMediaR2Key(args.key, user._id) ||
+			isTemporaryR2Key(args.key, user._id) ||
+			(args.key.startsWith(`${user._id}/`) && isManagedR2Key(args.key))
+		if (!canDelete) {
 			throw new ConvexError('You can only delete your own managed uploads')
 		}
 
@@ -196,9 +292,21 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 		olderThanMs: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
+		const now = Date.now()
 		const referencedKeys = await collectReferencedManagedR2Keys(ctx)
 		const cutoff =
-			Date.now() - (args.olderThanMs ?? STALE_MANAGED_UPLOAD_AGE_MS)
+			now - (args.olderThanMs ?? STALE_MANAGED_UPLOAD_AGE_MS)
+		const expiredReservations = await ctx.db
+			.query('projectArtifactUploads')
+			.withIndex('by_status_expires', (q) =>
+				q.eq('status', 'pending').lt('expiresAt', now),
+			)
+			.take(Math.min(args.limit ?? 250, 500))
+
+		for (const reservation of expiredReservations) {
+			await r2.deleteObject(ctx, reservation.r2Key)
+			await ctx.db.delete(reservation._id)
+		}
 		const page = await r2.listMetadata(
 			ctx,
 			Math.min(args.limit ?? 250, 500),
@@ -225,6 +333,7 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 
 		return {
 			deleted,
+			expiredReservations: expiredReservations.length,
 			continueCursor: page.continueCursor,
 			isDone: page.isDone,
 		}

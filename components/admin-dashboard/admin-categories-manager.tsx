@@ -67,9 +67,14 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_LABELS,
+	PROJECT_TYPES,
+	type ProjectType,
+	type StoredProjectType,
+} from '@/lib/project-artifacts'
 import { AdminPageHeader } from './admin-page-header'
-
-type ProjectType = 'addon' | 'skin' | 'map' | 'texture_pack'
 
 interface ServerCategory {
 	_id: Id<'serverCategories'>
@@ -84,7 +89,7 @@ interface ServerCategory {
 
 interface ProjectCategory {
 	_id: Id<'projectCategories'>
-	projectType: ProjectType
+	projectType: StoredProjectType
 	name: string
 	slug: string
 	description?: string
@@ -112,15 +117,6 @@ type EditingState =
 			id: Id<'projectCategories'>
 			draft: CategoryDraft
 	  }
-
-const PROJECT_TYPES: ProjectType[] = ['addon', 'skin', 'map', 'texture_pack']
-
-const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
-	addon: 'Add-on',
-	skin: 'Skin',
-	map: 'Map',
-	texture_pack: 'Texture Pack',
-}
 
 const EMPTY_DRAFT: CategoryDraft = {
 	name: '',
@@ -577,9 +573,11 @@ function CategoryTable({
 												<Badge variant="secondary">
 													{
 														PROJECT_TYPE_LABELS[
-															(
-																category as ProjectCategory
-															).projectType
+															normalizeProjectType(
+																(
+																	category as ProjectCategory
+																).projectType,
+															)
 														]
 													}
 												</Badge>

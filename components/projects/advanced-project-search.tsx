@@ -41,9 +41,13 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import {
+	PROJECT_TYPE_PLURAL_LABELS,
+	PROJECT_TYPES,
+	type ProjectType,
+} from '@/lib/project-artifacts'
 
 export type ProjectSortOption = 'newest' | 'name' | 'rating' | 'downloads'
-export type ProjectType = 'addon' | 'map' | 'skin' | 'texture_pack'
 
 export interface ProjectSearchFilters {
 	query: string
@@ -64,12 +68,10 @@ const sortOptions: { value: ProjectSortOption; label: string }[] = [
 	{ value: 'rating', label: 'Top Rated' },
 ]
 
-const typeOptions: { value: ProjectType; label: string }[] = [
-	{ value: 'addon', label: 'Addons' },
-	{ value: 'map', label: 'Maps' },
-	{ value: 'skin', label: 'Skins' },
-	{ value: 'texture_pack', label: 'Texture Packs' },
-]
+const typeOptions = PROJECT_TYPES.map((value) => ({
+	value,
+	label: PROJECT_TYPE_PLURAL_LABELS[value],
+}))
 
 export function AdvancedProjectSearch({
 	filters,

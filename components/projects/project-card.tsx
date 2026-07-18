@@ -7,6 +7,10 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import type { Doc } from '@/convex/_generated/dataModel'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_LABELS,
+} from '@/lib/project-artifacts'
 
 interface ProjectCardProps {
 	content: Doc<'projects'> & {
@@ -16,13 +20,6 @@ interface ProjectCardProps {
 		reviewCount?: number
 		totalDownloads?: number
 	}
-}
-
-const TYPE_LABELS: Record<string, string> = {
-	addon: 'Addon',
-	map: 'Map',
-	skin: 'Skin',
-	texture_pack: 'Texture Pack',
 }
 
 function formatCompact(value: number): string {
@@ -51,7 +48,7 @@ export function ProjectCard({ content: item }: ProjectCardProps) {
 		(category): category is Doc<'projectCategories'> => Boolean(category),
 	)
 	const allTags = categories.map((c) => c.name)
-	const typeLabel = TYPE_LABELS[item.type] ?? item.type
+	const typeLabel = PROJECT_TYPE_LABELS[normalizeProjectType(item.type)]
 	const downloads = item.totalDownloads ?? 0
 	const rating = item.averageRating ?? 0
 	const reviewCount = item.reviewCount ?? 0

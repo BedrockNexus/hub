@@ -3,9 +3,13 @@ import { components } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import { validateImageObjectMetadata } from '../../lib/media'
 import { r2 } from '../../lib/r2'
 import { isPublicProject } from '../../lib/contentVisibility'
-import { buildUserR2ObjectKey } from '../../lib/r2Keys'
+import {
+	buildProfileMediaR2ObjectKey,
+	isProfileMediaR2Key,
+} from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
 
 const socialsValidator = v.object({
@@ -115,8 +119,18 @@ export const updateProfile = mutation({
 		const now = Date.now()
 
 		const nextBanner = args.bannerR2Key ?? existing?.bannerR2Key
-		if (nextBanner && !nextBanner.startsWith(`${user._id}/profiles/${user._id}/banner/`)) {
+		if (
+			nextBanner &&
+			!isProfileMediaR2Key(nextBanner, user._id, 'banner') &&
+			!nextBanner.startsWith(`${user._id}/profiles/${user._id}/banner/`)
+		) {
 			throw new Error('Invalid profile banner path')
+		}
+		if (
+			args.bannerR2Key &&
+			args.bannerR2Key !== existing?.bannerR2Key
+		) {
+			await validateImageObjectMetadata(ctx, args.bannerR2Key)
 		}
 		const values = {
 			displayName: args.displayName?.trim().slice(0, 80) || undefined,
@@ -155,10 +169,9 @@ export const generateProfileBannerUploadUrl = mutation({
 			user._id,
 			'Too many upload requests. Please wait before uploading again.',
 		)
-		const key = buildUserR2ObjectKey({
+		const key = buildProfileMediaR2ObjectKey({
 			userId: user._id,
-			resourceType: 'profiles',
-			segments: [user._id, 'banner'],
+			mediaKind: 'banner',
 			fileName: args.fileName,
 		})
 		return r2.generateUploadUrl(key)

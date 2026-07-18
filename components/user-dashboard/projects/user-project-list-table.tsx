@@ -62,6 +62,12 @@ import { DashboardEmptyState } from '@/components/user-dashboard/dashboard-empty
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_LABELS,
+	PROJECT_TYPES,
+	type StoredProjectType,
+} from '@/lib/project-artifacts'
 
 interface ProjectCategory {
 	_id: Id<'projectCategories'>
@@ -71,13 +77,11 @@ interface ProjectCategory {
 
 type ProjectLifecycleStatus = 'draft' | 'published' | 'under_review'
 
-type ProjectType = 'addon' | 'skin' | 'map' | 'texture_pack'
-
 interface ProjectRow {
 	_id: Id<'projects'>
 	name: string
 	slug: string
-	type: ProjectType
+	type: StoredProjectType
 	status?: ProjectLifecycleStatus
 	categories: (ProjectCategory | null)[]
 	iconUrl?: string
@@ -88,13 +92,6 @@ interface ProjectRow {
 	averageRating: number
 	reviewCount: number
 	latestVersionString?: string
-}
-
-const TYPE_LABELS: Record<ProjectType, string> = {
-	addon: 'Addon',
-	skin: 'Skin',
-	map: 'Map',
-	texture_pack: 'Texture Pack',
 }
 
 const STATUS_VARIANTS: Record<
@@ -437,15 +434,20 @@ export function ProjectListTable({
 				}) => <DataTableColumnHeader column={column} label="Type" />,
 				cell: ({ row }) => (
 					<Badge className="text-xs" variant="secondary">
-						{TYPE_LABELS[row.original.type] ?? row.original.type}
+						{
+							PROJECT_TYPE_LABELS[
+								normalizeProjectType(row.original.type)
+							]
+						}
 					</Badge>
 				),
 				meta: {
 					label: 'Type',
 					variant: 'multiSelect',
-					options: Object.entries(TYPE_LABELS).map(
-						([value, label]) => ({ label, value }),
-					),
+					options: PROJECT_TYPES.map((value) => ({
+						label: PROJECT_TYPE_LABELS[value],
+						value,
+					})),
 				},
 				enableColumnFilter: true,
 			},

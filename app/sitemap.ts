@@ -3,7 +3,14 @@ import type { MetadataRoute } from 'next'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl } from '@/lib/seo'
 
-const staticRoutes = ['/', '/servers', '/projects', '/privacy', '/terms']
+const staticRoutes = [
+	'/',
+	'/servers',
+	'/projects',
+	'/tools/server-ping',
+	'/privacy',
+	'/terms',
+]
 
 async function safeFetch<T>(promise: Promise<T>, fallback: T) {
 	try {

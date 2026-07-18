@@ -19,15 +19,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
-
-const VERSION_FILE_ACCEPT = '.mcpack,.mcworld,.mcaddon,.zip,.mctemplate'
-const MAX_FILE_SIZE = 256 * 1024 * 1024 // 256 MB
+import {
+	getProjectArtifactPolicy,
+	type StoredProjectType,
+} from '@/lib/project-artifacts'
 
 interface VersionFileUploadProps {
 	projectId: Id<'projects'>
+	projectType: StoredProjectType
 	version: string
 	/** Called once the file is uploaded and metadata synced */
 	onUploadComplete: (
+		uploadId: Id<'projectArtifactUploads'>,
 		r2Key: string,
 		fileName: string,
 		fileSize: number,
@@ -39,16 +42,23 @@ interface VersionFileUploadProps {
 
 export function VersionFileUpload({
 	projectId,
+	projectType,
 	version,
 	onUploadComplete,
 	onUploadRemoved,
 	disabled,
 }: VersionFileUploadProps) {
 	const [files, setFiles] = useState<File[]>([])
+	const [activeUploadId, setActiveUploadId] =
+		useState<Id<'projectArtifactUploads'> | null>(null)
 	const generateUploadUrl = useMutation(
 		api.functions.projects.versions.generateVersionUploadUrl,
 	)
 	const syncMetadata = useMutation(api.lib.r2.syncMetadata)
+	const discardUpload = useMutation(
+		api.functions.projects.versions.discardUpload,
+	)
+	const policy = getProjectArtifactPolicy(projectType)
 
 	const onUpload: NonNullable<FileUploadProps['onUpload']> = useCallback(
 		async (uploadedFiles, { onProgress }) => {
@@ -59,11 +69,13 @@ export function VersionFileUpload({
 
 			try {
 				// 1. Get presigned PUT URL with the structured object key
-				const { key, url } = await generateUploadUrl({
+				const { uploadId, key, url } = await generateUploadUrl({
 					projectId,
 					version,
 					fileName: file.name,
+					fileSize: file.size,
 				})
+				setActiveUploadId(uploadId)
 
 				// 2. Upload directly to R2 via XHR so we get progress events
 				await new Promise<void>((resolve, reject) => {
@@ -97,7 +109,7 @@ export function VersionFileUpload({
 				// 3. Sync metadata to Convex so it's queryable
 				await syncMetadata({ key })
 
-				onUploadComplete(key, file.name, file.size)
+				onUploadComplete(uploadId, key, file.name, file.size)
 			} catch (err) {
 				toast.error(
 					err instanceof Error
@@ -114,18 +126,24 @@ export function VersionFileUpload({
 		(updated: File[]) => {
 			setFiles(updated)
 			if (updated.length === 0) {
+				if (activeUploadId) {
+					discardUpload({ uploadId: activeUploadId }).catch(() => {
+						toast.error('Could not discard the staged upload')
+					})
+					setActiveUploadId(null)
+				}
 				onUploadRemoved()
 			}
 		},
-		[onUploadRemoved],
+		[activeUploadId, discardUpload, onUploadRemoved],
 	)
 
 	return (
 		<FileUpload
-			accept={VERSION_FILE_ACCEPT}
+			accept={policy.accept}
 			disabled={disabled}
 			maxFiles={1}
-			maxSize={MAX_FILE_SIZE}
+			maxSize={policy.maxFileSize}
 			onUpload={onUpload}
 			onValueChange={handleFilesChange}
 			value={files}
@@ -142,8 +160,7 @@ export function VersionFileUpload({
 						Drop version file here
 					</p>
 					<p className="text-muted-foreground text-xs">
-						.mcpack, .mcworld, .mcaddon, .mctemplate, .zip &bull; up
-						to 256 MB
+						{policy.requirement}
 					</p>
 				</div>
 				<FileUploadTrigger asChild>
