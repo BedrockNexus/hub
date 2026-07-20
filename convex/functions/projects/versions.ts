@@ -144,6 +144,25 @@ export const listPublic = query({
 	},
 })
 
+export const getPublicByVersion = query({
+	args: { slug: v.string(), version: v.string() },
+	handler: async (ctx, args) => {
+		const project = await ctx.db
+			.query('projects')
+			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
+			.unique()
+		if (!project || !isPublicProject(project)) return null
+		const version = await ctx.db
+			.query('projectVersions')
+			.withIndex('by_project_version', (q) =>
+				q.eq('projectId', project._id).eq('version', args.version),
+			)
+			.unique()
+		if (!version || !isValidatedVersion(version)) return null
+		return { ...withDownloadUrl(version), project: { name: project.name, slug: project.slug } }
+	},
+})
+
 export const getLatest = query({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {

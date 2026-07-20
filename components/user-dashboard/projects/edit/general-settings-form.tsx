@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { ProjectBasicFields } from '@/components/user-dashboard/projects/fields/project-basic-fields'
 import { ProjectIconField } from '@/components/user-dashboard/projects/fields/project-icon-field'
+import { ProjectTypeFields } from '@/components/user-dashboard/projects/fields/project-type-fields'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { normalizeProjectType } from '@/lib/project-artifacts'
@@ -19,6 +20,8 @@ import {
 	PROJECT_FORM_DEFAULTS,
 	type ProjectFormData,
 	projectFormSchema,
+	projectMetadataFromForm,
+	projectMetadataToForm,
 } from '@/lib/schemas/projects'
 
 const generalSchema = projectFormSchema.pick({
@@ -26,6 +29,16 @@ const generalSchema = projectFormSchema.pick({
 	type: true,
 	name: true,
 	summary: true,
+	behaviorPackIncluded: true,
+	resourcePackIncluded: true,
+	experimentalFeaturesRequired: true,
+	addonDependencies: true,
+	mapGameMode: true,
+	mapMultiplayerSupport: true,
+	mapEstimatedPlaytimeMinutes: true,
+	resourcePackResolution: true,
+	resourcePackContentTypes: true,
+	skinCharacterCategory: true,
 })
 
 interface ProjectGeneralSettingsFormProps {
@@ -70,6 +83,7 @@ export function ProjectGeneralSettingsForm({
 				type: normalizeProjectType(project.type),
 				name: project.name,
 				summary: project.summary,
+				...projectMetadataToForm(project.metadata),
 			})
 			setPendingIconR2Key(undefined)
 			setRemoveIcon(false)
@@ -92,6 +106,7 @@ export function ProjectGeneralSettingsForm({
 				type: data.type,
 				name: data.name,
 				summary: data.summary,
+				metadata: projectMetadataFromForm(data),
 			}
 
 			if (iconR2Key !== undefined) {
@@ -175,6 +190,7 @@ export function ProjectGeneralSettingsForm({
 					control={form.control}
 					showDescription={false}
 				/>
+				<ProjectTypeFields form={form} />
 			</FieldGroup>
 			<div className="flex justify-end border-t pt-6">
 				<Button

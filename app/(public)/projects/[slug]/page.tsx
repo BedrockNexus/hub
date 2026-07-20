@@ -2,6 +2,7 @@ import { fetchQuery } from 'convex/nextjs'
 import { notFound } from 'next/navigation'
 import { ProjectDetailShell } from '@/components/projects/detail/project-detail-shell'
 import { api } from '@/convex/_generated/api'
+import { projectMetadataSeoProperties } from '@/lib/project-metadata'
 import { absoluteUrl } from '@/lib/seo'
 
 interface ProjectPageProps {
@@ -35,6 +36,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 		applicationCategory: 'GameApplication',
 		operatingSystem: 'Minecraft Bedrock Edition',
 		softwareVersion: project.latestVersion?.version,
+		additionalProperty: project.metadata
+			? projectMetadataSeoProperties(project.metadata)
+			: undefined,
 		aggregateRating:
 			project.reviewCount > 0
 				? {

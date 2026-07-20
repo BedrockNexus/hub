@@ -4,17 +4,16 @@ import { ArrowLeft02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
 import Link from 'next/link'
-import { DetailTabPlaceholder } from '@/components/detail/detail-tab-placeholder'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { PublicViewTracker } from '@/components/detail/public-view-tracker'
-import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { ProjectAbout } from '@/components/projects/detail/project-about'
 import { ProjectHeader } from '@/components/projects/detail/project-header'
+import { ProjectReleaseDetails } from '@/components/projects/detail/project-release-details'
+import { ProjectReleases } from '@/components/projects/detail/project-releases'
 import { ProjectReviews } from '@/components/projects/detail/project-reviews'
 import { ProjectSidebar } from '@/components/projects/detail/project-sidebar'
 import { ProjectStatsGrid } from '@/components/projects/detail/project-stats-grid'
 import { ProjectStatsRow } from '@/components/projects/detail/project-stats-row'
-import { ProjectVersions } from '@/components/projects/detail/project-versions'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -23,15 +22,13 @@ import { api } from '@/convex/_generated/api'
 export type ProjectDetailTab =
 	| 'description'
 	| 'gallery'
-	| 'changelog'
-	| 'versions'
+	| 'releases'
 	| 'reviews'
 
 const PROJECT_TABS: { value: ProjectDetailTab; label: string }[] = [
 	{ value: 'description', label: 'Description' },
 	{ value: 'gallery', label: 'Gallery' },
-	{ value: 'changelog', label: 'Changelog' },
-	{ value: 'versions', label: 'Versions' },
+	{ value: 'releases', label: 'Releases' },
 	{ value: 'reviews', label: 'Reviews' },
 ]
 
@@ -43,11 +40,13 @@ function getTabHref(slug: string, tab: ProjectDetailTab) {
 
 interface ProjectDetailShellProps {
 	activeTab: ProjectDetailTab
+	releaseVersion?: string
 	slug: string
 }
 
 export function ProjectDetailShell({
 	activeTab,
+	releaseVersion,
 	slug,
 }: ProjectDetailShellProps) {
 	const content = useQuery(
@@ -70,7 +69,6 @@ export function ProjectDetailShell({
 	)
 
 	const latestVersion = versions?.[0]
-	const latestChangelog = versions?.find((version) => version.changelog)
 
 	if (content === undefined) {
 		return (
@@ -139,27 +137,22 @@ export function ProjectDetailShell({
 						items={gallery}
 					/>
 				)
-			case 'changelog':
-				return latestChangelog?.changelog ? (
-					<div className="rounded-lg border bg-card p-6">
-						<div className="mb-4">
-							<h2 className="font-semibold text-lg tracking-tight">
-								Changelog
-							</h2>
-							<p className="text-muted-foreground text-sm">
-								Latest changes in v{latestChangelog.version}
-							</p>
-						</div>
-						<RichTextViewer content={latestChangelog.changelog} />
-					</div>
-				) : (
-					<DetailTabPlaceholder
-						description="Version changelogs will appear here when the creator adds one."
-						title="No Changelog Yet"
+			case 'releases': {
+				const selectedRelease = releaseVersion
+					? versions?.find(
+							(version) => version.version === releaseVersion,
+						)
+					: undefined
+				return releaseVersion && selectedRelease ? (
+					<ProjectReleaseDetails
+						projectName={content.name}
+						projectSlug={slug}
+						release={selectedRelease}
 					/>
+				) : (
+					<ProjectReleases projectSlug={slug} releases={versions} />
 				)
-			case 'versions':
-				return <ProjectVersions versions={versions} />
+			}
 			case 'reviews':
 				return (
 					<ProjectReviews
@@ -243,6 +236,7 @@ export function ProjectDetailShell({
 							issueTrackerUrl={content.issueTrackerUrl}
 							latestVersion={content.latestVersion}
 							license={content.license}
+							metadata={content.metadata}
 							owner={content.owner}
 							projectId={content._id}
 							publishedAt={content.publishedAt}

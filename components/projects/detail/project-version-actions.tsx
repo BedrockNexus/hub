@@ -1,7 +1,12 @@
 'use client'
 
-import { Copy01Icon, MoreHorizontalIcon } from '@hugeicons/core-free-icons'
+import {
+	Copy01Icon,
+	MoreHorizontalIcon,
+	ViewIcon,
+} from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { ProjectVersionDownloadButton } from '@/components/projects/detail/project-version-download-button'
 import { Button } from '@/components/ui/button'
@@ -14,12 +19,14 @@ import {
 
 interface ProjectVersionActionsProps {
 	fileName: string
+	projectSlug: string
 	version: string
 	versionId: string
 }
 
 export function ProjectVersionActions({
 	fileName,
+	projectSlug,
 	version,
 	versionId,
 }: ProjectVersionActionsProps) {
@@ -61,6 +68,16 @@ export function ProjectVersionActions({
 					)}
 				/>
 				<DropdownMenuContent align="end" className="w-44">
+					<DropdownMenuItem
+						render={
+							<Link
+								href={`/projects/${projectSlug}/releases/${encodeURIComponent(version)}`}
+							/>
+						}
+					>
+						<HugeiconsIcon className="size-4" icon={ViewIcon} />
+						View release
+					</DropdownMenuItem>
 					<DropdownMenuItem
 						onClick={() => copyText(version, 'Version')}
 					>

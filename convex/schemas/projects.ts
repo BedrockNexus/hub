@@ -9,13 +9,67 @@ export const projectType = v.union(
 	v.literal('addon'),
 	v.literal('map'),
 	v.literal('skin'),
-	v.literal('model'),
 	v.literal('resource_pack'),
 	// Remove after functions/projects/migrations:migrateTexturePacks is run.
 	v.literal('texture_pack'),
 )
 
 export const skinModel = v.union(v.literal('classic'), v.literal('slim'))
+
+export const projectMetadata = v.union(
+	v.object({
+		type: v.literal('addon'),
+		behaviorPackIncluded: v.boolean(),
+		resourcePackIncluded: v.boolean(),
+		experimentalFeaturesRequired: v.boolean(),
+		dependencies: v.array(
+			v.object({ name: v.string(), url: v.optional(v.string()) }),
+		),
+	}),
+	v.object({
+		type: v.literal('map'),
+		gameMode: v.union(
+			v.literal('survival'),
+			v.literal('creative'),
+			v.literal('adventure'),
+			v.literal('mixed'),
+		),
+		multiplayerSupport: v.boolean(),
+		estimatedPlaytimeMinutes: v.optional(v.number()),
+	}),
+	v.object({
+		type: v.literal('resource_pack'),
+		resolution: v.union(
+			v.literal('8x'),
+			v.literal('16x'),
+			v.literal('32x'),
+			v.literal('64x'),
+			v.literal('128x'),
+			v.literal('256x'),
+			v.literal('512x'),
+			v.literal('custom'),
+		),
+		contentTypes: v.array(
+			v.union(
+				v.literal('textures'),
+				v.literal('ui'),
+				v.literal('sounds'),
+				v.literal('shaders'),
+			),
+		),
+	}),
+	v.object({
+		type: v.literal('skin'),
+		characterCategory: v.union(
+			v.literal('original'),
+			v.literal('games'),
+			v.literal('anime'),
+			v.literal('movies_tv'),
+			v.literal('historical'),
+			v.literal('other'),
+		),
+	}),
+)
 
 // =============================================================================
 // LIFECYCLE STATUS (replaces binary isActive going forward)
@@ -76,6 +130,7 @@ export const tables = {
 
 		// Categorization
 		categoryIds: v.array(v.id('projectCategories')),
+		metadata: v.optional(projectMetadata),
 
 		// Links
 		sourceUrl: v.optional(v.string()),
@@ -185,9 +240,6 @@ export const tables = {
 				manifestCount: v.optional(v.number()),
 				width: v.optional(v.number()),
 				height: v.optional(v.number()),
-				modelFormat: v.optional(v.string()),
-				elementCount: v.optional(v.number()),
-				textureCount: v.optional(v.number()),
 			}),
 		),
 		validatedAt: v.optional(v.number()),

@@ -134,7 +134,8 @@
 	}
 }
 
-.bedrock-markdown-editor {
+.bedrock-markdown-editor,
+.bedrock-markdown-editor .bedrock-markdown-editor-root {
 	--accentBase: var(--background);
 	--accentBgSubtle: var(--accent);
 	--accentBg: var(--accent);
@@ -145,7 +146,7 @@
 	--accentBorderHover: var(--ring);
 	--accentSolid: var(--primary);
 	--accentSolidHover: var(--primary);
-	--accentText: var(--accent-foreground);
+	--accentText: var(--primary);
 	--accentTextContrast: var(--primary-foreground);
 	--basePageBg: var(--background);
 	--baseBase: var(--background);
@@ -168,15 +169,24 @@
 	--radius-medium: calc(var(--radius) - 2px);
 	--radius-large: var(--radius);
 	--radius-extra-large: calc(var(--radius) + 4px);
+}
+
+.bedrock-markdown-editor {
 	overflow: hidden;
 	border: 1px solid var(--input);
 	border-radius: var(--radius);
 	background: var(--background);
 	color: var(--foreground);
+	font-family: var(--font-sans);
 	box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 	transition:
 		border-color 150ms ease,
 		box-shadow 150ms ease;
+}
+
+.bedrock-markdown-editor .bedrock-markdown-editor-root {
+	min-width: 0;
+	background: var(--background);
 }
 
 .bedrock-markdown-editor:focus-within {
@@ -191,6 +201,7 @@
 
 .bedrock-markdown-editor .mdxeditor-toolbar {
 	gap: 0.125rem;
+	flex-wrap: wrap;
 	overflow-x: auto;
 	border: 0;
 	border-bottom: 1px solid var(--border);
@@ -199,6 +210,12 @@
 	padding: 0.375rem;
 	color: var(--foreground);
 	scrollbar-width: thin;
+}
+
+.bedrock-markdown-editor .mdxeditor-popup-container {
+	z-index: 50;
+	color: var(--popover-foreground);
+	font-family: var(--font-sans);
 }
 
 .bedrock-markdown-editor .mdxeditor-toolbar button {
@@ -247,7 +264,8 @@
 
 .bedrock-markdown-editor .mdxeditor-select-content,
 .bedrock-markdown-editor .mdxeditor-popup-container [role="dialog"],
-.bedrock-markdown-editor .mdxeditor-popup-container [role="listbox"] {
+.bedrock-markdown-editor .mdxeditor-popup-container [role="listbox"],
+.bedrock-markdown-editor .mdxeditor-popup-container [role="menu"] {
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
 	background: var(--popover);
@@ -255,6 +273,20 @@
 	box-shadow:
 		0 10px 15px -3px rgb(0 0 0 / 10%),
 		0 4px 6px -4px rgb(0 0 0 / 10%);
+}
+
+.bedrock-markdown-editor .mdxeditor-popup-container input,
+.bedrock-markdown-editor .mdxeditor-popup-container textarea {
+	border-color: var(--input);
+	background: var(--background);
+	color: var(--foreground);
+}
+
+.bedrock-markdown-editor .mdxeditor-popup-container input:focus,
+.bedrock-markdown-editor .mdxeditor-popup-container textarea:focus {
+	border-color: var(--ring);
+	outline: 2px solid color-mix(in oklab, var(--ring) 35%, transparent);
+	outline-offset: 0;
 }
 
 .bedrock-markdown-editor .mdxeditor-diff-source-wrapper,
@@ -372,11 +404,11 @@
 
 .bedrock-markdown-editor-content li[class*="_listItemChecked_"]::before,
 .bedrock-markdown-editor-content li[class*="_listItemUnchecked_"]::before {
-	top: calc((1.75em - 1rem) / 2);
+	top: 0.375rem;
 }
 
 .bedrock-markdown-editor-content li[class*="_listItemChecked_"]::after {
-	top: calc((1.75em - 1rem) / 2 + 0.125rem);
+	top: 0.5rem;
 }
 
 .bedrock-markdown-editor-content blockquote {
@@ -538,6 +570,10 @@
 }
 
 @media (max-width: 640px) {
+	.bedrock-markdown-editor .mdxeditor-toolbar {
+		flex-wrap: nowrap;
+	}
+
 	.bedrock-markdown-editor-content {
 		padding-right: 0.75rem;
 		padding-left: 0.75rem;

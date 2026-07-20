@@ -6,6 +6,7 @@ import { useMutation } from 'convex/react'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { ProjectOrganizationOwnerCard } from '@/components/projects/detail/project-organization-owner-card'
+import { ProjectTypeDetailsCard } from '@/components/projects/detail/project-type-details-card'
 import { ProjectUserOwnerCard } from '@/components/projects/detail/project-user-owner-card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
+import type { ProjectMetadata } from '@/lib/project-metadata'
 
 type Owner =
 	| {
@@ -33,6 +35,9 @@ type LatestVersion = {
 	version: string
 	createdAt: number
 	gameVersions?: string[] | null
+	fileSize?: number
+	skinModel?: 'classic' | 'slim'
+	validationReport?: { totalUncompressedSize?: number }
 } | null
 
 export function ProjectSidebar(props: {
@@ -46,6 +51,7 @@ export function ProjectSidebar(props: {
 	websiteUrl?: string | null
 	wikiUrl?: string | null
 	latestVersion: LatestVersion
+	metadata?: ProjectMetadata
 	owner?: Owner
 	publishedAt?: number | null
 	updatedAt: number
@@ -67,6 +73,10 @@ export function ProjectSidebar(props: {
 
 	return (
 		<div className="space-y-4">
+			<ProjectTypeDetailsCard
+				latestRelease={props.latestVersion}
+				metadata={props.metadata}
+			/>
 			<Card>
 				<CardHeader>
 					<CardTitle>Project Info</CardTitle>

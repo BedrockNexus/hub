@@ -12,6 +12,7 @@ import {
 import { AdminModerationActions } from '@/components/admin-dashboard/admin-moderation-actions'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
+import { ProjectTypeDetailsCard } from '@/components/projects/detail/project-type-details-card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -245,6 +246,10 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 						</div>
 					</CardContent>
 				</Card>
+				<ProjectTypeDetailsCard
+					latestRelease={project.versions[0]}
+					metadata={project.metadata}
+				/>
 			</div>
 		</div>
 	)

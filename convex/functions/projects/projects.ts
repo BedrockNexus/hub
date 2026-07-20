@@ -3,7 +3,11 @@ import { components } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { projectType, moderationStatus as projectModerationStatus } from '../../schemas/projects'
+import {
+	moderationStatus as projectModerationStatus,
+	projectMetadata,
+	projectType,
+} from '../../schemas/projects'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
 import { validateEntityImageUpload } from '../../lib/media'
@@ -71,6 +75,55 @@ async function assertCategoriesMatchProjectType(
 		)
 	) {
 		throw new Error('Every category must match the selected project type')
+	}
+}
+
+function assertMetadataMatchesProjectType(
+	type: StoredProjectType,
+	metadata:
+		| {
+				type: string
+				dependencies?: Array<{ name: string; url?: string }>
+				estimatedPlaytimeMinutes?: number
+				contentTypes?: string[]
+		  }
+		| undefined,
+) {
+	if (metadata && metadata.type !== normalizeProjectType(type)) {
+		throw new Error('Project details must match the selected project type')
+	}
+	if (!metadata) return
+	if (metadata.dependencies) {
+		if (metadata.dependencies.length > 20) {
+			throw new Error('A project can have at most 20 dependencies')
+		}
+		for (const dependency of metadata.dependencies) {
+			if (!dependency.name.trim() || dependency.name.length > 80) {
+				throw new Error('Dependency names must be between 1 and 80 characters')
+			}
+			if (dependency.url) {
+				let url: URL
+				try {
+					url = new URL(dependency.url)
+				} catch {
+					throw new Error('Dependency links must be valid URLs')
+				}
+				if (!['http:', 'https:'].includes(url.protocol)) {
+					throw new Error('Dependency links must use HTTP or HTTPS')
+				}
+			}
+		}
+	}
+	if (
+		metadata.estimatedPlaytimeMinutes !== undefined &&
+		(!Number.isInteger(metadata.estimatedPlaytimeMinutes) ||
+			metadata.estimatedPlaytimeMinutes < 1 ||
+			metadata.estimatedPlaytimeMinutes > 10_000)
+	) {
+		throw new Error('Estimated playtime must be between 1 and 10,000 minutes')
+	}
+	if (metadata.type === 'resource_pack' && !metadata.contentTypes?.length) {
+		throw new Error('Select at least one resource pack content area')
 	}
 }
 
@@ -364,6 +417,9 @@ async function enrichProjectDetail(ctx: QueryCtx, item: Doc<'projects'>) {
 					version: latestVersion.version,
 					createdAt: latestVersion.createdAt,
 					gameVersions: latestVersion.gameVersions,
+					fileSize: latestVersion.fileSize,
+					skinModel: latestVersion.skinModel,
+					validationReport: latestVersion.validationReport,
 				}
 			: null,
 		owner: ownerData,
@@ -426,6 +482,46 @@ export const searchAdvanced = query({
 		query: v.optional(v.string()),
 		type: v.optional(projectType),
 		categoryIds: v.optional(v.array(v.id('projectCategories'))),
+		experimentalFeaturesRequired: v.optional(v.boolean()),
+		mapGameMode: v.optional(
+			v.union(
+				v.literal('survival'),
+				v.literal('creative'),
+				v.literal('adventure'),
+				v.literal('mixed'),
+			),
+		),
+		multiplayerSupport: v.optional(v.boolean()),
+		resourcePackResolution: v.optional(
+			v.union(
+				v.literal('8x'),
+				v.literal('16x'),
+				v.literal('32x'),
+				v.literal('64x'),
+				v.literal('128x'),
+				v.literal('256x'),
+				v.literal('512x'),
+				v.literal('custom'),
+			),
+		),
+		resourcePackContentType: v.optional(
+			v.union(
+				v.literal('textures'),
+				v.literal('ui'),
+				v.literal('sounds'),
+				v.literal('shaders'),
+			),
+		),
+		skinCharacterCategory: v.optional(
+			v.union(
+				v.literal('original'),
+				v.literal('games'),
+				v.literal('anime'),
+				v.literal('movies_tv'),
+				v.literal('historical'),
+				v.literal('other'),
+			),
+		),
 		sort: v.optional(
 			v.union(
 				v.literal('newest'),
@@ -475,6 +571,53 @@ export const searchAdvanced = query({
 				categoryIds.some((catId) => a.categoryIds.includes(catId)),
 			)
 		}
+
+		items = items.filter((project) => {
+			const metadata = project.metadata
+			if (
+				args.experimentalFeaturesRequired !== undefined &&
+				(metadata?.type !== 'addon' ||
+					metadata.experimentalFeaturesRequired !==
+						args.experimentalFeaturesRequired)
+			) {
+				return false
+			}
+			if (
+				args.mapGameMode &&
+				(metadata?.type !== 'map' || metadata.gameMode !== args.mapGameMode)
+			) {
+				return false
+			}
+			if (
+				args.multiplayerSupport !== undefined &&
+				(metadata?.type !== 'map' ||
+					metadata.multiplayerSupport !== args.multiplayerSupport)
+			) {
+				return false
+			}
+			if (
+				args.resourcePackResolution &&
+				(metadata?.type !== 'resource_pack' ||
+					metadata.resolution !== args.resourcePackResolution)
+			) {
+				return false
+			}
+			if (
+				args.resourcePackContentType &&
+				(metadata?.type !== 'resource_pack' ||
+					!metadata.contentTypes.includes(args.resourcePackContentType))
+			) {
+				return false
+			}
+			if (
+				args.skinCharacterCategory &&
+				(metadata?.type !== 'skin' ||
+					metadata.characterCategory !== args.skinCharacterCategory)
+			) {
+				return false
+			}
+			return true
+		})
 
 		items = items.filter(isPublicProject)
 
@@ -912,6 +1055,7 @@ export const create = mutation({
 		summary: v.string(),
 		description: v.string(),
 		categoryIds: v.array(v.id('projectCategories')),
+		metadata: v.optional(projectMetadata),
 		sourceUrl: v.optional(v.string()),
 		websiteUrl: v.optional(v.string()),
 		issueTrackerUrl: v.optional(v.string()),
@@ -941,6 +1085,7 @@ export const create = mutation({
 			'Too many projects created. Please wait before creating another project.',
 		)
 		await assertCategoriesMatchProjectType(ctx, args.categoryIds, args.type)
+		assertMetadataMatchesProjectType(args.type, args.metadata)
 
 		const slug = generateSlug(args.name)
 
@@ -963,6 +1108,7 @@ export const create = mutation({
 			summary: args.summary,
 			description: args.description,
 			categoryIds: args.categoryIds,
+			metadata: args.metadata,
 			sourceUrl: args.sourceUrl,
 			websiteUrl: args.websiteUrl,
 			issueTrackerUrl: args.issueTrackerUrl,
@@ -1001,6 +1147,7 @@ export const update = mutation({
 		summary: v.optional(v.string()),
 		description: v.optional(v.string()),
 		categoryIds: v.optional(v.array(v.id('projectCategories'))),
+		metadata: v.optional(projectMetadata),
 		iconR2Key: v.optional(v.union(v.string(), v.null())),
 		bannerR2Key: v.optional(v.union(v.string(), v.null())),
 		sourceUrl: v.optional(v.string()),
@@ -1071,6 +1218,7 @@ export const update = mutation({
 		const nextType = args.type ?? item.type
 		const nextCategoryIds = args.categoryIds ?? item.categoryIds
 		await assertCategoriesMatchProjectType(ctx, nextCategoryIds, nextType)
+		assertMetadataMatchesProjectType(nextType, args.metadata ?? item.metadata)
 
 		if (
 			args.type &&

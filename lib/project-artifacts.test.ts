@@ -29,7 +29,6 @@ describe('project artifact policy', () => {
 		['addon', 'release.mcaddon'],
 		['map', 'world.mcworld'],
 		['skin', 'skin.PNG'],
-		['model', 'creature.bbmodel'],
 		['resource_pack', 'textures.mcpack'],
 	] as const)('accepts the artifact for %s', (type, fileName) => {
 		expect(

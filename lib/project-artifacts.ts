@@ -1,10 +1,4 @@
-export const PROJECT_TYPES = [
-	'addon',
-	'map',
-	'skin',
-	'model',
-	'resource_pack',
-] as const
+export const PROJECT_TYPES = ['addon', 'map', 'skin', 'resource_pack'] as const
 
 export type ProjectType = (typeof PROJECT_TYPES)[number]
 export type StoredProjectType = ProjectType | 'texture_pack'
@@ -14,7 +8,6 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
 	addon: 'Addon',
 	map: 'Map',
 	skin: 'Skin',
-	model: 'Blockbench Model',
 	resource_pack: 'Resource Pack',
 }
 
@@ -22,7 +15,6 @@ export const PROJECT_TYPE_PLURAL_LABELS: Record<ProjectType, string> = {
 	addon: 'Addons',
 	map: 'Maps',
 	skin: 'Skins',
-	model: 'Blockbench Models',
 	resource_pack: 'Resource Packs',
 }
 
@@ -60,13 +52,6 @@ export const PROJECT_ARTIFACT_POLICIES: Record<
 		maxFileSize: 2 * MEBIBYTE,
 		requireSkinModel: true,
 		requirement: 'One 64x64 PNG skin, up to 2 MB.',
-	},
-	model: {
-		accept: '.bbmodel,application/json',
-		extensions: ['bbmodel'],
-		maxFileSize: 25 * MEBIBYTE,
-		requireSkinModel: false,
-		requirement: 'One self-contained .bbmodel file, up to 25 MB.',
 	},
 	resource_pack: {
 		accept: '.mcpack',

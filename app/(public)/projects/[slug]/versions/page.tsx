@@ -1,4 +1,4 @@
-import { ProjectDetailShell } from '@/components/projects/detail/project-detail-shell'
+import { redirect } from 'next/navigation'
 
 interface ProjectVersionsPageProps {
 	params: Promise<{ slug: string }>
@@ -9,5 +9,5 @@ export default async function ProjectVersionsPage({
 }: ProjectVersionsPageProps) {
 	const { slug } = await params
 
-	return <ProjectDetailShell activeTab="versions" slug={slug} />
+	redirect(`/projects/${slug}/releases`)
 }

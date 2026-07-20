@@ -1,4 +1,4 @@
-import { ProjectDetailShell } from '@/components/projects/detail/project-detail-shell'
+import { redirect } from 'next/navigation'
 
 interface ProjectChangelogPageProps {
 	params: Promise<{ slug: string }>
@@ -9,5 +9,5 @@ export default async function ProjectChangelogPage({
 }: ProjectChangelogPageProps) {
 	const { slug } = await params
 
-	return <ProjectDetailShell activeTab="changelog" slug={slug} />
+	redirect(`/projects/${slug}/releases`)
 }

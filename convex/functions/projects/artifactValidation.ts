@@ -21,9 +21,6 @@ const validationReport = v.object({
 	manifestCount: v.optional(v.number()),
 	width: v.optional(v.number()),
 	height: v.optional(v.number()),
-	modelFormat: v.optional(v.string()),
-	elementCount: v.optional(v.number()),
-	textureCount: v.optional(v.number()),
 })
 
 interface ValidatorResult {
@@ -38,9 +35,6 @@ interface ValidatorResult {
 		manifestCount?: number
 		width?: number
 		height?: number
-		modelFormat?: string
-		elementCount?: number
-		textureCount?: number
 	}
 }
 

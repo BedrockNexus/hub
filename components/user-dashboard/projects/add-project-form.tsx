@@ -31,6 +31,7 @@ import {
 	ProjectCategoryPicker,
 } from '@/components/user-dashboard/projects/fields/project-category-picker'
 import { ProjectLinksFields } from '@/components/user-dashboard/projects/fields/project-links-fields'
+import { ProjectTypeFields } from '@/components/user-dashboard/projects/fields/project-type-fields'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
@@ -38,6 +39,7 @@ import {
 	PROJECT_FORM_DEFAULTS,
 	type ProjectFormData,
 	projectFormSchema,
+	projectMetadataFromForm,
 } from '@/lib/schemas/projects'
 
 const STEPS = [
@@ -149,7 +151,23 @@ export function AddProjectForm() {
 	const getStepFields = (stepValue: string): (keyof ProjectFormData)[] => {
 		switch (stepValue) {
 			case 'core':
-				return ['type', 'name', 'summary', 'description', 'categoryIds']
+				return [
+					'type',
+					'name',
+					'summary',
+					'description',
+					'categoryIds',
+					'behaviorPackIncluded',
+					'resourcePackIncluded',
+					'experimentalFeaturesRequired',
+					'addonDependencies',
+					'mapGameMode',
+					'mapMultiplayerSupport',
+					'mapEstimatedPlaytimeMinutes',
+					'resourcePackResolution',
+					'resourcePackContentTypes',
+					'skinCharacterCategory',
+				]
 			case 'details':
 				return [
 					'sourceUrl',
@@ -197,6 +215,7 @@ export function AddProjectForm() {
 				summary: data.summary,
 				description: data.description,
 				categoryIds: data.categoryIds as Id<'projectCategories'>[],
+				metadata: projectMetadataFromForm(data),
 				sourceUrl: data.sourceUrl || undefined,
 				websiteUrl: data.websiteUrl || undefined,
 				issueTrackerUrl: data.issueTrackerUrl || undefined,
@@ -287,6 +306,13 @@ export function AddProjectForm() {
 									onToggle={toggleCategory}
 									watch={form.watch}
 								/>
+							</div>
+
+							<div className="space-y-4">
+								<h3 className="font-semibold text-base">
+									Type Details
+								</h3>
+								<ProjectTypeFields form={form} />
 							</div>
 						</div>
 					</StepperContent>

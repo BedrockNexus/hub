@@ -9,6 +9,12 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
 import { useEffect, useState } from 'react'
+import {
+	EMPTY_PROJECT_TYPE_FILTERS,
+	hasProjectTypeFilters,
+	type ProjectTypeFilterValues,
+	ProjectTypeSearchFilters,
+} from '@/components/projects/project-type-search-filters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -49,7 +55,7 @@ import {
 
 export type ProjectSortOption = 'newest' | 'name' | 'rating' | 'downloads'
 
-export interface ProjectSearchFilters {
+export interface ProjectSearchFilters extends ProjectTypeFilterValues {
 	query: string
 	categoryIds: Id<'projectCategories'>[]
 	type: 'all' | ProjectType
@@ -100,6 +106,12 @@ export function AdvancedProjectSearch({
 	) => {
 		onFiltersChange({ ...filters, [key]: value })
 	}
+	const updateTypeFilter = <K extends keyof ProjectTypeFilterValues>(
+		key: K,
+		value: ProjectTypeFilterValues[K],
+	) => {
+		onFiltersChange({ ...filters, [key]: value })
+	}
 
 	const toggleCategory = (categoryId: Id<'projectCategories'>) => {
 		const newCategories = filters.categoryIds.includes(categoryId)
@@ -115,13 +127,15 @@ export function AdvancedProjectSearch({
 			categoryIds: [],
 			type: 'all',
 			sort: 'downloads',
+			...EMPTY_PROJECT_TYPE_FILTERS,
 		})
 	}
 
 	const hasActiveFilters =
 		filters.query ||
 		filters.categoryIds.length > 0 ||
-		filters.type !== 'all'
+		filters.type !== 'all' ||
+		hasProjectTypeFilters(filters)
 
 	const selectedCategories = categories?.filter((c) =>
 		filters.categoryIds.includes(c._id),
@@ -162,6 +176,7 @@ export function AdvancedProjectSearch({
 							...filters,
 							categoryIds: [],
 							type: value as ProjectSearchFilters['type'],
+							...EMPTY_PROJECT_TYPE_FILTERS,
 						})
 					}
 					value={filters.type}
@@ -186,6 +201,12 @@ export function AdvancedProjectSearch({
 						))}
 					</SelectContent>
 				</Select>
+
+				<ProjectTypeSearchFilters
+					filters={filters}
+					onChange={updateTypeFilter}
+					type={filters.type}
+				/>
 
 				{/* Categories */}
 				<Popover onOpenChange={setCategoryOpen} open={categoryOpen}>

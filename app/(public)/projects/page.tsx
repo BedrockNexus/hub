@@ -12,6 +12,7 @@ import {
 	ProjectCard,
 	ProjectCardSkeleton,
 } from '@/components/projects/project-card'
+import { EMPTY_PROJECT_TYPE_FILTERS } from '@/components/projects/project-type-search-filters'
 import { PublicListingPagination } from '@/components/public-listing-pagination'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,6 +33,7 @@ const INITIAL_FILTERS: ProjectSearchFilters = {
 	categoryIds: [],
 	type: 'all',
 	sort: 'downloads',
+	...EMPTY_PROJECT_TYPE_FILTERS,
 }
 
 const SKELETON_KEYS = [
@@ -68,6 +70,28 @@ export default function ProjectsPage() {
 					? filters.categoryIds
 					: undefined,
 			type: filters.type === 'all' ? undefined : filters.type,
+			experimentalFeaturesRequired:
+				filters.addonExperiments === 'all'
+					? undefined
+					: filters.addonExperiments === 'required',
+			mapGameMode:
+				filters.mapGameMode === 'all' ? undefined : filters.mapGameMode,
+			multiplayerSupport:
+				filters.mapMultiplayer === 'all'
+					? undefined
+					: filters.mapMultiplayer === 'supported',
+			resourcePackResolution:
+				filters.resourcePackResolution === 'all'
+					? undefined
+					: filters.resourcePackResolution,
+			resourcePackContentType:
+				filters.resourcePackContentType === 'all'
+					? undefined
+					: filters.resourcePackContentType,
+			skinCharacterCategory:
+				filters.skinCharacterCategory === 'all'
+					? undefined
+					: filters.skinCharacterCategory,
 			sort: filters.sort,
 			limit: PAGE_SIZE,
 			cursor,

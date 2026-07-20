@@ -32,7 +32,7 @@ import {
 	toolbarPlugin,
 	UndoRedo,
 } from '@mdxeditor/editor'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { RichTextEditorProps } from '@/components/editor/rich-text-editor'
 import {
@@ -86,6 +86,8 @@ export function InitializedMdxEditor({
 }: RichTextEditorProps) {
 	const normalizedValue = value ?? ''
 	const editorRef = useRef<MDXEditorMethods>(null)
+	const [overlayContainer, setOverlayContainer] =
+		useState<HTMLDivElement | null>(null)
 	const lastMarkdownRef = useRef(normalizedValue)
 	const { uploadFile } = useUploadFile()
 
@@ -148,29 +150,35 @@ export function InitializedMdxEditor({
 	)
 
 	return (
-		<MDXEditor
+		<div
 			className={cn(
 				'bedrock-markdown-editor',
 				disabled && 'bedrock-markdown-editor-disabled',
 			)}
-			contentEditableClassName="bedrock-markdown-editor-content"
-			markdown={normalizedValue}
-			onChange={(nextMarkdown, initialMarkdownNormalize) => {
-				lastMarkdownRef.current = nextMarkdown
-				if (!initialMarkdownNormalize) {
-					onChange(nextMarkdown)
-				}
-			}}
-			onError={({ error }) => {
-				toast.error(error || 'Markdown could not be parsed.')
-			}}
-			placeholder={placeholder}
-			plugins={plugins}
-			readOnly={disabled}
-			ref={editorRef}
-			spellCheck
-			suppressHtmlProcessing
-			trim={false}
-		/>
+			ref={setOverlayContainer}
+		>
+			<MDXEditor
+				className="bedrock-markdown-editor-root"
+				contentEditableClassName="bedrock-markdown-editor-content"
+				markdown={normalizedValue}
+				onChange={(nextMarkdown, initialMarkdownNormalize) => {
+					lastMarkdownRef.current = nextMarkdown
+					if (!initialMarkdownNormalize) {
+						onChange(nextMarkdown)
+					}
+				}}
+				onError={({ error }) => {
+					toast.error(error || 'Markdown could not be parsed.')
+				}}
+				overlayContainer={overlayContainer}
+				placeholder={placeholder}
+				plugins={plugins}
+				readOnly={disabled}
+				ref={editorRef}
+				spellCheck
+				suppressHtmlProcessing
+				trim={false}
+			/>
+		</div>
 	)
 }
