@@ -1,5 +1,5 @@
 import { ConvexError, v } from 'convex/values'
-import { components } from '../_generated/api'
+import { components, internal } from '../_generated/api'
 import type { MutationCtx } from '../_generated/server'
 import { internalMutation, mutation, query } from '../_generated/server'
 import { authComponent } from '../auth'
@@ -7,10 +7,12 @@ import {
 	buildEntityImageR2ObjectKey,
 	buildProfileMediaR2ObjectKey,
 	isEditorMediaR2Key,
+	isCdnR2Key,
 	isManagedR2Key,
+	isPrivateUploadR2Key,
 	isTemporaryR2Key,
 } from '../lib/r2Keys'
-import { r2 } from '../lib/r2'
+import { r2, resolveCdnObjectUrl, uploadsR2 } from '../lib/r2'
 import { enforceRateLimit } from '../lib/rateLimits'
 
 const R2_EDITOR_MEDIA_URL_EXPIRES_IN = 60 * 10
@@ -129,6 +131,8 @@ async function collectReferencedManagedR2Keys(ctx: MutationCtx) {
 	const projectVersions = await ctx.db.query('projectVersions').collect()
 	for (const version of projectVersions) {
 		keys.add(version.r2Key)
+		if (version.uploadR2Key) keys.add(version.uploadR2Key)
+		if (version.cdnR2Key) keys.add(version.cdnR2Key)
 		collectEditorMediaKeysFromMarkdown(keys, version.changelog)
 	}
 
@@ -256,7 +260,7 @@ export const getEditorMediaUrl = query({
 		const metadata = await r2.getMetadata(ctx, args.key)
 		if (!metadata) return null
 
-		return r2.getUrl(args.key, { expiresIn: R2_EDITOR_MEDIA_URL_EXPIRES_IN })
+		return resolveCdnObjectUrl(args.key, R2_EDITOR_MEDIA_URL_EXPIRES_IN)
 	},
 })
 
@@ -280,18 +284,23 @@ export const deleteR2Object = mutation({
 			throw new ConvexError('You can only delete your own managed uploads')
 		}
 
-		await r2.deleteObject(ctx, args.key)
+		const target = isPrivateUploadR2Key(args.key) ? uploadsR2 : r2
+		await target.deleteObject(ctx, args.key)
 		return { success: true }
 	},
 })
 
 export const cleanupStaleManagedR2Uploads = internalMutation({
 	args: {
+		bucket: v.optional(v.union(v.literal('cdn'), v.literal('uploads'))),
 		limit: v.optional(v.number()),
 		cursor: v.optional(v.union(v.string(), v.null())),
 		olderThanMs: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
+		const bucket = args.bucket ?? 'cdn'
+		const target = bucket === 'uploads' ? uploadsR2 : r2
+		const acceptsKey = bucket === 'uploads' ? isPrivateUploadR2Key : isCdnR2Key
 		const now = Date.now()
 		const referencedKeys = await collectReferencedManagedR2Keys(ctx)
 		const cutoff =
@@ -304,10 +313,13 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 			.take(Math.min(args.limit ?? 250, 500))
 
 		for (const reservation of expiredReservations) {
-			await r2.deleteObject(ctx, reservation.r2Key)
+			const reservationBucket = isPrivateUploadR2Key(reservation.r2Key)
+				? uploadsR2
+				: r2
+			await reservationBucket.deleteObject(ctx, reservation.r2Key)
 			await ctx.db.delete(reservation._id)
 		}
-		const page = await r2.listMetadata(
+		const page = await target.listMetadata(
 			ctx,
 			Math.min(args.limit ?? 250, 500),
 			args.cursor ?? null,
@@ -315,7 +327,7 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 		let deleted = 0
 
 		for (const metadata of page.page) {
-			if (!isManagedR2Key(metadata.key)) {
+			if (!isManagedR2Key(metadata.key) || !acceptsKey(metadata.key)) {
 				continue
 			}
 			if (referencedKeys.has(metadata.key)) {
@@ -327,12 +339,27 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 				continue
 			}
 
-			await r2.deleteObject(ctx, metadata.key)
+			await target.deleteObject(ctx, metadata.key)
 			deleted += 1
+		}
+
+		if (!page.isDone && page.continueCursor) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.storage.cleanupStaleManagedR2Uploads,
+				{ ...args, bucket, cursor: page.continueCursor },
+			)
+		} else if (bucket === 'cdn') {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.storage.cleanupStaleManagedR2Uploads,
+				{ ...args, bucket: 'uploads', cursor: null },
+			)
 		}
 
 		return {
 			deleted,
+			bucket,
 			expiredReservations: expiredReservations.length,
 			continueCursor: page.continueCursor,
 			isDone: page.isDone,

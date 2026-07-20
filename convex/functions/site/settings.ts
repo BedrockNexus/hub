@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { mutation, query } from '../../_generated/server'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { authComponent } from '../../auth'
-import { r2 } from '../../lib/r2'
+import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import {
 	buildSiteImageR2ObjectKey,
 	isSiteImageR2Key,
@@ -60,7 +60,7 @@ async function resolveSiteImageUrl(key?: string) {
 		return undefined
 	}
 
-	return r2.getUrl(key, { expiresIn: R2_SITE_IMAGE_URL_EXPIRES_IN })
+	return resolveCdnObjectUrl(key, R2_SITE_IMAGE_URL_EXPIRES_IN)
 }
 
 async function validateSiteImageUpload(

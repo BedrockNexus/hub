@@ -1,6 +1,6 @@
 # TODO
 
-## Active Priorities (Updated July 18, 2026)
+## Active Priorities (Updated July 20, 2026)
 
 Keep this list limited to active product and engineering work. Completed work
 lives in Git history; automated checks and manual QA live in `TESTING.md`.
@@ -21,6 +21,15 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
   compatibility normalization.
 - [ ] Run `functions/projects/migrations:seedDefaultProjectCategories` after
   deployment and review the generated type-specific category lists in admin.
+- [x] Separate release ingestion from public delivery: upload and validate new
+  artifacts in a private R2 bucket, promote approved releases to immutable
+  `downloads/` CDN keys, and demote them when a project is unpublished.
+- [ ] Complete the production R2 setup in `docs/STORAGE.md`: create the private
+  `bedrocknexus-uploads-prod` bucket, attach `cdn.bedrocknexus.com` only to
+  `bedrocknexus-prod`, configure upload CORS and expiry, and set Convex env vars.
+- [ ] Verify the production release lifecycle end to end: upload, validation,
+  project approval, CDN download with tracking, unpublish, republish, and
+  deletion from both buckets.
 
 ## P1 - Type-Specific Project Experience
 
@@ -48,9 +57,6 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
 - [ ] Add a skin release experience with PNG preview, explicit Classic/Steve
   and Slim/Alex selection, a public interactive player renderer, and download
   support through the existing tracked route.
-- [ ] Prepare the private mixed R2 bucket for a future media Worker: only the
-  `media/` namespace may be exposed through a CDN, while `artifacts/` and
-  `temporary/` must continue using controlled or signed access.
 
 ## P2 - Nice Later
 

@@ -5,8 +5,16 @@ import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { isPublicProject } from '../../lib/contentVisibility'
-import { r2 } from '../../lib/r2'
-import { buildProjectVersionR2ObjectKey } from '../../lib/r2Keys'
+import {
+	assertPrivateUploadBucketConfigured,
+	cdnR2,
+	resolveCdnObjectUrl,
+	uploadsR2,
+} from '../../lib/r2'
+import {
+	buildProjectUploadR2ObjectKey,
+	isCdnR2Key,
+} from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
 import {
 	getProjectArtifactPolicy,
@@ -20,6 +28,18 @@ const ARTIFACT_UPLOAD_EXPIRES_IN_MS = 1000 * 60 * 60 * 24
 
 function isValidatedVersion(version: { validationStatus?: string }) {
 	return version.validationStatus === undefined || version.validationStatus === 'valid'
+}
+
+function getPublishedArtifactKey(version: {
+	r2Key: string
+	uploadR2Key?: string
+	cdnR2Key?: string
+}) {
+	if (version.cdnR2Key) return version.cdnR2Key
+	if (!version.uploadR2Key && isCdnR2Key(version.r2Key)) {
+		return version.r2Key
+	}
+	return undefined
 }
 
 function assertValidVersionString(version: string) {
@@ -139,7 +159,11 @@ export const listPublic = query({
 			.collect()
 
 		return versions
-			.filter(isValidatedVersion)
+			.filter(
+				(version) =>
+					isValidatedVersion(version) &&
+					Boolean(getPublishedArtifactKey(version)),
+			)
 			.map((version) => withDownloadUrl(version))
 	},
 })
@@ -158,7 +182,11 @@ export const getPublicByVersion = query({
 				q.eq('projectId', project._id).eq('version', args.version),
 			)
 			.unique()
-		if (!version || !isValidatedVersion(version)) return null
+		if (
+			!version ||
+			!isValidatedVersion(version) ||
+			!getPublishedArtifactKey(version)
+		) return null
 		return { ...withDownloadUrl(version), project: { name: project.name, slug: project.slug } }
 	},
 })
@@ -172,7 +200,9 @@ export const getLatest = query({
 			.order('desc')
 			.first()
 
-		return version && isValidatedVersion(version)
+		return version &&
+			isValidatedVersion(version) &&
+			getPublishedArtifactKey(version)
 			? withDownloadUrl(version)
 			: null
 	},
@@ -191,7 +221,9 @@ export const getByVersion = query({
 			)
 			.first()
 
-		return version && isValidatedVersion(version)
+		return version &&
+			isValidatedVersion(version) &&
+			getPublishedArtifactKey(version)
 			? withDownloadUrl(version)
 			: null
 	},
@@ -237,10 +269,11 @@ export const generateVersionUploadUrl = mutation({
 			user._id,
 			'Too many upload requests. Please wait before uploading again.',
 		)
+		assertPrivateUploadBucketConfigured()
 
 		const artifactId = crypto.randomUUID()
 		const releaseId = crypto.randomUUID()
-		const key = buildProjectVersionR2ObjectKey({
+		const key = buildProjectUploadR2ObjectKey({
 			projectId: args.projectId,
 			releaseId,
 			artifactId,
@@ -262,7 +295,7 @@ export const generateVersionUploadUrl = mutation({
 			expiresAt: now + ARTIFACT_UPLOAD_EXPIRES_IN_MS,
 		})
 
-		const upload = await r2.generateUploadUrl(key)
+		const upload = await uploadsR2.generateUploadUrl(key)
 		return { uploadId, ...upload }
 	},
 })
@@ -323,7 +356,7 @@ export const create = mutation({
 			throw new Error('Skin model metadata is only valid for skin projects')
 		}
 
-		const metadata = await r2.getMetadata(ctx, upload.r2Key)
+		const metadata = await uploadsR2.getMetadata(ctx, upload.r2Key)
 		const fileSize = metadata?.size
 		if (!metadata || fileSize === undefined) {
 			throw new Error('The uploaded artifact could not be found in storage')
@@ -336,7 +369,7 @@ export const create = mutation({
 		if (validationError || fileSize !== upload.declaredFileSize) {
 			const error = validationError ?? 'The uploaded file size does not match the reserved artifact'
 			await ctx.db.patch(upload._id, { status: 'rejected', error })
-			await r2.deleteObject(ctx, upload.r2Key)
+			await uploadsR2.deleteObject(ctx, upload.r2Key)
 			return { ok: false as const, error }
 		}
 
@@ -347,6 +380,7 @@ export const create = mutation({
 			version: args.version,
 			changelog: args.changelog,
 			r2Key: upload.r2Key,
+			uploadR2Key: upload.r2Key,
 			fileName: upload.fileName,
 			fileSize,
 			artifactId: upload.artifactId,
@@ -393,7 +427,7 @@ export const discardUpload = mutation({
 			throw new Error('You cannot discard this artifact upload')
 		}
 
-		await r2.deleteObject(ctx, upload.r2Key)
+		await uploadsR2.deleteObject(ctx, upload.r2Key)
 		await ctx.db.delete(upload._id)
 	},
 })
@@ -438,7 +472,16 @@ export const createDownloadUrl = mutation({
 			'Too many download requests. Please wait before trying again.',
 		)
 
-		const metadata = await r2.getMetadata(ctx, version.r2Key)
+		const artifactKey = getPublishedArtifactKey(version)
+		if (!artifactKey) {
+			return {
+				ok: false as const,
+				code: 'VERSION_PROCESSING' as const,
+				message: 'This release is being prepared for CDN delivery.',
+			}
+		}
+
+		const metadata = await cdnR2.getMetadata(ctx, artifactKey)
 		if (!metadata) {
 			return {
 				ok: false as const,
@@ -448,9 +491,10 @@ export const createDownloadUrl = mutation({
 			}
 		}
 
-		const url = await r2.getUrl(version.r2Key, {
-			expiresIn: VERSION_DOWNLOAD_URL_EXPIRES_IN,
-		})
+		const url = await resolveCdnObjectUrl(
+			artifactKey,
+			VERSION_DOWNLOAD_URL_EXPIRES_IN,
+		)
 
 		await ctx.db.patch(args.versionId, {
 			downloads: version.downloads + 1,
@@ -490,7 +534,10 @@ export const retryValidation = mutation({
 		if (version.validationCode !== 'VALIDATOR_UNAVAILABLE') {
 			throw new Error('Upload a replacement for this rejected artifact')
 		}
-		const metadata = await r2.getMetadata(ctx, version.r2Key)
+		const sourceKey = version.uploadR2Key ?? version.r2Key
+		const metadata = version.uploadR2Key
+			? await uploadsR2.getMetadata(ctx, sourceKey)
+			: await cdnR2.getMetadata(ctx, sourceKey)
 		if (!metadata) throw new Error('The artifact file is no longer in storage')
 		await ctx.db.patch(version._id, {
 			validationStatus: 'pending',
@@ -519,7 +566,13 @@ export const remove = mutation({
 			'You must be logged in to delete versions',
 		)
 
-		await r2.deleteObject(ctx, version.r2Key)
+		if (version.uploadR2Key) {
+			await uploadsR2.deleteObject(ctx, version.uploadR2Key)
+		}
+		const cdnKey = getPublishedArtifactKey(version)
+		if (cdnKey) {
+			await cdnR2.deleteObject(ctx, cdnKey)
+		}
 		await ctx.db.delete(args.id)
 		await updateProjectDownloadStats(ctx, version.projectId)
 

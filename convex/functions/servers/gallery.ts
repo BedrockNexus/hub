@@ -9,7 +9,7 @@ import {
 	normalizeGalleryCaption,
 } from '../../lib/gallery'
 import { validateEntityImageUpload } from '../../lib/media'
-import { r2 } from '../../lib/r2'
+import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { buildEntityImageR2ObjectKey } from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
 
@@ -92,9 +92,10 @@ async function assertServerGalleryHasCapacity(
 async function enrichGalleryItem(item: Doc<'serverGallery'>) {
 	return {
 		...item,
-		url: await r2.getUrl(item.r2Key, {
-			expiresIn: GALLERY_IMAGE_URL_EXPIRES_IN,
-		}),
+		url: await resolveCdnObjectUrl(
+			item.r2Key,
+			GALLERY_IMAGE_URL_EXPIRES_IN,
+		),
 	}
 }
 

@@ -54,7 +54,7 @@ export function VersionFileUpload({
 	const generateUploadUrl = useMutation(
 		api.functions.projects.versions.generateVersionUploadUrl,
 	)
-	const syncMetadata = useMutation(api.lib.r2.syncMetadata)
+	const syncMetadata = useMutation(api.lib.r2.syncUploadMetadata)
 	const discardUpload = useMutation(
 		api.functions.projects.versions.discardUpload,
 	)

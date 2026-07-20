@@ -5,7 +5,7 @@ import { authComponent } from '../../auth'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
 import { validateImageObjectMetadata } from '../../lib/media'
-import { r2 } from '../../lib/r2'
+import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import {
 	buildOrganizationMediaR2ObjectKey,
 	isOrganizationMediaR2Key,
@@ -130,7 +130,7 @@ export const getPublicBySlug = query({
 			about: profile?.about,
 			website: profile?.website,
 			discordUrl: profile?.discordUrl,
-			bannerUrl: profile?.bannerR2Key ? await r2.getUrl(profile.bannerR2Key, { expiresIn: IMAGE_URL_EXPIRES_IN }) : undefined,
+			bannerUrl: profile?.bannerR2Key ? await resolveCdnObjectUrl(profile.bannerR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 			members: members.map((member, index) => ({
 				role: member.role,
 				name: users[index] ? getUserDisplayName(users[index] as BetterAuthUser) : 'Unknown user',
@@ -145,7 +145,7 @@ export const getPublicBySlug = query({
 				])
 				return {
 					...server,
-					logoUrl: server.logoR2Key ? await r2.getUrl(server.logoR2Key, { expiresIn: IMAGE_URL_EXPIRES_IN }) : undefined,
+					logoUrl: server.logoR2Key ? await resolveCdnObjectUrl(server.logoR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 					categories: categories.filter(Boolean),
 					online: status?.online,
 					playerCount: status?.playerCount ?? 0,
@@ -160,7 +160,7 @@ export const getPublicBySlug = query({
 				])
 				return {
 					...project,
-					iconUrl: project.iconR2Key ? await r2.getUrl(project.iconR2Key, { expiresIn: IMAGE_URL_EXPIRES_IN }) : undefined,
+					iconUrl: project.iconR2Key ? await resolveCdnObjectUrl(project.iconR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 					categories: categories.filter(Boolean),
 					averageRating: stats?.averageRating ?? 0,
 					reviewCount: stats?.reviewCount ?? 0,
@@ -181,7 +181,7 @@ export const getProfileForSettings = query({
 			website: profile?.website ?? '',
 			discordUrl: profile?.discordUrl ?? '',
 			bannerR2Key: profile?.bannerR2Key,
-			bannerUrl: profile?.bannerR2Key ? await r2.getUrl(profile.bannerR2Key, { expiresIn: IMAGE_URL_EXPIRES_IN }) : undefined,
+			bannerUrl: profile?.bannerR2Key ? await resolveCdnObjectUrl(profile.bannerR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 		}
 	},
 })

@@ -216,6 +216,8 @@ export const tables = {
 
 		// File
 		r2Key: v.string(),
+		uploadR2Key: v.optional(v.string()),
+		cdnR2Key: v.optional(v.string()),
 		fileName: v.string(),
 		fileSize: v.number(),
 		artifactId: v.optional(v.string()),

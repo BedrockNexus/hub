@@ -4,13 +4,17 @@ import {
 	buildMediaR2ObjectKey,
 	buildOrganizationMediaR2ObjectKey,
 	buildProfileMediaR2ObjectKey,
+	buildProjectDownloadR2ObjectKey,
+	buildProjectUploadR2ObjectKey,
 	buildProjectVersionR2ObjectKey,
 	buildSiteImageR2ObjectKey,
 	buildTemporaryR2ObjectKey,
+	isCdnR2Key,
 	isEditorMediaR2Key,
 	isEntityImageR2Key,
 	isManagedR2Key,
 	isOrganizationMediaR2Key,
+	isPrivateUploadR2Key,
 	isProfileMediaR2Key,
 	isSiteImageR2Key,
 	isTemporaryR2Key,
@@ -81,6 +85,30 @@ describe('project artifact policy', () => {
 		).toBe(
 			'artifacts/projects/project_123/releases/release_456/artifact_789.mcworld',
 		)
+	})
+
+	test('separates private release uploads from public CDN downloads', () => {
+		const args = {
+			projectId: 'project_123',
+			releaseId: 'release_456',
+			artifactId: 'artifact_789',
+			fileName: 'My Original World.mcworld',
+		}
+		const uploadKey = buildProjectUploadR2ObjectKey(args)
+		const downloadKey = buildProjectDownloadR2ObjectKey({
+			...args,
+			version: '1.4.0',
+		})
+
+		expect(uploadKey).toBe(
+			'uploads/projects/project_123/releases/release_456/artifact_789.mcworld',
+		)
+		expect(downloadKey).toBe(
+			'downloads/projects/project_123/releases/1.4.0/artifact_789.mcworld',
+		)
+		expect(isPrivateUploadR2Key(uploadKey)).toBeTrue()
+		expect(isCdnR2Key(uploadKey)).toBeFalse()
+		expect(isCdnR2Key(downloadKey)).toBeTrue()
 	})
 
 	test('builds and recognizes entity-first media keys', () => {

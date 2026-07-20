@@ -55,6 +55,13 @@ worker. Configure `ARTIFACT_VALIDATOR_URL` in Convex and either share
 `BEDROCKNEXUS_API_KEY` with the worker or set a dedicated
 `ARTIFACT_VALIDATOR_API_KEY`.
 
+Public media and approved releases are delivered from the R2 CDN bucket, while
+unvalidated project uploads remain in a separate private bucket. Configure
+`R2_CDN_BUCKET`, `R2_UPLOADS_BUCKET`, and `R2_CDN_PUBLIC_URL` in Convex. The R2
+credentials must be able to read, write, copy, and delete objects in both
+buckets. See [STORAGE.md](./docs/STORAGE.md) for the bucket, CORS, lifecycle,
+and release-promotion setup.
+
 Start the frontend and Convex development processes:
 
 ```bash
@@ -107,7 +114,8 @@ GitHub Environment.
 
 See [SERVER_FLOW.md](./SERVER_FLOW.md) and [PROJECT_FLOW.md](./PROJECT_FLOW.md)
 for lifecycle rules. Launch verification is tracked in [TESTING.md](./TESTING.md),
-while remaining product work lives in [TODO.md](./TODO.md).
+while remaining product work lives in [TODO.md](./TODO.md). Storage delivery
+and deployment are documented in [STORAGE.md](./docs/STORAGE.md).
 
 ## Contributing
 

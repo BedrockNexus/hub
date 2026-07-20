@@ -5,11 +5,12 @@ type BuildEntityImageR2ObjectKeyArgs = {
 	fileName: string
 }
 
-type BuildProjectVersionR2ObjectKeyArgs = {
+type BuildProjectReleaseR2ObjectKeyArgs = {
 	projectId: string
 	releaseId: string
 	artifactId: string
 	fileName: string
+	version?: string
 }
 
 export type EditorMediaKind = 'audio' | 'file' | 'image' | 'video'
@@ -101,12 +102,51 @@ export function buildOrganizationMediaR2ObjectKey(args: {
 	})
 }
 
+export function buildProjectUploadR2ObjectKey({
+	projectId,
+	releaseId,
+	artifactId,
+	fileName,
+}: BuildProjectReleaseR2ObjectKeyArgs): string {
+	const extension = getSafeFileExtension(fileName)
+	return [
+		'uploads',
+		'projects',
+		projectId,
+		'releases',
+		releaseId,
+		`${sanitizeR2PathSegment(artifactId)}.${extension}`,
+	]
+		.map(sanitizeR2PathSegment)
+		.join('/')
+}
+
+export function buildProjectDownloadR2ObjectKey({
+	projectId,
+	version,
+	artifactId,
+	fileName,
+}: BuildProjectReleaseR2ObjectKeyArgs & { version: string }): string {
+	const extension = getSafeFileExtension(fileName)
+	return [
+		'downloads',
+		'projects',
+		projectId,
+		'releases',
+		version,
+		`${sanitizeR2PathSegment(artifactId)}.${extension}`,
+	]
+		.map(sanitizeR2PathSegment)
+		.join('/')
+}
+
+/** Legacy public release key builder retained for existing production objects. */
 export function buildProjectVersionR2ObjectKey({
 	projectId,
 	releaseId,
 	artifactId,
 	fileName,
-}: BuildProjectVersionR2ObjectKeyArgs): string {
+}: BuildProjectReleaseR2ObjectKeyArgs): string {
 	const extension = getSafeFileExtension(fileName)
 	return [
 		'artifacts',
@@ -239,6 +279,25 @@ export function isManagedR2Key(key: string): boolean {
 		isManagedEntityR2Key(key) ||
 		isSiteImageR2Key(key) ||
 		isTemporaryR2Key(key) ||
-		/^artifacts\/projects\/[^/]+\/releases\/[^/]+\/[^/]+$/.test(key)
+		/^(artifacts|downloads|uploads)\/projects\/[^/]+\/releases\/[^/]+\/[^/]+$/.test(
+			key,
+		)
+	)
+}
+
+export function isPrivateUploadR2Key(key: string): boolean {
+	return (
+		/^uploads\/projects\/[^/]+\/releases\/[^/]+\/[^/]+$/.test(key) ||
+		isTemporaryR2Key(key)
+	)
+}
+
+export function isCdnR2Key(key: string): boolean {
+	return (
+		isManagedEntityR2Key(key) ||
+		isSiteImageR2Key(key) ||
+		/^(artifacts|downloads)\/projects\/[^/]+\/releases\/[^/]+\/[^/]+$/.test(
+			key,
+		)
 	)
 }

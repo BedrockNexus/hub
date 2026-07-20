@@ -5,7 +5,7 @@ import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { validateEntityImageUpload } from '../../lib/media'
-import { r2 } from '../../lib/r2'
+import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { enforceRateLimit } from '../../lib/rateLimits'
 import { serverModerationStatus } from '../../schemas/servers'
 
@@ -45,7 +45,7 @@ const serverAdminStatus = v.union(
 
 async function resolveServerLogoUrl(server: Doc<'servers'>): Promise<string | undefined> {
 	if (server.logoR2Key) {
-		return r2.getUrl(server.logoR2Key, { expiresIn: R2_IMAGE_URL_EXPIRES_IN })
+		return resolveCdnObjectUrl(server.logoR2Key, R2_IMAGE_URL_EXPIRES_IN)
 	}
 
 	return undefined
@@ -53,7 +53,7 @@ async function resolveServerLogoUrl(server: Doc<'servers'>): Promise<string | un
 
 async function resolveServerBannerUrl(server: Doc<'servers'>): Promise<string | undefined> {
 	if (server.bannerR2Key) {
-		return r2.getUrl(server.bannerR2Key, { expiresIn: R2_IMAGE_URL_EXPIRES_IN })
+		return resolveCdnObjectUrl(server.bannerR2Key, R2_IMAGE_URL_EXPIRES_IN)
 	}
 
 	return undefined
@@ -1019,9 +1019,10 @@ export const getAdminReview = query({
 			gallery: await Promise.all(
 				gallery.map(async (item) => ({
 					...item,
-					url: await r2.getUrl(item.r2Key, {
-						expiresIn: R2_IMAGE_URL_EXPIRES_IN,
-					}),
+					url: await resolveCdnObjectUrl(
+						item.r2Key,
+						R2_IMAGE_URL_EXPIRES_IN,
+					),
 				})),
 			),
 		}

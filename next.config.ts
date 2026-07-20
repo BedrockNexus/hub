@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
 		remotePatterns: [
 			{
 				protocol: 'https',
+				hostname: 'cdn.bedrocknexus.com',
+				pathname: '/**',
+			},
+			{
+				protocol: 'https',
 				hostname: '**.convex.cloud',
 				pathname: '/api/storage/**',
 			},

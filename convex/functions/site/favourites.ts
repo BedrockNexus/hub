@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { isPublicProject } from '../../lib/contentVisibility'
-import { r2 } from '../../lib/r2'
+import { resolveCdnObjectUrl } from '../../lib/r2'
 import { enforceRateLimit } from '../../lib/rateLimits'
 
 const IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
@@ -161,7 +161,7 @@ export const listMine = query({
 					])
 					return {
 						...server,
-						logoUrl: server.logoR2Key ? await r2.getUrl(server.logoR2Key, { expiresIn: IMAGE_URL_EXPIRES_IN }) : undefined,
+						logoUrl: server.logoR2Key ? await resolveCdnObjectUrl(server.logoR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 						categories: categories.filter(Boolean),
 						online: status?.online,
 						playerCount: status?.playerCount ?? 0,
@@ -183,7 +183,7 @@ export const listMine = query({
 					])
 					return {
 						...project,
-						iconUrl: project.iconR2Key ? await r2.getUrl(project.iconR2Key, { expiresIn: IMAGE_URL_EXPIRES_IN }) : undefined,
+						iconUrl: project.iconR2Key ? await resolveCdnObjectUrl(project.iconR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 						categories: categories.filter(Boolean),
 						averageRating: stats?.averageRating ?? 0,
 						reviewCount: stats?.reviewCount ?? 0,

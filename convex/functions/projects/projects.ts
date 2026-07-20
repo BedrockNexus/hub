@@ -1,5 +1,5 @@
 ﻿import { v } from 'convex/values'
-import { components } from '../../_generated/api'
+import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
@@ -11,7 +11,7 @@ import {
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
 import { validateEntityImageUpload } from '../../lib/media'
-import { r2 } from '../../lib/r2'
+import { r2, resolveCdnObjectUrl, uploadsR2 } from '../../lib/r2'
 import { enforceRateLimit } from '../../lib/rateLimits'
 import {
 	normalizeProjectType,
@@ -53,7 +53,7 @@ async function resolveProjectIconUrl(
 	project: Doc<'projects'>,
 ): Promise<string | undefined> {
 	if (project.iconR2Key) {
-		return r2.getUrl(project.iconR2Key, { expiresIn: R2_IMAGE_URL_EXPIRES_IN })
+		return resolveCdnObjectUrl(project.iconR2Key, R2_IMAGE_URL_EXPIRES_IN)
 	}
 
 	return undefined
@@ -131,7 +131,7 @@ async function resolveProjectBannerUrl(
 	project: Doc<'projects'>,
 ): Promise<string | undefined> {
 	if (project.bannerR2Key) {
-		return r2.getUrl(project.bannerR2Key, { expiresIn: R2_IMAGE_URL_EXPIRES_IN })
+		return resolveCdnObjectUrl(project.bannerR2Key, R2_IMAGE_URL_EXPIRES_IN)
 	}
 
 	return undefined
@@ -290,7 +290,14 @@ async function deleteProjectFiles(ctx: MutationCtx, project: Doc<'projects'>) {
 		.withIndex('by_project', (q) => q.eq('projectId', project._id))
 		.collect()
 	for (const version of versions) {
-		await r2.deleteObject(ctx, version.r2Key)
+		if (version.uploadR2Key) {
+			await uploadsR2.deleteObject(ctx, version.uploadR2Key)
+		}
+		if (version.cdnR2Key) {
+			await r2.deleteObject(ctx, version.cdnR2Key)
+		} else if (!version.uploadR2Key) {
+			await r2.deleteObject(ctx, version.r2Key)
+		}
 		await ctx.db.delete(version._id)
 	}
 }
@@ -1350,9 +1357,10 @@ export const getAdminReview = query({
 			gallery: await Promise.all(
 				gallery.map(async (item) => ({
 					...item,
-					url: await r2.getUrl(item.r2Key, {
-						expiresIn: R2_IMAGE_URL_EXPIRES_IN,
-					}),
+					url: await resolveCdnObjectUrl(
+						item.r2Key,
+						R2_IMAGE_URL_EXPIRES_IN,
+					),
 				})),
 			),
 			versions,
@@ -1454,6 +1462,26 @@ export const adminUpdate = mutation({
 			throw new Error('A moderation reason is required')
 		}
 		await ctx.db.patch(args.id, patch)
+		if (args.status !== undefined || args.moderationStatus !== undefined) {
+			const nextStatus = args.status ?? item.status
+			const nextModerationStatus =
+				args.moderationStatus ??
+				(args.status !== undefined
+					? args.status === 'published'
+						? 'approved'
+						: 'pending'
+					: item.moderationStatus)
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.projects.artifactValidation.syncProjectDelivery,
+				{
+					projectId: args.id,
+					published:
+						nextStatus === 'published' &&
+						nextModerationStatus === 'approved',
+				},
+			)
+		}
 
 		return args.id
 	},

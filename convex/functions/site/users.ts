@@ -4,7 +4,7 @@ import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { validateImageObjectMetadata } from '../../lib/media'
-import { r2 } from '../../lib/r2'
+import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
 	buildProfileMediaR2ObjectKey,
@@ -204,7 +204,7 @@ export const getMyProfile = query({
 			minecraftUsername: profile?.minecraftUsername ?? '',
 			socials: profile?.socials ?? {},
 			bannerR2Key: profile?.bannerR2Key,
-			bannerUrl: profile?.bannerR2Key ? await r2.getUrl(profile.bannerR2Key, { expiresIn: R2_IMAGE_URL_EXPIRES_IN }) : undefined,
+			bannerUrl: profile?.bannerR2Key ? await resolveCdnObjectUrl(profile.bannerR2Key, R2_IMAGE_URL_EXPIRES_IN) : undefined,
 		}
 	},
 })
@@ -481,9 +481,10 @@ export const getPublicProfileByUsername = query({
 		const serversWithDetails = await Promise.all(
 			activeServers.map(async (server) => {
 				const logoUrl = server.logoR2Key
-					? await r2.getUrl(server.logoR2Key, {
-							expiresIn: R2_IMAGE_URL_EXPIRES_IN,
-						})
+					? await resolveCdnObjectUrl(
+							server.logoR2Key,
+							R2_IMAGE_URL_EXPIRES_IN,
+						)
 					: undefined
 
 				const categories = await Promise.all(
@@ -531,9 +532,10 @@ export const getPublicProfileByUsername = query({
 					.first()
 
 				const iconUrl = item.iconR2Key
-					? await r2.getUrl(item.iconR2Key, {
-							expiresIn: R2_IMAGE_URL_EXPIRES_IN,
-						})
+					? await resolveCdnObjectUrl(
+							item.iconR2Key,
+							R2_IMAGE_URL_EXPIRES_IN,
+						)
 					: undefined
 
 				return {
@@ -572,7 +574,7 @@ export const getPublicProfileByUsername = query({
 			website: profile?.website ?? undefined,
 			minecraftUsername: profile?.minecraftUsername ?? undefined,
 			socials: profile?.socials ?? undefined,
-			bannerUrl: profile?.bannerR2Key ? await r2.getUrl(profile.bannerR2Key, { expiresIn: R2_IMAGE_URL_EXPIRES_IN }) : undefined,
+			bannerUrl: profile?.bannerR2Key ? await resolveCdnObjectUrl(profile.bannerR2Key, R2_IMAGE_URL_EXPIRES_IN) : undefined,
 			joinedAt: new Date(user.createdAt).toISOString(),
 			servers: serversWithDetails,
 			projects: contentWithDetails,
