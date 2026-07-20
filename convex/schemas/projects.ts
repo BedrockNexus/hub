@@ -252,6 +252,7 @@ export const tables = {
 		downloads: v.number(),
 
 		publishedAt: v.optional(v.number()),
+		deletionRequestedAt: v.optional(v.number()),
 		createdAt: v.number(),
 	})
 		.index('by_project', ['projectId'])

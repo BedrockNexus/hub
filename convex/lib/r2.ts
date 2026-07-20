@@ -1,5 +1,4 @@
 import { R2 } from '@convex-dev/r2'
-import { S3Client } from '@aws-sdk/client-s3'
 import { components } from '../_generated/api'
 import type { DataModel } from '../_generated/dataModel'
 import { authComponent } from '../auth'
@@ -9,22 +8,6 @@ const sharedR2Config = {
 	accessKeyId: process.env.R2_ACCESS_KEY_ID,
 	secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
 }
-
-function createS3Client() {
-	return new S3Client({
-		region: 'auto',
-		endpoint: sharedR2Config.endpoint,
-		credentials:
-			sharedR2Config.accessKeyId && sharedR2Config.secretAccessKey
-				? {
-						accessKeyId: sharedR2Config.accessKeyId,
-						secretAccessKey: sharedR2Config.secretAccessKey,
-					}
-				: undefined,
-	})
-}
-
-export const r2S3 = createS3Client()
 
 export const cdnR2 = new R2(components.r2, {
 	...sharedR2Config,

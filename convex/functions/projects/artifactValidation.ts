@@ -1,4 +1,3 @@
-import { CopyObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 import { v } from 'convex/values'
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
@@ -8,14 +7,7 @@ import {
 	internalQuery,
 	type MutationCtx,
 } from '../../_generated/server'
-import {
-	cdnR2,
-	r2S3,
-	syncCdnObjectMetadata,
-	syncUploadObjectMetadata,
-	uploadsR2,
-} from '../../lib/r2'
-import { buildProjectDownloadR2ObjectKey } from '../../lib/r2Keys'
+import { cdnR2, uploadsR2 } from '../../lib/r2'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
 
 const VALIDATION_URL_EXPIRES_IN = 60 * 15
@@ -148,7 +140,11 @@ export const getVersionForPromotion = internalQuery({
 	args: { versionId: v.id('projectVersions') },
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.versionId)
-		if (!version || version.validationStatus !== 'valid') return null
+		if (
+			!version ||
+			version.validationStatus !== 'valid' ||
+			version.deletionRequestedAt
+		) return null
 		const project = await ctx.db.get(version.projectId)
 		if (
 			!project ||
@@ -178,7 +174,20 @@ export const finalizePromotion = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.versionId)
-		if (!version || version.validationStatus !== 'valid') return
+		if (!version) {
+			await cdnR2.deleteObject(ctx, args.cdnKey)
+			await uploadsR2.deleteObject(ctx, args.uploadKey)
+			return
+		}
+		if (version.deletionRequestedAt) {
+			await cdnR2.deleteObject(ctx, args.cdnKey)
+			await uploadsR2.deleteObject(ctx, args.uploadKey)
+			return
+		}
+		if (version.validationStatus !== 'valid') {
+			await cdnR2.deleteObject(ctx, args.cdnKey)
+			return
+		}
 		await ctx.db.patch(version._id, {
 			r2Key: args.cdnKey,
 			uploadR2Key: args.uploadKey,
@@ -205,137 +214,6 @@ export const finalizeDemotion = internalMutation({
 			publishedAt: undefined,
 		})
 		await cdnR2.deleteObject(ctx, args.cdnKey)
-	},
-})
-
-function copySource(bucket: string, key: string) {
-	const encodedKey = key
-		.split('/')
-		.map((segment) => encodeURIComponent(segment))
-		.join('/')
-	return `${bucket}/${encodedKey}`
-}
-
-function attachmentDisposition(fileName: string) {
-	const fallback = fileName.replace(/[^a-zA-Z0-9._-]/g, '_') || 'download'
-	return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
-}
-
-export const promoteVersion = internalAction({
-	args: { versionId: v.id('projectVersions') },
-	handler: async (ctx, args) => {
-		const data = (await ctx.runQuery(
-			internal.functions.projects.artifactValidation.getVersionForPromotion,
-			args,
-		)) as { project: Doc<'projects'>; version: Doc<'projectVersions'> } | null
-		if (!data) return
-
-		const uploadKey = data.version.uploadR2Key ?? data.version.r2Key
-		let metadata
-		try {
-			metadata = await r2S3.send(
-				new HeadObjectCommand({
-					Bucket: uploadsR2.config.bucket,
-					Key: uploadKey,
-				}),
-			)
-		} catch {
-			throw new Error('Validated release is missing from private storage')
-		}
-		const cdnKey = buildProjectDownloadR2ObjectKey({
-			projectId: data.project._id,
-			releaseId: data.version._id,
-			version: data.version.version,
-			artifactId: data.version.artifactId ?? data.version._id,
-			fileName: data.version.fileName,
-		})
-
-		await r2S3.send(
-			new CopyObjectCommand({
-				Bucket: cdnR2.config.bucket,
-				Key: cdnKey,
-				CopySource: copySource(uploadsR2.config.bucket, uploadKey),
-				MetadataDirective: 'REPLACE',
-				ContentType: metadata.ContentType ?? 'application/octet-stream',
-				ContentDisposition: attachmentDisposition(data.version.fileName),
-				CacheControl: 'public, max-age=31536000, immutable',
-			}),
-		)
-		await syncCdnObjectMetadata(ctx, cdnKey)
-		await ctx.runMutation(
-			internal.functions.projects.artifactValidation.finalizePromotion,
-			{ versionId: data.version._id, uploadKey, cdnKey },
-		)
-	},
-})
-
-export const demoteVersion = internalAction({
-	args: { versionId: v.id('projectVersions') },
-	handler: async (ctx, args) => {
-		const data = (await ctx.runQuery(
-			internal.functions.projects.artifactValidation.getVersionForValidation,
-			args,
-		)) as { project: Doc<'projects'>; version: Doc<'projectVersions'> } | null
-		if (
-			!data?.version.cdnR2Key ||
-			(data.project.status === 'published' &&
-				data.project.moderationStatus === 'approved')
-		) return
-		const uploadKey = data.version.uploadR2Key
-		if (!uploadKey) return
-
-		let metadata
-		try {
-			metadata = await r2S3.send(
-				new HeadObjectCommand({
-					Bucket: cdnR2.config.bucket,
-					Key: data.version.cdnR2Key,
-				}),
-			)
-		} catch {
-			return
-		}
-		await r2S3.send(
-			new CopyObjectCommand({
-				Bucket: uploadsR2.config.bucket,
-				Key: uploadKey,
-				CopySource: copySource(cdnR2.config.bucket, data.version.cdnR2Key),
-				MetadataDirective: 'REPLACE',
-				ContentType: metadata.ContentType ?? 'application/octet-stream',
-			}),
-		)
-		await syncUploadObjectMetadata(ctx, uploadKey)
-		await ctx.runMutation(
-			internal.functions.projects.artifactValidation.finalizeDemotion,
-			{
-				versionId: data.version._id,
-				uploadKey,
-				cdnKey: data.version.cdnR2Key,
-			},
-		)
-	},
-})
-
-export const syncProjectDelivery = internalAction({
-	args: { projectId: v.id('projects'), published: v.boolean() },
-	handler: async (ctx, args) => {
-		const versions = (await ctx.runQuery(
-			internal.functions.projects.artifactValidation.listProjectVersionsForDelivery,
-			{ projectId: args.projectId },
-		)) as Doc<'projectVersions'>[]
-		for (const version of versions) {
-			if (args.published) {
-				await ctx.runAction(
-					internal.functions.projects.artifactValidation.promoteVersion,
-					{ versionId: version._id },
-				)
-			} else if (version.cdnR2Key) {
-				await ctx.runAction(
-					internal.functions.projects.artifactValidation.demoteVersion,
-					{ versionId: version._id },
-				)
-			}
-		}
 	},
 })
 
@@ -391,7 +269,7 @@ export const validateVersion = internalAction({
 				)
 				if (data.project.status === 'published') {
 					await ctx.runAction(
-						internal.functions.projects.artifactValidation.promoteVersion,
+						internal.functions.projects.artifactDelivery.promoteVersion,
 						args,
 					)
 				}

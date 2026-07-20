@@ -2,7 +2,11 @@ import { v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { mutation, query } from '../../_generated/server'
+import {
+	internalMutation,
+	mutation,
+	query,
+} from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
@@ -552,7 +556,7 @@ export const retryValidation = mutation({
 	},
 })
 
-export const remove = mutation({
+export const prepareVersionRemoval = internalMutation({
 	args: { id: v.id('projectVersions') },
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.id)
@@ -565,14 +569,49 @@ export const remove = mutation({
 			version.projectId,
 			'You must be logged in to delete versions',
 		)
+		await ctx.db.patch(version._id, { deletionRequestedAt: Date.now() })
+		return version
+	},
+})
 
-		if (version.uploadR2Key) {
-			await uploadsR2.deleteObject(ctx, version.uploadR2Key)
+export const finalizeVersionRemoval = internalMutation({
+	args: {
+		id: v.id('projectVersions'),
+		uploadKeys: v.array(v.string()),
+		cdnKeys: v.array(v.string()),
+	},
+	handler: async (ctx, args) => {
+		const version = await ctx.db.get(args.id)
+		if (!version) return
+		await assertCanManageProject(
+			ctx,
+			version.projectId,
+			'You must be logged in to delete versions',
+		)
+		if (!version.deletionRequestedAt) {
+			throw new Error('Version deletion was not prepared')
 		}
-		const cdnKey = getPublishedArtifactKey(version)
-		if (cdnKey) {
-			await cdnR2.deleteObject(ctx, cdnKey)
+
+		for (const key of new Set(args.uploadKeys)) {
+			await uploadsR2.deleteObject(ctx, key)
 		}
+		for (const key of new Set(args.cdnKeys)) {
+			await cdnR2.deleteObject(ctx, key)
+		}
+
+		const uploadReservations = await ctx.db
+			.query('projectArtifactUploads')
+			.withIndex('by_project', (q) => q.eq('projectId', version.projectId))
+			.collect()
+		for (const upload of uploadReservations) {
+			if (
+				upload.artifactId === version.artifactId ||
+				args.uploadKeys.includes(upload.r2Key)
+			) {
+				await ctx.db.delete(upload._id)
+			}
+		}
+
 		await ctx.db.delete(args.id)
 		await updateProjectDownloadStats(ctx, version.projectId)
 

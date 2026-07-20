@@ -44,6 +44,9 @@ the download before redirecting to the permanent CDN URL.
 6. Add the private R2 signed-URL hostname to the validator's
    `ARTIFACT_ALLOWED_HOSTS`. Do not add the CDN hostname unless the validator
    also needs to inspect legacy public artifacts.
+7. Deploy the root-only CDN Worker with `bun run cdn:deploy`. Its exact
+   `cdn.bedrocknexus.com/` route returns a JSON `404`; R2 continues to serve all
+   object paths directly. See `infrastructure/cdn-root/README.md`.
 
 Use this CORS policy on both buckets. Remove the `www` origin if that hostname
 does not serve Hub:

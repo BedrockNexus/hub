@@ -7,7 +7,7 @@ import {
 	Refresh01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -136,7 +136,9 @@ export function ProjectVersionsForm({
 	const versions = useQuery(api.functions.projects.versions.list, {
 		projectId,
 	})
-	const deleteVersion = useMutation(api.functions.projects.versions.remove)
+	const deleteVersion = useAction(
+		api.functions.projects.artifactDelivery.remove,
+	)
 	const retryValidation = useMutation(
 		api.functions.projects.versions.retryValidation,
 	)

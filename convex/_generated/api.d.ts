@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as functions_email from "../functions/email.js";
+import type * as functions_projects_artifactDelivery from "../functions/projects/artifactDelivery.js";
 import type * as functions_projects_artifactValidation from "../functions/projects/artifactValidation.js";
 import type * as functions_projects_categories from "../functions/projects/categories.js";
 import type * as functions_projects_gallery from "../functions/projects/gallery.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
   "functions/email": typeof functions_email;
+  "functions/projects/artifactDelivery": typeof functions_projects_artifactDelivery;
   "functions/projects/artifactValidation": typeof functions_projects_artifactValidation;
   "functions/projects/categories": typeof functions_projects_categories;
   "functions/projects/gallery": typeof functions_projects_gallery;

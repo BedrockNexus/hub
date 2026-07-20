@@ -1473,7 +1473,7 @@ export const adminUpdate = mutation({
 					: item.moderationStatus)
 			await ctx.scheduler.runAfter(
 				0,
-				internal.functions.projects.artifactValidation.syncProjectDelivery,
+				internal.functions.projects.artifactDelivery.syncProjectDelivery,
 				{
 					projectId: args.id,
 					published:
