@@ -10,6 +10,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
+import { siteConfig } from '@/lib/site'
 import { getSiteSeo } from '@/lib/site-settings'
 
 interface OrganizationPageProps {
@@ -39,6 +40,8 @@ export async function generateMetadata({
 		socialImages = [organization.bannerUrl]
 	} else if (organization.logo) {
 		socialImages = [organization.logo]
+	} else if (seo.ogImageUrl) {
+		socialImages = [seo.ogImageUrl]
 	}
 
 	return {
@@ -48,7 +51,7 @@ export async function generateMetadata({
 			canonical: absoluteUrl(`/organizations/${organization.slug}`),
 		},
 		openGraph: {
-			title: `${organization.name} | ${seo.siteName}`,
+			title: `${organization.name} | ${siteConfig.name}`,
 			description,
 			url: absoluteUrl(`/organizations/${organization.slug}`),
 			images: socialImages,

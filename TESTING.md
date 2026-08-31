@@ -6,6 +6,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 
 - [x] Run `bun run lint`.
 - [x] Run `bun run lint:framework` (passes with existing React Compiler/TanStack Table and image warnings only).
+- [x] Run `bun run test`.
 - [x] Run `bun run typecheck`.
 - [ ] Run `bun run build`.
 - [ ] Run `bun run test:e2e`.
@@ -21,7 +22,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 
 - [ ] Home, server listing, and project listing load on desktop and mobile widths.
 - [ ] Published server detail shows overview, gallery, reviews, copy IP, status, and SEO metadata.
-- [ ] Published project detail shows overview, gallery, versions, changelog, reviews, and download buttons.
+- [ ] Published project detail shows overview, gallery, releases, reviews, and download buttons.
 - [ ] Blog remains a deferred placeholder with no publishing or editing surface.
 - [ ] User profiles show public bio, role badge, published servers, and published projects.
 - [ ] Public listings have no broken filtering, sorting, pagination, empty, or error states.
@@ -47,10 +48,10 @@ This file is the canonical checklist for launch verification, automated tests, a
 
 ## R2 And Downloads
 
-- [ ] Upload, replace, and remove the site logo from admin settings; confirm navbar, footer, dashboard, admin, and metadata use the new R2 image.
-- [ ] Upload, replace, and remove the Open Graph image and favicon; confirm metadata resolves their R2 URLs and the previous objects are deleted.
-- [ ] Confirm site-logo uploads reject unsupported image types and files larger than 5MB.
-- [ ] Confirm replacing or removing a site logo deletes the previous R2 object and stale unsaved uploads are cleaned up.
+- [ ] Upload, replace, and remove the Open Graph image; confirm metadata and social previews resolve its R2 URL.
+- [ ] Confirm Open Graph uploads reject unsupported image types and files larger than 5MB.
+- [ ] Confirm replacing or removing the Open Graph image deletes the previous R2 object and stale unsaved uploads are cleaned up.
+- [ ] Confirm navbar, footer, dashboard, admin, maintenance, favicon, and app icon use the static repository brand assets.
 - [ ] Upload, replace, and remove a project icon.
 - [ ] Upload, replace, and remove a server logo and banner.
 - [ ] Upload, reorder, caption, and delete server gallery images.
@@ -62,7 +63,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [ ] Confirm deleting an image compacts the remaining sort order without gaps.
 - [ ] Upload and remove editor media.
 - [ ] Upload and delete one valid release artifact for each project type:
-  `.mcaddon`, `.mcworld`, skin `.png`, `.bbmodel`, and `.mcpack`.
+  `.mcaddon` and `.mcpack`.
 - [ ] Download a project version through the app route and confirm version and aggregate project counts increment.
 - [ ] Confirm each version download requests a fresh signed URL and shows a preparing state.
 - [ ] Confirm a missing R2 version file shows retry-friendly unavailable copy without incrementing download counts.
@@ -70,7 +71,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [ ] Confirm retrying a temporary download failure generates a new signed URL and starts the download.
 - [ ] Confirm aggregate download statistics remain correct after version deletion.
 - [ ] Confirm replaced, deleted, and stale unattached objects are removed from R2.
-- [ ] Confirm new R2 object keys use `media/`, `artifacts/`, or `temporary/`
+- [ ] Confirm new R2 object keys use `media/`, `uploads/`, or `downloads/`
   namespaces with immutable entity, release, upload, and asset IDs.
 
 ## Project Artifact Validation
@@ -79,15 +80,9 @@ This file is the canonical checklist for launch verification, automated tests, a
   MIME, and artifact count, on both the client and backend.
 - [ ] Confirm renamed files with allowed extensions are rejected when their
   magic bytes or parsed contents do not match the expected artifact.
-- [ ] Confirm Addon, Map, and Resource Pack archives reject traversal paths,
+- [ ] Confirm Addon and Resource Pack archives reject traversal paths,
   malformed or mismatched manifests, excessive entries, and unsafe expansion
   ratios without extracting files on the server.
-- [ ] Confirm a skin release accepts exactly one 64x64 PNG, stores Classic or
-  Slim metadata, rejects malformed or animated images, and renders correctly
-  on the public player preview.
-- [ ] Confirm `.bbmodel` validation rejects malformed JSON, unsupported model
-  metadata, and missing or external textures while exposing only sanitized
-  metadata publicly.
 - [ ] Confirm pending or invalid artifacts cannot be submitted for review,
   approved, published, downloaded, or counted as a valid project release.
 - [ ] Confirm failed, cancelled, and abandoned uploads are deleted and cannot

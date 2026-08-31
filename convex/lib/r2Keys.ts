@@ -14,7 +14,8 @@ type BuildProjectReleaseR2ObjectKeyArgs = {
 }
 
 export type EditorMediaKind = 'audio' | 'file' | 'image' | 'video'
-export type SiteImageKind = 'favicon' | 'logo' | 'open-graph'
+export type SiteImageKind = 'open-graph'
+type RecognizedSiteImageKind = 'favicon' | 'logo' | SiteImageKind
 export type MediaEntityType =
 	| 'organizations'
 	| 'profiles'
@@ -251,7 +252,7 @@ export function isManagedEntityR2Key(key: string): boolean {
 
 export function isSiteImageR2Key(
 	key: string,
-	imageKind?: SiteImageKind,
+	imageKind?: RecognizedSiteImageKind,
 ): boolean {
 	const match = key.match(
 		/^media\/site\/global\/(favicon|logo|open-graph)\/[^/]+$/,

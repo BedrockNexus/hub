@@ -9,7 +9,7 @@ import {
   useUpdateMemberRole
 } from "@better-auth-ui/react"
 import type { Member, Organization, User } from "better-auth/client"
-import { LogOut, Pencil, Trash2 } from "lucide-react"
+import { LogOut, Pencil, Trash2 } from "@/components/ui/icons"
 import { useState } from "react"
 import { toast } from "sonner"
 

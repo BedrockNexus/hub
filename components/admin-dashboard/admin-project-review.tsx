@@ -246,10 +246,7 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 						</div>
 					</CardContent>
 				</Card>
-				<ProjectTypeDetailsCard
-					latestRelease={project.versions[0]}
-					metadata={project.metadata}
-				/>
+				<ProjectTypeDetailsCard metadata={project.metadata} />
 			</div>
 		</div>
 	)

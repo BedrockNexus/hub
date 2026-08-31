@@ -12,12 +12,6 @@ import Image from 'next/image'
 import type React from 'react'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import {
-	Stat,
-	StatDescription,
-	StatLabel,
-	StatValue,
-} from '@/components/dice-ui/stat'
 import { Status, StatusLabel } from '@/components/dice-ui/status'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,13 +28,10 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import { uploadFileToPresignedUrl } from '@/lib/r2-upload'
-import { cn } from '@/lib/utils'
 import { AdminPageHeader } from './admin-page-header'
 
 interface SeoDraft {
-	siteName: string
 	siteDescription: string
-	siteKeywords: string
 }
 
 interface SocialsDraft {
@@ -57,9 +48,8 @@ interface FeaturesDraft {
 }
 
 const DEFAULT_SEO_DRAFT: SeoDraft = {
-	siteName: 'BedrockNexus',
-	siteDescription: 'Discover the best Minecraft Bedrock servers',
-	siteKeywords: '',
+	siteDescription:
+		'Discover Minecraft Bedrock servers, projects, and community content.',
 }
 
 const DEFAULT_SOCIALS_DRAFT: SocialsDraft = {
@@ -74,7 +64,6 @@ const DEFAULT_FEATURES_DRAFT: FeaturesDraft = {
 	registrationEnabled: true,
 	maintenanceMode: false,
 }
-const SETTINGS_SKELETON_KEYS = ['seo', 'socials', 'features', 'storage']
 const MAX_SITE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
 const ALLOWED_SITE_IMAGE_TYPES = new Set([
 	'image/gif',
@@ -84,41 +73,15 @@ const ALLOWED_SITE_IMAGE_TYPES = new Set([
 ])
 const SITE_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 
-type SiteImageKind = 'favicon' | 'logo' | 'open-graph'
-
 function optionalString(value: string) {
 	const trimmed = value.trim()
 	return trimmed.length > 0 ? trimmed : undefined
 }
 
-function parseKeywords(value: string) {
-	const keywords = value
-		.split(',')
-		.map((keyword) => keyword.trim())
-		.filter(Boolean)
-
-	return keywords.length > 0 ? keywords : undefined
-}
-
-function formatDate(value?: number) {
-	if (!value) {
-		return 'Not saved yet'
-	}
-
-	return new Intl.DateTimeFormat('en-US', {
-		dateStyle: 'medium',
-		timeStyle: 'short',
-	}).format(new Date(value))
-}
-
 function AdminSettingsSkeleton() {
 	return (
 		<div className="space-y-6">
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				{SETTINGS_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-28 rounded-xl" key={key} />
-				))}
-			</div>
+			<Skeleton className="h-16 w-full max-w-xl rounded-md" />
 			<div className="grid gap-4 lg:grid-cols-2">
 				<Skeleton className="h-96 rounded-xl" />
 				<Skeleton className="h-96 rounded-xl" />
@@ -207,7 +170,6 @@ function useSiteImageUpload(label: string) {
 }
 
 function SiteImageUploadField({
-	className,
 	currentUrl,
 	description,
 	disabled,
@@ -216,12 +178,10 @@ function SiteImageUploadField({
 	inputRef,
 	label,
 	preview,
-	previewShape,
 	remove,
 	removed,
 	undoRemove,
 }: {
-	className?: string
 	currentUrl?: string
 	description: string
 	disabled: boolean
@@ -230,7 +190,6 @@ function SiteImageUploadField({
 	inputRef: React.RefObject<HTMLInputElement | null>
 	label: string
 	preview: string | null
-	previewShape: 'square' | 'wide'
 	remove: () => void
 	removed: boolean
 	undoRemove: () => void
@@ -238,7 +197,7 @@ function SiteImageUploadField({
 	const displayUrl = preview ?? (removed ? undefined : currentUrl)
 
 	return (
-		<div className={cn('space-y-3', className)}>
+		<div className="space-y-3">
 			<div className="space-y-1">
 				<Label>{label}</Label>
 				<p className="text-muted-foreground text-xs">{description}</p>
@@ -246,16 +205,11 @@ function SiteImageUploadField({
 			{displayUrl && (
 				<Image
 					alt={`${label} preview`}
-					className={cn(
-						'border bg-muted object-contain',
-						previewShape === 'wide'
-							? 'aspect-[40/21] w-full max-w-md rounded-md'
-							: 'size-20 rounded-lg',
-					)}
-					height={previewShape === 'wide' ? 315 : 80}
+					className="aspect-[40/21] w-full max-w-md rounded-md border bg-muted object-contain"
+					height={315}
 					src={displayUrl}
 					unoptimized
-					width={previewShape === 'wide' ? 600 : 80}
+					width={600}
 				/>
 			)}
 			<div className="flex flex-wrap gap-2">
@@ -363,9 +317,7 @@ export function AdminSettingsManager() {
 		DEFAULT_FEATURES_DRAFT,
 	)
 	const [pendingAction, setPendingAction] = useState<string | null>(null)
-	const logoUpload = useSiteImageUpload('Site logo')
 	const ogImageUpload = useSiteImageUpload('Open Graph image')
-	const faviconUpload = useSiteImageUpload('Favicon')
 
 	useEffect(() => {
 		if (!settings) {
@@ -373,11 +325,9 @@ export function AdminSettingsManager() {
 		}
 
 		setSeoDraft({
-			siteName: settings.seo.siteName ?? DEFAULT_SEO_DRAFT.siteName,
 			siteDescription:
 				settings.seo.siteDescription ??
 				DEFAULT_SEO_DRAFT.siteDescription,
-			siteKeywords: settings.seo.siteKeywords?.join(', ') ?? '',
 		})
 		setSocialsDraft({
 			discord: settings.socials.discord ?? '',
@@ -393,7 +343,6 @@ export function AdminSettingsManager() {
 	}, [settings])
 
 	async function resolveSiteImageR2Key(
-		imageKind: SiteImageKind,
 		currentR2Key: string | undefined,
 		upload: { file: File | null; removed: boolean },
 	): Promise<string | null> {
@@ -403,7 +352,7 @@ export function AdminSettingsManager() {
 		if (upload.file) {
 			const { key, url } = await generateSiteImageUploadUrl({
 				fileName: upload.file.name,
-				imageKind,
+				imageKind: 'open-graph',
 			})
 
 			await uploadFileToPresignedUrl({
@@ -416,48 +365,22 @@ export function AdminSettingsManager() {
 		return currentR2Key ?? null
 	}
 
-	const socialLinkCount = Object.values(socialsDraft).filter(
-		(value) => value.trim().length > 0,
-	).length
-	const keywordCount = parseKeywords(seoDraft.siteKeywords)?.length ?? 0
-
 	const handleSaveSeo = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
 		setPendingAction('seo')
 
 		try {
-			const [siteLogoR2Key, ogImageR2Key, faviconR2Key] =
-				await Promise.all([
-					resolveSiteImageR2Key(
-						'logo',
-						settings?.seo.siteLogoR2Key,
-						logoUpload,
-					),
-					resolveSiteImageR2Key(
-						'open-graph',
-						settings?.seo.ogImageR2Key,
-						ogImageUpload,
-					),
-					resolveSiteImageR2Key(
-						'favicon',
-						settings?.seo.faviconR2Key,
-						faviconUpload,
-					),
-				])
+			const ogImageR2Key = await resolveSiteImageR2Key(
+				settings?.seo.ogImageR2Key,
+				ogImageUpload,
+			)
 			await updateSeo({
-				siteName:
-					seoDraft.siteName.trim() || DEFAULT_SEO_DRAFT.siteName,
 				siteDescription:
 					seoDraft.siteDescription.trim() ||
 					DEFAULT_SEO_DRAFT.siteDescription,
-				siteKeywords: parseKeywords(seoDraft.siteKeywords),
-				siteLogoR2Key,
 				ogImageR2Key,
-				faviconR2Key,
 			})
-			logoUpload.reset()
 			ogImageUpload.reset()
-			faviconUpload.reset()
 			toast.success('SEO settings saved')
 		} catch (error) {
 			toast.error(
@@ -523,83 +446,19 @@ export function AdminSettingsManager() {
 				title="Settings"
 			/>
 
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				<Stat>
-					<StatLabel>Setting Records</StatLabel>
-					<StatValue>{settings.settingCount}</StatValue>
-					<StatDescription>
-						{formatDate(settings.updatedAt)}
-					</StatDescription>
-				</Stat>
-				<Stat>
-					<StatLabel>SEO Keywords</StatLabel>
-					<StatValue>{keywordCount}</StatValue>
-					<StatDescription>
-						Comma-separated metadata terms
-					</StatDescription>
-				</Stat>
-				<Stat>
-					<StatLabel>Social Links</StatLabel>
-					<StatValue>{socialLinkCount}</StatValue>
-					<StatDescription>
-						Public footer and home links
-					</StatDescription>
-				</Stat>
-				<Stat>
-					<StatLabel>Maintenance</StatLabel>
-					<StatValue>
-						{featuresDraft.maintenanceMode ? 'On' : 'Off'}
-					</StatValue>
-					<StatDescription>Operational site flag</StatDescription>
-				</Stat>
-			</div>
-
 			<div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
 				<Card>
 					<CardHeader>
-						<CardTitle>SEO Metadata</CardTitle>
+						<CardTitle>Search &amp; Sharing</CardTitle>
 						<CardDescription>
-							Defaults used by layout metadata and sharing
-							surfaces.
+							Manage the default site description and social
+							sharing image.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
 						<form className="space-y-4" onSubmit={handleSaveSeo}>
-							<div className="grid gap-4 md:grid-cols-2">
+							<div className="space-y-4">
 								<div className="space-y-2">
-									<Label htmlFor="site-name">Site Name</Label>
-									<Input
-										disabled={pendingAction === 'seo'}
-										id="site-name"
-										maxLength={60}
-										onChange={(event) =>
-											setSeoDraft({
-												...seoDraft,
-												siteName: event.target.value,
-											})
-										}
-										value={seoDraft.siteName}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="site-keywords">
-										Keywords
-									</Label>
-									<Input
-										disabled={pendingAction === 'seo'}
-										id="site-keywords"
-										onChange={(event) =>
-											setSeoDraft({
-												...seoDraft,
-												siteKeywords:
-													event.target.value,
-											})
-										}
-										placeholder="minecraft, bedrock, servers"
-										value={seoDraft.siteKeywords}
-									/>
-								</div>
-								<div className="space-y-2 md:col-span-2">
 									<Label htmlFor="site-description">
 										Description
 									</Label>
@@ -621,7 +480,6 @@ export function AdminSettingsManager() {
 									</p>
 								</div>
 								<SiteImageUploadField
-									className="md:col-span-2"
 									currentUrl={settings.seo.ogImageUrl}
 									description="Used when links are shared on Discord and social platforms. Recommended size: 1200 x 630."
 									disabled={pendingAction === 'seo'}
@@ -632,42 +490,9 @@ export function AdminSettingsManager() {
 									inputRef={ogImageUpload.inputRef}
 									label="Open Graph Image"
 									preview={ogImageUpload.preview}
-									previewShape="wide"
 									remove={ogImageUpload.remove}
 									removed={ogImageUpload.removed}
 									undoRemove={ogImageUpload.undoRemove}
-								/>
-								<SiteImageUploadField
-									currentUrl={settings.seo.siteLogoUrl}
-									description="Used in the site navigation, footer, and branded surfaces."
-									disabled={pendingAction === 'seo'}
-									file={logoUpload.file}
-									handleFileChange={
-										logoUpload.handleFileChange
-									}
-									inputRef={logoUpload.inputRef}
-									label="Site Logo"
-									preview={logoUpload.preview}
-									previewShape="square"
-									remove={logoUpload.remove}
-									removed={logoUpload.removed}
-									undoRemove={logoUpload.undoRemove}
-								/>
-								<SiteImageUploadField
-									currentUrl={settings.seo.faviconUrl}
-									description="Used in browser tabs and bookmarks. A square PNG is recommended."
-									disabled={pendingAction === 'seo'}
-									file={faviconUpload.file}
-									handleFileChange={
-										faviconUpload.handleFileChange
-									}
-									inputRef={faviconUpload.inputRef}
-									label="Favicon"
-									preview={faviconUpload.preview}
-									previewShape="square"
-									remove={faviconUpload.remove}
-									removed={faviconUpload.removed}
-									undoRemove={faviconUpload.undoRemove}
 								/>
 							</div>
 							<Button

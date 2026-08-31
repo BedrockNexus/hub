@@ -2,6 +2,10 @@ import { v } from 'convex/values'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { projectType } from '../../schemas/projects'
+import {
+	assertSupportedProjectType,
+	isSupportedProjectType,
+} from '../../../lib/project-artifacts'
 
 // =============================================================================
 // HELPERS
@@ -30,22 +34,34 @@ export const list = query({
 		const type = args.projectType
 
 		if (type) {
+			if (!isSupportedProjectType(type)) return []
 			const all = await ctx.db
 				.query('projectCategories')
 				.withIndex('by_type', (q) => q.eq('projectType', type))
 				.collect()
 			if (args.includeInactive) return all
-			return all.filter((c) => c.isActive)
+			return all.filter(
+				(c) => c.isActive && isSupportedProjectType(c.projectType),
+			)
 		}
 
 		if (args.includeInactive) {
-			return ctx.db.query('projectCategories').order('asc').collect()
+			const categories = await ctx.db
+				.query('projectCategories')
+				.order('asc')
+				.collect()
+			return categories.filter((category) =>
+				isSupportedProjectType(category.projectType),
+			)
 		}
 
-		return ctx.db
+		const categories = await ctx.db
 			.query('projectCategories')
 			.withIndex('by_active', (q) => q.eq('isActive', true))
 			.collect()
+		return categories.filter((category) =>
+			isSupportedProjectType(category.projectType),
+		)
 	},
 })
 
@@ -55,10 +71,13 @@ export const list = query({
 export const getBySlug = query({
 	args: { slug: v.string() },
 	handler: async (ctx, args) => {
-		return ctx.db
+		const category = await ctx.db
 			.query('projectCategories')
 			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
 			.first()
+		return category && isSupportedProjectType(category.projectType)
+			? category
+			: null
 	},
 })
 
@@ -88,18 +107,20 @@ export const listWithCounts = query({
 			.withIndex('by_status', (q) => q.eq('status', 'published'))
 			.collect()
 
-		return categories.map((category) => {
-			const projectCount = items.filter((item) =>
-				item.categoryIds.includes(category._id),
-			).length
+		return categories
+			.filter((category) => isSupportedProjectType(category.projectType))
+			.map((category) => {
+				const projectCount = items.filter((item) =>
+					item.categoryIds.includes(category._id),
+				).length
 
-			return {
-				...category,
-				projectCount,
-				// Backwards-compat alias for older callers
-				contentCount: projectCount,
-			}
-		})
+				return {
+					...category,
+					projectCount,
+					// Backwards-compat alias for older callers
+					contentCount: projectCount,
+				}
+			})
 	},
 })
 
@@ -123,20 +144,22 @@ export const listAdmin = query({
 			.collect()
 		const projects = await ctx.db.query('projects').collect()
 
-		return categories.map((category) => {
-			const categoryProjects = projects.filter((project) =>
-				project.categoryIds.includes(category._id),
-			)
+		return categories
+			.filter((category) => isSupportedProjectType(category.projectType))
+			.map((category) => {
+				const categoryProjects = projects.filter((project) =>
+					project.categoryIds.includes(category._id),
+				)
 
-			return {
-				...category,
-				projectCount: categoryProjects.length,
-				publishedProjectCount: categoryProjects.filter(
-					(project) => project.status === 'published',
-				).length,
-				contentCount: categoryProjects.length,
-			}
-		})
+				return {
+					...category,
+					projectCount: categoryProjects.length,
+					publishedProjectCount: categoryProjects.filter(
+						(project) => project.status === 'published',
+					).length,
+					contentCount: categoryProjects.length,
+				}
+			})
 	},
 })
 
@@ -164,6 +187,7 @@ export const create = mutation({
 		if (user.role !== 'admin') {
 			throw new Error('Only admins can create categories')
 		}
+		assertSupportedProjectType(args.projectType)
 
 		const slug = generateSlug(args.name)
 

@@ -4,6 +4,11 @@ import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import { canModifyServerOwner } from '../../lib/contentOwnership'
+import {
+	isPublicServer,
+	requiresModerationReason,
+} from '../../lib/contentVisibility'
 import { validateEntityImageUpload } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { enforceRateLimit } from '../../lib/rateLimits'
@@ -191,14 +196,23 @@ async function canModifyServer(
 	role?: string,
 ) {
 	if (role === 'admin') {
-		return true
+		return canModifyServerOwner({ owner: server, userId, role })
 	}
 
 	if (server.ownerType === 'user') {
-		return server.ownerId === userId || server.registeredBy === userId
+		return canModifyServerOwner({ owner: server, userId, role })
 	}
 
-	return isOrganizationMember(ctx, server.ownerId, userId)
+	return canModifyServerOwner({
+		owner: server,
+		userId,
+		role,
+		isOrganizationMember: await isOrganizationMember(
+			ctx,
+			server.ownerId,
+			userId,
+		),
+	})
 }
 
 async function deleteR2ObjectIfPresent(ctx: MutationCtx, key?: string) {
@@ -640,7 +654,7 @@ export const getPublishedBySlug = query({
 			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
 			.first()
 
-		if (!server || server.status !== 'published') {
+		if (!server || !isPublicServer(server)) {
 			return null
 		}
 
@@ -1469,8 +1483,7 @@ export const updateAdmin = mutation({
 							: {}
 
 		if (
-			(moderationStatus === 'rejected' ||
-				moderationStatus === 'flagged') &&
+			requiresModerationReason(moderationStatus) &&
 			!moderationReason?.trim()
 		) {
 			throw new Error('A moderation reason is required')

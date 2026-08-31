@@ -2,7 +2,7 @@
 
 import { useDirection } from '@radix-ui/react-direction'
 import { Slot } from '@radix-ui/react-slot'
-import { Check } from 'lucide-react'
+import { Check } from '@/components/ui/icons'
 import * as React from 'react'
 import { useAsRef } from '@/hooks/use-as-ref'
 import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect'

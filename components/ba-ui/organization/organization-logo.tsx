@@ -1,7 +1,7 @@
 "use client"
 
 import type { Organization } from "better-auth/client"
-import { Briefcase } from "lucide-react"
+import { Briefcase } from "@/components/ui/icons"
 import type { ComponentProps, CSSProperties, ReactNode } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"

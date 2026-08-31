@@ -6,7 +6,7 @@ export async function generateMetadata(): Promise<Metadata> {
 	const seo = await getSiteSeo()
 	const title = 'Minecraft Bedrock Projects'
 	const description =
-		'Discover downloadable Minecraft Bedrock add-ons, maps, resource packs, and community projects.'
+		'Discover downloadable Minecraft Bedrock add-ons and resource packs from community creators.'
 
 	return {
 		title: 'Minecraft Bedrock Projects',

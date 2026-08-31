@@ -34,6 +34,7 @@ interface VersionFileUploadProps {
 		r2Key: string,
 		fileName: string,
 		fileSize: number,
+		version: string,
 	) => void
 	/** Called when the staged file is removed before the form is submitted */
 	onUploadRemoved: () => void
@@ -69,7 +70,12 @@ export function VersionFileUpload({
 
 			try {
 				// 1. Get presigned PUT URL with the structured object key
-				const { uploadId, key, url } = await generateUploadUrl({
+				const {
+					uploadId,
+					key,
+					url,
+					version: assignedVersion,
+				} = await generateUploadUrl({
 					projectId,
 					version,
 					fileName: file.name,
@@ -109,7 +115,13 @@ export function VersionFileUpload({
 				// 3. Sync metadata to Convex so it's queryable
 				await syncMetadata({ key })
 
-				onUploadComplete(uploadId, key, file.name, file.size)
+				onUploadComplete(
+					uploadId,
+					key,
+					file.name,
+					file.size,
+					assignedVersion,
+				)
 			} catch (err) {
 				toast.error(
 					err instanceof Error
@@ -157,7 +169,7 @@ export function VersionFileUpload({
 						/>
 					</div>
 					<p className="font-medium text-sm">
-						Drop version file here
+						Drop release file here
 					</p>
 					<p className="text-muted-foreground text-xs">
 						{policy.requirement}

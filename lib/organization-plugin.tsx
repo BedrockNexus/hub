@@ -4,9 +4,8 @@ import {
 	type OrganizationLocalization,
 	type OrganizationPluginOptions,
 } from '@better-auth-ui/core/plugins'
-import { Briefcase } from 'lucide-react'
-
 import { OrganizationsSettings } from '@/components/ba-ui/organization/organizations-settings'
+import { Briefcase } from '@/components/ui/icons'
 
 export const organizationPlugin = createAuthPlugin(
 	coreOrganizationPlugin.id,

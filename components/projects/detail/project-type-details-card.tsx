@@ -2,41 +2,14 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-	MAP_GAME_MODE_LABELS,
 	type ProjectMetadata,
 	RESOURCE_PACK_CONTENT_LABELS,
-	SKIN_CHARACTER_CATEGORY_LABELS,
 } from '@/lib/project-metadata'
 
 type MetadataOf<T extends ProjectMetadata['type']> = Extract<
 	ProjectMetadata,
 	{ type: T }
 >
-
-interface LatestReleaseDetails {
-	fileSize?: number
-	skinModel?: 'classic' | 'slim'
-	validationReport?: { totalUncompressedSize?: number }
-}
-
-function formatBytes(bytes: number) {
-	if (bytes < 1024 * 1024) {
-		return `${(bytes / 1024).toFixed(1)} KB`
-	}
-	if (bytes < 1024 * 1024 * 1024) {
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-	}
-	return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-}
-
-function formatPlaytime(minutes: number) {
-	if (minutes < 60) {
-		return `${minutes} min`
-	}
-	const hours = Math.floor(minutes / 60)
-	const remainder = minutes % 60
-	return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`
-}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
 	return (
@@ -101,49 +74,6 @@ function AddonDetails({ metadata }: { metadata: MetadataOf<'addon'> }) {
 	)
 }
 
-function MapDetails({
-	latestRelease,
-	metadata,
-}: {
-	latestRelease?: LatestReleaseDetails | null
-	metadata: MetadataOf<'map'>
-}) {
-	return (
-		<>
-			<DetailRow
-				label="Game mode"
-				value={MAP_GAME_MODE_LABELS[metadata.gameMode]}
-			/>
-			<DetailRow
-				label="Multiplayer"
-				value={
-					metadata.multiplayerSupport ? 'Supported' : 'Single-player'
-				}
-			/>
-			{metadata.estimatedPlaytimeMinutes ? (
-				<DetailRow
-					label="Estimated playtime"
-					value={formatPlaytime(metadata.estimatedPlaytimeMinutes)}
-				/>
-			) : null}
-			{latestRelease?.fileSize ? (
-				<DetailRow
-					label="Download size"
-					value={formatBytes(latestRelease.fileSize)}
-				/>
-			) : null}
-			{latestRelease?.validationReport?.totalUncompressedSize ? (
-				<DetailRow
-					label="World size"
-					value={formatBytes(
-						latestRelease.validationReport.totalUncompressedSize,
-					)}
-				/>
-			) : null}
-		</>
-	)
-}
-
 function ResourcePackDetails({
 	metadata,
 }: {
@@ -163,69 +93,22 @@ function ResourcePackDetails({
 	)
 }
 
-function SkinDetails({
-	latestRelease,
-	metadata,
-}: {
-	latestRelease?: LatestReleaseDetails | null
-	metadata: MetadataOf<'skin'>
-}) {
-	return (
-		<>
-			<DetailRow
-				label="Character"
-				value={
-					SKIN_CHARACTER_CATEGORY_LABELS[metadata.characterCategory]
-				}
-			/>
-			{latestRelease?.skinModel ? (
-				<DetailRow
-					label="Player model"
-					value={
-						latestRelease.skinModel === 'classic'
-							? 'Classic / Steve'
-							: 'Slim / Alex'
-					}
-				/>
-			) : null}
-			<DetailRow label="Format" value="Single 64x64 PNG" />
-		</>
-	)
-}
-
-function MetadataContent({
-	latestRelease,
-	metadata,
-}: {
-	latestRelease?: LatestReleaseDetails | null
-	metadata: ProjectMetadata
-}) {
+function MetadataContent({ metadata }: { metadata: ProjectMetadata }) {
 	switch (metadata.type) {
 		case 'addon':
 			return <AddonDetails metadata={metadata} />
 		case 'map':
-			return (
-				<MapDetails latestRelease={latestRelease} metadata={metadata} />
-			)
+			return null
 		case 'resource_pack':
 			return <ResourcePackDetails metadata={metadata} />
-		case 'skin':
-			return (
-				<SkinDetails
-					latestRelease={latestRelease}
-					metadata={metadata}
-				/>
-			)
 		default:
 			return null
 	}
 }
 
 export function ProjectTypeDetailsCard({
-	latestRelease,
 	metadata,
 }: {
-	latestRelease?: LatestReleaseDetails | null
 	metadata?: ProjectMetadata
 }) {
 	if (!metadata) {
@@ -238,10 +121,7 @@ export function ProjectTypeDetailsCard({
 				<CardTitle>Type Details</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-3">
-				<MetadataContent
-					latestRelease={latestRelease}
-					metadata={metadata}
-				/>
+				<MetadataContent metadata={metadata} />
 			</CardContent>
 		</Card>
 	)

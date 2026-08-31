@@ -662,7 +662,7 @@ function CategoriesStats({
 			<Stat>
 				<StatLabel>Project Types</StatLabel>
 				<StatValue>{PROJECT_TYPES.length}</StatValue>
-				<StatDescription>Add-ons, skins, maps, packs</StatDescription>
+				<StatDescription>Addons and resource packs</StatDescription>
 			</Stat>
 		</div>
 	)

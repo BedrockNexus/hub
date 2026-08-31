@@ -2,6 +2,7 @@ import { fetchQuery } from 'convex/nextjs'
 import type { Metadata } from 'next'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
+import { siteConfig } from '@/lib/site'
 import { getSiteSeo } from '@/lib/site-settings'
 
 interface ProjectLayoutProps {
@@ -37,7 +38,7 @@ export async function generateMetadata({
 		description,
 		alternates: { canonical: url },
 		openGraph: {
-			title: `${title} | ${seo.siteName}`,
+			title: `${title} | ${siteConfig.name}`,
 			description,
 			type: 'website',
 			url,
@@ -45,7 +46,7 @@ export async function generateMetadata({
 		},
 		twitter: {
 			card: image ? 'summary_large_image' : 'summary',
-			title: `${title} | ${seo.siteName}`,
+			title: `${title} | ${siteConfig.name}`,
 			description,
 			images: image ? [image] : undefined,
 		},

@@ -2,69 +2,23 @@
 
 import {
 	DashboardBrowsingIcon,
-	Home01Icon,
 	OfficeIcon,
 	Package01Icon,
 	ServerStack01Icon,
 	UserIcon,
-	Wifi01Icon,
 } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
-import Image from 'next/image'
+import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
 	UserButton,
 	type UserButtonLink,
 } from '@/components/ba-ui/user/user-button'
+import { BrandMark } from '@/components/brand-mark'
+import { homeNavigation, publicNavigation } from '@/lib/site'
 import { cn } from '@/lib/utils'
 
-interface NavbarMenuItem {
-	title: string
-	url: string
-	icon: IconSvgElement
-}
-
-const mobileMenuItems: NavbarMenuItem[] = [
-	{
-		title: 'Home',
-		url: '/',
-		icon: Home01Icon,
-	},
-	{
-		title: 'Servers',
-		url: '/servers',
-		icon: ServerStack01Icon,
-	},
-	{
-		title: 'Projects',
-		url: '/projects',
-		icon: Package01Icon,
-	},
-	{
-		title: 'Ping',
-		url: '/tools/server-ping',
-		icon: Wifi01Icon,
-	},
-]
-
-const desktopMenuItems: NavbarMenuItem[] = [
-	{
-		title: 'Servers',
-		url: '/servers',
-		icon: ServerStack01Icon,
-	},
-	{
-		title: 'Projects',
-		url: '/projects',
-		icon: Package01Icon,
-	},
-	{
-		title: 'Server Ping',
-		url: '/tools/server-ping',
-		icon: Wifi01Icon,
-	},
-]
+const mobileNavigation = [homeNavigation, ...publicNavigation]
 
 const userButtonLinks: UserButtonLink[] = [
 	{
@@ -121,11 +75,6 @@ const userButtonLinks: UserButtonLink[] = [
 	},
 ]
 
-interface NavbarProps {
-	siteLogo?: string
-	siteName?: string
-}
-
 function isActiveRoute(pathname: string, url: string) {
 	if (url === '/') {
 		return pathname === url
@@ -134,40 +83,24 @@ function isActiveRoute(pathname: string, url: string) {
 	return pathname === url || pathname.startsWith(`${url}/`)
 }
 
-export function Navbar({
-	siteLogo = '/images/bedrocknexus-logo.png',
-	siteName = 'BedrockNexus',
-}: NavbarProps) {
+export function Navbar() {
 	const pathname = usePathname()
 
 	return (
 		<>
-			{/* if we ever want to make the nav sticky "sticky top-0 z-50 border-b bg-muted"  */}
 			<header className="hidden lg:block">
 				<nav
 					aria-label="Primary navigation"
 					className="container mx-auto px-4 md:px-6"
 				>
 					<div className="grid h-20 grid-cols-[1fr_auto_1fr] items-center">
-						<Link
-							aria-label={`${siteName} home`}
-							className="flex w-fit items-center"
-							href="/"
-						>
-							<Image
-								alt={siteName}
-								className="h-auto w-44"
-								height={905}
-								src={siteLogo}
-								width={2000}
-							/>
-						</Link>
+						<BrandMark priority />
 
 						<div className="flex items-center gap-1">
-							{desktopMenuItems.map((item) => {
+							{publicNavigation.map((item) => {
 								const isActive = isActiveRoute(
 									pathname,
-									item.url,
+									item.href,
 								)
 
 								return (
@@ -176,12 +109,12 @@ export function Navbar({
 											isActive ? 'page' : undefined
 										}
 										className={cn(
-											'flex items-center gap-2 rounded-md px-4 py-2 font-medium text-muted-foreground text-sm hover:bg-primary/40 hover:text-foreground',
+											'flex items-center gap-2 rounded-md px-4 py-2 font-medium text-muted-foreground text-sm transition-[color,background-color,filter] hover:bg-primary hover:text-primary-foreground hover:brightness-95',
 											isActive &&
-												'bg-primary/40 text-foreground shadow-sm hover:bg-primary/40',
+												'bg-primary text-primary-foreground shadow-sm',
 										)}
-										href={item.url}
-										key={item.url}
+										href={item.href}
+										key={item.href}
 									>
 										<HugeiconsIcon
 											aria-hidden
@@ -189,7 +122,7 @@ export function Navbar({
 											icon={item.icon}
 											strokeWidth={1.8}
 										/>
-										{item.title}
+										{item.label}
 									</Link>
 								)
 							})}
@@ -207,8 +140,8 @@ export function Navbar({
 				className="fixed inset-x-0 bottom-0 z-50 border-t bg-muted/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
 			>
 				<div className="mx-auto flex max-w-md items-stretch">
-					{mobileMenuItems.map((item) => {
-						const isActive = isActiveRoute(pathname, item.url)
+					{mobileNavigation.map((item) => {
+						const isActive = isActiveRoute(pathname, item.href)
 
 						return (
 							<Link
@@ -216,10 +149,10 @@ export function Navbar({
 								className={cn(
 									'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-muted-foreground',
 									isActive &&
-										'bg-background text-primary shadow-sm',
+										'bg-background text-foreground shadow-sm',
 								)}
-								href={item.url}
-								key={item.url}
+								href={item.href}
+								key={item.href}
 							>
 								<HugeiconsIcon
 									aria-hidden
@@ -228,7 +161,9 @@ export function Navbar({
 									strokeWidth={2}
 								/>
 								<span className="truncate font-medium text-[11px]">
-									{item.title}
+									{'mobileLabel' in item
+										? item.mobileLabel
+										: item.label}
 								</span>
 							</Link>
 						)

@@ -6,7 +6,7 @@ import {
 } from "@better-auth-ui/core"
 import { useAuth } from "@better-auth-ui/react"
 import { format } from "date-fns"
-import { CalendarIcon, Check, ChevronDownIcon, Copy } from "lucide-react"
+import { CalendarIcon, Check, ChevronDownIcon, Copy } from "@/components/ui/icons"
 import { useRef, useState } from "react"
 import { toast } from "sonner"
 

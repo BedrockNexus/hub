@@ -18,6 +18,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/convex/_generated/api'
+import { assertSupportedProjectType } from '@/lib/project-artifacts'
 
 export type ProjectDetailTab =
 	| 'description'
@@ -124,6 +125,7 @@ export function ProjectDetailShell({
 			</div>
 		)
 	}
+	const projectType = assertSupportedProjectType(content.type)
 
 	const tabContent = (() => {
 		switch (activeTab) {
@@ -147,10 +149,15 @@ export function ProjectDetailShell({
 					<ProjectReleaseDetails
 						projectName={content.name}
 						projectSlug={slug}
+						projectType={projectType}
 						release={selectedRelease}
 					/>
 				) : (
-					<ProjectReleases projectSlug={slug} releases={versions} />
+					<ProjectReleases
+						projectSlug={slug}
+						projectType={projectType}
+						releases={versions}
+					/>
 				)
 			}
 			case 'reviews':

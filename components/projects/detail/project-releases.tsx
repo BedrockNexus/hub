@@ -12,6 +12,10 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate } from '@/lib/format'
+import {
+	getProjectReleasePolicy,
+	type ProjectType,
+} from '@/lib/project-artifacts'
 
 export interface PublicProjectRelease {
 	_id: string
@@ -36,12 +40,15 @@ export function formatReleaseBytes(bytes: number) {
 }
 
 export function ProjectReleases({
+	projectType,
 	projectSlug,
 	releases,
 }: {
+	projectType: ProjectType
 	projectSlug: string
 	releases: PublicProjectRelease[] | undefined
 }) {
+	const releasePolicy = getProjectReleasePolicy(projectType)
 	if (releases === undefined) {
 		return (
 			<div className="space-y-4">
@@ -101,7 +108,8 @@ export function ProjectReleases({
 					</header>
 
 					<div className="space-y-5 p-5">
-						{release.gameVersions?.length ? (
+						{releasePolicy.requireGameVersions &&
+						release.gameVersions?.length ? (
 							<div className="flex flex-wrap gap-1.5">
 								{release.gameVersions.map((gameVersion) => (
 									<Badge
@@ -114,13 +122,14 @@ export function ProjectReleases({
 							</div>
 						) : null}
 
-						{release.changelog ? (
+						{releasePolicy.allowChangelog && release.changelog ? (
 							<RichTextViewer content={release.changelog} />
-						) : (
+						) : null}
+						{releasePolicy.allowChangelog && !release.changelog ? (
 							<p className="text-muted-foreground text-sm">
 								No changelog was provided for this release.
 							</p>
-						)}
+						) : null}
 
 						<div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-4 text-muted-foreground text-sm">
 							<span className="inline-flex items-center gap-2">

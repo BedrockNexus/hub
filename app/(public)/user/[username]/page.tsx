@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import PublicUserProfileClient from '@/components/user-profile/public-user-profile-client'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
+import { siteConfig } from '@/lib/site'
 import { getSiteSeo } from '@/lib/site-settings'
 
 interface PublicUserProfilePageProps {
@@ -46,7 +47,7 @@ export async function generateMetadata({
 			canonical: absoluteUrl(`/user/${username}`),
 		},
 		openGraph: {
-			title: `${displayName} | ${seo.siteName}`,
+			title: `${displayName} | ${siteConfig.name}`,
 			description,
 			type: 'profile',
 			url: absoluteUrl(`/user/${username}`),
@@ -54,7 +55,7 @@ export async function generateMetadata({
 		},
 		twitter: {
 			card: profile.image ? 'summary_large_image' : 'summary',
-			title: `${displayName} | ${seo.siteName}`,
+			title: `${displayName} | ${siteConfig.name}`,
 			description,
 			images: socialImages,
 		},

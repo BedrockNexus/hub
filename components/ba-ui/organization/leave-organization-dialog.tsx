@@ -7,7 +7,7 @@ import {
   useLeaveOrganization
 } from "@better-auth-ui/react"
 import type { Organization } from "better-auth/client"
-import { LogOut } from "lucide-react"
+import { LogOut } from "@/components/ui/icons"
 import { toast } from "sonner"
 
 import {

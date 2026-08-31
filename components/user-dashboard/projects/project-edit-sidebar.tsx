@@ -53,7 +53,7 @@ const NAV_SECTIONS = [
 	{ id: '/links', title: 'Links', icon: Link04Icon },
 	{ id: '/license', title: 'License', icon: Flag01Icon },
 	{ id: '/gallery', title: 'Gallery', icon: Image02Icon },
-	{ id: '/versions', title: 'Versions', icon: Package01Icon },
+	{ id: '/versions', title: 'Releases', icon: Package01Icon },
 ] as const
 
 interface ProjectEditSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -209,10 +209,10 @@ export function ProjectEditSidebar({
 								render={
 									<Link href={`${editPath}/versions/add`} />
 								}
-								tooltip="Add a version before review"
+								tooltip="Add a release before review"
 							>
 								<HugeiconsIcon icon={Package01Icon} size={16} />
-								<span>Add Version First</span>
+								<span>Add Release First</span>
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 					) : null}

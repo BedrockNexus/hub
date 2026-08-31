@@ -7,7 +7,7 @@ import {
   useIsUsernameAvailable
 } from "@better-auth-ui/react"
 import { useDebouncer } from "@tanstack/react-pacer"
-import { Check, X } from "lucide-react"
+import { Check, X } from "@/components/ui/icons"
 import { useState } from "react"
 import type { AdditionalFieldProps } from "@/components/ba-ui/auth/additional-field"
 import { Field, FieldError } from "@/components/ui/field"

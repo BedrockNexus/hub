@@ -6,7 +6,7 @@ import {
   ThemePreviewSystem,
   useAuthPlugin
 } from "@better-auth-ui/react"
-import { Monitor, Moon, Sun } from "lucide-react"
+import { Monitor, Moon, Sun } from "@/components/ui/icons"
 import { useEffect, useState } from "react"
 
 import { Card, CardContent } from "@/components/ui/card"

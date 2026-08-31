@@ -152,19 +152,11 @@ async function collectReferencedManagedR2Keys(ctx: MutationCtx) {
 		.unique()
 	const seo = seoSetting?.value as
 		| {
-				faviconR2Key?: string
 				ogImageR2Key?: string
-				siteLogoR2Key?: string
 		  }
 		| undefined
-	if (seo?.siteLogoR2Key) {
-		keys.add(seo.siteLogoR2Key)
-	}
 	if (seo?.ogImageR2Key) {
 		keys.add(seo.ogImageR2Key)
-	}
-	if (seo?.faviconR2Key) {
-		keys.add(seo.faviconR2Key)
 	}
 
 	return keys

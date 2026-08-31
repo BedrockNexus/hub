@@ -4,6 +4,7 @@ import { SearchRemoveIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
 import { useCallback, useState } from 'react'
+import { PageShell } from '@/components/page-shell'
 import {
 	AdvancedProjectSearch,
 	type ProjectSearchFilters,
@@ -74,12 +75,6 @@ export default function ProjectsPage() {
 				filters.addonExperiments === 'all'
 					? undefined
 					: filters.addonExperiments === 'required',
-			mapGameMode:
-				filters.mapGameMode === 'all' ? undefined : filters.mapGameMode,
-			multiplayerSupport:
-				filters.mapMultiplayer === 'all'
-					? undefined
-					: filters.mapMultiplayer === 'supported',
 			resourcePackResolution:
 				filters.resourcePackResolution === 'all'
 					? undefined
@@ -88,10 +83,6 @@ export default function ProjectsPage() {
 				filters.resourcePackContentType === 'all'
 					? undefined
 					: filters.resourcePackContentType,
-			skinCharacterCategory:
-				filters.skinCharacterCategory === 'all'
-					? undefined
-					: filters.skinCharacterCategory,
 			sort: filters.sort,
 			limit: PAGE_SIZE,
 			cursor,
@@ -161,7 +152,11 @@ export default function ProjectsPage() {
 	}
 
 	return (
-		<main className="container mx-auto px-4 py-8 sm:py-10">
+		<PageShell
+			description="Search community add-ons and resource packs, then filter by category, project type, and compatibility."
+			eyebrow="Project directory"
+			title="Discover Bedrock projects"
+		>
 			<div className="mb-6">
 				<AdvancedProjectSearch
 					filters={filters}
@@ -183,6 +178,6 @@ export default function ProjectsPage() {
 
 				{renderResults()}
 			</div>
-		</main>
+		</PageShell>
 	)
 }

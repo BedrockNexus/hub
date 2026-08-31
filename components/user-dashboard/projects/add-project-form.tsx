@@ -161,12 +161,8 @@ export function AddProjectForm() {
 					'resourcePackIncluded',
 					'experimentalFeaturesRequired',
 					'addonDependencies',
-					'mapGameMode',
-					'mapMultiplayerSupport',
-					'mapEstimatedPlaytimeMinutes',
 					'resourcePackResolution',
 					'resourcePackContentTypes',
-					'skinCharacterCategory',
 				]
 			case 'details':
 				return [

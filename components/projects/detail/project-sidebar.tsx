@@ -36,7 +36,6 @@ type LatestVersion = {
 	createdAt: number
 	gameVersions?: string[] | null
 	fileSize?: number
-	skinModel?: 'classic' | 'slim'
 	validationReport?: { totalUncompressedSize?: number }
 } | null
 
@@ -73,10 +72,7 @@ export function ProjectSidebar(props: {
 
 	return (
 		<div className="space-y-4">
-			<ProjectTypeDetailsCard
-				latestRelease={props.latestVersion}
-				metadata={props.metadata}
-			/>
+			<ProjectTypeDetailsCard metadata={props.metadata} />
 			<Card>
 				<CardHeader>
 					<CardTitle>Project Info</CardTitle>

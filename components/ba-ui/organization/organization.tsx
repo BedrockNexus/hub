@@ -8,7 +8,7 @@ import {
   useAuthenticate,
   useAuthPlugin
 } from "@better-auth-ui/react"
-import { Settings as SettingsIcon, User2 as UserIcon } from "lucide-react"
+import { Settings as SettingsIcon, User2 as UserIcon } from "@/components/ui/icons"
 import { useEffect, useMemo } from "react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"

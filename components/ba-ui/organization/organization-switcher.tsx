@@ -14,7 +14,7 @@ import {
   ChevronsUpDown,
   PlusCircle,
   Settings as SettingsIcon
-} from "lucide-react"
+} from "@/components/ui/icons"
 import { type ReactNode, useState } from "react"
 
 import { Button } from "@/components/ui/button"

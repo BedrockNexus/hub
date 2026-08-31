@@ -7,7 +7,7 @@ import {
   useCheckSlug
 } from "@better-auth-ui/react"
 import { useDebouncer } from "@tanstack/react-pacer"
-import { Check, X } from "lucide-react"
+import { Check, X } from "@/components/ui/icons"
 import { useEffect } from "react"
 
 import { Field, FieldError } from "@/components/ui/field"

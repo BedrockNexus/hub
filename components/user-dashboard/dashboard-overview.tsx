@@ -111,7 +111,7 @@ const QUICK_ACTIONS = [
 	},
 	{
 		label: 'Create Project',
-		description: 'Start an addon or world draft',
+		description: 'Start an addon or resource pack',
 		href: '/dashboard/projects/add',
 		icon: PuzzleIcon,
 	},

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Column, Table } from "@tanstack/react-table";
-import { X } from "lucide-react";
+import { X } from "@/components/ui/icons";
 import * as React from "react";
 
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";

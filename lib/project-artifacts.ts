@@ -1,29 +1,34 @@
-export const PROJECT_TYPES = ['addon', 'map', 'skin', 'resource_pack'] as const
+export const PROJECT_TYPES = ['addon', 'resource_pack'] as const
 
 export type ProjectType = (typeof PROJECT_TYPES)[number]
-export type StoredProjectType = ProjectType | 'texture_pack'
-export type SkinModel = 'classic' | 'slim'
+export type NormalizedProjectType = ProjectType | 'map'
+export type StoredProjectType = NormalizedProjectType | 'texture_pack'
 
-export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
+export const PROJECT_TYPE_LABELS: Record<NormalizedProjectType, string> = {
 	addon: 'Addon',
 	map: 'Map',
-	skin: 'Skin',
 	resource_pack: 'Resource Pack',
 }
 
-export const PROJECT_TYPE_PLURAL_LABELS: Record<ProjectType, string> = {
-	addon: 'Addons',
-	map: 'Maps',
-	skin: 'Skins',
-	resource_pack: 'Resource Packs',
-}
+export const PROJECT_TYPE_PLURAL_LABELS: Record<NormalizedProjectType, string> =
+	{
+		addon: 'Addons',
+		map: 'Maps',
+		resource_pack: 'Resource Packs',
+	}
 
 export interface ProjectArtifactPolicy {
 	accept: string
 	extensions: readonly string[]
 	maxFileSize: number
-	requireSkinModel: boolean
 	requirement: string
+}
+
+export interface ProjectReleasePolicy {
+	allowChangelog: boolean
+	displayVersion: boolean
+	requireCreatorVersion: boolean
+	requireGameVersions: boolean
 }
 
 const MEBIBYTE = 1024 * 1024
@@ -36,40 +41,66 @@ export const PROJECT_ARTIFACT_POLICIES: Record<
 		accept: '.mcaddon',
 		extensions: ['mcaddon'],
 		maxFileSize: 256 * MEBIBYTE,
-		requireSkinModel: false,
 		requirement: 'One .mcaddon file, up to 256 MB.',
-	},
-	map: {
-		accept: '.mcworld',
-		extensions: ['mcworld'],
-		maxFileSize: 512 * MEBIBYTE,
-		requireSkinModel: false,
-		requirement: 'One .mcworld file, up to 512 MB.',
-	},
-	skin: {
-		accept: '.png,image/png',
-		extensions: ['png'],
-		maxFileSize: 2 * MEBIBYTE,
-		requireSkinModel: true,
-		requirement: 'One 64x64 PNG skin, up to 2 MB.',
 	},
 	resource_pack: {
 		accept: '.mcpack',
 		extensions: ['mcpack'],
 		maxFileSize: 256 * MEBIBYTE,
-		requireSkinModel: false,
 		requirement: 'One .mcpack file, up to 256 MB.',
 	},
 }
 
-export function normalizeProjectType(type: StoredProjectType): ProjectType {
+export const PROJECT_RELEASE_POLICIES: Record<
+	ProjectType,
+	ProjectReleasePolicy
+> = {
+	addon: {
+		allowChangelog: true,
+		displayVersion: true,
+		requireCreatorVersion: true,
+		requireGameVersions: true,
+	},
+	resource_pack: {
+		allowChangelog: true,
+		displayVersion: true,
+		requireCreatorVersion: true,
+		requireGameVersions: true,
+	},
+}
+
+export function normalizeProjectType(
+	type: StoredProjectType,
+): NormalizedProjectType {
 	return type === 'texture_pack' ? 'resource_pack' : type
+}
+
+export function isSupportedProjectType(
+	type: StoredProjectType,
+): type is ProjectType | 'texture_pack' {
+	return normalizeProjectType(type) !== 'map'
+}
+
+export function assertSupportedProjectType(
+	type: StoredProjectType,
+): ProjectType {
+	const normalized = normalizeProjectType(type)
+	if (normalized === 'map') {
+		throw new Error('Maps and worlds are not currently supported')
+	}
+	return normalized
 }
 
 export function getProjectArtifactPolicy(
 	type: StoredProjectType,
 ): ProjectArtifactPolicy {
-	return PROJECT_ARTIFACT_POLICIES[normalizeProjectType(type)]
+	return PROJECT_ARTIFACT_POLICIES[assertSupportedProjectType(type)]
+}
+
+export function getProjectReleasePolicy(
+	type: StoredProjectType,
+): ProjectReleasePolicy {
+	return PROJECT_RELEASE_POLICIES[assertSupportedProjectType(type)]
 }
 
 export function getFileExtension(fileName: string): string | null {

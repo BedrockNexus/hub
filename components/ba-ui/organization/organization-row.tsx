@@ -7,7 +7,7 @@ import {
   useSetActiveOrganization
 } from "@better-auth-ui/react"
 import type { Organization } from "better-auth/client"
-import { Settings as SettingsIcon } from "lucide-react"
+import { Settings as SettingsIcon } from "@/components/ui/icons"
 
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"

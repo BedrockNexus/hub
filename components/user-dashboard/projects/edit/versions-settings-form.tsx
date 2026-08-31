@@ -153,10 +153,10 @@ export function ProjectVersionsForm({
 		setDeletingId(id)
 		try {
 			await deleteVersion({ id })
-			toast.success(`Version ${version} deleted`)
+			toast.success(`Release ${version} deleted`)
 		} catch (err) {
 			toast.error(
-				err instanceof Error ? err.message : 'Failed to delete version',
+				err instanceof Error ? err.message : 'Failed to delete release',
 			)
 		} finally {
 			setDeletingId(null)
@@ -195,9 +195,9 @@ export function ProjectVersionsForm({
 			return (
 				<Empty>
 					<EmptyHeader>
-						<EmptyTitle>No versions yet</EmptyTitle>
+						<EmptyTitle>No releases yet</EmptyTitle>
 						<EmptyDescription>
-							Publish your first version to let users download
+							Publish your first release to let users download
 							your project.
 						</EmptyDescription>
 					</EmptyHeader>
@@ -293,11 +293,11 @@ export function ProjectVersionsForm({
 								<AlertDialogContent>
 									<AlertDialogHeader>
 										<AlertDialogTitle>
-											Delete version {version.version}?
+											{`Delete release ${version.version}?`}
 										</AlertDialogTitle>
 										<AlertDialogDescription>
 											This will permanently delete the
-											version file and all associated
+											release file and all associated
 											data. This action cannot be undone.
 										</AlertDialogDescription>
 									</AlertDialogHeader>
@@ -330,9 +330,9 @@ export function ProjectVersionsForm({
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
 				<div>
-					<h2 className="font-semibold text-lg">Versions</h2>
+					<h2 className="font-semibold text-lg">Releases</h2>
 					<p className="text-muted-foreground text-sm">
-						Manage published versions of your project
+						Manage downloadable files for your project
 					</p>
 				</div>
 				<Button
@@ -344,7 +344,7 @@ export function ProjectVersionsForm({
 					}
 				>
 					<HugeiconsIcon className="size-4" icon={Package01Icon} />
-					Publish New Version
+					Publish New Release
 				</Button>
 			</div>
 

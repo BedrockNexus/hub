@@ -14,7 +14,6 @@ const DEFAULT_PROJECT_CATEGORIES = {
 		'Spawn',
 		'Creative',
 	],
-	skin: ['Character', 'Fantasy', 'Sci-Fi', 'Casual', 'Themed'],
 	resource_pack: ['Vanilla+', 'PvP', 'UI', 'Realistic', 'Stylized', 'Audio'],
 } as const
 

@@ -21,13 +21,9 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
-	MAP_GAME_MODE_LABELS,
-	MAP_GAME_MODES,
 	RESOURCE_PACK_CONTENT_LABELS,
 	RESOURCE_PACK_CONTENT_TYPES,
 	RESOURCE_PACK_RESOLUTIONS,
-	SKIN_CHARACTER_CATEGORIES,
-	SKIN_CHARACTER_CATEGORY_LABELS,
 } from '@/lib/project-metadata'
 import type { ProjectFormData } from '@/lib/schemas/projects'
 
@@ -44,7 +40,6 @@ function BooleanSetting({
 		| 'behaviorPackIncluded'
 		| 'resourcePackIncluded'
 		| 'experimentalFeaturesRequired'
-		| 'mapMultiplayerSupport'
 }) {
 	return (
 		<Controller
@@ -172,75 +167,6 @@ export function ProjectTypeFields({
 		)
 	}
 
-	if (type === 'map') {
-		return (
-			<div className="space-y-4">
-				<Controller
-					control={form.control}
-					name="mapGameMode"
-					render={({ field }) => (
-						<Field>
-							<FieldLabel>Game mode</FieldLabel>
-							<Select
-								onValueChange={field.onChange}
-								value={field.value}
-							>
-								<SelectTrigger>
-									<SelectValue>
-										{MAP_GAME_MODE_LABELS[field.value]}
-									</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{MAP_GAME_MODES.map((mode) => (
-										<SelectItem key={mode} value={mode}>
-											{MAP_GAME_MODE_LABELS[mode]}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</Field>
-					)}
-				/>
-				<BooleanSetting
-					description="The map is designed to work with multiple players."
-					form={form}
-					label="Multiplayer support"
-					name="mapMultiplayerSupport"
-				/>
-				<Controller
-					control={form.control}
-					name="mapEstimatedPlaytimeMinutes"
-					render={({ field, fieldState }) => (
-						<Field data-invalid={fieldState.invalid}>
-							<FieldLabel htmlFor="mapEstimatedPlaytimeMinutes">
-								Estimated playtime in minutes
-							</FieldLabel>
-							<FieldDescription>
-								Optional for open-ended maps.
-							</FieldDescription>
-							<Input
-								id="mapEstimatedPlaytimeMinutes"
-								min={1}
-								onChange={(event) =>
-									field.onChange(
-										event.target.value
-											? Number(event.target.value)
-											: undefined,
-									)
-								}
-								type="number"
-								value={field.value ?? ''}
-							/>
-							{fieldState.error ? (
-								<FieldError errors={[fieldState.error]} />
-							) : null}
-						</Field>
-					)}
-				/>
-			</div>
-		)
-	}
-
 	if (type === 'resource_pack') {
 		return (
 			<div className="space-y-4">
@@ -323,33 +249,5 @@ export function ProjectTypeFields({
 		)
 	}
 
-	return (
-		<Controller
-			control={form.control}
-			name="skinCharacterCategory"
-			render={({ field }) => (
-				<Field>
-					<FieldLabel>Character category</FieldLabel>
-					<Select onValueChange={field.onChange} value={field.value}>
-						<SelectTrigger>
-							<SelectValue>
-								{SKIN_CHARACTER_CATEGORY_LABELS[field.value]}
-							</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{SKIN_CHARACTER_CATEGORIES.map((category) => (
-								<SelectItem key={category} value={category}>
-									{SKIN_CHARACTER_CATEGORY_LABELS[category]}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					<FieldDescription>
-						The Classic or Slim player model is selected for each
-						release.
-					</FieldDescription>
-				</Field>
-			)}
-		/>
-	)
+	return null
 }

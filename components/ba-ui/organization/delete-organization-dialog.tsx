@@ -7,7 +7,7 @@ import {
   useDeleteOrganization
 } from "@better-auth-ui/react"
 import type { Organization } from "better-auth/client"
-import { TriangleAlert } from "lucide-react"
+import { TriangleAlert } from "@/components/ui/icons"
 import type { SyntheticEvent } from "react"
 import { toast } from "sonner"
 

@@ -7,7 +7,7 @@ import {
   useRemoveMember
 } from "@better-auth-ui/react"
 import type { Member, User } from "better-auth/client"
-import { Trash2 } from "lucide-react"
+import { Trash2 } from "@/components/ui/icons"
 import { toast } from "sonner"
 
 import {

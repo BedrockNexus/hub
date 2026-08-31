@@ -6,7 +6,7 @@ import {
   useAuthPlugin,
   useCreateOrganization
 } from "@better-auth-ui/react"
-import { Briefcase } from "lucide-react"
+import { Briefcase } from "@/components/ui/icons"
 import { type SyntheticEvent, useEffect, useState } from "react"
 
 import {

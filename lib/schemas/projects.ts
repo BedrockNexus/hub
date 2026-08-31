@@ -1,13 +1,13 @@
 import { z } from 'zod'
-import { PROJECT_TYPES } from '@/lib/project-artifacts'
+import { PROJECT_TYPES, type ProjectType } from '@/lib/project-artifacts'
 import {
-	MAP_GAME_MODES,
 	type ProjectMetadata,
 	RESOURCE_PACK_CONTENT_TYPES,
 	RESOURCE_PACK_RESOLUTIONS,
-	SKIN_CHARACTER_CATEGORIES,
 } from '@/lib/project-metadata'
 import { richTextLength } from '@/lib/rich-text-length'
+
+const VERSION_PATTERN = /^[a-zA-Z0-9._+-]+$/
 
 export const projectFormSchema = z.object({
 	organizationId: z.string().optional(),
@@ -52,12 +52,8 @@ export const projectFormSchema = z.object({
 			}),
 		)
 		.max(20, 'Add no more than 20 dependencies'),
-	mapGameMode: z.enum(MAP_GAME_MODES),
-	mapMultiplayerSupport: z.boolean(),
-	mapEstimatedPlaytimeMinutes: z.number().int().min(1).max(10_000).optional(),
 	resourcePackResolution: z.enum(RESOURCE_PACK_RESOLUTIONS),
 	resourcePackContentTypes: z.array(z.enum(RESOURCE_PACK_CONTENT_TYPES)),
-	skinCharacterCategory: z.enum(SKIN_CHARACTER_CATEGORIES),
 	sourceUrl: z
 		.string()
 		.url('Please enter a valid URL')
@@ -103,12 +99,8 @@ export const PROJECT_FORM_DEFAULTS: ProjectFormData = {
 	resourcePackIncluded: true,
 	experimentalFeaturesRequired: false,
 	addonDependencies: [],
-	mapGameMode: 'survival',
-	mapMultiplayerSupport: false,
-	mapEstimatedPlaytimeMinutes: undefined,
 	resourcePackResolution: '16x',
 	resourcePackContentTypes: ['textures'],
-	skinCharacterCategory: 'original',
 	sourceUrl: '',
 	websiteUrl: '',
 	issueTrackerUrl: '',
@@ -132,23 +124,11 @@ export function projectMetadataFromForm(
 					url: dependency.url || undefined,
 				})),
 			}
-		case 'map':
-			return {
-				type: 'map',
-				gameMode: data.mapGameMode,
-				multiplayerSupport: data.mapMultiplayerSupport,
-				estimatedPlaytimeMinutes: data.mapEstimatedPlaytimeMinutes,
-			}
 		case 'resource_pack':
 			return {
 				type: 'resource_pack',
 				resolution: data.resourcePackResolution,
 				contentTypes: data.resourcePackContentTypes,
-			}
-		case 'skin':
-			return {
-				type: 'skin',
-				characterCategory: data.skinCharacterCategory,
 			}
 		default:
 			throw new Error('Unsupported project type')
@@ -173,19 +153,11 @@ export function projectMetadataToForm(
 					url: dependency.url ?? '',
 				})),
 			}
-		case 'map':
-			return {
-				mapGameMode: metadata.gameMode,
-				mapMultiplayerSupport: metadata.multiplayerSupport,
-				mapEstimatedPlaytimeMinutes: metadata.estimatedPlaytimeMinutes,
-			}
 		case 'resource_pack':
 			return {
 				resourcePackResolution: metadata.resolution,
 				resourcePackContentTypes: metadata.contentTypes,
 			}
-		case 'skin':
-			return { skinCharacterCategory: metadata.characterCategory }
 		default:
 			return {}
 	}
@@ -198,10 +170,9 @@ export function projectMetadataToForm(
 export const versionFormSchema = z.object({
 	version: z
 		.string()
-		.min(1, 'Version is required')
 		.max(32, 'Version must be less than 32 characters')
-		.regex(
-			/^[a-zA-Z0-9._+-]+$/,
+		.refine(
+			(value) => !value || VERSION_PATTERN.test(value),
 			'Version may only contain letters, numbers, dots, underscores, hyphens, and plus signs',
 		),
 	changelog: z.string().optional(),
@@ -209,8 +180,26 @@ export const versionFormSchema = z.object({
 	fileName: z.string().min(1),
 	fileSize: z.number().positive(),
 	gameVersions: z.array(z.string()),
-	skinModel: z.enum(['classic', 'slim']).optional(),
 })
+
+export function createVersionFormSchema(_projectType: ProjectType) {
+	return versionFormSchema.superRefine((data, ctx) => {
+		if (!data.version.trim()) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'Version is required',
+				path: ['version'],
+			})
+		}
+		if (data.gameVersions.length === 0) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'Select at least one supported game version',
+				path: ['gameVersions'],
+			})
+		}
+	})
+}
 
 export type VersionFormData = z.infer<typeof versionFormSchema>
 
@@ -221,5 +210,4 @@ export const VERSION_FORM_DEFAULTS = {
 	uploadId: '',
 	fileName: '',
 	fileSize: 0,
-	skinModel: undefined,
 }

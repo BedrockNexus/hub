@@ -17,6 +17,10 @@ export function ProjectHeader(props: {
 	iconUrl?: string | null
 	projectId: Id<'projects'>
 }) {
+	const downloadLabel = props.latestVersion
+		? `Download v${props.latestVersion}`
+		: 'Download latest'
+
 	return (
 		<div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
 			<div className="flex min-w-0 items-end gap-4">
@@ -60,11 +64,7 @@ export function ProjectHeader(props: {
 					<ProjectVersionDownloadButton
 						buttonClassName="w-full md:w-auto"
 						className="w-full md:w-auto"
-						label={
-							props.latestVersion
-								? `Download v${props.latestVersion}`
-								: 'Download latest'
-						}
+						label={downloadLabel}
 						size="lg"
 						versionId={props.latestVersionId}
 					/>

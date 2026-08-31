@@ -9,11 +9,17 @@ import {
 	projectType,
 } from '../../schemas/projects'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { isPublicProject } from '../../lib/contentVisibility'
+import { canModifyProjectOwner } from '../../lib/contentOwnership'
+import {
+	isPublicProject,
+	requiresModerationReason,
+} from '../../lib/contentVisibility'
 import { validateEntityImageUpload } from '../../lib/media'
 import { r2, resolveCdnObjectUrl, uploadsR2 } from '../../lib/r2'
 import { enforceRateLimit } from '../../lib/rateLimits'
 import {
+	assertSupportedProjectType,
+	isSupportedProjectType,
 	normalizeProjectType,
 	type StoredProjectType,
 } from '../../../lib/project-artifacts'
@@ -29,6 +35,10 @@ type SortOption = 'newest' | 'name' | 'rating' | 'downloads'
 // those fields into the projects table would enable proper cursor pagination.
 const MAX_SCAN = 1000
 const R2_IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
+
+function isSupportedPublicProject(project: Doc<'projects'>) {
+	return isSupportedProjectType(project.type) && isPublicProject(project)
+}
 
 // =============================================================================
 // HELPERS
@@ -425,7 +435,6 @@ async function enrichProjectDetail(ctx: QueryCtx, item: Doc<'projects'>) {
 					createdAt: latestVersion.createdAt,
 					gameVersions: latestVersion.gameVersions,
 					fileSize: latestVersion.fileSize,
-					skinModel: latestVersion.skinModel,
 					validationReport: latestVersion.validationReport,
 				}
 			: null,
@@ -444,7 +453,7 @@ async function canModifyProject(
 	userId: string,
 ): Promise<boolean> {
 	if (project.ownerType === 'user') {
-		return project.ownerId === userId
+		return canModifyProjectOwner({ owner: project, userId })
 	}
 
 	const member = (await ctx.runQuery(
@@ -458,7 +467,11 @@ async function canModifyProject(
 		},
 	)) as { id?: string } | null
 
-	return !!member
+	return canModifyProjectOwner({
+		owner: project,
+		userId,
+		isOrganizationMember: !!member,
+	})
 }
 
 async function getUserOrganizationIds(
@@ -490,15 +503,6 @@ export const searchAdvanced = query({
 		type: v.optional(projectType),
 		categoryIds: v.optional(v.array(v.id('projectCategories'))),
 		experimentalFeaturesRequired: v.optional(v.boolean()),
-		mapGameMode: v.optional(
-			v.union(
-				v.literal('survival'),
-				v.literal('creative'),
-				v.literal('adventure'),
-				v.literal('mixed'),
-			),
-		),
-		multiplayerSupport: v.optional(v.boolean()),
 		resourcePackResolution: v.optional(
 			v.union(
 				v.literal('8x'),
@@ -517,16 +521,6 @@ export const searchAdvanced = query({
 				v.literal('ui'),
 				v.literal('sounds'),
 				v.literal('shaders'),
-			),
-		),
-		skinCharacterCategory: v.optional(
-			v.union(
-				v.literal('original'),
-				v.literal('games'),
-				v.literal('anime'),
-				v.literal('movies_tv'),
-				v.literal('historical'),
-				v.literal('other'),
 			),
 		),
 		sort: v.optional(
@@ -590,19 +584,6 @@ export const searchAdvanced = query({
 				return false
 			}
 			if (
-				args.mapGameMode &&
-				(metadata?.type !== 'map' || metadata.gameMode !== args.mapGameMode)
-			) {
-				return false
-			}
-			if (
-				args.multiplayerSupport !== undefined &&
-				(metadata?.type !== 'map' ||
-					metadata.multiplayerSupport !== args.multiplayerSupport)
-			) {
-				return false
-			}
-			if (
 				args.resourcePackResolution &&
 				(metadata?.type !== 'resource_pack' ||
 					metadata.resolution !== args.resourcePackResolution)
@@ -616,17 +597,10 @@ export const searchAdvanced = query({
 			) {
 				return false
 			}
-			if (
-				args.skinCharacterCategory &&
-				(metadata?.type !== 'skin' ||
-					metadata.characterCategory !== args.skinCharacterCategory)
-			) {
-				return false
-			}
 			return true
 		})
 
-		items = items.filter(isPublicProject)
+		items = items.filter(isSupportedPublicProject)
 
 		const needsStatsForSort = sort === 'rating' || sort === 'downloads'
 		let statsMap = needsStatsForSort
@@ -730,7 +704,7 @@ export const list = query({
 		if (categoryId !== undefined) {
 			items = items.filter((a) => a.categoryIds.includes(categoryId))
 		}
-		items = items.filter(isPublicProject)
+		items = items.filter(isSupportedPublicProject)
 
 		const enriched = await Promise.all(
 			items.slice(0, limit).map(async (item) => {
@@ -773,7 +747,7 @@ export const getPublishedBySlug = query({
 			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
 			.first()
 
-		if (!item || !isPublicProject(item)) {
+		if (!item || !isSupportedPublicProject(item)) {
 			return null
 		}
 
@@ -1077,6 +1051,7 @@ export const create = mutation({
 		if (!user) {
 			throw new Error('You must be logged in to create a project')
 		}
+		assertSupportedProjectType(args.type)
 
 		const ownerType = args.ownerType
 		const ownerId = ownerType === 'user' ? user._id : args.ownerId
@@ -1223,6 +1198,7 @@ export const update = mutation({
 		}
 
 		const nextType = args.type ?? item.type
+		assertSupportedProjectType(nextType)
 		const nextCategoryIds = args.categoryIds ?? item.categoryIds
 		await assertCategoriesMatchProjectType(ctx, nextCategoryIds, nextType)
 		assertMetadataMatchesProjectType(nextType, args.metadata ?? item.metadata)
@@ -1243,6 +1219,7 @@ export const update = mutation({
 			throw new Error('Only draft projects can be submitted for review')
 		}
 		if (status === 'under_review') {
+			assertSupportedProjectType(nextType)
 			await assertProjectHasVersion(ctx, item._id)
 		}
 
@@ -1428,6 +1405,7 @@ export const adminUpdate = mutation({
 
 		if (args.status !== undefined) {
 			if (args.status === 'published') {
+				assertSupportedProjectType(item.type)
 				await assertProjectHasVersion(ctx, item._id)
 			}
 
@@ -1455,8 +1433,7 @@ export const adminUpdate = mutation({
 					: args.moderationReason?.trim() || undefined
 		}
 		if (
-			(args.moderationStatus === 'rejected' ||
-				args.moderationStatus === 'flagged') &&
+			requiresModerationReason(args.moderationStatus) &&
 			!args.moderationReason?.trim()
 		) {
 			throw new Error('A moderation reason is required')

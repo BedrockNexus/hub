@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuthPlugin } from "@better-auth-ui/react"
-import { Send } from "lucide-react"
+import { Send } from "@/components/ui/icons"
 
 import { organizationPlugin } from "@/lib/organization-plugin"
 

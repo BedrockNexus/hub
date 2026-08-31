@@ -1,7 +1,6 @@
 'use client'
 
 import { useQuery } from 'convex/react'
-import { PackageIcon, SearchIcon } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -19,6 +18,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@/components/ui/empty'
+import { PackageIcon, SearchIcon } from '@/components/ui/icons'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/convex/_generated/api'

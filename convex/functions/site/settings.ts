@@ -11,11 +11,12 @@ import {
 import { enforceRateLimit } from '../../lib/rateLimits'
 
 type SeoSettings = {
-	siteName?: string
 	siteDescription?: string
-	siteKeywords?: string[]
-	siteLogoR2Key?: string
 	ogImageR2Key?: string
+}
+
+type LegacySeoSettings = SeoSettings & {
+	siteLogoR2Key?: string
 	faviconR2Key?: string
 }
 
@@ -33,8 +34,8 @@ type FeatureSettings = {
 }
 
 const DEFAULT_SEO = {
-	siteName: 'BedrockNexus',
-	siteDescription: 'Discover the best Minecraft Bedrock servers',
+	siteDescription:
+		'Discover Minecraft Bedrock servers, projects, and community content.',
 }
 
 const DEFAULT_FEATURES = {
@@ -50,10 +51,7 @@ const ALLOWED_SITE_IMAGE_TYPES = new Set([
 	'image/png',
 	'image/webp',
 ])
-const MAX_SITE_NAME_LENGTH = 60
 const MAX_SITE_DESCRIPTION_LENGTH = 160
-const MAX_SEO_KEYWORDS = 20
-const MAX_SEO_KEYWORD_LENGTH = 50
 
 async function resolveSiteImageUrl(key?: string) {
 	if (!key) {
@@ -203,22 +201,16 @@ export const getAdmin = query({
 
 		return {
 			seo: {
-				...DEFAULT_SEO,
-				...seo,
-				siteLogoUrl: await resolveSiteImageUrl(seo?.siteLogoR2Key),
+				siteDescription:
+					seo?.siteDescription ?? DEFAULT_SEO.siteDescription,
+				ogImageR2Key: seo?.ogImageR2Key,
 				ogImageUrl: await resolveSiteImageUrl(seo?.ogImageR2Key),
-				faviconUrl: await resolveSiteImageUrl(seo?.faviconR2Key),
 			},
 			socials: socials ?? {},
 			features: {
 				...DEFAULT_FEATURES,
 				...features,
 			},
-			updatedAt: settings.reduce(
-				(latest, setting) => Math.max(latest, setting.updatedAt),
-				0,
-			),
-			settingCount: settings.length,
 		}
 	},
 })
@@ -271,27 +263,13 @@ export const remove = mutation({
 
 export const updateSeo = mutation({
 	args: {
-		siteName: v.string(),
 		siteDescription: v.string(),
-		siteKeywords: v.optional(v.array(v.string())),
-		siteLogoR2Key: v.optional(v.union(v.string(), v.null())),
 		ogImageR2Key: v.optional(v.union(v.string(), v.null())),
-		faviconR2Key: v.optional(v.union(v.string(), v.null())),
 	},
 	handler: async (ctx, args) => {
 		const user = await requireAdmin(ctx)
-		const siteName = args.siteName.trim()
 		const siteDescription = args.siteDescription.trim()
-		const siteKeywords = args.siteKeywords
-			?.map((keyword) => keyword.trim())
-			.filter(Boolean)
-			.filter((keyword, index, values) => values.indexOf(keyword) === index)
 
-		if (!siteName || siteName.length > MAX_SITE_NAME_LENGTH) {
-			throw new Error(
-				`Site name must be between 1 and ${MAX_SITE_NAME_LENGTH} characters`,
-			)
-		}
 		if (
 			!siteDescription ||
 			siteDescription.length > MAX_SITE_DESCRIPTION_LENGTH
@@ -300,78 +278,28 @@ export const updateSeo = mutation({
 				`Site description must be between 1 and ${MAX_SITE_DESCRIPTION_LENGTH} characters`,
 			)
 		}
-		if (siteKeywords && siteKeywords.length > MAX_SEO_KEYWORDS) {
-			throw new Error(`Use no more than ${MAX_SEO_KEYWORDS} SEO keywords`)
-		}
-		if (
-			siteKeywords?.some(
-				(keyword) => keyword.length > MAX_SEO_KEYWORD_LENGTH,
-			)
-		) {
-			throw new Error(
-				`SEO keywords must be ${MAX_SEO_KEYWORD_LENGTH} characters or fewer`,
-			)
-		}
-
 		const existing = await ctx.db
 			.query('siteSettings')
 			.withIndex('by_key', (q) => q.eq('key', 'seo'))
 			.unique()
-		const existingSeo = existing?.value as SeoSettings | undefined
-		const nextSiteLogoR2Key =
-			args.siteLogoR2Key === null ? undefined : args.siteLogoR2Key
+		const existingSeo = existing?.value as LegacySeoSettings | undefined
 		const nextOgImageR2Key =
 			args.ogImageR2Key === null ? undefined : args.ogImageR2Key
-		const nextFaviconR2Key =
-			args.faviconR2Key === null ? undefined : args.faviconR2Key
 
-		const imageUploads = [
-			{
-				currentKey: existingSeo?.siteLogoR2Key,
-				imageKind: 'logo',
-				key: nextSiteLogoR2Key,
-				label: 'Site logo',
-			},
-			{
-				currentKey: existingSeo?.ogImageR2Key,
+		if (
+			nextOgImageR2Key &&
+			nextOgImageR2Key !== existingSeo?.ogImageR2Key
+		) {
+			await validateSiteImageUpload(ctx, {
 				imageKind: 'open-graph',
 				key: nextOgImageR2Key,
 				label: 'Open Graph image',
-			},
-			{
-				currentKey: existingSeo?.faviconR2Key,
-				imageKind: 'favicon',
-				key: nextFaviconR2Key,
-				label: 'Favicon',
-			},
-		] satisfies Array<{
-			currentKey?: string
-			imageKind: SiteImageKind
-			key?: string
-			label: string
-		}>
-
-		for (const upload of imageUploads) {
-			if (upload.key && upload.key !== upload.currentKey) {
-				await validateSiteImageUpload(ctx, {
-					imageKind: upload.imageKind,
-					key: upload.key,
-					label: upload.label,
-				})
-			}
+			})
 		}
 
 		const nextSeo: SeoSettings = {
-			siteName,
 			siteDescription,
-			...(siteKeywords?.length
-				? { siteKeywords }
-				: {}),
-			...(nextSiteLogoR2Key
-				? { siteLogoR2Key: nextSiteLogoR2Key }
-				: {}),
 			...(nextOgImageR2Key ? { ogImageR2Key: nextOgImageR2Key } : {}),
-			...(nextFaviconR2Key ? { faviconR2Key: nextFaviconR2Key } : {}),
 		}
 
 		const settingId = await upsertSetting(ctx, {
@@ -381,13 +309,15 @@ export const updateSeo = mutation({
 			updatedBy: user._id,
 		})
 
-		for (const upload of imageUploads) {
-			if (
-				upload.currentKey &&
-				upload.currentKey !== upload.key
-			) {
-				await r2.deleteObject(ctx, upload.currentKey)
-			}
+		const replacedKeys = new Set([
+			existingSeo?.siteLogoR2Key,
+			existingSeo?.faviconR2Key,
+			existingSeo?.ogImageR2Key !== nextOgImageR2Key
+				? existingSeo?.ogImageR2Key
+				: undefined,
+		])
+		for (const key of replacedKeys) {
+			if (key) await r2.deleteObject(ctx, key)
 		}
 
 		return settingId
@@ -434,11 +364,7 @@ export const updateFeatures = mutation({
 export const generateSiteImageUploadUrl = mutation({
 	args: {
 		fileName: v.string(),
-		imageKind: v.union(
-			v.literal('favicon'),
-			v.literal('logo'),
-			v.literal('open-graph'),
-		),
+		imageKind: v.literal('open-graph'),
 	},
 	handler: async (ctx, args) => {
 		const user = await requireAdmin(ctx)
@@ -495,29 +421,14 @@ export const getSeo = query({
 			.withIndex('by_key', (q) => q.eq('key', 'seo'))
 			.unique()
 
-		const value = setting?.value as
-			| {
-					siteName?: string
-					siteDescription?: string
-					siteKeywords?: string[]
-					siteLogoR2Key?: string
-					ogImageR2Key?: string
-					faviconR2Key?: string
-			  }
-			| undefined
+		const value = setting?.value as SeoSettings | undefined
 
 		return {
-			siteName: value?.siteName ?? 'BedrockNexus',
 			siteDescription:
 				value?.siteDescription ??
-				'Discover the best Minecraft Bedrock servers',
-			siteKeywords: value?.siteKeywords,
-			siteLogoR2Key: value?.siteLogoR2Key,
-			siteLogoUrl: await resolveSiteImageUrl(value?.siteLogoR2Key),
+				'Discover Minecraft Bedrock servers, projects, and community content.',
 			ogImageR2Key: value?.ogImageR2Key,
 			ogImageUrl: await resolveSiteImageUrl(value?.ogImageR2Key),
-			faviconR2Key: value?.faviconR2Key,
-			faviconUrl: await resolveSiteImageUrl(value?.faviconR2Key),
 		}
 	},
 })

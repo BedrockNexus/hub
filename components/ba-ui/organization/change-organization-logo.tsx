@@ -8,7 +8,7 @@ import {
   useAuthPlugin,
   useUpdateOrganization
 } from "@better-auth-ui/react"
-import { Trash2, Upload } from "lucide-react"
+import { Trash2, Upload } from "@/components/ui/icons"
 import { type ChangeEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 

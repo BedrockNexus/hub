@@ -2,7 +2,7 @@
 
 import { fileToBase64 } from "@better-auth-ui/core"
 import { useAuth, useSession, useUpdateUser } from "@better-auth-ui/react"
-import { Trash2, Upload } from "lucide-react"
+import { Trash2, Upload } from "@/components/ui/icons"
 import { type ChangeEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 import { UserAvatar } from "@/components/ba-ui/user/user-avatar"

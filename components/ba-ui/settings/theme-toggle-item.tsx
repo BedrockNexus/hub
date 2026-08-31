@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuthPlugin } from "@better-auth-ui/react"
-import { Monitor, Moon, PaletteIcon, Sun } from "lucide-react"
+import { Monitor, Moon, PaletteIcon, Sun } from "@/components/ui/icons"
 import { useRef } from "react"
 
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"

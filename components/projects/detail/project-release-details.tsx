@@ -14,16 +14,24 @@ import { ProjectVersionDownloadButton } from '@/components/projects/detail/proje
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { formatDate } from '@/lib/format'
+import {
+	getProjectReleasePolicy,
+	type ProjectType,
+} from '@/lib/project-artifacts'
 
 export function ProjectReleaseDetails({
 	projectName,
 	projectSlug,
+	projectType,
 	release,
 }: {
 	projectName: string
 	projectSlug: string
+	projectType: ProjectType
 	release: PublicProjectRelease
 }) {
+	const releasePolicy = getProjectReleasePolicy(projectType)
+
 	return (
 		<article className="overflow-hidden rounded-lg border bg-card">
 			<header className="space-y-4 border-b bg-muted/25 p-5 sm:p-6">
@@ -52,30 +60,34 @@ export function ProjectReleaseDetails({
 			</header>
 
 			<div className="space-y-6 p-5 sm:p-6">
-				<div className="flex flex-wrap gap-2">
-					{release.gameVersions?.length ? (
-						release.gameVersions.map((gameVersion) => (
-							<Badge key={gameVersion} variant="secondary">
-								Minecraft {gameVersion}
+				{releasePolicy.requireGameVersions ? (
+					<div className="flex flex-wrap gap-2">
+						{release.gameVersions?.length ? (
+							release.gameVersions.map((gameVersion) => (
+								<Badge key={gameVersion} variant="secondary">
+									Minecraft {gameVersion}
+								</Badge>
+							))
+						) : (
+							<Badge variant="outline">
+								Compatibility not specified
 							</Badge>
-						))
-					) : (
-						<Badge variant="outline">
-							Compatibility not specified
-						</Badge>
-					)}
-				</div>
+						)}
+					</div>
+				) : null}
 
-				<section className="space-y-3">
-					<h3 className="font-semibold text-lg">Changelog</h3>
-					{release.changelog ? (
-						<RichTextViewer content={release.changelog} />
-					) : (
-						<p className="text-muted-foreground text-sm">
-							No changelog was provided for this release.
-						</p>
-					)}
-				</section>
+				{releasePolicy.allowChangelog ? (
+					<section className="space-y-3">
+						<h3 className="font-semibold text-lg">Changelog</h3>
+						{release.changelog ? (
+							<RichTextViewer content={release.changelog} />
+						) : (
+							<p className="text-muted-foreground text-sm">
+								No changelog was provided for this release.
+							</p>
+						)}
+					</section>
+				) : null}
 
 				<section className="space-y-3 border-t pt-5">
 					<h3 className="font-semibold text-sm">Release asset</h3>

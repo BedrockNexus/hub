@@ -7,7 +7,7 @@ import {
   useRequestPasswordReset,
   useSession
 } from "@better-auth-ui/react"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff } from "@/components/ui/icons"
 import { type SyntheticEvent, useState } from "react"
 import { toast } from "sonner"
 

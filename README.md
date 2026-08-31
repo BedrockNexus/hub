@@ -62,7 +62,13 @@ credentials must be able to read, write, copy, and delete objects in both
 buckets. See [STORAGE.md](./docs/STORAGE.md) for the bucket, CORS, lifecycle,
 and release-promotion setup.
 
-Start the frontend and Convex development processes:
+Start Convex and select or create the local development deployment:
+
+```bash
+bunx convex dev
+```
+
+Keep Convex running, then start Next.js in a second terminal:
 
 ```bash
 bun run dev
@@ -75,7 +81,8 @@ use, the Convex CLI will prompt you to select or create a deployment.
 
 | Command | Purpose |
 | --- | --- |
-| `bun run dev` | Start Next.js and Convex development servers |
+| `bunx convex dev` | Start the Convex development server |
+| `bun run dev` | Start the Next.js development server |
 | `bun run lint` | Run Biome checks |
 | `bun run lint:fix` | Apply safe Biome formatting and lint fixes |
 | `bun run lint:framework` | Run framework-specific ESLint checks |

@@ -3,7 +3,7 @@
 import { useAuth, useRevokeSession, useSession } from "@better-auth-ui/react"
 import type { Session } from "better-auth"
 import Bowser from "bowser"
-import { LogOut, Monitor, Smartphone, X } from "lucide-react"
+import { LogOut, Monitor, Smartphone, X } from "@/components/ui/icons"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"

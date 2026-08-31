@@ -6,7 +6,7 @@ import {
   useSession
 } from "@better-auth-ui/react"
 import type { User } from "better-auth"
-import { User2 } from "lucide-react"
+import { User2 } from "@/components/ui/icons"
 import type { ReactNode } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"

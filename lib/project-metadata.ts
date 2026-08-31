@@ -1,20 +1,5 @@
 import type { ProjectType } from '@/lib/project-artifacts'
 
-export const MAP_GAME_MODES = [
-	'survival',
-	'creative',
-	'adventure',
-	'mixed',
-] as const
-export type MapGameMode = (typeof MAP_GAME_MODES)[number]
-
-export const MAP_GAME_MODE_LABELS: Record<MapGameMode, string> = {
-	survival: 'Survival',
-	creative: 'Creative',
-	adventure: 'Adventure',
-	mixed: 'Mixed or selectable',
-}
-
 export const RESOURCE_PACK_RESOLUTIONS = [
 	'8x',
 	'16x',
@@ -46,28 +31,6 @@ export const RESOURCE_PACK_CONTENT_LABELS: Record<
 	shaders: 'Shaders',
 }
 
-export const SKIN_CHARACTER_CATEGORIES = [
-	'original',
-	'games',
-	'anime',
-	'movies_tv',
-	'historical',
-	'other',
-] as const
-export type SkinCharacterCategory = (typeof SKIN_CHARACTER_CATEGORIES)[number]
-
-export const SKIN_CHARACTER_CATEGORY_LABELS: Record<
-	SkinCharacterCategory,
-	string
-> = {
-	original: 'Original character',
-	games: 'Games',
-	anime: 'Anime',
-	movies_tv: 'Movies and TV',
-	historical: 'Historical',
-	other: 'Other',
-}
-
 export type ProjectMetadata =
 	| {
 			type: 'addon'
@@ -78,7 +41,7 @@ export type ProjectMetadata =
 	  }
 	| {
 			type: 'map'
-			gameMode: MapGameMode
+			gameMode: 'survival' | 'creative' | 'adventure' | 'mixed'
 			multiplayerSupport: boolean
 			estimatedPlaytimeMinutes?: number
 	  }
@@ -86,10 +49,6 @@ export type ProjectMetadata =
 			type: 'resource_pack'
 			resolution: ResourcePackResolution
 			contentTypes: ResourcePackContentType[]
-	  }
-	| {
-			type: 'skin'
-			characterCategory: SkinCharacterCategory
 	  }
 
 export function metadataMatchesProjectType(
@@ -123,18 +82,7 @@ export function projectMetadataSeoProperties(metadata: ProjectMetadata) {
 				),
 			]
 		case 'map':
-			return [
-				property('Game mode', MAP_GAME_MODE_LABELS[metadata.gameMode]),
-				property('Multiplayer support', metadata.multiplayerSupport),
-				...(metadata.estimatedPlaytimeMinutes
-					? [
-							property(
-								'Estimated playtime in minutes',
-								metadata.estimatedPlaytimeMinutes,
-							),
-						]
-					: []),
-			]
+			return []
 		case 'resource_pack':
 			return [
 				property('Resolution', metadata.resolution),
@@ -143,13 +91,6 @@ export function projectMetadataSeoProperties(metadata: ProjectMetadata) {
 					metadata.contentTypes
 						.map((type) => RESOURCE_PACK_CONTENT_LABELS[type])
 						.join(', '),
-				),
-			]
-		case 'skin':
-			return [
-				property(
-					'Character category',
-					SKIN_CHARACTER_CATEGORY_LABELS[metadata.characterCategory],
 				),
 			]
 		default:

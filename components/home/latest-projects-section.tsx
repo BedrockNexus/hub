@@ -39,7 +39,7 @@ export function LatestProjectsSection() {
 			<div className="border-border border-y py-14 text-center">
 				<p className="font-medium">No published projects yet</p>
 				<p className="mt-1 text-muted-foreground text-sm">
-					New maps, addons, and packs will appear here.
+					New addons and resource packs will appear here.
 				</p>
 			</div>
 		)
@@ -65,8 +65,8 @@ export function LatestProjectsSection() {
 							Latest Projects
 						</h2>
 						<p className="mt-2 max-w-xl text-muted-foreground">
-							Discover newly released maps, addons, resource
-							packs, and other Bedrock creations.
+							Discover newly released addons, resource packs, and
+							other Bedrock creations.
 						</p>
 					</div>
 					<Link className="shrink-0" href="/projects?sort=newest">

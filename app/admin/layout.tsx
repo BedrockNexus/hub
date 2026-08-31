@@ -1,12 +1,10 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { AdminDashboardHeader } from '@/components/admin-dashboard/admin-dashboard-header'
 import { AdminDashboardSidebar } from '@/components/admin-dashboard/admin-dashboard-sidebar'
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { WorkspaceLayout } from '@/components/workspace-layout'
 import { api } from '@/convex/_generated/api'
 import { fetchAuthQuery, isAuthenticated } from '@/lib/auth-server'
-import { getSiteSeo } from '@/lib/site-settings'
 
 export const metadata: Metadata = {
 	title: 'Admin',
@@ -27,29 +25,20 @@ export default async function AdminLayout({
 		redirect('/login')
 	}
 
-	const [user, seo] = await Promise.all([
-		fetchAuthQuery(api.auth.getCurrentUser),
-		getSiteSeo(),
-	])
+	const user = await fetchAuthQuery(api.auth.getCurrentUser)
 
 	if (user?.role !== 'admin') {
 		redirect('/dashboard')
 	}
 
 	return (
-		<NuqsAdapter>
-			<SidebarProvider className="pt-16">
-				<AdminDashboardHeader
-					siteLogoUrl={seo.siteLogoUrl}
-					siteName={seo.siteName}
-				/>
+		<WorkspaceLayout
+			header={<AdminDashboardHeader />}
+			sidebar={
 				<AdminDashboardSidebar className="top-16 h-[calc(100svh-4rem)]" />
-				<SidebarInset>
-					<div className="flex min-w-0 flex-1 flex-col gap-4 p-4 md:pt-6">
-						{children}
-					</div>
-				</SidebarInset>
-			</SidebarProvider>
-		</NuqsAdapter>
+			}
+		>
+			{children}
+		</WorkspaceLayout>
 	)
 }

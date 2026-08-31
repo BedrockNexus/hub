@@ -46,8 +46,8 @@ export async function Hero() {
 					</h1>
 
 					<p className="mt-4 max-w-2xl text-base text-muted-foreground leading-7 sm:text-lg">
-						Discover Bedrock communities, maps, addons, resource
-						packs, and more, all gathered in one place.
+						Discover Bedrock communities, addons, resource packs,
+						and more, all gathered in one place.
 					</p>
 
 					<div className="mt-8 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">

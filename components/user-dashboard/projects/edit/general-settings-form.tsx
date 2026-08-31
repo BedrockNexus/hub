@@ -15,7 +15,7 @@ import { ProjectIconField } from '@/components/user-dashboard/projects/fields/pr
 import { ProjectTypeFields } from '@/components/user-dashboard/projects/fields/project-type-fields'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
-import { normalizeProjectType } from '@/lib/project-artifacts'
+import { assertSupportedProjectType } from '@/lib/project-artifacts'
 import {
 	PROJECT_FORM_DEFAULTS,
 	type ProjectFormData,
@@ -33,12 +33,8 @@ const generalSchema = projectFormSchema.pick({
 	resourcePackIncluded: true,
 	experimentalFeaturesRequired: true,
 	addonDependencies: true,
-	mapGameMode: true,
-	mapMultiplayerSupport: true,
-	mapEstimatedPlaytimeMinutes: true,
 	resourcePackResolution: true,
 	resourcePackContentTypes: true,
-	skinCharacterCategory: true,
 })
 
 interface ProjectGeneralSettingsFormProps {
@@ -80,7 +76,7 @@ export function ProjectGeneralSettingsForm({
 					project.ownerType === 'organization'
 						? project.ownerId
 						: undefined,
-				type: normalizeProjectType(project.type),
+				type: assertSupportedProjectType(project.type),
 				name: project.name,
 				summary: project.summary,
 				...projectMetadataToForm(project.metadata),

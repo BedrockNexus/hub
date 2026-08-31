@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth, useResetPassword } from "@better-auth-ui/react"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff } from "@/components/ui/icons"
 import { type SyntheticEvent, useEffect, useState } from "react"
 import { toast } from "sonner"
 

@@ -9,35 +9,23 @@ import {
 } from '@/components/ui/select'
 import type { ProjectType } from '@/lib/project-artifacts'
 import {
-	MAP_GAME_MODE_LABELS,
-	MAP_GAME_MODES,
-	type MapGameMode,
 	RESOURCE_PACK_CONTENT_LABELS,
 	RESOURCE_PACK_CONTENT_TYPES,
 	RESOURCE_PACK_RESOLUTIONS,
 	type ResourcePackContentType,
 	type ResourcePackResolution,
-	SKIN_CHARACTER_CATEGORIES,
-	SKIN_CHARACTER_CATEGORY_LABELS,
-	type SkinCharacterCategory,
 } from '@/lib/project-metadata'
 
 export interface ProjectTypeFilterValues {
 	addonExperiments: 'all' | 'required' | 'not_required'
-	mapGameMode: 'all' | MapGameMode
-	mapMultiplayer: 'all' | 'supported' | 'single_player'
 	resourcePackResolution: 'all' | ResourcePackResolution
 	resourcePackContentType: 'all' | ResourcePackContentType
-	skinCharacterCategory: 'all' | SkinCharacterCategory
 }
 
 export const EMPTY_PROJECT_TYPE_FILTERS: ProjectTypeFilterValues = {
 	addonExperiments: 'all',
-	mapGameMode: 'all',
-	mapMultiplayer: 'all',
 	resourcePackResolution: 'all',
 	resourcePackContentType: 'all',
-	skinCharacterCategory: 'all',
 }
 
 export function hasProjectTypeFilters(filters: ProjectTypeFilterValues) {
@@ -54,16 +42,6 @@ function addonExperimentsLabel(
 		return 'No experiments required'
 	}
 	return 'Any experiments'
-}
-
-function mapMultiplayerLabel(value: ProjectTypeFilterValues['mapMultiplayer']) {
-	if (value === 'supported') {
-		return 'Multiplayer'
-	}
-	if (value === 'single_player') {
-		return 'Single-player'
-	}
-	return 'Any player count'
 }
 
 export function ProjectTypeSearchFilters({
@@ -104,60 +82,6 @@ export function ProjectTypeSearchFilters({
 					</SelectItem>
 				</SelectContent>
 			</Select>
-		)
-	}
-
-	if (type === 'map') {
-		return (
-			<>
-				<Select
-					onValueChange={(value) =>
-						onChange(
-							'mapGameMode',
-							value as ProjectTypeFilterValues['mapGameMode'],
-						)
-					}
-					value={filters.mapGameMode}
-				>
-					<SelectTrigger className="w-full sm:w-auto">
-						<SelectValue>
-							{filters.mapGameMode === 'all'
-								? 'Any game mode'
-								: MAP_GAME_MODE_LABELS[filters.mapGameMode]}
-						</SelectValue>
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">Any game mode</SelectItem>
-						{MAP_GAME_MODES.map((mode) => (
-							<SelectItem key={mode} value={mode}>
-								{MAP_GAME_MODE_LABELS[mode]}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Select
-					onValueChange={(value) =>
-						onChange(
-							'mapMultiplayer',
-							value as ProjectTypeFilterValues['mapMultiplayer'],
-						)
-					}
-					value={filters.mapMultiplayer}
-				>
-					<SelectTrigger className="w-full sm:w-auto">
-						<SelectValue>
-							{mapMultiplayerLabel(filters.mapMultiplayer)}
-						</SelectValue>
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">Any player count</SelectItem>
-						<SelectItem value="supported">Multiplayer</SelectItem>
-						<SelectItem value="single_player">
-							Single-player
-						</SelectItem>
-					</SelectContent>
-				</Select>
-			</>
 		)
 	}
 
@@ -217,38 +141,6 @@ export function ProjectTypeSearchFilters({
 					</SelectContent>
 				</Select>
 			</>
-		)
-	}
-
-	if (type === 'skin') {
-		return (
-			<Select
-				onValueChange={(value) =>
-					onChange(
-						'skinCharacterCategory',
-						value as ProjectTypeFilterValues['skinCharacterCategory'],
-					)
-				}
-				value={filters.skinCharacterCategory}
-			>
-				<SelectTrigger className="w-full sm:w-auto">
-					<SelectValue>
-						{filters.skinCharacterCategory === 'all'
-							? 'Any character'
-							: SKIN_CHARACTER_CATEGORY_LABELS[
-									filters.skinCharacterCategory
-								]}
-					</SelectValue>
-				</SelectTrigger>
-				<SelectContent>
-					<SelectItem value="all">Any character</SelectItem>
-					{SKIN_CHARACTER_CATEGORIES.map((category) => (
-						<SelectItem key={category} value={category}>
-							{SKIN_CHARACTER_CATEGORY_LABELS[category]}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
 		)
 	}
 

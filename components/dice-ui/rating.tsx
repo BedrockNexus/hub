@@ -1,6 +1,6 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { Star } from "@/components/ui/icons";
 import {
   Direction as DirectionPrimitive,
   Slot as SlotPrimitive,

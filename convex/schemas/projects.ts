@@ -7,14 +7,12 @@ import { v } from 'convex/values'
 
 export const projectType = v.union(
 	v.literal('addon'),
+	// Legacy stored value. Maps are not available for creation or publication.
 	v.literal('map'),
-	v.literal('skin'),
 	v.literal('resource_pack'),
 	// Remove after functions/projects/migrations:migrateTexturePacks is run.
 	v.literal('texture_pack'),
 )
-
-export const skinModel = v.union(v.literal('classic'), v.literal('slim'))
 
 export const projectMetadata = v.union(
 	v.object({
@@ -56,17 +54,6 @@ export const projectMetadata = v.union(
 				v.literal('sounds'),
 				v.literal('shaders'),
 			),
-		),
-	}),
-	v.object({
-		type: v.literal('skin'),
-		characterCategory: v.union(
-			v.literal('original'),
-			v.literal('games'),
-			v.literal('anime'),
-			v.literal('movies_tv'),
-			v.literal('historical'),
-			v.literal('other'),
 		),
 	}),
 )
@@ -221,7 +208,6 @@ export const tables = {
 		fileName: v.string(),
 		fileSize: v.number(),
 		artifactId: v.optional(v.string()),
-		skinModel: v.optional(skinModel),
 		validationStatus: v.optional(
 			v.union(
 				v.literal('pending'),

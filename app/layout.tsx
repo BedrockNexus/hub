@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, JetBrains_Mono } from 'next/font/google'
+import '@mdxeditor/editor/style.css'
 import './globals.css'
 import { NextAuthProvider } from '@/components/ba-ui/provider/next-auth-provider'
 import { ConvexClientProvider } from '@/components/convex-client-provider'
@@ -7,6 +8,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { getSiteUrl } from '@/lib/seo'
+import { siteConfig } from '@/lib/site'
 import { getSiteSeo } from '@/lib/site-settings'
 
 const jetbrainsMono = JetBrains_Mono({
@@ -26,38 +28,33 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
 	const seo = await getSiteSeo()
-	const siteName = seo.siteName || 'BedrockNexus'
-	const description =
-		seo.siteDescription ||
-		'Discover Minecraft Bedrock servers, projects, and community content.'
-	const socialImage =
-		seo.ogImageUrl ?? seo.siteLogoUrl ?? '/images/bedrocknexus-logo.png'
+	const description = seo.siteDescription || siteConfig.description
+	const socialImage = seo.ogImageUrl ?? '/images/bedrocknexus-logo.png'
 
 	return {
 		metadataBase: new URL(getSiteUrl()),
-		applicationName: siteName,
+		applicationName: siteConfig.name,
 		title: {
-			default: siteName,
-			template: `%s | ${siteName}`,
+			default: siteConfig.name,
+			template: `%s | ${siteConfig.name}`,
 		},
 		description,
-		keywords: seo.siteKeywords,
 		icons: {
-			icon: seo.faviconUrl ?? '/favicon.png',
-			shortcut: seo.faviconUrl ?? '/favicon.png',
-			apple: seo.faviconUrl ?? '/icon.png',
+			icon: '/favicon.png',
+			shortcut: '/favicon.png',
+			apple: '/icon.png',
 		},
 		openGraph: {
 			type: 'website',
-			siteName,
-			title: siteName,
+			siteName: siteConfig.name,
+			title: siteConfig.name,
 			description,
 			url: getSiteUrl(),
 			images: [socialImage],
 		},
 		twitter: {
 			card: 'summary_large_image',
-			title: siteName,
+			title: siteConfig.name,
 			description,
 			images: [socialImage],
 		},

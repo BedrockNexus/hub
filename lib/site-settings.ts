@@ -16,15 +16,9 @@ interface RuntimeCacheEntry<T> {
 const runtimeCache = new Map<string, RuntimeCacheEntry<unknown>>()
 
 export interface SiteSeoSettings {
-	siteName: string
 	siteDescription: string
-	siteKeywords?: string[]
-	siteLogoR2Key?: string
-	siteLogoUrl?: string
 	ogImageR2Key?: string
 	ogImageUrl?: string
-	faviconR2Key?: string
-	faviconUrl?: string
 }
 
 export interface SiteSocialSettings {
@@ -47,10 +41,8 @@ export interface SiteStats {
 }
 
 export const DEFAULT_SITE_SEO: SiteSeoSettings = {
-	siteName: 'BedrockNexus',
 	siteDescription:
 		'Discover Minecraft Bedrock servers, projects, and community content.',
-	siteLogoUrl: '/images/bedrocknexus-logo.png',
 }
 
 const DEFAULT_SITE_SOCIALS: SiteSocialSettings = {}

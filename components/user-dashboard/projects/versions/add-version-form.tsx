@@ -32,27 +32,21 @@ import {
 	FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { VersionFileUpload } from '@/components/uploads/version-file-upload'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import {
+	assertSupportedProjectType,
 	getProjectArtifactPolicy,
-	normalizeProjectType,
+	getProjectReleasePolicy,
 	type StoredProjectType,
 } from '@/lib/project-artifacts'
 import {
+	createVersionFormSchema,
 	VERSION_FORM_DEFAULTS,
 	type VersionFormData,
-	versionFormSchema,
 } from '@/lib/schemas/projects'
 
 interface AddVersionFormProps {
@@ -73,6 +67,8 @@ export function AddVersionForm({
 	)
 
 	const [isSubmitting, setIsSubmitting] = useState(false)
+	const normalizedProjectType = assertSupportedProjectType(projectType)
+	const releasePolicy = getProjectReleasePolicy(normalizedProjectType)
 
 	const {
 		control,
@@ -81,7 +77,7 @@ export function AddVersionForm({
 		watch,
 		formState: { errors, isDirty },
 	} = useForm<VersionFormData>({
-		resolver: zodResolver(versionFormSchema),
+		resolver: zodResolver(createVersionFormSchema(normalizedProjectType)),
 		defaultValues: VERSION_FORM_DEFAULTS,
 	})
 
@@ -93,27 +89,30 @@ export function AddVersionForm({
 	const onSubmit = async (data: VersionFormData) => {
 		setIsSubmitting(true)
 		try {
+			const gameVersions =
+				releasePolicy.requireGameVersions &&
+				data.gameVersions.length > 0
+					? data.gameVersions
+					: undefined
 			const result = await createVersion({
 				projectId,
 				version: data.version,
-				changelog: data.changelog || undefined,
+				changelog: releasePolicy.allowChangelog
+					? data.changelog || undefined
+					: undefined,
 				uploadId: data.uploadId as Id<'projectArtifactUploads'>,
-				skinModel: data.skinModel,
-				gameVersions:
-					data.gameVersions.length > 0
-						? data.gameVersions
-						: undefined,
+				gameVersions,
 			})
 			if (!result.ok) {
 				throw new Error(result.error)
 			}
 			toast.success(
-				`Version ${data.version} uploaded and queued for validation`,
+				`Release ${result.version} uploaded and queued for validation`,
 			)
 			router.push(`/dashboard/projects/${projectSlug}/edit/versions`)
 		} catch (err) {
 			toast.error(
-				err instanceof Error ? err.message : 'Failed to upload version',
+				err instanceof Error ? err.message : 'Failed to upload release',
 			)
 		} finally {
 			setIsSubmitting(false)
@@ -123,42 +122,53 @@ export function AddVersionForm({
 	return (
 		<form className="space-y-8" onSubmit={handleSubmit(onSubmit)}>
 			<FieldGroup>
-				{/* Version string */}
-				<Controller
-					control={control}
-					name="version"
-					render={({ field, fieldState }) => (
-						<Field data-invalid={fieldState.invalid}>
-							<FieldLabel htmlFor="version">Version *</FieldLabel>
-							<FieldDescription>
-								Use a semver-style string, e.g.{' '}
-								<code>1.0.0</code> or <code>2.3.1-beta</code>
-							</FieldDescription>
-							<Input
-								disabled={isSubmitting}
-								id="version"
-								placeholder="1.0.0"
-								{...field}
-							/>
-							{fieldState.error && (
-								<FieldError errors={[fieldState.error]} />
-							)}
-						</Field>
-					)}
-				/>
+				{releasePolicy.requireCreatorVersion ? (
+					<Controller
+						control={control}
+						name="version"
+						render={({ field, fieldState }) => (
+							<Field data-invalid={fieldState.invalid}>
+								<FieldLabel htmlFor="version">
+									Version *
+								</FieldLabel>
+								<FieldDescription>
+									Use a semver-style string, e.g.{' '}
+									<code>1.0.0</code> or{' '}
+									<code>2.3.1-beta</code>
+								</FieldDescription>
+								<Input
+									disabled={isSubmitting}
+									id="version"
+									placeholder="1.0.0"
+									{...field}
+								/>
+								{fieldState.error && (
+									<FieldError errors={[fieldState.error]} />
+								)}
+							</Field>
+						)}
+					/>
+				) : null}
 
-				{/* Version file */}
+				{/* Release file */}
 				<Field data-invalid={!!errors.uploadId}>
-					<FieldLabel>Version File *</FieldLabel>
+					<FieldLabel>Release File *</FieldLabel>
 					<FieldDescription>
 						{artifactPolicy.requirement}
 					</FieldDescription>
 					<VersionFileUpload
 						disabled={isSubmitting || !versionValue}
-						onUploadComplete={(id, _key, fileName, fileSize) => {
+						onUploadComplete={(
+							id,
+							_key,
+							fileName,
+							fileSize,
+							assignedVersion,
+						) => {
 							setValue('uploadId', id, { shouldValidate: true })
 							setValue('fileName', fileName)
 							setValue('fileSize', fileSize)
+							setValue('version', assignedVersion)
 						}}
 						onUploadRemoved={() => {
 							setValue('uploadId', '', { shouldValidate: true })
@@ -167,9 +177,9 @@ export function AddVersionForm({
 						}}
 						projectId={projectId}
 						projectType={projectType}
-						version={versionValue || 'draft'}
+						version={versionValue}
 					/>
-					{!versionValue && (
+					{versionValue ? null : (
 						<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
 							<HugeiconsIcon
 								className="size-3.5"
@@ -183,142 +193,113 @@ export function AddVersionForm({
 					)}
 				</Field>
 
-				{normalizeProjectType(projectType) === 'skin' ? (
+				{releasePolicy.requireGameVersions ? (
 					<Controller
 						control={control}
-						name="skinModel"
-						render={({ field, fieldState }) => (
-							<Field data-invalid={fieldState.invalid}>
-								<FieldLabel>Player Model *</FieldLabel>
-								<FieldDescription>
-									Choose the arm style this skin was designed
-									for.
-								</FieldDescription>
-								<Select
-									onValueChange={field.onChange}
-									value={field.value}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select a player model" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="classic">
-											Classic (Steve)
-										</SelectItem>
-										<SelectItem value="slim">
-											Slim (Alex)
-										</SelectItem>
-									</SelectContent>
-								</Select>
-								{fieldState.error ? (
-									<FieldError errors={[fieldState.error]} />
-								) : null}
-							</Field>
-						)}
+						name="gameVersions"
+						render={({ field, fieldState }) => {
+							const options = (activeGameVersions ?? []).map(
+								(gv: { version: string }) => ({
+									label: gv.version,
+									value: gv.version,
+								}),
+							)
+							return (
+								<Field data-invalid={fieldState.invalid}>
+									<FieldLabel>
+										Compatible Game Versions
+									</FieldLabel>
+									<FieldDescription>
+										Select the Minecraft Bedrock versions
+										this release supports.
+									</FieldDescription>
+									<Faceted
+										multiple
+										onValueChange={field.onChange}
+										value={field.value}
+									>
+										<FacetedTrigger
+											render={
+												<button
+													className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none disabled:cursor-not-allowed disabled:opacity-50"
+													disabled={
+														isSubmitting ||
+														!activeGameVersions
+													}
+													type="button"
+												/>
+											}
+										>
+											<FacetedBadgeList
+												options={options}
+												placeholder="Select game versions..."
+											/>
+										</FacetedTrigger>
+										<FacetedContent>
+											<FacetedInput placeholder="Search versions..." />
+											<FacetedList>
+												<FacetedEmpty>
+													No versions found.
+												</FacetedEmpty>
+												<FacetedGroup>
+													{options.map(
+														(opt: {
+															label: string
+															value: string
+														}) => (
+															<FacetedItem
+																key={opt.value}
+																value={
+																	opt.value
+																}
+															>
+																{opt.label}
+															</FacetedItem>
+														),
+													)}
+												</FacetedGroup>
+											</FacetedList>
+										</FacetedContent>
+									</Faceted>
+									{fieldState.error && (
+										<FieldError
+											errors={[fieldState.error]}
+										/>
+									)}
+								</Field>
+							)
+						}}
 					/>
 				) : null}
 
-				{/* Game versions */}
-				<Controller
-					control={control}
-					name="gameVersions"
-					render={({ field, fieldState }) => {
-						const options = (activeGameVersions ?? []).map(
-							(gv: { version: string }) => ({
-								label: gv.version,
-								value: gv.version,
-							}),
-						)
-						return (
+				{releasePolicy.allowChangelog ? (
+					<Controller
+						control={control}
+						name="changelog"
+						render={({ field, fieldState }) => (
 							<Field data-invalid={fieldState.invalid}>
-								<FieldLabel>
-									Compatible Game Versions
+								<FieldLabel htmlFor="changelog">
+									Changelog
 								</FieldLabel>
 								<FieldDescription>
-									Select the Minecraft Bedrock versions this
-									release supports.
+									What changed in this release? Supports rich
+									text.
 								</FieldDescription>
-								<Faceted
-									multiple
-									onValueChange={field.onChange}
-									value={field.value}
-								>
-									<FacetedTrigger
-										render={
-											<button
-												className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none disabled:cursor-not-allowed disabled:opacity-50"
-												disabled={
-													isSubmitting ||
-													!activeGameVersions
-												}
-												type="button"
-											/>
-										}
-									>
-										<FacetedBadgeList
-											options={options}
-											placeholder="Select game versions..."
-										/>
-									</FacetedTrigger>
-									<FacetedContent>
-										<FacetedInput placeholder="Search versions..." />
-										<FacetedList>
-											<FacetedEmpty>
-												No versions found.
-											</FacetedEmpty>
-											<FacetedGroup>
-												{options.map(
-													(opt: {
-														label: string
-														value: string
-													}) => (
-														<FacetedItem
-															key={opt.value}
-															value={opt.value}
-														>
-															{opt.label}
-														</FacetedItem>
-													),
-												)}
-											</FacetedGroup>
-										</FacetedList>
-									</FacetedContent>
-								</Faceted>
+								<div id="changelog">
+									<RichTextEditor
+										disabled={isSubmitting}
+										onChange={field.onChange}
+										placeholder="Describe what changed in this release..."
+										value={field.value}
+									/>
+								</div>
 								{fieldState.error && (
 									<FieldError errors={[fieldState.error]} />
 								)}
 							</Field>
-						)
-					}}
-				/>
-
-				{/* Changelog */}
-				<Controller
-					control={control}
-					name="changelog"
-					render={({ field, fieldState }) => (
-						<Field data-invalid={fieldState.invalid}>
-							<FieldLabel htmlFor="changelog">
-								Changelog
-							</FieldLabel>
-							<FieldDescription>
-								What changed in this version? Supports rich
-								text.
-							</FieldDescription>
-							<div id="changelog">
-								<RichTextEditor
-									disabled={isSubmitting}
-									onChange={field.onChange}
-									placeholder="Describe what changed in this release..."
-									value={field.value}
-								/>
-							</div>
-							{fieldState.error && (
-								<FieldError errors={[fieldState.error]} />
-							)}
-						</Field>
-					)}
-				/>
+						)}
+					/>
+				) : null}
 			</FieldGroup>
 
 			<div className="flex justify-end gap-3">
@@ -342,7 +323,7 @@ export function AddVersionForm({
 								className="size-4"
 								icon={CheckmarkCircle02Icon}
 							/>
-							Publish Version
+							Publish Release
 						</>
 					)}
 				</Button>

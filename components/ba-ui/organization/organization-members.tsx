@@ -10,7 +10,7 @@ import {
   useSession
 } from "@better-auth-ui/react"
 import type { Member } from "better-auth/client"
-import { ChevronUp, Filter, Search, X } from "lucide-react"
+import { ChevronUp, Filter, Search, X } from "@/components/ui/icons"
 import { type ComponentProps, type ReactNode, useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"

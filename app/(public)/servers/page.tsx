@@ -4,6 +4,7 @@ import { SearchRemoveIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
 import { useCallback, useState } from 'react'
+import { PageShell } from '@/components/page-shell'
 import { PublicListingPagination } from '@/components/public-listing-pagination'
 import {
 	AdvancedServerSearch,
@@ -141,7 +142,11 @@ export default function ServersPage() {
 	}
 
 	return (
-		<main className="container mx-auto px-4 py-8 sm:py-10">
+		<PageShell
+			description="Find Minecraft Bedrock communities by category, region, player activity, and rating."
+			eyebrow="Server directory"
+			title="Discover Bedrock servers"
+		>
 			<div className="mb-6">
 				<AdvancedServerSearch
 					filters={filters}
@@ -163,6 +168,6 @@ export default function ServersPage() {
 
 				{renderResults()}
 			</div>
-		</main>
+		</PageShell>
 	)
 }

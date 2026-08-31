@@ -20,7 +20,9 @@ import {
 	isTemporaryR2Key,
 } from '../convex/lib/r2Keys'
 import {
+	assertSupportedProjectType,
 	getProjectArtifactPolicy,
+	getProjectReleasePolicy,
 	normalizeProjectType,
 	validateProjectArtifactFile,
 } from './project-artifacts'
@@ -31,8 +33,6 @@ const SERVER_LOGO_KEY_PATTERN =
 describe('project artifact policy', () => {
 	test.each([
 		['addon', 'release.mcaddon'],
-		['map', 'world.mcworld'],
-		['skin', 'skin.PNG'],
 		['resource_pack', 'textures.mcpack'],
 	] as const)('accepts the artifact for %s', (type, fileName) => {
 		expect(
@@ -40,14 +40,11 @@ describe('project artifact policy', () => {
 		).toBeNull()
 	})
 
-	test('rejects generic zip maps', () => {
-		expect(
-			validateProjectArtifactFile({
-				type: 'map',
-				fileName: 'world.zip',
-				fileSize: 1024,
-			}),
-		).toContain('.mcworld')
+	test('rejects maps and worlds as unsupported project types', () => {
+		expect(() => assertSupportedProjectType('map')).toThrow(
+			'Maps and worlds are not currently supported',
+		)
+		expect(() => getProjectArtifactPolicy('map')).toThrow()
 	})
 
 	test('maps the legacy texture pack type to resource packs', () => {
@@ -55,6 +52,18 @@ describe('project artifact policy', () => {
 		expect(getProjectArtifactPolicy('texture_pack').extensions).toEqual([
 			'mcpack',
 		])
+	})
+
+	test('uses type-specific release policies', () => {
+		expect(getProjectReleasePolicy('addon')).toEqual({
+			allowChangelog: true,
+			displayVersion: true,
+			requireCreatorVersion: true,
+			requireGameVersions: true,
+		})
+		expect(getProjectReleasePolicy('resource_pack')).toEqual(
+			getProjectReleasePolicy('addon'),
+		)
 	})
 
 	test('rejects empty and oversized artifacts', () => {
@@ -67,11 +76,11 @@ describe('project artifact policy', () => {
 		).toContain('empty')
 		expect(
 			validateProjectArtifactFile({
-				type: 'skin',
-				fileName: 'skin.png',
-				fileSize: 2 * 1024 * 1024 + 1,
+				type: 'resource_pack',
+				fileName: 'textures.mcpack',
+				fileSize: 256 * 1024 * 1024 + 1,
 			}),
-		).toContain('2 MB')
+		).toContain('256 MB')
 	})
 
 	test('builds entity-first artifact keys without original filenames', () => {
@@ -80,10 +89,10 @@ describe('project artifact policy', () => {
 				projectId: 'project_123',
 				releaseId: 'release_456',
 				artifactId: 'artifact_789',
-				fileName: 'My Original World.mcworld',
+				fileName: 'My Addon.mcaddon',
 			}),
 		).toBe(
-			'artifacts/projects/project_123/releases/release_456/artifact_789.mcworld',
+			'artifacts/projects/project_123/releases/release_456/artifact_789.mcaddon',
 		)
 	})
 
@@ -92,7 +101,7 @@ describe('project artifact policy', () => {
 			projectId: 'project_123',
 			releaseId: 'release_456',
 			artifactId: 'artifact_789',
-			fileName: 'My Original World.mcworld',
+			fileName: 'My Addon.mcaddon',
 		}
 		const uploadKey = buildProjectUploadR2ObjectKey(args)
 		const downloadKey = buildProjectDownloadR2ObjectKey({
@@ -101,10 +110,10 @@ describe('project artifact policy', () => {
 		})
 
 		expect(uploadKey).toBe(
-			'uploads/projects/project_123/releases/release_456/artifact_789.mcworld',
+			'uploads/projects/project_123/releases/release_456/artifact_789.mcaddon',
 		)
 		expect(downloadKey).toBe(
-			'downloads/projects/project_123/releases/1.4.0/artifact_789.mcworld',
+			'downloads/projects/project_123/releases/1.4.0/artifact_789.mcaddon',
 		)
 		expect(isPrivateUploadR2Key(uploadKey)).toBeTrue()
 		expect(isCdnR2Key(uploadKey)).toBeFalse()
@@ -147,9 +156,9 @@ describe('project artifact policy', () => {
 	})
 
 	test('builds site, editor, and temporary namespaces', () => {
-		const siteLogo = buildSiteImageR2ObjectKey({
-			imageKind: 'logo',
-			fileName: 'brand.png',
+		const openGraphImage = buildSiteImageR2ObjectKey({
+			imageKind: 'open-graph',
+			fileName: 'social.png',
 		})
 		const editorImage = buildProfileMediaR2ObjectKey({
 			userId: 'user_123',
@@ -163,7 +172,10 @@ describe('project artifact policy', () => {
 			fileName: 'draft.gif',
 		})
 
-		expect(isSiteImageR2Key(siteLogo, 'logo')).toBeTrue()
+		expect(isSiteImageR2Key(openGraphImage, 'open-graph')).toBeTrue()
+		expect(
+			isSiteImageR2Key('media/site/global/logo/legacy-logo.png', 'logo'),
+		).toBeTrue()
 		expect(isEditorMediaR2Key(editorImage, 'user_123')).toBeTrue()
 		expect(temporary).toBe('temporary/user_123/upload_123/asset_123.gif')
 		expect(isTemporaryR2Key(temporary, 'user_123')).toBeTrue()
