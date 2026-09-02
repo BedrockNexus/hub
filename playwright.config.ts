@@ -17,7 +17,7 @@ export default defineConfig({
 	webServer: process.env.E2E_BASE_URL
 		? undefined
 		: {
-				command: 'bun run dev:frontend',
+				command: 'bun run dev',
 				url: baseURL,
 				reuseExistingServer: true,
 				timeout: 120_000,

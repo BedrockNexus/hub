@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
-import type { Id } from '../../_generated/dataModel'
+import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import {
 	internalMutation,
@@ -51,20 +51,33 @@ function getUtcMonthKey(epoch: number): string {
 	return new Date(epoch).toISOString().slice(0, 7)
 }
 
-function withDownloadUrl<T extends { _id: Id<'projectVersions'> }>(
-	version: T,
-) {
+function toPublicRelease(version: Doc<'projectVersions'>) {
 	return {
-		...version,
+		_id: version._id,
+		version: version.version,
+		changelog: version.changelog,
+		fileName: version.fileName,
+		fileSize: version.fileSize,
+		gameVersions: version.gameVersions,
+		downloads: version.downloads,
+		createdAt: version.createdAt,
 		downloadUrl: `/api/projects/versions/${version._id}/download`,
 	}
 }
 
-function withCreatorDownloadUrl<
-	T extends { _id: Id<'projectVersions'>; validationStatus?: string },
->(version: T) {
+function toCreatorRelease(version: Doc<'projectVersions'>) {
 	return {
-		...version,
+		_id: version._id,
+		version: version.version,
+		changelog: version.changelog,
+		fileName: version.fileName,
+		fileSize: version.fileSize,
+		gameVersions: version.gameVersions,
+		downloads: version.downloads,
+		createdAt: version.createdAt,
+		validationStatus: version.validationStatus,
+		validationCode: version.validationCode,
+		validationError: version.validationError,
 		downloadUrl: isValidatedRelease(version)
 			? `/api/projects/versions/${version._id}/download`
 			: undefined,
@@ -122,13 +135,18 @@ export const list = query({
 		projectId: v.id('projects'),
 	},
 	handler: async (ctx, args) => {
+		await assertCanManageProject(
+			ctx,
+			args.projectId,
+			'You must be logged in to view project releases',
+		)
 		const versions = await ctx.db
 			.query('projectVersions')
 			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
 			.order('desc')
 			.collect()
 
-		return versions.map(withCreatorDownloadUrl)
+		return versions.map(toCreatorRelease)
 	},
 })
 
@@ -158,7 +176,7 @@ export const listPublic = query({
 					isValidatedRelease(version) &&
 					Boolean(getPublishedReleaseKey(version)),
 			)
-			.map((version) => withDownloadUrl(version))
+			.map(toPublicRelease)
 	},
 })
 
@@ -186,7 +204,7 @@ export const getPublicByVersion = query({
 			!getPublishedReleaseKey(version)
 		) return null
 		return {
-			...withDownloadUrl(version),
+			...toPublicRelease(version),
 			project: {
 				name: project.name,
 				slug: project.slug,
@@ -199,6 +217,13 @@ export const getPublicByVersion = query({
 export const getLatest = query({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {
+		const project = await ctx.db.get(args.projectId)
+		if (
+			!project ||
+			!isSupportedProjectType(project.type) ||
+			!isPublicProject(project)
+		) return null
+
 		const version = await ctx.db
 			.query('projectVersions')
 			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
@@ -208,7 +233,7 @@ export const getLatest = query({
 		return version &&
 			isValidatedRelease(version) &&
 			getPublishedReleaseKey(version)
-			? withDownloadUrl(version)
+			? toPublicRelease(version)
 			: null
 	},
 })
@@ -222,6 +247,13 @@ export const getByVersion = query({
 		if (!args.version) {
 			return null
 		}
+		const project = await ctx.db.get(args.projectId)
+		if (
+			!project ||
+			!isSupportedProjectType(project.type) ||
+			!isPublicProject(project)
+		) return null
+
 		const requestedVersion = args.version
 		const version = await ctx.db
 			.query('projectVersions')
@@ -233,7 +265,7 @@ export const getByVersion = query({
 		return version &&
 			isValidatedRelease(version) &&
 			getPublishedReleaseKey(version)
-			? withDownloadUrl(version)
+			? toPublicRelease(version)
 			: null
 	},
 })
