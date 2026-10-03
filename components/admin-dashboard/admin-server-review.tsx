@@ -28,7 +28,7 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 	})
 
 	if (server === undefined) {
-		return <Skeleton className="h-[70svh] w-full rounded-lg" />
+		return <Skeleton className="h-[70svh] w-full rounded-md" />
 	}
 
 	if (!server) {
@@ -60,7 +60,7 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 						{server.logoUrl ? (
 							<Image
 								alt={`${server.name} logo`}
-								className="size-16 rounded-lg border object-cover"
+								className="size-16 rounded-md border object-cover"
 								height={64}
 								src={server.logoUrl}
 								width={64}
@@ -120,7 +120,7 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 					{server.bannerUrl ? (
 						<Image
 							alt={`${server.name} banner`}
-							className="aspect-[3/1] w-full rounded-lg border object-cover"
+							className="aspect-[3/1] w-full rounded-md border object-cover"
 							height={400}
 							src={server.bannerUrl}
 							width={1200}

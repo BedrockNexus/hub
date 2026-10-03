@@ -29,14 +29,14 @@ export default function OrganizationLayout({
 		return (
 			<div className="space-y-6">
 				<div className="flex items-center gap-4">
-					<Skeleton className="size-12 rounded-lg" />
+					<Skeleton className="size-12 rounded-md" />
 					<div className="space-y-2">
 						<Skeleton className="h-7 w-48" />
 						<Skeleton className="h-4 w-32" />
 					</div>
 				</div>
 				<Skeleton className="h-10 w-full" />
-				<Skeleton className="h-64 w-full rounded-lg" />
+				<Skeleton className="h-64 w-full rounded-md" />
 			</div>
 		)
 	}

@@ -40,10 +40,28 @@ export class BedrockApiError extends Error {
 	}
 }
 
-function getPublicApiUrl() {
+/** Same-origin path that next.config.ts rewrites to the API in development. */
+export const DEV_STATUS_API_PATH = '/__status-api'
+
+export function getStatusApiOrigin() {
 	return (
 		process.env.NEXT_PUBLIC_API_URL || 'https://api.bedrocknexus.com'
 	).replace(TRAILING_SLASH_PATTERN, '')
+}
+
+function getPublicApiUrl() {
+	// The API only allows CORS from the production site and localhost:3000;
+	// in development go through the same-origin rewrite so any port works.
+	return process.env.NODE_ENV === 'development'
+		? DEV_STATUS_API_PATH
+		: getStatusApiOrigin()
+}
+
+const MINECRAFT_FORMATTING_PATTERN = /§[0-9a-z]/gi
+
+/** Removes Minecraft `§` colour and style codes from server-provided text. */
+export function stripMinecraftFormatting(text: string | undefined) {
+	return text?.replace(MINECRAFT_FORMATTING_PATTERN, '').trim() || undefined
 }
 
 export async function fetchBedrockStatus(
@@ -71,7 +89,11 @@ export async function fetchBedrockStatus(
 		)
 	}
 
-	return data as BedrockStatusResponse
+	return {
+		...data,
+		motd: stripMinecraftFormatting(data.motd),
+		mapName: stripMinecraftFormatting(data.mapName),
+	} as BedrockStatusResponse
 }
 
 export function getSoftwareClassificationLabel(

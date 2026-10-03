@@ -56,10 +56,10 @@ function OverviewSkeleton() {
 		<div className="space-y-6">
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 				{['one', 'two', 'three', 'four'].map((key) => (
-					<Skeleton className="h-28 rounded-lg" key={key} />
+					<Skeleton className="h-28 rounded-md" key={key} />
 				))}
 			</div>
-			<Skeleton className="h-80 rounded-lg" />
+			<Skeleton className="h-80 rounded-md" />
 		</div>
 	)
 }
@@ -71,17 +71,17 @@ export function AdminOverview() {
 	const projects = useQuery(api.functions.projects.projects.listAdmin, {
 		limit: 250,
 	})
-	const users = useQuery(api.functions.site.users.listAdmin, { limit: 250 })
-	const organizations = useQuery(
-		api.functions.site.organizations.listAdmin,
+	const userStats = useQuery(api.functions.site.users.getAdminUserStats, {})
+	const organizationStats = useQuery(
+		api.functions.site.organizations.getAdminOrganizationStats,
 		{},
 	)
 
 	if (
 		servers === undefined ||
 		projects === undefined ||
-		users === undefined ||
-		organizations === undefined
+		userStats === undefined ||
+		organizationStats === undefined
 	) {
 		return <OverviewSkeleton />
 	}
@@ -94,10 +94,6 @@ export function AdminOverview() {
 			server.status === 'under_review' ||
 			(server.status === 'published' &&
 				server.moderationStatus !== 'approved'),
-	)
-	const bannedUsers = users.filter((user) => user.banned)
-	const riskyOrganizations = organizations.filter(
-		(organization) => organization.riskStatus !== 'healthy',
 	)
 
 	const queues = [
@@ -116,14 +112,14 @@ export function AdminOverview() {
 			label: 'Server reviews',
 		},
 		{
-			count: bannedUsers.length,
+			count: userStats.banned,
 			description: 'Accounts currently blocked from the platform',
 			href: '/admin/users',
 			icon: UserBlock01Icon,
 			label: 'Banned users',
 		},
 		{
-			count: riskyOrganizations.length,
+			count: organizationStats.riskyOrganizationCount,
 			description: 'Missing owners or invitation issues',
 			href: '/admin/organizations',
 			icon: OfficeIcon,

@@ -8,7 +8,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        default:
+          "border-edge bg-primary font-display font-semibold text-primary-foreground shadow-[0_3px_0_var(--extrude)] hover:bg-(--primary-hover) active:not-aria-[haspopup]:translate-y-0.5 active:not-aria-[haspopup]:shadow-[0_1px_0_var(--extrude)]",
+        brand:
+          "border-2 border-edge bg-primary font-display font-bold tracking-wide text-primary-foreground uppercase shadow-[0_4px_0_var(--extrude)] hover:bg-(--primary-hover) active:not-aria-[haspopup]:translate-y-[3px] active:not-aria-[haspopup]:shadow-[0_1px_0_var(--extrude)]",
         outline:
           "border-border bg-background shadow-xs hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
@@ -31,6 +34,8 @@ const buttonVariants = cva(
         "icon-sm":
           "size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md",
         "icon-lg": "size-10",
+        xl: "h-12 gap-2 px-5 text-[15px] [&_svg:not([class*='size-'])]:size-4.5",
+        "icon-xl": "size-12 [&_svg:not([class*='size-'])]:size-5",
       },
     },
     defaultVariants: {

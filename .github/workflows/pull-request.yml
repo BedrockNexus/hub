@@ -1,0 +1,22 @@
+name: Pull Request
+
+# Builds the Dockerfile `test` stage and the production image without pushing
+# or deploying. Safe for fork pull requests: no secrets are used.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    uses: BedrockNexus/github-actions/.github/workflows/docker-pr.yml@main
+    with:
+      test-target: test
+      # Placeholders keep fork builds working; nothing here is deployed.
+      build-args: |
+        NEXT_PUBLIC_CONVEX_URL=${{ vars.NEXT_PUBLIC_CONVEX_URL || 'https://ci-placeholder.convex.cloud' }}
+        NEXT_PUBLIC_CONVEX_SITE_URL=${{ vars.NEXT_PUBLIC_CONVEX_SITE_URL || 'https://ci-placeholder.convex.site' }}
+        NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL || 'https://bedrocknexus.com' }}
+        NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://api.bedrocknexus.com' }}

@@ -1,6 +1,6 @@
 import Link from 'next/link'
+import { SideCard } from '@/components/detail/detail-parts'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
 	type ProjectMetadata,
 	RESOURCE_PACK_CONTENT_LABELS,
@@ -116,13 +116,16 @@ export function ProjectTypeDetailsCard({
 	}
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Type Details</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-3">
+		<SideCard
+			title={
+				metadata.type === 'resource_pack'
+					? 'Pack details'
+					: 'Addon details'
+			}
+		>
+			<div className="flex flex-col gap-2.5">
 				<MetadataContent metadata={metadata} />
-			</CardContent>
-		</Card>
+			</div>
+		</SideCard>
 	)
 }

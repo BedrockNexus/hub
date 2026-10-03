@@ -8,6 +8,7 @@ import type { DataModel } from './_generated/dataModel'
 import { query } from './_generated/server'
 import authConfig from './auth.config'
 import authSchema from './betterAuth/schema'
+import { AUTH_CLIENT_IP_HEADER } from './lib/authProxy'
 
 const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
 
@@ -104,19 +105,36 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 				enabled: true,
 			},
 		},
+		// Better Auth also applies built-in limits to /sign-in/*, /sign-up/*,
+		// /change-password, /change-email (3 per 10s) and to password-reset and
+		// verification emails (3 per minute). Counters are stored in the
+		// database because Convex functions do not share memory.
 		rateLimit: {
 			enabled: true,
+			storage: 'database',
 			window: 60,
 			max: 100,
 			customRules: {
-				'/forget-password': { window: 60, max: 3 },
+				'/sign-in/*': { window: 60, max: 5 },
+				'/sign-up/*': { window: 60 * 60, max: 5 },
 				'/reset-password': { window: 60, max: 5 },
-				'/reset-password/:token': { window: 60, max: 10 },
-				'/send-verification-email': { window: 60, max: 3 },
+				'/reset-password/*': { window: 60, max: 10 },
 				'/verify-email': { window: 60, max: 10 },
-				'/login': { window: 60, max: 5 },
-				'/register': { window: 60, max: 5 },
-				'check-email': { window: 60, max: 10 },
+				'/is-username-available': { window: 60, max: 30 },
+				// Session reads happen on every server render and are only
+				// useful with a valid session cookie.
+				'/get-session': false,
+				'/convex/token': false,
+				// Convex fetches these server-to-server to verify every token; a
+				// 429 here signs everyone out of Convex queries.
+				'/convex/jwks': false,
+				'/convex/.well-known/openid-configuration': false,
+			},
+		},
+		advanced: {
+			// Only the address vouched for by the Next.js proxy (convex/http.ts).
+			ipAddress: {
+				ipAddressHeaders: [AUTH_CLIENT_IP_HEADER],
 			},
 		},
 		plugins: [

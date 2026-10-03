@@ -87,7 +87,7 @@ function OrgStat({ label, value, hint, icon, tone }: OrgStatProps) {
 					) : null}
 				</div>
 				<div
-					className={`flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ${styles.bg} ${styles.text} ${styles.ring}`}
+					className={`flex size-10 shrink-0 items-center justify-center rounded-md ring-1 ${styles.bg} ${styles.text} ${styles.ring}`}
 				>
 					<HugeiconsIcon className="size-5" icon={icon} />
 				</div>
@@ -113,13 +113,13 @@ export default function OrganizationOverviewPage() {
 	if (loading) {
 		return (
 			<div className="flex flex-col gap-6">
-				<Skeleton className="h-32 rounded-xl" />
+				<Skeleton className="h-32 rounded-md" />
 				<div className="grid gap-4 sm:grid-cols-3">
-					<Skeleton className="h-28 rounded-xl" />
-					<Skeleton className="h-28 rounded-xl" />
-					<Skeleton className="h-28 rounded-xl" />
+					<Skeleton className="h-28 rounded-md" />
+					<Skeleton className="h-28 rounded-md" />
+					<Skeleton className="h-28 rounded-md" />
 				</div>
-				<Skeleton className="h-64 rounded-xl" />
+				<Skeleton className="h-64 rounded-md" />
 			</div>
 		)
 	}
@@ -159,7 +159,7 @@ export default function OrganizationOverviewPage() {
 						<div className="absolute -top-20 -left-10 size-64 rounded-full bg-primary/10 blur-3xl" />
 					</div>
 					<div className="flex items-center gap-4">
-						<div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted ring-1 ring-border">
+						<div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-border">
 							{logoUrl ? (
 								<Image
 									alt={organization.name}
@@ -247,7 +247,7 @@ export default function OrganizationOverviewPage() {
 									key={server._id}
 								>
 									<div className="flex min-w-0 flex-1 items-center gap-3">
-										<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted font-semibold text-muted-foreground text-sm uppercase">
+										<div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground text-sm uppercase">
 											{server.name.charAt(0)}
 										</div>
 										<div className="min-w-0 flex-1">
@@ -322,7 +322,7 @@ export default function OrganizationOverviewPage() {
 									key={project._id}
 								>
 									<div className="flex min-w-0 flex-1 items-center gap-3">
-										<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted font-semibold text-muted-foreground text-sm uppercase">
+										<div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground text-sm uppercase">
 											{project.name.charAt(0)}
 										</div>
 										<div className="min-w-0 flex-1">

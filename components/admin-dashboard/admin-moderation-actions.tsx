@@ -48,7 +48,7 @@ const ACTION_COPY: Record<
 	reject: {
 		title: 'Reject submission?',
 		description:
-			'The content returns to draft and the creator will see your reason.',
+			'The content stays hidden and the creator cannot resubmit or republish it. They will see your reason.',
 		submit: 'Reject',
 	},
 	unpublish: {
@@ -77,7 +77,7 @@ function getModerationPatch(action: ModerationAction, reason: string) {
 
 	if (action === 'reject') {
 		return {
-			status: 'draft' as const,
+			status: 'under_review' as const,
 			moderationStatus: 'rejected' as const,
 			moderationReason: reason,
 		}

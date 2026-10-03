@@ -1,6 +1,7 @@
 'use client'
 
 import {
+	ArrowUpRight01Icon,
 	DashboardBrowsingIcon,
 	OfficeIcon,
 	Package01Icon,
@@ -15,7 +16,9 @@ import {
 	type UserButtonLink,
 } from '@/components/ba-ui/user/user-button'
 import { BrandMark } from '@/components/brand-mark'
-import { homeNavigation, publicNavigation } from '@/lib/site'
+import { CreateMenu } from '@/components/layout/create-menu'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
+import { homeNavigation, publicNavigation, siteConfig } from '@/lib/site'
 import { cn } from '@/lib/utils'
 
 const mobileNavigation = [homeNavigation, ...publicNavigation]
@@ -88,56 +91,63 @@ export function Navbar() {
 
 	return (
 		<>
-			<header className="hidden lg:block">
+			<header className="hidden border-b bg-background/95 backdrop-blur lg:block">
 				<nav
 					aria-label="Primary navigation"
-					className="container mx-auto px-4 md:px-6"
+					className="container mx-auto flex h-18 items-center gap-8 px-4 md:px-6"
 				>
-					<div className="grid h-20 grid-cols-[1fr_auto_1fr] items-center">
-						<BrandMark priority />
+					<BrandMark imageClassName="w-36" priority withIcon />
 
-						<div className="flex items-center gap-1">
-							{publicNavigation.map((item) => {
-								const isActive = isActiveRoute(
-									pathname,
-									item.href,
-								)
+					<div className="flex items-center gap-6">
+						{publicNavigation.map((item) => {
+							const isActive = isActiveRoute(pathname, item.href)
 
-								return (
-									<Link
-										aria-current={
-											isActive ? 'page' : undefined
-										}
-										className={cn(
-											'flex items-center gap-2 rounded-md px-4 py-2 font-medium text-muted-foreground text-sm transition-[color,background-color,filter] hover:bg-primary hover:text-primary-foreground hover:brightness-95',
-											isActive &&
-												'bg-primary text-primary-foreground shadow-sm',
-										)}
-										href={item.href}
-										key={item.href}
-									>
-										<HugeiconsIcon
-											aria-hidden
-											className="size-4.25"
-											icon={item.icon}
-											strokeWidth={1.8}
-										/>
-										{item.label}
-									</Link>
-								)
-							})}
-						</div>
+							return (
+								<Link
+									aria-current={isActive ? 'page' : undefined}
+									className={cn(
+										'border-transparent border-b-2 py-2 font-display font-semibold text-[15px] text-muted-foreground transition-colors hover:text-foreground',
+										isActive &&
+											'border-primary text-foreground',
+									)}
+									href={item.href}
+									key={item.href}
+								>
+									{item.label}
+								</Link>
+							)
+						})}
+						<a
+							className="inline-flex items-center gap-1.5 py-2 font-display font-semibold text-[15px] text-ember-text transition-colors hover:text-foreground"
+							href={siteConfig.pluginsUrl}
+							rel="noopener"
+							target="_blank"
+						>
+							Plugins
+							<HugeiconsIcon
+								aria-hidden
+								className="size-3.5"
+								icon={ArrowUpRight01Icon}
+							/>
+						</a>
+					</div>
 
-						<div className="flex items-center justify-end">
-							<UserButton links={userButtonLinks} size="icon" />
-						</div>
+					<div className="ml-auto flex items-center gap-2.5">
+						<ThemeToggle />
+						<CreateMenu />
+						<UserButton links={userButtonLinks} size="icon" />
 					</div>
 				</nav>
 			</header>
 
+			<header className="flex h-16 items-center justify-between gap-3 border-b bg-background px-4 lg:hidden">
+				<BrandMark imageClassName="w-28" priority withIcon />
+				<ThemeToggle />
+			</header>
+
 			<nav
 				aria-label="Mobile navigation"
-				className="fixed inset-x-0 bottom-0 z-50 border-t bg-muted/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
+				className="fixed inset-x-0 bottom-0 z-50 border-t bg-card/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
 			>
 				<div className="mx-auto flex max-w-md items-stretch">
 					{mobileNavigation.map((item) => {
@@ -149,7 +159,7 @@ export function Navbar() {
 								className={cn(
 									'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-muted-foreground',
 									isActive &&
-										'bg-background text-foreground shadow-sm',
+										'bg-primary text-primary-foreground',
 								)}
 								href={item.href}
 								key={item.href}

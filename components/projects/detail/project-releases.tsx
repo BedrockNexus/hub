@@ -53,7 +53,7 @@ export function ProjectReleases({
 		return (
 			<div className="space-y-4">
 				{['one', 'two', 'three'].map((key) => (
-					<div className="space-y-4 rounded-lg border p-5" key={key}>
+					<div className="space-y-4 rounded-md border p-5" key={key}>
 						<Skeleton className="h-6 w-40" />
 						<Skeleton className="h-4 w-64" />
 						<Skeleton className="h-20 w-full" />
@@ -81,7 +81,7 @@ export function ProjectReleases({
 		<div className="space-y-4">
 			{releases.map((release, index) => (
 				<article
-					className="overflow-hidden rounded-lg border bg-card"
+					className="overflow-hidden rounded-md border bg-card"
 					key={release._id}
 				>
 					<header className="flex flex-col gap-4 border-b bg-muted/25 p-5 sm:flex-row sm:items-start sm:justify-between">

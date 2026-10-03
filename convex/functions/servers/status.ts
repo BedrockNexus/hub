@@ -11,7 +11,11 @@ import {
 	query,
 } from '../../_generated/server'
 import { authComponent } from '../../auth'
+
 import { enforceRateLimit } from '../../lib/rateLimits'
+
+// Spacing between scheduled status checks (5-minute cron window).
+const PING_STAGGER_MS = 150
 
 const softwareClassificationValidator = v.union(
 	v.literal('native_bedrock'),
@@ -236,22 +240,6 @@ export const getOnlineServers = query({
 	},
 })
 
-/**
- * Get servers that need status check (stale data)
- */
-export const getStaleServers = query({
-	args: {
-		maxAgeMinutes: v.optional(v.number()), // Default 5 minutes
-	},
-	handler: async (ctx, args) => {
-		const maxAge = args.maxAgeMinutes ?? 5
-		const cutoff = Date.now() - maxAge * 60_000
-
-		const allStatuses = await ctx.db.query('serverStatus').collect()
-
-		return allStatuses.filter((s) => s.lastChecked < cutoff)
-	},
-})
 
 // =============================================================================
 // SERVER STATUS MUTATIONS
@@ -398,35 +386,6 @@ export const deleteStatus = mutation({
 // AGGREGATE QUERIES
 // =============================================================================
 
-/**
- * Get status summary (for homepage/stats)
- */
-export const getSummary = query({
-	args: {},
-	handler: async (ctx) => {
-		const allStatuses = await ctx.db.query('serverStatus').collect()
-
-		const online = allStatuses.filter((s) => s.online)
-		const totalPlayers = online.reduce((sum, s) => sum + s.playerCount, 0)
-		const avgUptime =
-			allStatuses.length > 0
-				? Math.round(
-						allStatuses.reduce(
-							(sum, s) => sum + s.uptimePercent,
-							0,
-						) / allStatuses.length,
-					)
-				: 0
-
-		return {
-			totalServers: allStatuses.length,
-			onlineServers: online.length,
-			offlineServers: allStatuses.length - online.length,
-			totalPlayers,
-			avgUptime,
-		}
-	},
-})
 
 // =============================================================================
 // INTERNAL MUTATIONS (for scheduled jobs)
@@ -615,25 +574,22 @@ export const pingServer = internalAction({
 export const pingAllServers = internalAction({
 	args: {},
 	handler: async (ctx) => {
-		// Get all active servers
 		const servers = await ctx.runQuery(
 			internal.functions.servers.status.getAllActiveServers,
 		)
 
-		console.log(`[Cron] Pinging ${servers.length} servers...`)
-
-		// Ping each server (with some delay to avoid overwhelming the API)
-		for (const server of servers) {
-			try {
-				await pingAndPersistServerStatus(ctx, server)
-			} catch (error) {
-				console.error(`[Cron] Failed to ping ${server.name}:`, error)
-				// Mark as offline on error
-				await persistOfflineStatus(ctx, server._id)
-			}
+		// Fan out one short action per server, staggered, so a large directory
+		// never exceeds a single action's time limit and one slow server cannot
+		// delay the others.
+		for (const [index, server] of servers.entries()) {
+			await ctx.scheduler.runAfter(
+				index * PING_STAGGER_MS,
+				internal.functions.servers.status.pingServer,
+				{ serverId: server._id },
+			)
 		}
 
-		console.log(`[Cron] Finished pinging ${servers.length} servers`)
+		console.log(`[Cron] Scheduled status checks for ${servers.length} servers`)
 	},
 })
 
@@ -642,10 +598,12 @@ export const pingAllServers = internalAction({
  */
 export const getAllActiveServers = internalQuery({
 	args: {},
+	returns: v.array(v.object({ _id: v.id('servers') })),
 	handler: async (ctx) => {
-		return await ctx.db
+		const servers = await ctx.db
 			.query('servers')
 			.withIndex('by_status', (q) => q.eq('status', 'published'))
 			.collect()
+		return servers.map((server) => ({ _id: server._id }))
 	},
 })

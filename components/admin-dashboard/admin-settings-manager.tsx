@@ -83,8 +83,8 @@ function AdminSettingsSkeleton() {
 		<div className="space-y-6">
 			<Skeleton className="h-16 w-full max-w-xl rounded-md" />
 			<div className="grid gap-4 lg:grid-cols-2">
-				<Skeleton className="h-96 rounded-xl" />
-				<Skeleton className="h-96 rounded-xl" />
+				<Skeleton className="h-96 rounded-md" />
+				<Skeleton className="h-96 rounded-md" />
 			</div>
 		</div>
 	)

@@ -26,7 +26,7 @@ export function ExtendedProfileForm() {
 	const [bannerPreview, setBannerPreview] = useState<string | undefined>()
 
 	if (profile === undefined || profile === null) {
-		return <Skeleton className="h-[32rem] w-full rounded-lg" />
+		return <Skeleton className="h-[32rem] w-full rounded-md" />
 	}
 
 	const handleBanner = async (file?: File) => {

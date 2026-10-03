@@ -1,38 +1,10 @@
 'use client'
 
-import {
-	Cancel01Icon,
-	FilterIcon,
-	Location01Icon,
-	SearchIcon,
-	WifiConnected01Icon,
-} from '@hugeicons/core-free-icons'
+import { Cancel01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
-import { useEffect, useState } from 'react'
-import { Status } from '@/components/dice-ui/status'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from '@/components/ui/command'
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupButton,
-	InputGroupInput,
-} from '@/components/ui/input-group'
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@/components/ui/popover'
 import {
 	Select,
 	SelectContent,
@@ -40,330 +12,262 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { cn } from '@/lib/utils'
 
-export type SortOption = 'newest' | 'name' | 'rating'
+export type SortOption = 'players' | 'rating' | 'newest' | 'name'
 
 export interface ServerSearchFilters {
 	query: string
 	categoryIds: Id<'serverCategories'>[]
 	region: string | null
-	statusFilter: 'all' | 'online' | 'offline'
+	onlineOnly: boolean
+	verifiedOnly: boolean
 	sort: SortOption
 }
 
-interface AdvancedServerSearchProps {
+export const INITIAL_SERVER_FILTERS: ServerSearchFilters = {
+	query: '',
+	categoryIds: [],
+	region: null,
+	onlineOnly: false,
+	verifiedOnly: false,
+	sort: 'players',
+}
+
+export const SERVER_SORT_OPTIONS: { value: SortOption; label: string }[] = [
+	{ value: 'players', label: 'Most players' },
+	{ value: 'rating', label: 'Top rated' },
+	{ value: 'newest', label: 'Newest' },
+	{ value: 'name', label: 'A-Z' },
+]
+
+interface FilterProps {
 	filters: ServerSearchFilters
 	onFiltersChange: (filters: ServerSearchFilters) => void
 }
 
-const sortOptions: { value: SortOption; label: string }[] = [
-	{ value: 'newest', label: 'Newest' },
-	{ value: 'name', label: 'Name (A-Z)' },
-	{ value: 'rating', label: 'Top Rated' },
-]
+/** Debounced search field shown in the page header. */
+export function ServerSearchField({ filters, onFiltersChange }: FilterProps) {
+	const [value, setValue] = useState(filters.query)
 
-export function AdvancedServerSearch({
-	filters,
-	onFiltersChange,
-}: AdvancedServerSearchProps) {
-	const categories = useQuery(api.functions.servers.categories.list, {})
-	const regions = useQuery(api.functions.servers.servers.getRegions, {})
-
-	const [searchInput, setSearchInput] = useState(filters.query)
-	const [categoryOpen, setCategoryOpen] = useState(false)
-	const [statusOpen, setStatusOpen] = useState(false)
-
-	// Debounced search
+	useEffect(() => setValue(filters.query), [filters.query])
 	useEffect(() => {
 		const timer = setTimeout(() => {
-			if (searchInput !== filters.query) {
-				onFiltersChange({ ...filters, query: searchInput })
+			if (value !== filters.query) {
+				onFiltersChange({ ...filters, query: value })
 			}
 		}, 300)
 		return () => clearTimeout(timer)
-	}, [searchInput, filters, onFiltersChange])
-
-	const updateFilter = <K extends keyof ServerSearchFilters>(
-		key: K,
-		value: ServerSearchFilters[K],
-	) => {
-		onFiltersChange({ ...filters, [key]: value })
-	}
-
-	const toggleCategory = (categoryId: Id<'serverCategories'>) => {
-		const newCategories = filters.categoryIds.includes(categoryId)
-			? filters.categoryIds.filter((id) => id !== categoryId)
-			: [...filters.categoryIds, categoryId]
-		updateFilter('categoryIds', newCategories)
-	}
-
-	const clearFilters = () => {
-		setSearchInput('')
-		onFiltersChange({
-			query: '',
-			categoryIds: [],
-			region: null,
-			statusFilter: 'all',
-			sort: 'rating',
-		})
-	}
-
-	const hasActiveFilters =
-		filters.query ||
-		filters.categoryIds.length > 0 ||
-		filters.region !== null ||
-		filters.statusFilter !== 'all'
-
-	const selectedCategories = categories?.filter((c) =>
-		filters.categoryIds.includes(c._id),
-	)
+	}, [value, filters, onFiltersChange])
 
 	return (
-		<div className="space-y-4">
-			{/* Search bar */}
-			<InputGroup>
-				<InputGroupAddon>
-					<HugeiconsIcon icon={SearchIcon} />
-				</InputGroupAddon>
-				<InputGroupInput
-					onChange={(e) => setSearchInput(e.target.value)}
-					placeholder="Search servers..."
-					value={searchInput}
-				/>
-				{searchInput && (
-					<InputGroupAddon align="inline-end">
-						<InputGroupButton
-							aria-label="Clear search"
-							onClick={() => {
-								setSearchInput('')
-								updateFilter('query', '')
-							}}
-							size="icon-sm"
-						>
-							<HugeiconsIcon icon={Cancel01Icon} />
-						</InputGroupButton>
-					</InputGroupAddon>
-				)}
-			</InputGroup>
-
-			<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-				{/* Categories */}
-				<Popover onOpenChange={setCategoryOpen} open={categoryOpen}>
-					<PopoverTrigger
-						render={
-							<Button
-								className="w-full justify-start sm:w-auto"
-								variant="outline"
-							/>
-						}
-					>
-						<HugeiconsIcon icon={FilterIcon} />
-						Categories
-						{filters.categoryIds.length > 0 && (
-							<Badge className="ml-1 px-1.5" variant="secondary">
-								{filters.categoryIds.length}
-							</Badge>
-						)}
-					</PopoverTrigger>
-					<PopoverContent align="start" className="w-64 p-0">
-						<Command>
-							<CommandInput placeholder="Search categories..." />
-							<CommandList>
-								<CommandEmpty>
-									No categories found.
-								</CommandEmpty>
-								<CommandGroup>
-									{categories?.map((category) => (
-										<CommandItem
-											className="gap-2"
-											key={category._id}
-											onSelect={() =>
-												toggleCategory(category._id)
-											}
-										>
-											<Checkbox
-												checked={filters.categoryIds.includes(
-													category._id,
-												)}
-												className="pointer-events-none"
-											/>
-											{category.name}
-										</CommandItem>
-									))}
-								</CommandGroup>
-							</CommandList>
-						</Command>
-					</PopoverContent>
-				</Popover>
-
-				<Select
-					onValueChange={(value) =>
-						updateFilter('region', value === 'all' ? null : value)
-					}
-					value={filters.region ?? 'all'}
+		<label className="flex min-h-12 max-w-3xl items-center gap-2.5 rounded-sm border border-input bg-card px-3.5 text-muted-foreground focus-within:border-ring">
+			<HugeiconsIcon
+				aria-hidden
+				className="size-4.5"
+				icon={Search01Icon}
+			/>
+			<span className="sr-only">Search servers</span>
+			<input
+				className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
+				onChange={(event) => setValue(event.target.value)}
+				placeholder="Search by server name"
+				type="search"
+				value={value}
+			/>
+			{value ? (
+				<button
+					aria-label="Clear search"
+					className="grid size-8 place-items-center rounded-sm hover:bg-accent"
+					onClick={() => setValue('')}
+					type="button"
 				>
-					<SelectTrigger className="w-full sm:w-auto">
-						<HugeiconsIcon icon={Location01Icon} />
-						<SelectValue>
-							{filters.region ?? 'All regions'}
-						</SelectValue>
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">All regions</SelectItem>
-						{regions?.map((region) => (
-							<SelectItem key={region} value={region}>
-								{region}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+					<HugeiconsIcon className="size-4" icon={Cancel01Icon} />
+				</button>
+			) : null}
+		</label>
+	)
+}
 
-				{/* Status */}
-				<Popover onOpenChange={setStatusOpen} open={statusOpen}>
-					<PopoverTrigger
-						render={
-							<Button
-								className="w-full justify-start sm:w-auto"
-								variant="outline"
-							/>
+function FilterGroup({
+	title,
+	children,
+}: {
+	title: string
+	children: ReactNode
+}) {
+	return (
+		<fieldset className="flex flex-col gap-1 border-b pb-4.5 last:border-b-0 last:pb-0">
+			<legend className="pb-2.5 font-bold font-display text-[13px] text-muted-foreground uppercase tracking-[0.1em]">
+				{title}
+			</legend>
+			{children}
+		</fieldset>
+	)
+}
+
+/** Filter sidebar: status, gamemode and region. */
+export function ServerFilters({ filters, onFiltersChange }: FilterProps) {
+	const categories = useQuery(
+		api.functions.servers.categories.listWithCounts,
+		{},
+	)
+	const regions = useQuery(api.functions.servers.servers.getRegions, {})
+
+	const update = <K extends keyof ServerSearchFilters>(
+		key: K,
+		value: ServerSearchFilters[K],
+	) => onFiltersChange({ ...filters, [key]: value })
+
+	const toggleCategory = (id: Id<'serverCategories'>) =>
+		update(
+			'categoryIds',
+			filters.categoryIds.includes(id)
+				? filters.categoryIds.filter((item) => item !== id)
+				: [...filters.categoryIds, id],
+		)
+
+	const hasFilters =
+		filters.categoryIds.length > 0 ||
+		filters.region !== null ||
+		filters.onlineOnly ||
+		filters.verifiedOnly
+
+	return (
+		<aside
+			aria-label="Filters"
+			className="flex flex-col gap-4.5 self-start rounded-md border bg-card p-5"
+		>
+			<div className="flex items-center justify-between">
+				<h2 className="font-bold text-lg">Filters</h2>
+				{hasFilters ? (
+					<button
+						className="font-semibold text-ember-text text-sm hover:text-foreground"
+						onClick={() =>
+							onFiltersChange({
+								...INITIAL_SERVER_FILTERS,
+								query: filters.query,
+								sort: filters.sort,
+							})
 						}
+						type="button"
 					>
-						<HugeiconsIcon icon={WifiConnected01Icon} />
-						Status
-						{filters.statusFilter !== 'all' && (
-							<Status
-								className="ml-1"
-								variant={
-									filters.statusFilter === 'online'
-										? 'success'
-										: 'error'
-								}
-							>
-								{filters.statusFilter === 'online'
-									? 'Online'
-									: 'Offline'}
-							</Status>
-						)}
-					</PopoverTrigger>
-					<PopoverContent align="start" className="w-40 p-1">
-						<div className="flex flex-col gap-0.5">
-							<Button
-								className="justify-start"
-								onClick={() => {
-									updateFilter('statusFilter', 'all')
-									setStatusOpen(false)
-								}}
-								variant={
-									filters.statusFilter === 'all'
-										? 'secondary'
-										: 'ghost'
-								}
-							>
-								All Servers
-							</Button>
-							<Button
-								className="justify-start"
-								onClick={() => {
-									updateFilter('statusFilter', 'online')
-									setStatusOpen(false)
-								}}
-								variant={
-									filters.statusFilter === 'online'
-										? 'secondary'
-										: 'ghost'
-								}
-							>
-								Online Only
-							</Button>
-							<Button
-								className="justify-start"
-								onClick={() => {
-									updateFilter('statusFilter', 'offline')
-									setStatusOpen(false)
-								}}
-								size="sm"
-								variant={
-									filters.statusFilter === 'offline'
-										? 'secondary'
-										: 'ghost'
-								}
-							>
-								Offline Only
-							</Button>
-						</div>
-					</PopoverContent>
-				</Popover>
-
-				<Separator className="hidden sm:block" orientation="vertical" />
-
-				{/* Sort */}
-				<Select
-					onValueChange={(value) =>
-						updateFilter('sort', value as SortOption)
-					}
-					value={filters.sort}
-				>
-					<SelectTrigger className="w-full sm:w-auto">
-						<SelectValue>
-							{sortOptions.find((o) => o.value === filters.sort)
-								?.label ?? 'Sort by'}
-						</SelectValue>
-					</SelectTrigger>
-					<SelectContent>
-						{sortOptions.map((option) => (
-							<SelectItem key={option.value} value={option.value}>
-								{option.label}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-
-				{/* Clear filters */}
-				{hasActiveFilters && (
-					<Button
-						className="col-span-2 h-9 justify-center text-muted-foreground sm:col-span-1"
-						onClick={clearFilters}
-						size="sm"
-						variant="ghost"
-					>
-						<HugeiconsIcon
-							className="mr-1 size-4"
-							icon={Cancel01Icon}
-						/>
-						Clear
-					</Button>
-				)}
+						Reset
+					</button>
+				) : null}
 			</div>
 
-			{/* Active category badges */}
-			{selectedCategories && selectedCategories.length > 0 && (
-				<div className="flex flex-wrap gap-2">
-					{selectedCategories.map((category) => (
-						<Badge
-							className="gap-1 pr-1"
-							key={category._id}
-							variant="secondary"
+			<FilterGroup title="Status">
+				<label
+					className="flex min-h-10 cursor-pointer items-center justify-between gap-3"
+					htmlFor="filter-online-only"
+				>
+					Online only
+					<Switch
+						checked={filters.onlineOnly}
+						id="filter-online-only"
+						onCheckedChange={(checked) =>
+							update('onlineOnly', checked)
+						}
+					/>
+				</label>
+				<label
+					className="flex min-h-10 cursor-pointer items-center justify-between gap-3"
+					htmlFor="filter-verified-only"
+				>
+					Verified owners only
+					<Switch
+						checked={filters.verifiedOnly}
+						id="filter-verified-only"
+						onCheckedChange={(checked) =>
+							update('verifiedOnly', checked)
+						}
+					/>
+				</label>
+			</FilterGroup>
+
+			<FilterGroup title="Gamemode">
+				{(categories ?? []).map((category) => (
+					<label
+						className="flex min-h-9 cursor-pointer items-center gap-2.5"
+						htmlFor={`filter-category-${category._id}`}
+						key={category._id}
+					>
+						<Checkbox
+							checked={filters.categoryIds.includes(category._id)}
+							id={`filter-category-${category._id}`}
+							onCheckedChange={() => toggleCategory(category._id)}
+						/>
+						<span className="flex-1">{category.name}</span>
+						<span className="font-mono text-muted-foreground text-xs">
+							{category.serverCount}
+						</span>
+					</label>
+				))}
+			</FilterGroup>
+
+			{regions && regions.length > 0 ? (
+				<FilterGroup title="Region">
+					<Select
+						onValueChange={(value) =>
+							update(
+								'region',
+								value === 'all' || !value ? null : value,
+							)
+						}
+						value={filters.region ?? 'all'}
+					>
+						<SelectTrigger
+							aria-label="Region"
+							className="h-11 w-full"
 						>
-							{category.name}
-							<Button
-								aria-label={`Remove ${category.name} filter`}
-								className="size-4 hover:bg-transparent"
-								onClick={() => toggleCategory(category._id)}
-								size="icon"
-								variant="ghost"
-							>
-								<HugeiconsIcon
-									className="size-3"
-									icon={Cancel01Icon}
-								/>
-							</Button>
-						</Badge>
-					))}
-				</div>
-			)}
-		</div>
+							<SelectValue>
+								{filters.region ?? 'All regions'}
+							</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All regions</SelectItem>
+							{regions.map((region) => (
+								<SelectItem key={region} value={region}>
+									{region}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</FilterGroup>
+			) : null}
+		</aside>
+	)
+}
+
+export function ServerSortButtons({ filters, onFiltersChange }: FilterProps) {
+	return (
+		<fieldset className="flex flex-wrap gap-1.5">
+			<legend className="sr-only">Sort servers</legend>
+			{SERVER_SORT_OPTIONS.map((option) => {
+				const active = filters.sort === option.value
+				return (
+					<button
+						aria-pressed={active}
+						className={cn(
+							'min-h-10 rounded-sm border px-3.5 font-bold font-display text-sm transition-colors',
+							active
+								? 'border-edge bg-primary text-primary-foreground'
+								: 'bg-card text-muted-foreground hover:text-foreground',
+						)}
+						key={option.value}
+						onClick={() =>
+							onFiltersChange({ ...filters, sort: option.value })
+						}
+						type="button"
+					>
+						{option.label}
+					</button>
+				)
+			})}
+		</fieldset>
 	)
 }

@@ -3,14 +3,14 @@
 Bedrock Nexus Hub is the open-source web platform behind
 [bedrocknexus.com](https://bedrocknexus.com). It helps the Minecraft Bedrock
 community discover servers and projects while giving creators tools for
-publishing, collaboration, moderation, downloads, galleries, and analytics.
+publishing, collaboration, moderation, downloads, and galleries.
 
 ## What Is Included
 
 - Public server and project directories with profiles, galleries, reviews,
   favourites, live server status, and search-friendly metadata
-- Creator dashboards for servers, projects, versions, organizations, profiles,
-  and analytics
+- Creator dashboards for servers, projects, versions, organizations, and
+  profiles
 - DNS and MOTD server ownership verification
 - Project submission and admin moderation workflows
 - R2-backed media and version downloads with cleanup and download tracking
@@ -92,21 +92,27 @@ use, the Convex CLI will prompt you to select or create a deployment.
 
 ## GitHub Deployment
 
-Pull requests and pushes to `main` run lint and typechecking. Image publishing
-uses GitHub Container Registry:
+CI/CD uses the shared workflows in
+[BedrockNexus/github-actions](https://github.com/BedrockNexus/github-actions):
 
-- `main` builds with the `prod` GitHub Environment and publishes `latest`.
-- Every image also receives an immutable commit SHA tag.
+- `Pull Request` builds the Dockerfile `test` stage (lint, typecheck, unit
+  tests) and the production image, without pushing. `Quality` runs the same
+  checks directly for fast feedback.
+- `Deploy` runs on pushes to `main`: the `test` stage must pass, then the image
+  is pushed to `ghcr.io/bedrocknexus/hub` (`latest`, `main` and an immutable
+  `sha-<short-sha>` tag) and Coolify is asked to redeploy.
 
-Create a `prod` GitHub Environment with these variables:
-`CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`,
-`NEXT_PUBLIC_CONVEX_SITE_URL`, `NEXT_PUBLIC_SITE_URL`,
-`NEXT_PUBLIC_API_URL`, `SITE_URL`, and `BEDROCKNEXUS_API_URL`.
-Runtime secrets are configured in the deployment platform and are never copied
-into the image.
+Set these **repository variables** (Settings > Secrets and variables > Actions >
+Variables). They are public values inlined into the client bundle:
+`NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`,
+`NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_API_URL`.
 
-Local development uses an ignored `.env.local` file and does not require a
-GitHub Environment.
+Set the `COOLIFY_WEBHOOK` secret on the repository (the `COOLIFY_TOKEN` secret
+can be shared at organization level). Server-only settings such as `SITE_URL`
+and `BEDROCKNEXUS_API_URL`, and all secrets, are runtime environment variables
+in Coolify and are never built into the image.
+
+Local development uses an ignored `.env.local` file.
 
 ## Repository Layout
 

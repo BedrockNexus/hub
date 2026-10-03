@@ -129,7 +129,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 
 ## Abuse Protection
 
-- [ ] Confirm normal server verification, gallery upload, review, favourite, analytics, status-refresh, and download bursts remain usable.
+- [ ] Confirm normal server verification, gallery upload, review, favourite, status-refresh, and download bursts remain usable.
 - [ ] Confirm repeated requests beyond each configured limit return a `RATE_LIMITED` Convex error with a retry delay.
-- [ ] Confirm limits are isolated by authenticated user where applicable and anonymous analytics/download limits are isolated by public target.
+- [ ] Confirm limits are isolated by authenticated user where applicable and anonymous download limits are isolated by requester.
 - [ ] Confirm cron status checks, stale-upload cleanup, and other internal jobs are not rate limited.

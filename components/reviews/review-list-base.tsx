@@ -129,7 +129,7 @@ export function ReviewListBase<TReviewId extends string>({
 
 					return (
 						<div
-							className="space-y-3 rounded-lg border p-4"
+							className="space-y-3 rounded-md border p-4"
 							key={review._id}
 						>
 							<div className="flex items-center justify-between">

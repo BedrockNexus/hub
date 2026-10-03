@@ -14,8 +14,8 @@ export default function OrganizationProjectsPage() {
 	if (loading || !organization) {
 		return (
 			<div className="space-y-6">
-				<Skeleton className="h-16 w-full rounded-lg" />
-				<Skeleton className="h-64 w-full rounded-lg" />
+				<Skeleton className="h-16 w-full rounded-md" />
+				<Skeleton className="h-64 w-full rounded-md" />
 			</div>
 		)
 	}

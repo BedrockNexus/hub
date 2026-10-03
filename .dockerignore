@@ -15,3 +15,7 @@ logs
 playwright-report
 test-results
 *.tsbuildinfo
+
+# Agent tooling and local test output
+.agents
+.claude

@@ -5,11 +5,15 @@ import {
 	requiresModerationReason,
 } from './contentVisibility'
 import {
+	canManageContentOwner,
 	canModifyProjectOwner,
 	canModifyServerOwner,
+	isOrganizationManagerRole,
 } from './contentOwnership'
 import {
 	getPublishedReleaseKey,
+	isApprovedRelease,
+	isPublicRelease,
 	isValidatedRelease,
 } from './projectReleases'
 
@@ -87,6 +91,22 @@ describe('project release availability', () => {
 		expect(isValidatedRelease({ validationStatus: 'invalid' })).toBeFalse()
 	})
 
+	test('releases need moderator approval before they are public', () => {
+		expect(isApprovedRelease({})).toBeTrue()
+		expect(isApprovedRelease({ reviewStatus: 'approved' })).toBeTrue()
+		expect(isApprovedRelease({ reviewStatus: 'pending' })).toBeFalse()
+		expect(isApprovedRelease({ reviewStatus: 'rejected' })).toBeFalse()
+		expect(
+			isPublicRelease({ validationStatus: 'valid', reviewStatus: 'pending' }),
+		).toBeFalse()
+		expect(
+			isPublicRelease({ validationStatus: 'pending', reviewStatus: 'approved' }),
+		).toBeFalse()
+		expect(
+			isPublicRelease({ validationStatus: 'valid', reviewStatus: 'approved' }),
+		).toBeTrue()
+	})
+
 	test('exposes only promoted CDN artifacts', () => {
 		const uploadKey =
 			'uploads/projects/project_1/releases/release_1/upload_1.mcaddon'
@@ -107,5 +127,33 @@ describe('project release availability', () => {
 			}),
 		).toBe(downloadKey)
 		expect(getPublishedReleaseKey({ r2Key: downloadKey })).toBe(downloadKey)
+	})
+})
+
+describe('organization roles', () => {
+	test('recognizes owner and admin among comma-separated roles', () => {
+		expect(isOrganizationManagerRole('owner')).toBeTrue()
+		expect(isOrganizationManagerRole('member, admin')).toBeTrue()
+		expect(isOrganizationManagerRole('member')).toBeFalse()
+		expect(isOrganizationManagerRole(null)).toBeFalse()
+	})
+
+	test('only owners, organization managers, and site admins manage content', () => {
+		const orgContent = { ownerType: 'organization' as const, ownerId: 'org' }
+		expect(
+			canManageContentOwner({ owner: orgContent, userId: 'u', organizationRole: 'member' }),
+		).toBeFalse()
+		expect(
+			canManageContentOwner({ owner: orgContent, userId: 'u', organizationRole: 'admin' }),
+		).toBeTrue()
+		expect(
+			canManageContentOwner({ owner: orgContent, userId: 'u', role: 'admin' }),
+		).toBeTrue()
+		expect(
+			canManageContentOwner({
+				owner: { ownerType: 'user', ownerId: 'u' },
+				userId: 'u',
+			}),
+		).toBeTrue()
 	})
 })

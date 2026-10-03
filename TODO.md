@@ -1,26 +1,20 @@
 # TODO
 
-## Active Priorities (Updated July 20, 2026)
+## Active Priorities (Updated September 29, 2026)
 
 Keep this list limited to active product and engineering work. Completed work
 lives in Git history; automated checks and manual QA live in `TESTING.md`.
 
-## P1 - Type-Specific Project Experience
+## Deploy Checklist (October 2026 redesign)
 
-- [x] Refine the release experience by project type while keeping one shared,
-  validated release backend for every downloadable project:
-  - Require every project to have at least one valid release artifact before it
-    can be submitted or published.
-  - Require creators to enter release versions for add-ons and resource packs,
-    along with supported game versions and an optional changelog.
-	- Use **Releases** in creator and public interfaces while retaining the
-    existing `projectVersions` storage name unless a schema rename becomes
-    worthwhile.
-  - Remove maps/worlds from active project types until they have a purpose-built
-    publishing and update model. Keep only the legacy schema discriminator so
-    old rows fail closed instead of blocking deployment.
+- [ ] After deploying Convex, run
+  `npx convex run functions/site/migrations:backfillActivity` once per
+  deployment so creator profiles show activity for content that predates
+  server-side activity recording (dev: done).
+- [ ] Run `npx convex run functions/site/migrations:purgeAnalyticsEvents` once
+  analytics data is no longer needed.
 
-## P2 - Public Catalog API
+## P1 - Public Catalog API
 
 - [ ] Expand the API service into a versioned, read-only public catalog API for
   launchers, bots, websites, and community integrations:
@@ -39,11 +33,11 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
   - Add public API rate limits, CORS, request validation, observability, and
     contract tests without weakening the existing internal API-key boundaries.
 
-## P3 - Nice Later
-
-- [x] Migrate remaining Lucide icons to Hugeicons using the
-  [Hugeicons migration tool](https://hugeicons.com/docs/migration-tool).
-
 ## Explicitly Deferred
 
 - [ ] Blog publishing, schema, RSS, and public post routes remain deferred.
+- [ ] Analytics. Hub's own tracking and dashboards were removed; hub and
+  plugins will both use the central Amblydia analytics platform once it exists.
+- [ ] After `functions/site/migrations:purgeAnalyticsEvents` has emptied the
+  retired `analyticsEvents` table in every deployment, delete its definition
+  from `convex/schemas/site.ts`.

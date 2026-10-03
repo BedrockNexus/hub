@@ -171,12 +171,12 @@ function AdminCategoriesSkeleton() {
 		<div className="space-y-6">
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 				{CATEGORY_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-28 rounded-xl" key={key} />
+					<Skeleton className="h-28 rounded-md" key={key} />
 				))}
 			</div>
 			<div className="grid gap-4 xl:grid-cols-2">
-				<Skeleton className="h-96 rounded-xl" />
-				<Skeleton className="h-96 rounded-xl" />
+				<Skeleton className="h-96 rounded-md" />
+				<Skeleton className="h-96 rounded-md" />
 			</div>
 		</div>
 	)

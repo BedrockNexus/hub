@@ -24,11 +24,15 @@ import {
 	getSortedRowModel,
 	useReactTable,
 } from '@tanstack/react-table'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
 import Link from 'next/link'
 import { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { AdminPageHeader } from '@/components/admin-dashboard/admin-page-header'
+import {
+	AdminLoadMore,
+	AdminServerSearch,
+} from '@/components/admin-dashboard/admin-paged-list-controls'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar'
@@ -151,17 +155,27 @@ function AccountStatusBadge({ user }: { user: AdminUserRow }) {
 	)
 }
 
-function AdminUsersStats({ users }: { users: AdminUserRow[] }) {
-	const adminCount = users.filter((user) => user.role === 'admin').length
-	const bannedCount = users.filter((user) => user.banned).length
-	const unverifiedCount = users.filter((user) => !user.emailVerified).length
-	const verifiedCount = users.filter((user) => user.emailVerified).length
+interface AdminUserStats {
+	total: number
+	verified: number
+	admins: number
+	banned: number
+	isPartial: boolean
+}
+
+function AdminUsersStats({ stats }: { stats: AdminUserStats | undefined }) {
+	const format = (value: number | undefined) =>
+		value === undefined ? '-' : `${value}${stats?.isPartial ? '+' : ''}`
+	const adminCount = format(stats?.admins)
+	const bannedCount = format(stats?.banned)
+	const unverifiedCount = stats ? format(stats.total - stats.verified) : '-'
+	const verifiedCount = format(stats?.verified)
 
 	return (
 		<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 			<Stat>
 				<StatLabel>Total Users</StatLabel>
-				<StatValue>{users.length}</StatValue>
+				<StatValue>{format(stats?.total)}</StatValue>
 				<StatDescription>{verifiedCount} verified</StatDescription>
 			</Stat>
 			<Stat>
@@ -376,16 +390,18 @@ function UserActionsCell({
 }
 
 export function AdminUsersTable() {
-	const adminUsers = useQuery(api.functions.site.users.listAdmin, {
-		limit: 250,
-	})
+	const [search, setSearch] = useState('')
+	const [now] = useState(() => Date.now())
+	const { results, status, loadMore } = usePaginatedQuery(
+		api.functions.site.users.listAdmin,
+		{ search: search || undefined, now },
+		{ initialNumItems: 25 },
+	)
+	const stats = useQuery(api.functions.site.users.getAdminUserStats, {})
 	const updateUser = useMutation(api.functions.site.users.updateAdminUser)
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
-	const users = useMemo(
-		() => (adminUsers ?? []) as AdminUserRow[],
-		[adminUsers],
-	)
+	const users = useMemo(() => results as AdminUserRow[], [results])
 
 	const handlePatch = useCallback(
 		async (user: AdminUserRow, patch: UserPatch, message: string) => {
@@ -435,12 +451,6 @@ export function AdminUsersTable() {
 						</div>
 					</div>
 				),
-				meta: {
-					label: 'User',
-					placeholder: 'Search users...',
-					variant: 'text',
-				},
-				enableColumnFilter: true,
 			},
 			{
 				id: 'username',
@@ -556,11 +566,11 @@ export function AdminUsersTable() {
 		initialState: { pagination: { pageSize: 10 } },
 	})
 
-	if (adminUsers === undefined) {
+	if (status === 'LoadingFirstPage' && !search) {
 		return <DashboardTableSkeleton />
 	}
 
-	if (users.length === 0) {
+	if (users.length === 0 && !search && status === 'Exhausted') {
 		return (
 			<div className="space-y-6">
 				<AdminPageHeader
@@ -595,10 +605,20 @@ export function AdminUsersTable() {
 				description="Search accounts, inspect content ownership, and manage access state."
 				title="Users"
 			/>
-			<AdminUsersStats users={users} />
+			<AdminUsersStats stats={stats} />
+			<AdminServerSearch
+				label="Search users"
+				onSearch={setSearch}
+				placeholder="Search by email or username prefix..."
+			/>
 			<DataTable table={table}>
 				<DataTableToolbar table={table} />
 			</DataTable>
+			<AdminLoadMore
+				loadedCount={users.length}
+				onLoadMore={() => loadMore(25)}
+				status={status}
+			/>
 		</div>
 	)
 }

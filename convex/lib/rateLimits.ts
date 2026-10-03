@@ -51,17 +51,18 @@ const limits = {
 		period: MINUTE,
 		capacity: 20,
 	},
-	analyticsEvent: {
-		kind: 'token bucket',
-		rate: 600,
-		period: MINUTE,
-		capacity: 200,
-	},
+	// Per requester (user or hashed client address), across all releases.
 	versionDownload: {
 		kind: 'token bucket',
-		rate: 300,
+		rate: 60,
 		period: MINUTE,
-		capacity: 60,
+		capacity: 20,
+	},
+	// Counts one download per requester per release per day.
+	versionDownloadCount: {
+		kind: 'fixed window',
+		rate: 1,
+		period: 24 * HOUR,
 	},
 } as const
 

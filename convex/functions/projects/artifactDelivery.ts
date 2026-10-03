@@ -10,6 +10,7 @@ import { v } from 'convex/values'
 import { internal } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import { action, internalAction } from '../../_generated/server'
+import { isApprovedRelease } from '../../lib/projectReleases'
 import {
 	cdnR2,
 	syncCdnObjectMetadata,
@@ -105,7 +106,8 @@ export const demoteVersion = internalAction({
 		if (
 			!data?.version.cdnR2Key ||
 			(data.project.status === 'published' &&
-				data.project.moderationStatus === 'approved')
+				data.project.moderationStatus === 'approved' &&
+				isApprovedRelease(data.version))
 		) return
 		const uploadKey = data.version.uploadR2Key
 		if (!uploadKey) return

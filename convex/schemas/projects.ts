@@ -94,6 +94,9 @@ export const tables = {
 		isActive: v.boolean(),
 		createdAt: v.number(),
 		updatedAt: v.number(),
+		// Usage counters maintained by lib/categoryCounts.ts.
+		projectCount: v.optional(v.number()),
+		publishedProjectCount: v.optional(v.number()),
 	})
 		.index('by_slug', ['slug'])
 		.index('by_type', ['projectType'])
@@ -232,6 +235,20 @@ export const tables = {
 		),
 		validatedAt: v.optional(v.number()),
 
+		// Moderator review. Releases of public projects stay private until
+		// approved; releases submitted with a new project are approved when the
+		// project is published. Undefined on releases that predate review.
+		reviewStatus: v.optional(
+			v.union(
+				v.literal('pending'),
+				v.literal('approved'),
+				v.literal('rejected'),
+			),
+		),
+		reviewReason: v.optional(v.string()),
+		reviewedAt: v.optional(v.number()),
+		reviewedBy: v.optional(v.string()),
+
 		// Compatibility
 		gameVersions: v.optional(v.array(v.string())),
 
@@ -242,7 +259,8 @@ export const tables = {
 		createdAt: v.number(),
 	})
 		.index('by_project', ['projectId'])
-		.index('by_project_version', ['projectId', 'version']),
+		.index('by_project_version', ['projectId', 'version'])
+		.index('by_review_status', ['reviewStatus']),
 
 	projectArtifactUploads: defineTable({
 		projectId: v.id('projects'),

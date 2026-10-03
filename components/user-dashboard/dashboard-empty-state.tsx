@@ -22,7 +22,7 @@ export function DashboardEmptyState({
 	createLabel,
 }: DashboardEmptyStateProps) {
 	return (
-		<div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
+		<div className="flex flex-col items-center justify-center rounded-md border border-dashed py-16 text-center">
 			<div className="mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
 				<HugeiconsIcon
 					className="size-8 text-muted-foreground"

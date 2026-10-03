@@ -63,6 +63,30 @@ Expected behavior:
 - Project delete/removal is separate from lifecycle status.
 - Old project data with `archived` should be migrated to `under_review`.
 
+## Release Review
+
+Every downloadable release is reviewed before the public can download it:
+
+- New releases are created with `reviewStatus: pending`.
+- Releases submitted with a project that is not yet public are approved
+  together with the project when an admin publishes it.
+- Releases added to an already public project appear under "Releases awaiting
+  review" in the admin projects page. An admin approves a validated release, or
+  rejects it with a reason. Only approved, validated releases are listed,
+  counted, promoted to the CDN, or downloadable.
+- A rejected release is final. It stays private and cannot be resubmitted;
+  the creator sees the reason in their releases list.
+- Releases created before release review existed have no `reviewStatus` and
+  are treated as approved.
+
+## Rejections and Self-Approval
+
+- Rejecting a project sets `under_review` + `rejected`. The owner cannot
+  resubmit it; only another admin decision can change it.
+- Admins cannot approve or publish a project, or review a release, when they
+  created the project or belong to the owning organization. Another admin must
+  do it.
+
 ## Draft Status
 
 `draft` is the active owner editing state for new projects. Owners can keep editing a draft without sending it to admins/mods yet.

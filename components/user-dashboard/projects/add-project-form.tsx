@@ -285,7 +285,7 @@ export function AddProjectForm() {
 										control={form.control}
 									/>
 								</FieldGroup>
-								<p className="rounded-lg border bg-muted/40 p-4 text-muted-foreground text-sm">
+								<p className="rounded-md border bg-muted/40 p-4 text-muted-foreground text-sm">
 									Project icons are uploaded after the draft
 									is created so files can be stored under the
 									final project folder.

@@ -29,7 +29,7 @@ export function GalleryGrid({
 			<div className="grid gap-4 sm:grid-cols-2">
 				{['one', 'two', 'three', 'four'].map((key) => (
 					<div
-						className="aspect-video animate-pulse rounded-lg bg-muted"
+						className="aspect-video animate-pulse rounded-md bg-muted"
 						key={key}
 					/>
 				))}
@@ -52,7 +52,7 @@ export function GalleryGrid({
 		<div className="grid gap-4 sm:grid-cols-2">
 			{items.map((item) => (
 				<figure
-					className="overflow-hidden rounded-lg border bg-card"
+					className="overflow-hidden rounded-md border bg-card"
 					key={item._id}
 				>
 					<div className="relative aspect-video">

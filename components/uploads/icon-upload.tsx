@@ -83,7 +83,7 @@ export function IconUpload({
 	fallbackUrl,
 }: IconUploadProps) {
 	const [files, setFiles] = useState<File[]>([])
-	const roundedClass = rounded === 'lg' ? 'rounded-lg' : 'rounded-full'
+	const roundedClass = rounded === 'lg' ? 'rounded-md' : 'rounded-full'
 	const generateUploadUrl = useMutation(
 		api.functions.storage.generateImageUploadUrl,
 	)
@@ -219,7 +219,7 @@ export function IconUpload({
 							key={getFileKey(file)}
 							value={file}
 						>
-							<div className="size-12 overflow-hidden rounded-lg">
+							<div className="size-12 overflow-hidden rounded-md">
 								<FileUploadItemPreview />
 							</div>
 							<div className="flex flex-1 flex-col gap-1">

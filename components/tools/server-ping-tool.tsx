@@ -11,7 +11,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { useRouter } from 'next/navigation'
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -98,8 +98,12 @@ export function ServerPingTool({
 		[router],
 	)
 
+	// Ping a shared link once on load. Later pings update the URL themselves,
+	// which must not trigger a second request.
+	const pingedInitial = useRef(false)
 	useEffect(() => {
-		if (initialHost) {
+		if (initialHost && !pingedInitial.current) {
+			pingedInitial.current = true
 			pingServer(initialHost, initialPort).catch(() => undefined)
 		}
 	}, [initialHost, initialPort, pingServer])
@@ -129,14 +133,14 @@ export function ServerPingTool({
 	return (
 		<main className="container mx-auto max-w-5xl px-4 py-10 sm:py-14">
 			<div className="mb-7 max-w-2xl">
-				<h1 className="font-semibold text-3xl">Bedrock Server Ping</h1>
+				<h1 className="font-bold text-3xl">Server Ping</h1>
 				<p className="mt-2 text-muted-foreground">
 					Check the live status and connection details of any public
 					Minecraft Bedrock server.
 				</p>
 			</div>
 
-			<Card className="rounded-lg">
+			<Card className="rounded-md">
 				<CardHeader>
 					<CardTitle>Server address</CardTitle>
 					<CardDescription>

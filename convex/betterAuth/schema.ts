@@ -112,6 +112,11 @@ export const tables = {
 		.index('role', ['role'])
 		.index('status', ['status'])
 		.index('inviterId', ['inviterId']),
+	rateLimit: defineTable({
+		key: v.string(),
+		count: v.number(),
+		lastRequest: v.number(),
+	}).index('key', ['key']),
 }
 
 const schema = defineSchema(tables)

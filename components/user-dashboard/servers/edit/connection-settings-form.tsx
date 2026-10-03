@@ -12,6 +12,10 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { ServerConnectionFields } from '@/components/user-dashboard/servers/fields/server-connection-fields'
+import {
+	ServerOwnershipVerification,
+	type VerifiedServerTarget,
+} from '@/components/user-dashboard/servers/server-ownership-verification'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import {
@@ -42,6 +46,9 @@ export function ConnectionSettingsForm({
 	mode = 'user',
 }: ConnectionSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [verifiedTarget, setVerifiedTarget] =
+		useState<VerifiedServerTarget | null>(null)
+	const [isVerificationBusy, setIsVerificationBusy] = useState(false)
 
 	const server = useQuery(
 		api.functions.servers.servers.getBySlug,
@@ -85,6 +92,7 @@ export function ConnectionSettingsForm({
 				port: Number(data.port),
 			})
 			form.reset(data)
+			setVerifiedTarget(null)
 			toast.success('Connection settings saved!')
 		} catch (error) {
 			const message =
@@ -123,8 +131,25 @@ export function ConnectionSettingsForm({
 		)
 	}
 
+	const watchedIpAddress = form.watch('ipAddress')
+	const watchedPort = Number(form.watch('port'))
+	const addressChanged =
+		watchedIpAddress.trim().toLowerCase() !==
+			server.ipAddress.toLowerCase() || watchedPort !== server.port
+	// Owners must re-verify a new address; admins are recorded as a manual check.
+	const needsVerification =
+		mode === 'user' && addressChanged && form.formState.isValid
+	const isVerified =
+		!!verifiedTarget &&
+		verifiedTarget.ipAddress === watchedIpAddress &&
+		verifiedTarget.port === watchedPort
+
 	const isSaveDisabled =
-		isSubmitting || !form.formState.isDirty || !form.formState.isValid
+		isSubmitting ||
+		isVerificationBusy ||
+		!form.formState.isDirty ||
+		!form.formState.isValid ||
+		(needsVerification && !isVerified)
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
@@ -140,6 +165,21 @@ export function ConnectionSettingsForm({
 			<FieldGroup>
 				<ServerConnectionFields control={form.control} />
 			</FieldGroup>
+			{needsVerification ? (
+				<div className="space-y-3">
+					<p className="text-muted-foreground text-sm">
+						Changing the address requires verifying ownership of the
+						new server before you can save.
+					</p>
+					<ServerOwnershipVerification
+						ipAddress={watchedIpAddress}
+						onBusyChange={setIsVerificationBusy}
+						onVerified={setVerifiedTarget}
+						port={watchedPort}
+						verified={isVerified}
+					/>
+				</div>
+			) : null}
 			<div className="flex justify-end border-t pt-6">
 				<Button
 					className="w-full sm:w-auto"

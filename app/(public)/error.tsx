@@ -18,7 +18,7 @@ export default function PublicError({ error, reset }: PublicErrorProps) {
 	return (
 		<main className="container mx-auto grid min-h-[65vh] max-w-7xl place-items-center px-4 py-16 text-center md:px-6">
 			<div>
-				<span className="mx-auto grid size-12 place-items-center rounded-lg bg-destructive/10 text-destructive">
+				<span className="mx-auto grid size-12 place-items-center rounded-md bg-destructive/10 text-destructive">
 					<HugeiconsIcon
 						aria-hidden
 						className="size-5"

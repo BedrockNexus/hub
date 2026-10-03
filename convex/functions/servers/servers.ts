@@ -1,17 +1,29 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { canModifyServerOwner } from '../../lib/contentOwnership'
+import {
+	canEditContent,
+	canManageContent,
+	isAffiliatedWithContent,
+} from '../../lib/permissions'
 import {
 	isPublicServer,
 	requiresModerationReason,
 } from '../../lib/contentVisibility'
 import { validateEntityImageUpload } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
+import { validateServerFields } from '../../lib/contentValidation'
+import { afterServerWrite } from '../../lib/activity'
+import { recordEditorMediaReferences } from '../../lib/editorMedia'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import {
+	normalizeServerAddress,
+	type ServerAddress,
+	ServerAddressError,
+} from '../../lib/serverAddress'
 import { serverModerationStatus } from '../../schemas/servers'
 
 function getUtcDayKey(epoch: number): string {
@@ -26,7 +38,7 @@ function getUtcMonthKey(epoch: number): string {
 // TYPES
 // =============================================================================
 
-type SortOption = 'newest' | 'name' | 'rating'
+type SortOption = 'newest' | 'name' | 'rating' | 'players'
 type ServerOwnerRef = {
 	ownerType: 'user' | 'organization'
 	ownerId: string
@@ -147,10 +159,16 @@ async function getServerStatsMap(ctx: QueryCtx, servers: Doc<'servers'>[]) {
 	)
 }
 
+type ServerStatusSummary = {
+	online: boolean
+	playerCount: number
+	maxPlayers: number
+}
+
 async function getServerStatusMap(
 	ctx: QueryCtx,
 	servers: Doc<'servers'>[],
-): Promise<Map<Id<'servers'>, { online: boolean; playerCount: number }>> {
+): Promise<Map<Id<'servers'>, ServerStatusSummary>> {
 	const statuses = await Promise.all(
 		servers.map((server) =>
 			ctx.db
@@ -165,28 +183,128 @@ async function getServerStatusMap(
 			.filter((status): status is NonNullable<typeof status> => status !== null)
 			.map((status) => [
 				status.serverId,
-				{ online: status.online, playerCount: status.playerCount },
+				{
+					online: status.online,
+					playerCount: status.playerCount,
+					maxPlayers: status.maxPlayers,
+				},
 			]),
 	)
 }
 
-async function isOrganizationMember(
-	ctx: QueryCtx | MutationCtx,
-	organizationId: string,
-	userId: string,
-) {
-	const member = (await ctx.runQuery(
-		components.betterAuth.adapter.findOne,
-		{
-			model: 'member',
-			where: [
-				{ field: 'organizationId', value: organizationId },
-				{ field: 'userId', value: userId },
-			],
-		},
-	)) as { id?: string } | null
 
-	return !!member
+
+function parseServerAddress(ipAddress: string, port: number): ServerAddress {
+	try {
+		return normalizeServerAddress(ipAddress, port)
+	} catch (error) {
+		if (error instanceof ServerAddressError) {
+			throw new ConvexError(error.message)
+		}
+		throw error
+	}
+}
+
+/** Each server address may be listed once across the whole directory. */
+async function assertAddressAvailable(
+	ctx: MutationCtx,
+	address: ServerAddress,
+	exceptServerId?: Id<'servers'>,
+) {
+	const existing = await ctx.db
+		.query('servers')
+		.withIndex('by_address_key', (q) => q.eq('addressKey', address.key))
+		.first()
+	if (existing && existing._id !== exceptServerId) {
+		throw new ConvexError(
+			'This server address is already listed. Contact support if you own it.',
+		)
+	}
+}
+
+/**
+ * Consumes the caller's fresh ownership proof for an address. Proofs come
+ * only from verification.verifyOwnership and expire after 30 minutes.
+ */
+async function consumeVerificationProof(
+	ctx: MutationCtx,
+	userId: string,
+	address: ServerAddress,
+	missingProofMessage: string,
+) {
+	const proof = await ctx.db
+		.query('serverVerificationProofs')
+		.withIndex('by_user_address', (q) =>
+			q
+				.eq('userId', userId)
+				.eq('ipAddress', address.host)
+				.eq('port', address.port),
+		)
+		.first()
+	if (!proof || proof.expiresAt < Date.now()) {
+		throw new ConvexError(missingProofMessage)
+	}
+	await ctx.db.delete(proof._id)
+	return proof
+}
+
+function currentAddressKey(server: Pick<Doc<'servers'>, 'ipAddress' | 'port' | 'addressKey'>) {
+	if (server.addressKey) return server.addressKey
+	try {
+		return normalizeServerAddress(server.ipAddress, server.port).key
+	} catch {
+		return `${server.ipAddress.trim().toLowerCase()}:${server.port}`
+	}
+}
+
+/**
+ * Resolves the connection fields of an update. Returns the patch to apply:
+ * nothing when the address is unchanged, or the new normalized address plus
+ * fresh verification metadata. Non-admins must hold an ownership proof for
+ * the new address; admins are recorded as a manual verification.
+ */
+async function resolveAddressUpdate(
+	ctx: MutationCtx,
+	server: Doc<'servers'>,
+	requested: { ipAddress?: string; port?: number },
+	actor: { userId: string; isAdmin: boolean },
+) {
+	if (requested.ipAddress === undefined && requested.port === undefined) {
+		return {}
+	}
+	const address = parseServerAddress(
+		requested.ipAddress ?? server.ipAddress,
+		requested.port ?? server.port,
+	)
+	if (address.key === currentAddressKey(server)) {
+		return server.addressKey ? {} : { addressKey: address.key }
+	}
+
+	await assertAddressAvailable(ctx, address, server._id)
+	const now = Date.now()
+	const verification = actor.isAdmin
+		? {
+				verifiedAt: now,
+				verifiedBy: actor.userId,
+				verificationMethod: 'manual' as const,
+			}
+		: await consumeVerificationProof(
+				ctx,
+				actor.userId,
+				address,
+				'Verify ownership of the new server address before changing it',
+			).then((proof) => ({
+				verifiedAt: proof.verifiedAt,
+				verifiedBy: actor.userId,
+				verificationMethod: proof.method,
+			}))
+
+	return {
+		ipAddress: address.host,
+		port: address.port,
+		addressKey: address.key,
+		...verification,
+	}
 }
 
 async function canModifyServer(
@@ -195,24 +313,7 @@ async function canModifyServer(
 	userId: string,
 	role?: string,
 ) {
-	if (role === 'admin') {
-		return canModifyServerOwner({ owner: server, userId, role })
-	}
-
-	if (server.ownerType === 'user') {
-		return canModifyServerOwner({ owner: server, userId, role })
-	}
-
-	return canModifyServerOwner({
-		owner: server,
-		userId,
-		role,
-		isOrganizationMember: await isOrganizationMember(
-			ctx,
-			server.ownerId,
-			userId,
-		),
-	})
+	return canEditContent(ctx, server, { _id: userId, role }, { allowSiteAdmin: true })
 }
 
 async function deleteR2ObjectIfPresent(ctx: MutationCtx, key?: string) {
@@ -408,6 +509,8 @@ async function enrichServerDetail(ctx: QueryCtx, server: Doc<'servers'>) {
 		reviewCount: stats?.reviewCount ?? 0,
 		online: status?.online,
 		playerCount: status?.playerCount ?? 0,
+		maxPlayers: status?.maxPlayers,
+		verified: server.verifiedAt !== undefined,
 		owner: ownerData,
 	}
 }
@@ -432,8 +535,10 @@ export const searchAdvanced = query({
 				v.literal('newest'),
 				v.literal('name'),
 				v.literal('rating'),
+				v.literal('players'),
 			),
 		),
+		verifiedOnly: v.optional(v.boolean()),
 		limit: v.optional(v.number()),
 		cursor: v.optional(v.number()), // offset-based pagination
 	},
@@ -476,11 +581,13 @@ export const searchAdvanced = query({
 			servers = servers.filter((s) => s.region === args.region)
 		}
 
+		if (args.verifiedOnly) {
+			servers = servers.filter((s) => s.verifiedAt !== undefined)
+		}
+
 		// Get online status for filtering if needed
-		let serverStatusMap: Map<
-			Id<'servers'>,
-			{ online: boolean; playerCount: number }
-		> = new Map()
+		let serverStatusMap: Map<Id<'servers'>, ServerStatusSummary> =
+			new Map()
 		if (args.statusFilter) {
 			const onlineFilter = args.statusFilter === 'online'
 			const allStatus = await ctx.db
@@ -490,10 +597,16 @@ export const searchAdvanced = query({
 			serverStatusMap = new Map(
 				allStatus.map((s) => [
 					s.serverId,
-					{ online: s.online, playerCount: s.playerCount },
+					{
+						online: s.online,
+						playerCount: s.playerCount,
+						maxPlayers: s.maxPlayers,
+					},
 				]),
 			)
 			servers = servers.filter((s) => serverStatusMap.has(s._id))
+		} else if (sort === 'players') {
+			serverStatusMap = await getServerStatusMap(ctx, servers)
 		}
 
 		const needsStatsForSort = sort === 'rating'
@@ -516,6 +629,15 @@ export const searchAdvanced = query({
 						(statsMap.get(a._id)?.averageRating ?? 0),
 				)
 				break
+			case 'players': {
+				// Online servers first, busiest first; offline and unchecked last.
+				const players = (id: Id<'servers'>) => {
+					const status = serverStatusMap.get(id)
+					return status?.online ? status.playerCount : -1
+				}
+				servers.sort((a, b) => players(b._id) - players(a._id))
+				break
+			}
 		}
 
 		// Pagination
@@ -524,7 +646,7 @@ export const searchAdvanced = query({
 		if (!needsStatsForSort) {
 			statsMap = await getServerStatsMap(ctx, paginatedServers)
 		}
-		if (!args.statusFilter) {
+		if (!args.statusFilter && sort !== 'players') {
 			serverStatusMap = await getServerStatusMap(ctx, paginatedServers)
 		}
 		const categoryMap = await getServerCategoryMap(ctx, paginatedServers)
@@ -552,6 +674,8 @@ export const searchAdvanced = query({
 						),
 					online: status?.online,
 					playerCount: status?.playerCount ?? 0,
+					maxPlayers: status?.maxPlayers,
+					verified: server.verifiedAt !== undefined,
 					averageRating: stats?.averageRating ?? 0,
 					reviewCount: stats?.reviewCount ?? 0,
 				}
@@ -1083,22 +1207,6 @@ export const create = mutation({
 			throw new Error('You must be logged in to create a server')
 		}
 
-		const verificationProof = await ctx.db
-			.query('serverVerificationProofs')
-			.withIndex('by_user_address', (q) =>
-				q
-					.eq('userId', user._id)
-					.eq('ipAddress', args.ipAddress)
-					.eq('port', args.port),
-			)
-			.first()
-
-		if (!verificationProof || verificationProof.expiresAt < Date.now()) {
-			throw new Error(
-				'Verify ownership of this server address before creating it',
-			)
-		}
-
 		// Determine ownership
 		const ownerType = args.organizationId ? 'organization' as const : 'user' as const
 		const ownerId = args.organizationId ?? user._id
@@ -1112,6 +1220,15 @@ export const create = mutation({
 			'contentCreate',
 			user._id,
 			'Too many servers created. Please wait before creating another server.',
+		)
+		validateServerFields(args)
+		const address = parseServerAddress(args.ipAddress, args.port)
+		await assertAddressAvailable(ctx, address)
+		const verificationProof = await consumeVerificationProof(
+			ctx,
+			user._id,
+			address,
+			'Verify ownership of this server address before creating it',
 		)
 
 		// Generate unique slug
@@ -1132,8 +1249,9 @@ export const create = mutation({
 			slug,
 			smallDescription: args.smallDescription,
 			description: args.description,
-			ipAddress: args.ipAddress,
-			port: args.port,
+			ipAddress: address.host,
+			port: address.port,
+			addressKey: address.key,
 			categoryIds: args.categoryIds,
 			website: args.website,
 			discordUrl: args.discordUrl,
@@ -1151,8 +1269,9 @@ export const create = mutation({
 			verificationMethod: verificationProof.method,
 			updatedAt: now,
 		})
+		await afterServerWrite(ctx, null, await ctx.db.get(serverId))
 
-		await ctx.db.delete(verificationProof._id)
+		await recordEditorMediaReferences(ctx, 'servers', serverId, args.description)
 
 		// Create initial serverStats record
 		await ctx.db.insert('serverStats', {
@@ -1211,6 +1330,7 @@ export const update = mutation({
 		) {
 			throw new Error('You do not have permission to edit this server')
 		}
+		validateServerFields(args)
 
 		if (args.status && server.status === 'under_review') {
 			throw new Error(
@@ -1220,6 +1340,11 @@ export const update = mutation({
 
 		if (args.status === 'published' && server.status !== 'draft') {
 			throw new Error('Only draft servers can be published')
+		}
+		if (args.status === 'published' && server.moderationStatus === 'rejected') {
+			throw new Error(
+				'This server was rejected by a moderator and cannot be republished. Contact the moderators.',
+			)
 		}
 		if (args.status === 'published' && !server.verifiedAt) {
 			throw new Error('Server ownership must be verified before publishing')
@@ -1234,8 +1359,16 @@ export const update = mutation({
 			organizationId,
 			logoR2Key: nextLogoR2Key,
 			bannerR2Key: nextBannerR2Key,
+			ipAddress,
+			port,
 			...updates
 		} = args
+		const addressUpdates = await resolveAddressUpdate(
+			ctx,
+			server,
+			{ ipAddress, port },
+			{ userId: user._id, isAdmin: user.role === 'admin' },
+		)
 
 		const shouldUpdateOwner = 'organizationId' in args
 		const ownerUpdates = shouldUpdateOwner
@@ -1244,17 +1377,22 @@ export const update = mutation({
 					ownerId: organizationId ?? user._id,
 				}
 			: {}
-		if (
+		const nextOwner = {
+			ownerType: organizationId ? ('organization' as const) : ('user' as const),
+			ownerId: organizationId ?? user._id,
+		}
+		const ownerChanges =
 			shouldUpdateOwner &&
-			!(await canModifyServer(
-				ctx,
-				{
-					ownerType: organizationId ? 'organization' : 'user',
-					ownerId: organizationId ?? user._id,
-				},
-				user._id,
-				user.role ?? undefined,
-			))
+			(nextOwner.ownerType !== server.ownerType ||
+				nextOwner.ownerId !== server.ownerId)
+		// Moving a server needs manage rights on its current owner and
+		// membership in the new owner.
+		if (
+			ownerChanges &&
+			!(
+				(await canManageContent(ctx, server, user, { allowSiteAdmin: true })) &&
+				(await canEditContent(ctx, nextOwner, user, { allowSiteAdmin: true }))
+			)
 		) {
 			throw new Error(
 				'You do not have permission to move this server to that owner',
@@ -1320,12 +1458,19 @@ export const update = mutation({
 			...updates,
 			...mediaUpdates,
 			...ownerUpdates,
+			...addressUpdates,
 			...publicationUpdates,
 			slug,
 			updatedAt: now,
 		})
+		await afterServerWrite(ctx, server, await ctx.db.get(args.id))
 
-		if (updates.status === 'published') {
+		await recordEditorMediaReferences(ctx, 'servers', args.id, args.description)
+
+		if (
+			updates.status === 'published' ||
+			('ipAddress' in addressUpdates && server.status === 'published')
+		) {
 			await ctx.scheduler.runAfter(
 				0,
 				internal.functions.servers.status.pingServer,
@@ -1390,6 +1535,7 @@ export const updateAdmin = mutation({
 		if (!server) {
 			throw new Error('Server not found')
 		}
+		validateServerFields(args)
 
 		const {
 			id,
@@ -1397,8 +1543,32 @@ export const updateAdmin = mutation({
 			bannerR2Key: nextBannerR2Key,
 			moderationStatus,
 			moderationReason,
+			ipAddress,
+			port,
 			...updates
 		} = args
+		// A rejection is final: the server stays hidden in review and the owner
+		// cannot republish it.
+		if (moderationStatus === 'rejected') {
+			updates.status = 'under_review'
+		}
+		const isApproval =
+			updates.status === 'published' ||
+			(moderationStatus === 'approved' && updates.status !== 'draft')
+		if (
+			isApproval &&
+			(await isAffiliatedWithContent(ctx, server, user._id))
+		) {
+			throw new ConvexError(
+				'You cannot approve your own server. Ask another admin to review it.',
+			)
+		}
+		const addressUpdates = await resolveAddressUpdate(
+			ctx,
+			server,
+			{ ipAddress, port },
+			{ userId: user._id, isAdmin: true },
+		)
 		const mediaUpdates = {
 			...(nextLogoR2Key !== undefined
 				? {
@@ -1472,15 +1642,7 @@ export const updateAdmin = mutation({
 								moderatedAt: now,
 								moderatedBy: user._id,
 							}
-						: updates.status === 'draft'
-							? {
-									moderationStatus: 'rejected' as const,
-									moderatedAt: now,
-									moderatedBy: user._id,
-									moderationReason:
-										moderationReason?.trim() || undefined,
-								}
-							: {}
+						: {}
 
 		if (
 			requiresModerationReason(moderationStatus) &&
@@ -1492,13 +1654,20 @@ export const updateAdmin = mutation({
 		await ctx.db.patch(args.id, {
 			...updates,
 			...mediaUpdates,
+			...addressUpdates,
 			...publicationUpdates,
 			...moderationUpdates,
 			slug,
 			updatedAt: now,
 		})
+		await afterServerWrite(ctx, server, await ctx.db.get(args.id))
 
-		if (updates.status === 'published') {
+		await recordEditorMediaReferences(ctx, 'servers', args.id, args.description)
+
+		if (
+			updates.status === 'published' ||
+			('ipAddress' in addressUpdates && server.status === 'published')
+		) {
 			await ctx.scheduler.runAfter(
 				0,
 				internal.functions.servers.status.pingServer,
@@ -1541,14 +1710,15 @@ export const remove = mutation({
 			throw new Error('Server not found')
 		}
 
-		if (
-			!(await canModifyServer(ctx, server, user._id, user.role ?? undefined))
-		) {
-			throw new Error('You do not have permission to delete this server')
+		if (!(await canManageContent(ctx, server, user, { allowSiteAdmin: true }))) {
+			throw new Error(
+				'Only the owner or an organization owner/admin can delete this server',
+			)
 		}
 
 		await deleteServerFiles(ctx, server)
 		await deleteServerRelatedRows(ctx, args.id)
+		await afterServerWrite(ctx, server, null)
 		await ctx.db.delete(args.id)
 	},
 })

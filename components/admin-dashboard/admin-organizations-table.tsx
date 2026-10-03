@@ -21,10 +21,14 @@ import {
 	getSortedRowModel,
 	useReactTable,
 } from '@tanstack/react-table'
-import { useQuery } from 'convex/react'
+import { usePaginatedQuery, useQuery } from 'convex/react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { AdminPageHeader } from '@/components/admin-dashboard/admin-page-header'
+import {
+	AdminLoadMore,
+	AdminServerSearch,
+} from '@/components/admin-dashboard/admin-paged-list-controls'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar'
@@ -114,48 +118,45 @@ function RiskStatusBadge({ status }: { status: OrganizationRiskStatus }) {
 	)
 }
 
+interface AdminOrganizationStats {
+	organizationCount: number
+	memberCount: number
+	pendingInvitationCount: number
+	missingOwnerCount: number
+	ownedContentCount: number
+	isPartial: boolean
+}
+
 function AdminOrganizationsStats({
-	organizations,
+	stats,
 }: {
-	organizations: AdminOrganizationRow[]
+	stats: AdminOrganizationStats | undefined
 }) {
-	const memberCount = organizations.reduce(
-		(sum, organization) => sum + organization.memberCount,
-		0,
-	)
-	const pendingInvitationCount = organizations.reduce(
-		(sum, organization) => sum + organization.pendingInvitationCount,
-		0,
-	)
-	const missingOwnerCount = organizations.filter(
-		(organization) => organization.ownerCount === 0,
-	).length
-	const ownedContentCount = organizations.reduce(
-		(sum, organization) =>
-			sum + organization.serverCount + organization.projectCount,
-		0,
-	)
+	const format = (value: number | undefined) =>
+		value === undefined ? '-' : `${value}${stats?.isPartial ? '+' : ''}`
 
 	return (
 		<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 			<Stat>
 				<StatLabel>Organizations</StatLabel>
-				<StatValue>{organizations.length}</StatValue>
-				<StatDescription>{memberCount} total members</StatDescription>
+				<StatValue>{format(stats?.organizationCount)}</StatValue>
+				<StatDescription>
+					{format(stats?.memberCount)} total members
+				</StatDescription>
 			</Stat>
 			<Stat>
 				<StatLabel>Pending Invites</StatLabel>
-				<StatValue>{pendingInvitationCount}</StatValue>
+				<StatValue>{format(stats?.pendingInvitationCount)}</StatValue>
 				<StatDescription>Across all organizations</StatDescription>
 			</Stat>
 			<Stat>
 				<StatLabel>Ownership Risks</StatLabel>
-				<StatValue>{missingOwnerCount}</StatValue>
+				<StatValue>{format(stats?.missingOwnerCount)}</StatValue>
 				<StatDescription>Organizations without owners</StatDescription>
 			</Stat>
 			<Stat>
 				<StatLabel>Owned Content</StatLabel>
-				<StatValue>{ownedContentCount}</StatValue>
+				<StatValue>{format(stats?.ownedContentCount)}</StatValue>
 				<StatDescription>Servers and projects</StatDescription>
 			</Stat>
 		</div>
@@ -208,14 +209,21 @@ function OrganizationActionsCell({
 }
 
 export function AdminOrganizationsTable() {
-	const adminOrganizations = useQuery(
+	const [search, setSearch] = useState('')
+	const [now] = useState(() => Date.now())
+	const { results, status, loadMore } = usePaginatedQuery(
 		api.functions.site.organizations.listAdmin,
+		{ search: search || undefined, now },
+		{ initialNumItems: 25 },
+	)
+	const stats = useQuery(
+		api.functions.site.organizations.getAdminOrganizationStats,
 		{},
 	)
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const organizations = useMemo(
-		() => (adminOrganizations ?? []) as AdminOrganizationRow[],
-		[adminOrganizations],
+		() => results as AdminOrganizationRow[],
+		[results],
 	)
 
 	const columns = useMemo<ColumnDef<AdminOrganizationRow>[]>(
@@ -235,12 +243,12 @@ export function AdminOrganizationsTable() {
 				),
 				cell: ({ row }) => (
 					<div className="flex min-w-64 items-center gap-3">
-						<Avatar className="size-9 rounded-lg">
+						<Avatar className="size-9 rounded-md">
 							<AvatarImage
 								alt={row.original.name}
 								src={row.original.logo}
 							/>
-							<AvatarFallback className="rounded-lg">
+							<AvatarFallback className="rounded-md">
 								{getInitials(row.original.name)}
 							</AvatarFallback>
 						</Avatar>
@@ -254,12 +262,6 @@ export function AdminOrganizationsTable() {
 						</div>
 					</div>
 				),
-				meta: {
-					label: 'Organization',
-					placeholder: 'Search organizations...',
-					variant: 'text',
-				},
-				enableColumnFilter: true,
 			},
 			{
 				id: 'riskStatus',
@@ -385,11 +387,11 @@ export function AdminOrganizationsTable() {
 		initialState: { pagination: { pageSize: 10 } },
 	})
 
-	if (adminOrganizations === undefined) {
+	if (status === 'LoadingFirstPage' && !search) {
 		return <DashboardTableSkeleton />
 	}
 
-	if (organizations.length === 0) {
+	if (organizations.length === 0 && !search && status === 'Exhausted') {
 		return (
 			<div className="space-y-6">
 				<AdminPageHeader
@@ -425,10 +427,20 @@ export function AdminOrganizationsTable() {
 				description="Review organization ownership, memberships, invitations, and owned content."
 				title="Organizations"
 			/>
-			<AdminOrganizationsStats organizations={organizations} />
+			<AdminOrganizationsStats stats={stats} />
+			<AdminServerSearch
+				label="Search organizations"
+				onSearch={setSearch}
+				placeholder="Search by slug prefix..."
+			/>
 			<DataTable table={table}>
 				<DataTableToolbar table={table} />
 			</DataTable>
+			<AdminLoadMore
+				loadedCount={organizations.length}
+				onLoadMore={() => loadMore(25)}
+				status={status}
+			/>
 		</div>
 	)
 }

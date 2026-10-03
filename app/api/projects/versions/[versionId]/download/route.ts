@@ -1,7 +1,9 @@
-import { fetchMutation } from 'convex/nextjs'
+import { ConvexError } from 'convex/values'
 import { NextResponse } from 'next/server'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { fetchAuthMutation } from '@/lib/auth-server'
+import { getClientAddress, hashClientKey } from '@/lib/client-address'
 
 interface DownloadRouteContext {
 	params: Promise<{ versionId: string }>
@@ -14,6 +16,14 @@ const DOWNLOAD_ERROR_STATUS = {
 	VERSION_PROCESSING: 409,
 	VERSION_UNAVAILABLE: 404,
 } as const
+
+function rateLimitRetryAfterMs(error: unknown): number | null {
+	if (!(error instanceof ConvexError)) {
+		return null
+	}
+	const data = error.data as { code?: string; retryAfterMs?: number } | null
+	return data?.code === 'RATE_LIMITED' ? (data.retryAfterMs ?? 0) : null
+}
 
 function isInvalidVersionIdError(error: unknown) {
 	if (!(error instanceof Error)) {
@@ -29,12 +39,31 @@ function isInvalidVersionIdError(error: unknown) {
 export async function GET(request: Request, { params }: DownloadRouteContext) {
 	const { versionId } = await params
 	const wantsJson = new URL(request.url).searchParams.get('format') === 'json'
+	const downloadSecret = process.env.DOWNLOAD_REDIRECT_SECRET
+	if (!downloadSecret) {
+		console.error('DOWNLOAD_REDIRECT_SECRET is not configured')
+		return NextResponse.json(
+			{
+				code: 'DOWNLOAD_TEMPORARILY_UNAVAILABLE',
+				message: 'Downloads are temporarily unavailable.',
+				ok: false,
+			},
+			{ headers: { 'Cache-Control': 'no-store' }, status: 503 },
+		)
+	}
 
 	try {
-		const result = await fetchMutation(
+		// Forward the session when present so signed-in users are limited and
+		// counted per account; anonymous visitors per hashed client address.
+		const result = await fetchAuthMutation(
 			api.functions.projects.versions.createDownloadUrl,
 			{
 				versionId: versionId as Id<'projectVersions'>,
+				downloadSecret,
+				clientKey: hashClientKey(
+					downloadSecret,
+					getClientAddress(request.headers),
+				),
 			},
 		)
 
@@ -79,6 +108,27 @@ export async function GET(request: Request, { params }: DownloadRouteContext) {
 				{
 					headers: { 'Cache-Control': 'no-store' },
 					status: 404,
+				},
+			)
+		}
+
+		const retryAfterMs = rateLimitRetryAfterMs(error)
+		if (retryAfterMs !== null) {
+			return NextResponse.json(
+				{
+					code: 'DOWNLOAD_RATE_LIMITED',
+					message:
+						'Too many download requests. Please wait before trying again.',
+					ok: false,
+				},
+				{
+					headers: {
+						'Cache-Control': 'no-store',
+						'Retry-After': String(
+							Math.max(1, Math.ceil(retryAfterMs / 1000)),
+						),
+					},
+					status: 429,
 				},
 			)
 		}

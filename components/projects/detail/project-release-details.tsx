@@ -33,7 +33,7 @@ export function ProjectReleaseDetails({
 	const releasePolicy = getProjectReleasePolicy(projectType)
 
 	return (
-		<article className="overflow-hidden rounded-lg border bg-card">
+		<article className="overflow-hidden rounded-md border bg-card">
 			<header className="space-y-4 border-b bg-muted/25 p-5 sm:p-6">
 				<Link
 					className="inline-flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground"

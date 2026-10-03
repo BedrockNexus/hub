@@ -63,10 +63,7 @@ export default function TermsPage() {
 					Harass others or publish hateful, exploitative, or sexual
 					content.
 				</li>
-				<li>
-					Manipulate reviews, downloads, favourites, analytics, or
-					rankings.
-				</li>
+				<li>Manipulate reviews, downloads, favourites, or rankings.</li>
 				<li>
 					Evade moderation, verification, access controls, or rate
 					limits.

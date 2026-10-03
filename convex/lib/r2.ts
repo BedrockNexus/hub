@@ -11,7 +11,7 @@ const sharedR2Config = {
 
 export const cdnR2 = new R2(components.r2, {
 	...sharedR2Config,
-	bucket: process.env.R2_CDN_BUCKET ?? process.env.R2_BUCKET,
+	bucket: process.env.R2_CDN_BUCKET ?? '__public_cdn_bucket_missing__',
 })
 
 export const uploadsR2 = new R2(components.r2, {

@@ -61,6 +61,36 @@ Expected behavior:
 - Owners cannot move an `under_review` server back to `draft` or `published`; admin review must finish first.
 - A rejected server remains `under_review` and hidden until an admin resolves it.
 
+## Rejections and Self-Approval
+
+- Rejecting a server sets `under_review` + `rejected`, so it stays hidden.
+  Owners cannot change the visibility of an `under_review` server, and a
+  rejected server can never be republished by its owner.
+- Unpublishing (`draft` with `approved`) is not a rejection; the owner may
+  publish again.
+- Admins cannot approve or publish servers they registered, own, or whose
+  owning organization they belong to.
+
+## Ownership Verification
+
+Ownership verification is what allows a server to publish without admin
+approval, so it must be bound to the account that performs it:
+
+- `verification.generateCode` issues one code per account, stored in
+  `serverVerificationChallenges` and valid for 24 hours. "Generate New Code"
+  rotates it.
+- `verification.verifyOwnership` only accepts the caller's own active code.
+  A `bedrocknexus-verify=` token copied from another server's public DNS
+  record or MOTD is rejected because it was issued to a different account.
+- A successful check stores a 30-minute proof for that exact normalized
+  `host:port`. Creating a server, or changing a server's address, consumes it.
+- Hostnames are normalized (trimmed, lowercased, trailing dot removed) and
+  each `host:port` (`servers.addressKey`) can be listed only once.
+- Owners cannot change a server's IP address or port without a fresh proof
+  for the new address. Admin address changes are recorded as `manual`
+  verification by that admin.
+- Expired codes and proofs are removed daily by a cron job.
+
 ## Why Projects Are Different
 
 Projects distribute downloadable files, so they must pass admin review before

@@ -154,7 +154,7 @@ export function GameVersionsManager() {
 	const renderVersionsContent = () => {
 		if (isLoading) {
 			return (
-				<div className="space-y-2 rounded-lg border p-3">
+				<div className="space-y-2 rounded-md border p-3">
 					{['one', 'two', 'three'].map((key) => (
 						<div
 							className="flex items-center justify-between gap-4"
@@ -186,7 +186,7 @@ export function GameVersionsManager() {
 		}
 
 		return (
-			<div className="rounded-lg border">
+			<div className="rounded-md border">
 				<Table>
 					<TableHeader>
 						<TableRow>
@@ -327,7 +327,7 @@ export function GameVersionsManager() {
 								Visible in release forms
 							</p>
 						</div>
-						<div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
+						<div className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-primary/20">
 							<HugeiconsIcon
 								className="size-5"
 								icon={Package01Icon}
@@ -348,7 +348,7 @@ export function GameVersionsManager() {
 								Preserved for old releases
 							</p>
 						</div>
-						<div className="flex size-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20">
+						<div className="flex size-10 items-center justify-center rounded-md bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20">
 							<HugeiconsIcon
 								className="size-5"
 								icon={RefreshIcon}
@@ -369,7 +369,7 @@ export function GameVersionsManager() {
 								Configured game versions
 							</p>
 						</div>
-						<div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20">
+						<div className="flex size-10 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20">
 							<HugeiconsIcon
 								className="size-5"
 								icon={Add01Icon}

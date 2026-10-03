@@ -1,0 +1,52 @@
+name: Deploy
+
+# Builds the image (after the Dockerfile `test` stage passes), pushes it to
+# ghcr.io/bedrocknexus/hub and triggers the Coolify deployment.
+# Pipeline: https://github.com/BedrockNexus/github-actions
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  config:
+    name: Check build variables
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Require public build variables
+        env:
+          NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL }}
+          NEXT_PUBLIC_CONVEX_SITE_URL: ${{ vars.NEXT_PUBLIC_CONVEX_SITE_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+        shell: bash
+        run: |
+          missing=0
+          for name in NEXT_PUBLIC_CONVEX_URL NEXT_PUBLIC_CONVEX_SITE_URL NEXT_PUBLIC_SITE_URL NEXT_PUBLIC_API_URL; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing repository variable ${name} (Settings > Secrets and variables > Actions > Variables)."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+  deploy:
+    needs: config
+    uses: BedrockNexus/github-actions/.github/workflows/docker-deploy.yml@main
+    with:
+      test-target: test
+      # Public values only: build arguments are visible in the image.
+      build-args: |
+        NEXT_PUBLIC_CONVEX_URL=${{ vars.NEXT_PUBLIC_CONVEX_URL }}
+        NEXT_PUBLIC_CONVEX_SITE_URL=${{ vars.NEXT_PUBLIC_CONVEX_SITE_URL }}
+        NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+        NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+    secrets: inherit

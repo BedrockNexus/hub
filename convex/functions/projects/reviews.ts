@@ -4,7 +4,10 @@ import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { isPublicProject } from '../../lib/contentVisibility'
+import { validateReview } from '../../lib/contentValidation'
+import { isAffiliatedWithContent } from '../../lib/permissions'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import { recordActivity } from '../../lib/activity'
 
 async function isReviewableProject(
 	ctx: MutationCtx,
@@ -30,7 +33,7 @@ export const list = query({
 	handler: async (ctx, args) => {
 		const project = await ctx.db.get(args.projectId)
 		if (!project || !isPublicProject(project)) return []
-		const limit = args.limit ?? 20
+		const limit = Math.min(Math.max(Math.floor(args.limit ?? 20), 1), 50)
 		const sortBy = args.sortBy ?? 'recent'
 
 		let reviews: Doc<'projectReviews'>[]
@@ -176,11 +179,13 @@ export const upsert = mutation({
 			'Too many review changes. Please wait before trying again.',
 		)
 
-		if (args.rating < 1 || args.rating > 5) {
-			throw new Error('Rating must be between 1 and 5')
-		}
+		validateReview(args.rating, args.content)
 		if (!(await isReviewableProject(ctx, args.projectId))) {
 			throw new Error('This project is not available for reviews')
+		}
+		const project = await ctx.db.get(args.projectId)
+		if (project && (await isAffiliatedWithContent(ctx, project, user._id))) {
+			throw new Error('You cannot review your own project')
 		}
 
 		const now = Date.now()
@@ -197,7 +202,7 @@ export const upsert = mutation({
 		if (existing) {
 			await ctx.db.patch(existing._id, {
 				rating: args.rating,
-				content: args.content,
+				content: args.content?.trim() || undefined,
 				isEdited: true,
 				updatedAt: now,
 			})
@@ -207,10 +212,20 @@ export const upsert = mutation({
 				projectId: args.projectId,
 				userId: user._id,
 				rating: args.rating,
-				content: args.content,
+				content: args.content?.trim() || undefined,
 				isActive: true,
 				createdAt: now,
 			})
+			if (project) {
+				await recordActivity(ctx, {
+					userId: user._id,
+					type: 'review_added',
+					targetId: project._id,
+					targetName: project.name,
+					targetSlug: project.slug,
+					metadata: { rating: args.rating, targetType: 'project' },
+				})
+			}
 		}
 
 		await updateProjectReviewStats(ctx, args.projectId)

@@ -7,6 +7,7 @@ import {
 	internalQuery,
 	type MutationCtx,
 } from '../../_generated/server'
+import { isApprovedRelease, isPublicRelease } from '../../lib/projectReleases'
 import { cdnR2, uploadsR2 } from '../../lib/r2'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
 
@@ -82,7 +83,8 @@ export const markValidating = internalMutation({
 	},
 })
 
-async function updateProjectReleaseSummary(
+/** Recomputes the project's public release count and latest public release. */
+export async function updateProjectReleaseSummary(
 	ctx: MutationCtx,
 	projectId: Id<'projects'>,
 ) {
@@ -91,11 +93,7 @@ async function updateProjectReleaseSummary(
 		.withIndex('by_project', (q) => q.eq('projectId', projectId))
 		.order('desc')
 		.collect()
-	const versions = allVersions.filter(
-		(version) =>
-			version.validationStatus === undefined ||
-			version.validationStatus === 'valid',
-	)
+	const versions = allVersions.filter(isPublicRelease)
 	const latest = versions[0]
 	await ctx.db.patch(projectId, {
 		latestVersionId: latest?._id,
@@ -143,6 +141,7 @@ export const getVersionForPromotion = internalQuery({
 		if (
 			!version ||
 			version.validationStatus !== 'valid' ||
+			!isApprovedRelease(version) ||
 			version.deletionRequestedAt
 		) return null
 		const project = await ctx.db.get(version.projectId)

@@ -4,12 +4,13 @@ import { expect, test } from '@playwright/test'
 const env = process.env
 
 const ADD_NEW_SERVER_HEADING_PATTERN = /add new server/i
-const CHANGELOG_TAB_PATTERN = /changelog/i
 const CREATE_NEW_PROJECT_HEADING_PATTERN = /create new project/i
 const DRAG_DROP_PATTERN = /drag & drop/i
 const GALLERY_TAB_PATTERN = /gallery/i
+const GALLERY_URL_PATTERN = /\/gallery$/
 const PUBLISH_NEW_VERSION_HEADING_PATTERN = /publish new version/i
 const REVIEWS_TAB_PATTERN = /reviews/i
+const REVIEWS_URL_PATTERN = /\/reviews$/
 const VERSIONS_TAB_PATTERN = /versions/i
 
 async function expectPageReady(page: import('@playwright/test').Page) {
@@ -47,13 +48,16 @@ test.describe('public smoke', () => {
 
 		await page.goto(`/servers/${env.E2E_SERVER_SLUG}`)
 		await expectPageReady(page)
-		await page.getByRole('tab', { name: GALLERY_TAB_PATTERN }).click()
-		await expectPageReady(page)
-		await page.getByRole('tab', { name: REVIEWS_TAB_PATTERN }).click()
-		await expectPageReady(page)
+		const sections = page.getByRole('navigation', {
+			name: 'Server sections',
+		})
+		await sections.getByRole('link', { name: GALLERY_TAB_PATTERN }).click()
+		await expect(page).toHaveURL(GALLERY_URL_PATTERN)
+		await sections.getByRole('link', { name: REVIEWS_TAB_PATTERN }).click()
+		await expect(page).toHaveURL(REVIEWS_URL_PATTERN)
 	})
 
-	test('project listing, detail, gallery, versions, changelog, and reviews', async ({
+	test('project listing, detail, gallery, versions, and reviews', async ({
 		page,
 	}) => {
 		test.skip(
@@ -66,13 +70,15 @@ test.describe('public smoke', () => {
 
 		await page.goto(`/projects/${env.E2E_PROJECT_SLUG}`)
 		await expectPageReady(page)
+		const sections = page.getByRole('navigation', {
+			name: 'Project sections',
+		})
 		for (const tab of [
 			GALLERY_TAB_PATTERN,
 			VERSIONS_TAB_PATTERN,
-			CHANGELOG_TAB_PATTERN,
 			REVIEWS_TAB_PATTERN,
 		]) {
-			await page.getByRole('tab', { name: tab }).click()
+			await sections.getByRole('link', { name: tab }).click()
 			await expectPageReady(page)
 		}
 	})
@@ -208,4 +214,44 @@ test.describe('download tracking', () => {
 		expect(response?.status()).toBeGreaterThanOrEqual(200)
 		expect(response?.status()).toBeLessThan(400)
 	})
+})
+
+const NONCE_PATTERN = /'nonce-([^']+)'/
+
+test('pages use a fresh script nonce and block injected handlers', async ({
+	page,
+	request,
+}) => {
+	const nonceOf = (policy: string | undefined) =>
+		policy?.match(NONCE_PATTERN)?.[1]
+	const first = nonceOf(
+		(await request.get('/')).headers()['content-security-policy'],
+	)
+	const second = nonceOf(
+		(await request.get('/')).headers()['content-security-policy'],
+	)
+	expect(first).toBeTruthy()
+	expect(first).not.toBe(second)
+
+	await page.goto('/')
+	const result = await page.evaluate(async () => {
+		const executable = [...document.scripts].filter(
+			(script) =>
+				!script.type ||
+				script.type === 'text/javascript' ||
+				script.type === 'module',
+		)
+		const element = document.createElement('div')
+		element.innerHTML =
+			'<img src="data:x" onerror="window.__injected = true">'
+		document.body.append(element)
+		await new Promise((resolve) => setTimeout(resolve, 300))
+		return {
+			allScriptsHaveNonce: executable.every((script) => script.nonce),
+			injectedRan: Boolean(
+				(window as { __injected?: boolean }).__injected,
+			),
+		}
+	})
+	expect(result).toEqual({ allScriptsHaveNonce: true, injectedRan: false })
 })

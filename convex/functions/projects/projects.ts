@@ -1,4 +1,4 @@
-﻿import { v } from 'convex/values'
+﻿import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
@@ -16,13 +16,22 @@ import {
 } from '../../lib/contentVisibility'
 import { validateEntityImageUpload } from '../../lib/media'
 import { r2, resolveCdnObjectUrl, uploadsR2 } from '../../lib/r2'
+import { validateProjectFields } from '../../lib/contentValidation'
+import { afterProjectWrite, recordReleaseActivity } from '../../lib/activity'
+import { recordEditorMediaReferences } from '../../lib/editorMedia'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import {
+	canEditContent,
+	canManageContent,
+	isAffiliatedWithContent,
+} from '../../lib/permissions'
 import {
 	assertSupportedProjectType,
 	isSupportedProjectType,
 	normalizeProjectType,
 	type StoredProjectType,
 } from '../../../lib/project-artifacts'
+import { updateProjectReleaseSummary } from './artifactValidation'
 
 // =============================================================================
 // TYPES
@@ -434,6 +443,7 @@ async function enrichProjectDetail(ctx: QueryCtx, item: Doc<'projects'>) {
 					version: latestVersion.version,
 					createdAt: latestVersion.createdAt,
 					gameVersions: latestVersion.gameVersions,
+					fileName: latestVersion.fileName,
 					fileSize: latestVersion.fileSize,
 					validationReport: latestVersion.validationReport,
 				}
@@ -452,26 +462,7 @@ async function canModifyProject(
 	project: { ownerType: 'user' | 'organization'; ownerId: string },
 	userId: string,
 ): Promise<boolean> {
-	if (project.ownerType === 'user') {
-		return canModifyProjectOwner({ owner: project, userId })
-	}
-
-	const member = (await ctx.runQuery(
-		components.betterAuth.adapter.findOne,
-		{
-			model: 'member',
-			where: [
-				{ field: 'organizationId', value: project.ownerId },
-				{ field: 'userId', value: userId },
-			],
-		},
-	)) as { id?: string } | null
-
-	return canModifyProjectOwner({
-		owner: project,
-		userId,
-		isOrganizationMember: !!member,
-	})
+	return canEditContent(ctx, project, { _id: userId }, { allowSiteAdmin: false })
 }
 
 async function getUserOrganizationIds(
@@ -1052,6 +1043,7 @@ export const create = mutation({
 			throw new Error('You must be logged in to create a project')
 		}
 		assertSupportedProjectType(args.type)
+		validateProjectFields(args)
 
 		const ownerType = args.ownerType
 		const ownerId = ownerType === 'user' ? user._id : args.ownerId
@@ -1103,6 +1095,9 @@ export const create = mutation({
 			status: 'draft',
 			updatedAt: now,
 		})
+		await afterProjectWrite(ctx, null, await ctx.db.get(projectId))
+
+		await recordEditorMediaReferences(ctx, 'projects', projectId, args.description)
 
 		// Create initial stats
 		await ctx.db.insert('projectStats', {
@@ -1157,6 +1152,7 @@ export const update = mutation({
 		if (!(await canModifyProject(ctx, item, user._id))) {
 			throw new Error('You do not have permission to edit this project')
 		}
+		validateProjectFields(args)
 
 		const now = Date.now()
 		const {
@@ -1218,6 +1214,11 @@ export const update = mutation({
 		if (status === 'under_review' && item.status !== 'draft') {
 			throw new Error('Only draft projects can be submitted for review')
 		}
+		if (status === 'under_review' && item.moderationStatus === 'rejected') {
+			throw new Error(
+				'This project was rejected and cannot be resubmitted. Contact the moderators.',
+			)
+		}
 		if (status === 'under_review') {
 			assertSupportedProjectType(nextType)
 			await assertProjectHasVersion(ctx, item._id)
@@ -1239,16 +1240,21 @@ export const update = mutation({
 				}
 			: {}
 
-		if (
+		const nextOwner = {
+			ownerType: organizationId ? ('organization' as const) : ('user' as const),
+			ownerId: organizationId ?? user._id,
+		}
+		const ownerChanges =
 			shouldUpdateOwner &&
-			!(await canModifyProject(
-				ctx,
-				{
-					ownerType: organizationId ? 'organization' : 'user',
-					ownerId: organizationId ?? user._id,
-				},
-				user._id,
-			))
+			(nextOwner.ownerType !== item.ownerType || nextOwner.ownerId !== item.ownerId)
+		// Moving a project needs manage rights on its current owner and
+		// membership in the new owner.
+		if (
+			ownerChanges &&
+			!(
+				(await canManageContent(ctx, item, user, { allowSiteAdmin: false })) &&
+				(await canEditContent(ctx, nextOwner, user, { allowSiteAdmin: false }))
+			)
 		) {
 			throw new Error(
 				'You do not have permission to move this project to that owner',
@@ -1279,6 +1285,8 @@ export const update = mutation({
 			...(slug ? { slug } : {}),
 			updatedAt: now,
 		})
+		await afterProjectWrite(ctx, item, await ctx.db.get(id))
+		await recordEditorMediaReferences(ctx, 'projects', id, args.description)
 
 		if (
 			nextIconR2Key !== undefined &&
@@ -1361,13 +1369,15 @@ export const remove = mutation({
 			throw new Error('Project not found')
 		}
 
-		// Check ownership — user-owned or org member
-		if (!(await canModifyProject(ctx, item, user._id))) {
-			throw new Error('You do not have permission to delete this project')
+		if (!(await canManageContent(ctx, item, user, { allowSiteAdmin: false }))) {
+			throw new Error(
+				'Only the owner or an organization owner/admin can delete this project',
+			)
 		}
 
 		await deleteProjectFiles(ctx, item)
 		await deleteProjectRelatedRows(ctx, args.id)
+		await afterProjectWrite(ctx, item, null)
 		await ctx.db.delete(args.id)
 	},
 })
@@ -1400,25 +1410,43 @@ export const adminUpdate = mutation({
 			throw new Error('Project not found')
 		}
 
+		// A rejection is final: the project stays hidden in review and the owner
+		// cannot resubmit it (see `update`). Only another admin decision can
+		// change it.
+		const requestedStatus =
+			args.moderationStatus === 'rejected' ? 'under_review' : args.status
+		// Unpublishing sends `approved` with `draft`; that is not an approval.
+		const isApproval =
+			requestedStatus === 'published' ||
+			(args.moderationStatus === 'approved' && requestedStatus !== 'draft')
+		if (
+			isApproval &&
+			(await isAffiliatedWithContent(ctx, item, user._id))
+		) {
+			throw new ConvexError(
+				'You cannot approve your own project. Ask another admin to review it.',
+			)
+		}
+
 		const now = Date.now()
 		const patch: Record<string, unknown> = { updatedAt: now }
 
-		if (args.status !== undefined) {
-			if (args.status === 'published') {
+		if (requestedStatus !== undefined) {
+			if (requestedStatus === 'published') {
 				assertSupportedProjectType(item.type)
 				await assertProjectHasVersion(ctx, item._id)
 			}
 
-			patch.status = args.status
-			if (args.status === 'published' && !item.publishedAt) {
+			patch.status = requestedStatus
+			if (requestedStatus === 'published' && !item.publishedAt) {
 				patch.publishedAt = now
 			}
 			if (args.moderationStatus === undefined) {
 				patch.moderationStatus =
-					args.status === 'published' ? 'approved' : 'pending'
+					requestedStatus === 'published' ? 'approved' : 'pending'
 				patch.moderatedAt = now
 				patch.moderatedBy = user._id
-				if (args.status === 'published') {
+				if (requestedStatus === 'published') {
 					patch.moderationReason = undefined
 				}
 			}
@@ -1438,13 +1466,32 @@ export const adminUpdate = mutation({
 		) {
 			throw new Error('A moderation reason is required')
 		}
+		if (requestedStatus === 'published') {
+			// Releases submitted with the project are reviewed together with it.
+			const pendingReleases = await ctx.db
+				.query('projectVersions')
+				.withIndex('by_project', (q) => q.eq('projectId', item._id))
+				.collect()
+			for (const release of pendingReleases) {
+				if (release.reviewStatus === 'pending') {
+					await ctx.db.patch(release._id, {
+						reviewStatus: 'approved',
+						reviewedAt: now,
+						reviewedBy: user._id,
+					})
+					await recordReleaseActivity(ctx, item, release)
+				}
+			}
+		}
 		await ctx.db.patch(args.id, patch)
-		if (args.status !== undefined || args.moderationStatus !== undefined) {
-			const nextStatus = args.status ?? item.status
+		await afterProjectWrite(ctx, item, await ctx.db.get(args.id))
+		await updateProjectReleaseSummary(ctx, args.id)
+		if (requestedStatus !== undefined || args.moderationStatus !== undefined) {
+			const nextStatus = requestedStatus ?? item.status
 			const nextModerationStatus =
 				args.moderationStatus ??
-				(args.status !== undefined
-					? args.status === 'published'
+				(requestedStatus !== undefined
+					? requestedStatus === 'published'
 						? 'approved'
 						: 'pending'
 					: item.moderationStatus)
@@ -1527,6 +1574,7 @@ export const adminRemove = mutation({
 
 		await deleteProjectFiles(ctx, item)
 		await deleteProjectRelatedRows(ctx, args.id)
+		await afterProjectWrite(ctx, item, null)
 		await ctx.db.delete(args.id)
 	},
 })

@@ -41,7 +41,7 @@ export function OrganizationPublicProfileForm({
 	const [bannerPreview, setBannerPreview] = useState<string | undefined>()
 
 	if (profile === undefined) {
-		return <Skeleton className="h-96 w-full rounded-lg" />
+		return <Skeleton className="h-96 w-full rounded-md" />
 	}
 
 	const handleBanner = async (file?: File) => {

@@ -185,7 +185,7 @@ export function ProjectVersionsForm({
 				<div className="space-y-3">
 					{Array.from({ length: 3 }).map((_, i) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: skeleton list
-						<Skeleton className="h-16 w-full rounded-lg" key={i} />
+						<Skeleton className="h-16 w-full rounded-md" key={i} />
 					))}
 				</div>
 			)
@@ -206,7 +206,7 @@ export function ProjectVersionsForm({
 		}
 
 		return (
-			<div className="divide-y rounded-lg border">
+			<div className="divide-y rounded-md border">
 				{versions.map((version) => (
 					<div
 						className="flex items-center justify-between gap-4 p-4"
@@ -220,6 +220,19 @@ export function ProjectVersionsForm({
 								<VersionValidationBadge
 									status={version.validationStatus}
 								/>
+								{version.reviewStatus === 'pending' ? (
+									<Badge variant="outline">
+										Awaiting review
+									</Badge>
+								) : null}
+								{version.reviewStatus === 'rejected' ? (
+									<Badge
+										title={version.reviewReason}
+										variant="destructive"
+									>
+										Rejected
+									</Badge>
+								) : null}
 								{version.gameVersions &&
 									version.gameVersions.length > 0 && (
 										<div className="flex flex-wrap gap-1">
@@ -234,6 +247,12 @@ export function ProjectVersionsForm({
 										</div>
 									)}
 							</div>
+							{version.reviewStatus === 'rejected' &&
+							version.reviewReason ? (
+								<p className="text-destructive text-xs">
+									Rejected: {version.reviewReason}
+								</p>
+							) : null}
 							<p className="truncate text-muted-foreground text-xs">
 								{version.fileName} &bull;{' '}
 								{formatBytes(version.fileSize)} &bull;{' '}

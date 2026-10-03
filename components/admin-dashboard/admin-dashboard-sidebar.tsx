@@ -1,7 +1,6 @@
 'use client'
 
 import {
-	Analytics01Icon,
 	DashboardBrowsingIcon,
 	GridIcon,
 	OfficeIcon,
@@ -61,11 +60,6 @@ const data = {
 		},
 	],
 	navSystem: [
-		{
-			title: 'Analytics',
-			url: '/admin/analytics',
-			icon: Analytics01Icon,
-		},
 		{
 			title: 'Settings',
 			url: '/admin/settings',

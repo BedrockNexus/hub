@@ -3,7 +3,11 @@ import type { MutationCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
+import { validateReview } from '../../lib/contentValidation'
+import { isPublicServer } from '../../lib/contentVisibility'
+import { isAffiliatedWithContent } from '../../lib/permissions'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import { recordActivity } from '../../lib/activity'
 
 // =============================================================================
 // QUERIES
@@ -19,7 +23,7 @@ export const list = query({
 		sortBy: v.optional(v.union(v.literal('recent'), v.literal('rating'))),
 	},
 	handler: async (ctx, args) => {
-		const limit = args.limit ?? 20
+		const limit = Math.min(Math.max(Math.floor(args.limit ?? 20), 1), 50)
 		const sortBy = args.sortBy ?? 'recent'
 
 		let reviews: Doc<'serverReviews'>[]
@@ -154,9 +158,13 @@ export const upsert = mutation({
 			'Too many review changes. Please wait before trying again.',
 		)
 
-		// Validate rating
-		if (args.rating < 1 || args.rating > 5) {
-			throw new Error('Rating must be between 1 and 5')
+		validateReview(args.rating, args.content)
+		const server = await ctx.db.get(args.serverId)
+		if (!server || !isPublicServer(server)) {
+			throw new Error('This server is not available for reviews')
+		}
+		if (await isAffiliatedWithContent(ctx, server, user._id)) {
+			throw new Error('You cannot review your own server')
 		}
 
 		const now = Date.now()
@@ -175,7 +183,7 @@ export const upsert = mutation({
 			// Update existing review
 			await ctx.db.patch(existing._id, {
 				rating: args.rating,
-				content: args.content,
+				content: args.content?.trim() || undefined,
 				updatedAt: now,
 			})
 			reviewId = existing._id
@@ -185,9 +193,17 @@ export const upsert = mutation({
 				serverId: args.serverId,
 				userId: user._id,
 				rating: args.rating,
-				content: args.content,
+				content: args.content?.trim() || undefined,
 				isActive: true,
 				createdAt: now,
+			})
+			await recordActivity(ctx, {
+				userId: user._id,
+				type: 'review_added',
+				targetId: server._id,
+				targetName: server.name,
+				targetSlug: server.slug,
+				metadata: { rating: args.rating, targetType: 'server' },
 			})
 		}
 

@@ -11,6 +11,7 @@ export const siteConfig = {
 		'Discover Minecraft Bedrock servers, add-ons, resource packs, and community content.',
 	url: 'https://bedrocknexus.com',
 	githubUrl: 'https://github.com/BedrockNexus/hub',
+	pluginsUrl: 'https://plugins.bedrocknexus.com',
 } as const
 
 export const homeNavigation = {

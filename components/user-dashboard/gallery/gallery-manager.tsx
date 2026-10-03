@@ -250,7 +250,7 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 			return (
 				<div className="grid gap-4 sm:grid-cols-2">
 					{['one', 'two'].map((key) => (
-						<Skeleton className="h-64 rounded-lg" key={key} />
+						<Skeleton className="h-64 rounded-md" key={key} />
 					))}
 				</div>
 			)
@@ -273,7 +273,7 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 			<div className="grid gap-4 sm:grid-cols-2">
 				{items.map((item, index) => (
 					<div
-						className="overflow-hidden rounded-lg border bg-card"
+						className="overflow-hidden rounded-md border bg-card"
 						key={item._id}
 					>
 						<div className="relative aspect-video">
@@ -424,7 +424,7 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 							key={getFileKey(file)}
 							value={file}
 						>
-							<div className="aspect-video w-full overflow-hidden rounded-lg">
+							<div className="aspect-video w-full overflow-hidden rounded-md">
 								<FileUploadItemPreview />
 							</div>
 							<div className="flex flex-1 flex-col gap-1">

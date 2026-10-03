@@ -122,7 +122,7 @@ export function BannerUpload({
 			{/* Current banner preview */}
 			{currentImageUrl && !isRemoved && files.length === 0 && (
 				<div>
-					<div className="relative mb-2 aspect-3/1 w-full overflow-hidden rounded-lg border">
+					<div className="relative mb-2 aspect-3/1 w-full overflow-hidden rounded-md border">
 						<Image
 							alt="Current banner"
 							className="object-cover"
@@ -207,7 +207,7 @@ export function BannerUpload({
 							key={getFileKey(file)}
 							value={file}
 						>
-							<div className="aspect-3/1 w-full overflow-hidden rounded-lg">
+							<div className="aspect-3/1 w-full overflow-hidden rounded-md">
 								<FileUploadItemPreview className="h-full w-full rounded-none border-0" />
 							</div>
 							<div className="flex flex-1 flex-col gap-1">

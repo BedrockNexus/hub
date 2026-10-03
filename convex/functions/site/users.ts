@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
@@ -5,6 +6,7 @@ import { authComponent } from '../../auth'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { validateImageObjectMetadata } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
+import { isActivityVisible } from '../../lib/activity'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
 	buildProfileMediaR2ObjectKey,
@@ -264,125 +266,171 @@ export const listPublicProfilesForSitemap = query({
 /**
  * List users for admin account and support workflows.
  */
+type AdapterResult<T> = {
+	page?: T[]
+	isDone?: boolean
+	continueCursor?: string
+}
+
+async function countActiveSessions(ctx: QueryCtx, userId: string, now: number) {
+	const sessions = getAdapterPage<BetterAuthSession>(
+		await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'session',
+			where: [
+				{ field: 'userId', value: userId },
+				{ field: 'expiresAt', operator: 'gt', value: now },
+			],
+			paginationOpts: { cursor: null, numItems: 100 },
+		}),
+	)
+	return sessions.length
+}
+
+async function buildAdminUserRow(
+	ctx: QueryCtx,
+	user: BetterAuthUser,
+	adminUserId: string,
+	now: number,
+) {
+	const [activeSessionCount, memberships, servers, projects] = await Promise.all([
+		countActiveSessions(ctx, user._id, now),
+		ctx
+			.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'member',
+				where: [{ field: 'userId', value: user._id }],
+				paginationOpts: { cursor: null, numItems: 100 },
+			})
+			.then((result) => getAdapterPage<BetterAuthMember>(result)),
+		ctx.db
+			.query('servers')
+			.withIndex('by_owner', (q) => q.eq('ownerType', 'user').eq('ownerId', user._id))
+			.collect(),
+		ctx.db
+			.query('projects')
+			.withIndex('by_owner', (q) => q.eq('ownerType', 'user').eq('ownerId', user._id))
+			.collect(),
+	])
+	const organizations = await Promise.all(
+		memberships.slice(0, 4).map(async (member) => {
+			const organization = (await ctx.runQuery(
+				components.betterAuth.adapter.findOne,
+				{
+					model: 'organization',
+					where: [{ field: '_id', value: member.organizationId }],
+				},
+			)) as BetterAuthOrganization | null
+			return {
+				organizationId: member.organizationId,
+				name: organization?.name ?? 'Unknown organization',
+				slug: organization?.slug,
+				role: member.role,
+			}
+		}),
+	)
+
+	return {
+		_id: user._id,
+		name: user.name,
+		displayName: getUserDisplayName(user),
+		email: user.email,
+		emailVerified: user.emailVerified,
+		image: user.image ?? undefined,
+		username: user.username ?? undefined,
+		displayUsername: user.displayUsername ?? undefined,
+		role: user.role ?? 'user',
+		banned: user.banned ?? false,
+		banReason: user.banReason ?? undefined,
+		banExpires: user.banExpires ?? undefined,
+		createdAt: user.createdAt,
+		updatedAt: user.updatedAt,
+		activeSessionCount,
+		serverCount: servers.length,
+		projectCount: projects.length,
+		organizationCount: memberships.length,
+		adminOrganizationCount: memberships.filter((member) =>
+			member.role.split(',').includes('admin'),
+		).length,
+		ownerOrganizationCount: memberships.filter((member) =>
+			member.role.split(',').includes('owner'),
+		).length,
+		organizations,
+		isCurrentUser: user._id === adminUserId,
+	}
+}
+
+/**
+ * One page of accounts for the admin users table, newest first. Each row's
+ * sessions, memberships, and content are read with indexed lookups. `search`
+ * matches the start of an email address (when it contains "@") or username.
+ * `now` is passed by the client so the query stays cacheable.
+ */
 export const listAdmin = query({
 	args: {
-		limit: v.optional(v.number()),
+		paginationOpts: paginationOptsValidator,
+		search: v.optional(v.string()),
+		now: v.number(),
 	},
 	handler: async (ctx, args) => {
 		const adminUser = await requireAdmin(ctx)
-		const limit = Math.min(args.limit ?? 250, 500)
-		const now = Date.now()
-
-		const users = getAdapterPage<BetterAuthUser>(
-			await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'user',
-				paginationOpts: { cursor: null, numItems: limit },
-				sortBy: { field: 'createdAt', direction: 'desc' },
-			}),
-		)
-
-		const sessions = getAdapterPage<BetterAuthSession>(
-			await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'session',
-				paginationOpts: { cursor: null, numItems: 1000 },
-				where: [{ field: 'expiresAt', operator: 'gt', value: now }],
-			}),
-		)
-
-		const members = getAdapterPage<BetterAuthMember>(
-			await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'member',
-				paginationOpts: { cursor: null, numItems: 1000 },
-			}),
-		)
-
-		const organizations = getAdapterPage<BetterAuthOrganization>(
-			await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'organization',
-				paginationOpts: { cursor: null, numItems: 1000 },
-			}),
-		)
-
-		const servers = await ctx.db.query('servers').collect()
-		const projects = await ctx.db.query('projects').collect()
-
-		const activeSessionsByUser = new Map<string, number>()
-		for (const session of sessions) {
-			activeSessionsByUser.set(
-				session.userId,
-				(activeSessionsByUser.get(session.userId) ?? 0) + 1,
-			)
-		}
-
-		const membershipsByUser = new Map<string, BetterAuthMember[]>()
-		for (const member of members) {
-			const userMemberships = membershipsByUser.get(member.userId) ?? []
-			userMemberships.push(member)
-			membershipsByUser.set(member.userId, userMemberships)
-		}
-
-		const organizationsById = new Map(
-			organizations.map((organization) => [organization._id, organization]),
-		)
-
-		const serversByUser = new Map<string, number>()
-		for (const server of servers) {
-			if (server.ownerType !== 'user') continue
-			serversByUser.set(
-				server.ownerId,
-				(serversByUser.get(server.ownerId) ?? 0) + 1,
-			)
-		}
-
-		const projectsByUser = new Map<string, number>()
-		for (const project of projects) {
-			if (project.ownerType !== 'user') continue
-			projectsByUser.set(
-				project.ownerId,
-				(projectsByUser.get(project.ownerId) ?? 0) + 1,
-			)
-		}
-
-		return users.map((user) => {
-			const memberships = membershipsByUser.get(user._id) ?? []
-
-			return {
-				_id: user._id,
-				name: user.name,
-				displayName: getUserDisplayName(user),
-				email: user.email,
-				emailVerified: user.emailVerified,
-				image: user.image ?? undefined,
-				username: user.username ?? undefined,
-				displayUsername: user.displayUsername ?? undefined,
-				role: user.role ?? 'user',
-				banned: user.banned ?? false,
-				banReason: user.banReason ?? undefined,
-				banExpires: user.banExpires ?? undefined,
-				createdAt: user.createdAt,
-				updatedAt: user.updatedAt,
-				activeSessionCount: activeSessionsByUser.get(user._id) ?? 0,
-				serverCount: serversByUser.get(user._id) ?? 0,
-				projectCount: projectsByUser.get(user._id) ?? 0,
-				organizationCount: memberships.length,
-				adminOrganizationCount: memberships.filter((member) =>
-					member.role.split(',').includes('admin'),
-				).length,
-				ownerOrganizationCount: memberships.filter((member) =>
-					member.role.split(',').includes('owner'),
-				).length,
-				organizations: memberships.slice(0, 4).map((member) => {
-					const organization = organizationsById.get(member.organizationId)
-					return {
-						organizationId: member.organizationId,
-						name: organization?.name ?? 'Unknown organization',
-						slug: organization?.slug,
-						role: member.role,
+		const search = args.search?.trim().toLowerCase()
+		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: {
+				cursor: args.paginationOpts.cursor,
+				numItems: Math.min(args.paginationOpts.numItems, 50),
+			},
+			sortBy: { field: 'createdAt', direction: 'desc' },
+			...(search
+				? {
+						where: [
+							{
+								field: search.includes('@') ? 'email' : 'username',
+								operator: 'starts_with' as const,
+								value: search,
+							},
+						],
 					}
-				}),
-				isCurrentUser: user._id === adminUser._id,
+				: {}),
+		})) as AdapterResult<BetterAuthUser>
+
+		return {
+			page: await Promise.all(
+				(result.page ?? []).map((user) =>
+					buildAdminUserRow(ctx, user, adminUser._id, args.now),
+				),
+			),
+			isDone: result.isDone ?? true,
+			continueCursor: result.continueCursor ?? '',
+		}
+	},
+})
+
+const STATS_PAGE_SIZE = 500
+const STATS_MAX_USERS = 10_000
+
+/** Account totals for the admin users page; reads only the user table. */
+export const getAdminUserStats = query({
+	args: {},
+	handler: async (ctx) => {
+		await requireAdmin(ctx)
+		const totals = { total: 0, verified: 0, admins: 0, banned: 0 }
+		let cursor: string | null = null
+		let isDone = false
+		while (!isDone && totals.total < STATS_MAX_USERS) {
+			const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				paginationOpts: { cursor, numItems: STATS_PAGE_SIZE },
+			})) as AdapterResult<BetterAuthUser>
+			for (const user of result.page ?? []) {
+				totals.total += 1
+				if (user.emailVerified) totals.verified += 1
+				if (user.role === 'admin') totals.admins += 1
+				if (user.banned) totals.banned += 1
 			}
-		})
+			isDone = result.isDone ?? true
+			cursor = result.continueCursor ?? null
+		}
+		return { ...totals, isPartial: !isDone }
 	},
 })
 
@@ -498,12 +546,22 @@ export const getPublicProfileByUsername = query({
 					)
 					.first()
 
+				const stats = await ctx.db
+					.query('serverStats')
+					.withIndex('by_server', (q) =>
+						q.eq('serverId', server._id),
+					)
+					.first()
+
 				return {
 					...server,
 					logoUrl,
 					categories,
-					online: status?.online ?? false,
+					online: status?.online,
 					playerCount: status?.playerCount ?? 0,
+					maxPlayers: status?.maxPlayers,
+					averageRating: stats?.averageRating ?? 0,
+					reviewCount: stats?.reviewCount ?? 0,
 				}
 			}),
 		)
@@ -549,12 +607,75 @@ export const getPublicProfileByUsername = query({
 			}),
 		)
 
-		// Recent activity
-		const activity = await ctx.db
+		// Recent activity, minus anything whose target is no longer public
+		const recentActivity = await ctx.db
 			.query('activityLog')
 			.withIndex('by_user', (q) => q.eq('userId', user._id))
 			.order('desc')
-			.take(20)
+			.take(30)
+		const activityVisibility = await Promise.all(
+			recentActivity.map((entry) => isActivityVisible(ctx, entry)),
+		)
+		const activity = recentActivity
+			.filter((_, index) => activityVisibility[index])
+			.slice(0, 10)
+			.map((entry) => ({
+				_id: entry._id,
+				type: entry.type,
+				targetName: entry.targetName,
+				targetSlug: entry.targetSlug,
+				metadata: entry.metadata as
+					| { rating?: number; targetType?: string; version?: string }
+					| undefined,
+				createdAt: entry.createdAt,
+			}))
+
+		// Organizations the user belongs to
+		const memberships = (await ctx.runQuery(
+			components.betterAuth.adapter.findMany,
+			{
+				model: 'member',
+				where: [{ field: 'userId', value: user._id }],
+				paginationOpts: { cursor: null, numItems: 20 },
+			},
+		)) as AdapterPage<BetterAuthMember>
+		const organizations = (
+			await Promise.all(
+				(memberships.page ?? []).map(async (member) => {
+					const organization = (await ctx.runQuery(
+						components.betterAuth.adapter.findOne,
+						{
+							model: 'organization',
+							where: [
+								{ field: '_id', value: member.organizationId },
+							],
+						},
+					)) as BetterAuthOrganization | null
+					return organization
+						? {
+								name: organization.name,
+								slug: organization.slug,
+								logo: organization.logo ?? undefined,
+								role: member.role,
+							}
+						: null
+				}),
+			)
+		).filter((organization) => organization !== null)
+
+		// Reviews written (active only)
+		const [serverReviews, projectReviews] = await Promise.all([
+			ctx.db
+				.query('serverReviews')
+				.withIndex('by_user', (q) => q.eq('userId', user._id))
+				.filter((q) => q.eq(q.field('isActive'), true))
+				.take(1000),
+			ctx.db
+				.query('projectReviews')
+				.withIndex('by_user', (q) => q.eq('userId', user._id))
+				.filter((q) => q.eq(q.field('isActive'), true))
+				.take(1000),
+		])
 
 		// Support config
 		const supportConfig = await ctx.db
@@ -579,6 +700,16 @@ export const getPublicProfileByUsername = query({
 			servers: serversWithDetails,
 			projects: contentWithDetails,
 			activity,
+			organizations,
+			stats: {
+				projects: contentWithDetails.length,
+				servers: serversWithDetails.length,
+				totalDownloads: contentWithDetails.reduce(
+					(sum, item) => sum + item.totalDownloads,
+					0,
+				),
+				reviewsWritten: serverReviews.length + projectReviews.length,
+			},
 			support:
 				supportConfig?.enabled
 					? {

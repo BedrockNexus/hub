@@ -1,29 +1,35 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, JetBrains_Mono } from 'next/font/google'
+import { Chakra_Petch, IBM_Plex_Sans, JetBrains_Mono } from 'next/font/google'
 import '@mdxeditor/editor/style.css'
 import './globals.css'
+import { headers } from 'next/headers'
 import { NextAuthProvider } from '@/components/ba-ui/provider/next-auth-provider'
 import { ConvexClientProvider } from '@/components/convex-client-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { getToken } from '@/lib/auth-server'
 import { getSiteUrl } from '@/lib/seo'
 import { siteConfig } from '@/lib/site'
 import { getSiteSeo } from '@/lib/site-settings'
 
-const jetbrainsMono = JetBrains_Mono({
+// Brand type: Chakra Petch for display, IBM Plex Sans for text, JetBrains
+// Mono for server addresses and numbers.
+const displayFont = Chakra_Petch({
 	subsets: ['latin'],
-	variable: '--font-sans',
+	weight: ['500', '600', '700'],
+	variable: '--font-display-family',
 })
 
-const geistSans = Geist({
-	variable: '--font-geist-sans',
+const sansFont = IBM_Plex_Sans({
 	subsets: ['latin'],
+	weight: ['400', '500', '600', '700'],
+	variable: '--font-sans-family',
 })
 
-const geistMono = Geist_Mono({
-	variable: '--font-geist-mono',
+const monoFont = JetBrains_Mono({
 	subsets: ['latin'],
+	variable: '--font-mono-family',
 })
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -65,28 +71,33 @@ export async function generateMetadata(): Promise<Metadata> {
 	}
 }
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode
 }>) {
+	// Set by proxy.ts; lets the next-themes inline script run under the CSP.
+	const nonce = (await headers()).get('x-nonce') ?? undefined
+	// Hands the session's Convex token to the client so authenticated queries
+	// (admin and dashboard pages) don't first run signed out and throw.
+	const initialToken = await getToken().catch(() => null)
+
 	return (
 		<html
-			className={jetbrainsMono.variable}
+			className={`${displayFont.variable} ${sansFont.variable} ${monoFont.variable}`}
 			lang="en"
 			suppressHydrationWarning
 		>
-			<body
-				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-			>
+			<body className="antialiased">
 				<ThemeProvider
 					attribute="class"
 					defaultTheme="system"
 					disableTransitionOnChange
 					enableSystem
+					nonce={nonce}
 				>
 					<TooltipProvider>
-						<ConvexClientProvider>
+						<ConvexClientProvider initialToken={initialToken}>
 							<NextAuthProvider>{children}</NextAuthProvider>
 							<Toaster closeButton richColors />
 						</ConvexClientProvider>

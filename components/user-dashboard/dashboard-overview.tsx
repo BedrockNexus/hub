@@ -78,7 +78,7 @@ function KpiCard({ label, value, hint, icon, tone }: KpiCardProps) {
 					) : null}
 				</div>
 				<div
-					className={`flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ${styles.bg} ${styles.text} ${styles.ring}`}
+					className={`flex size-10 shrink-0 items-center justify-center rounded-md ring-1 ${styles.bg} ${styles.text} ${styles.ring}`}
 				>
 					<HugeiconsIcon className="size-5" icon={icon} />
 				</div>
@@ -96,7 +96,7 @@ function KpiSkeleton() {
 					<Skeleton className="h-8 w-16" />
 					<Skeleton className="h-3 w-20" />
 				</div>
-				<Skeleton className="size-10 rounded-lg" />
+				<Skeleton className="size-10 rounded-md" />
 			</CardContent>
 		</Card>
 	)
@@ -162,7 +162,7 @@ export function DashboardOverview() {
 						key={key}
 					>
 						<div className="flex flex-1 items-center gap-3">
-							<Skeleton className="size-10 rounded-lg" />
+							<Skeleton className="size-10 rounded-md" />
 							<div className="flex-1 space-y-2">
 								<Skeleton className="h-4 w-40" />
 								<Skeleton className="h-3 w-24" />
@@ -209,7 +209,7 @@ export function DashboardOverview() {
 						key={server._id}
 					>
 						<div className="flex min-w-0 flex-1 items-center gap-3">
-							<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted font-semibold text-muted-foreground text-sm uppercase">
+							<div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground text-sm uppercase">
 								{server.name.charAt(0)}
 							</div>
 							<div className="min-w-0 flex-1">
@@ -348,11 +348,11 @@ export function DashboardOverview() {
 					<div className="grid gap-2 p-3">
 						{QUICK_ACTIONS.map((action) => (
 							<Link
-								className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-muted/50"
+								className="flex items-center gap-3 rounded-md p-3 transition-colors hover:bg-muted/50"
 								href={action.href}
 								key={action.href}
 							>
-								<div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+								<div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
 									<HugeiconsIcon
 										className="size-4"
 										icon={action.icon}

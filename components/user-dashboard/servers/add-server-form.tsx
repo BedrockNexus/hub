@@ -1,16 +1,11 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-	CheckmarkCircle02Icon,
-	CheckmarkSquare02Icon,
-	Copy01Icon,
-	RefreshIcon,
-} from '@hugeicons/core-free-icons'
+import { CheckmarkCircle02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useAction, useMutation, useQuery } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { type Resolver, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import {
@@ -27,11 +22,9 @@ import {
 	StepperTrigger,
 	useStepper,
 } from '@/components/dice-ui/stepper'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ServerBasicFields } from '@/components/user-dashboard/servers/fields/server-basic-fields'
 import {
 	createCategoryToggler,
@@ -40,6 +33,10 @@ import {
 import { ServerConnectionFields } from '@/components/user-dashboard/servers/fields/server-connection-fields'
 import { ServerLinksFields } from '@/components/user-dashboard/servers/fields/server-links-fields'
 import { ServerMetadataFields } from '@/components/user-dashboard/servers/fields/server-metadata-fields'
+import {
+	ServerOwnershipVerification,
+	type VerifiedServerTarget,
+} from '@/components/user-dashboard/servers/server-ownership-verification'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
@@ -48,10 +45,6 @@ import {
 	type ServerFormData,
 	serverFormSchema,
 } from '@/lib/schemas/server'
-
-type VerificationMethod = 'dns_txt' | 'motd_token'
-
-const VERIFICATION_PREFIX = 'bedrocknexus-verify='
 
 // Steps configuration
 const STEPS = [
@@ -129,28 +122,13 @@ function StepperNavigation({ isSubmitting }: { isSubmitting: boolean }) {
 export function AddServerForm() {
 	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [verificationCode, setVerificationCode] = useState<string | null>(
-		null,
-	)
-	const [verificationMethod, setVerificationMethod] =
-		useState<VerificationMethod>('motd_token')
-	const [isVerified, setIsVerified] = useState(false)
-	const [verifiedTarget, setVerifiedTarget] = useState<{
-		ipAddress: string
-		port: number
-	} | null>(null)
-	const [isVerifying, setIsVerifying] = useState(false)
-	const [isGeneratingCode, setIsGeneratingCode] = useState(false)
+	const [verifiedTarget, setVerifiedTarget] =
+		useState<VerifiedServerTarget | null>(null)
+	const [isVerificationBusy, setIsVerificationBusy] = useState(false)
 
 	// Convex
 	const categories = useQuery(api.functions.servers.categories.list, {})
 	const createServer = useMutation(api.functions.servers.servers.create)
-	const generateVerificationCode = useAction(
-		api.functions.servers.verification.generateCode,
-	)
-	const verifyServerOwnership = useAction(
-		api.functions.servers.verification.verifyOwnership,
-	)
 
 	const form = useForm<ServerFormData>({
 		resolver: zodResolver(
@@ -159,7 +137,7 @@ export function AddServerForm() {
 		defaultValues: SERVER_FORM_DEFAULTS,
 		mode: 'onChange',
 	})
-	const hasUnsavedChanges = form.formState.isDirty || !!verificationCode
+	const hasUnsavedChanges = form.formState.isDirty
 
 	useUnsavedChangesWarning(hasUnsavedChanges && !isSubmitting)
 
@@ -188,109 +166,23 @@ export function AddServerForm() {
 		}
 	}
 
-	// Generate verification code
-	const generateCode = useCallback(async () => {
-		setIsGeneratingCode(true)
-		try {
-			const code = await generateVerificationCode({})
-			setVerificationCode(code)
-			setIsVerified(false)
-			setVerifiedTarget(null)
-			return true
-		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Failed to generate verification code',
-			)
-			return false
-		} finally {
-			setIsGeneratingCode(false)
-		}
-	}, [generateVerificationCode])
-
-	const verifyOwnership = useCallback(async () => {
-		const ip = form.getValues('ipAddress')
-		const port = Number(form.getValues('port'))
-		if (!(ip && verificationCode)) {
-			toast.error('Please enter an IP address first')
-			return
-		}
-		if (!(Number.isInteger(port) && port >= 1 && port <= 65_535)) {
-			toast.error('Please enter a valid server port')
-			return
-		}
-
-		setIsVerifying(true)
-		try {
-			const data = await verifyServerOwnership({
-				ipAddress: ip,
-				code: verificationCode,
-				method: verificationMethod,
-				port,
-			})
-
-			if (data.verified) {
-				setIsVerified(true)
-				setVerifiedTarget({ ipAddress: ip, port })
-				toast.success('Server ownership verified!')
-			} else {
-				toast.error(
-					data.error ||
-						`Verification failed. Check the ${
-							verificationMethod === 'dns_txt'
-								? 'DNS record'
-								: 'server MOTD'
-						} and try again.`,
-				)
-			}
-		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Verification failed. Please try again.',
-			)
-		} finally {
-			setIsVerifying(false)
-		}
-	}, [form, verificationCode, verificationMethod, verifyServerOwnership])
-
-	const changeVerificationMethod = (value: string) => {
-		if (value !== 'dns_txt' && value !== 'motd_token') {
-			return
-		}
-		setVerificationMethod(value)
-		setIsVerified(false)
-		setVerifiedTarget(null)
-	}
+	const watchedIpAddress = form.watch('ipAddress')
+	const watchedPort = Number(form.watch('port'))
+	const isVerified =
+		!!verifiedTarget &&
+		verifiedTarget.ipAddress === watchedIpAddress &&
+		verifiedTarget.port === watchedPort
 
 	useEffect(() => {
-		const subscription = form.watch((value, { name }) => {
-			const isAddressField = name === 'ipAddress' || name === 'port'
-			if (!(isAddressField && verifiedTarget)) {
-				return
-			}
-
-			const nextIp = value.ipAddress
-			const nextPort = Number(value.port)
-			if (
-				nextIp !== verifiedTarget.ipAddress ||
-				nextPort !== verifiedTarget.port
-			) {
-				setIsVerified(false)
-				setVerifiedTarget(null)
-				toast.info('Server address changed. Please verify it again.')
-			}
-		})
-
-		return () => subscription.unsubscribe()
-	}, [form, verifiedTarget])
-
-	// Copy to clipboard
-	const copyToClipboard = useCallback((text: string) => {
-		navigator.clipboard.writeText(text)
-		toast.success('Copied to clipboard!')
-	}, [])
+		if (
+			verifiedTarget &&
+			(verifiedTarget.ipAddress !== watchedIpAddress ||
+				verifiedTarget.port !== watchedPort)
+		) {
+			setVerifiedTarget(null)
+			toast.info('Server address changed. Please verify it again.')
+		}
+	}, [verifiedTarget, watchedIpAddress, watchedPort])
 
 	// Validation handler for stepper navigation
 	const handleValidate = async (
@@ -318,11 +210,6 @@ export function AddServerForm() {
 				return false
 			}
 
-			// Generate code if not already generated
-			if (!verificationCode) {
-				return await generateCode()
-			}
-
 			return true
 		}
 
@@ -342,7 +229,6 @@ export function AddServerForm() {
 	const onSubmit = async (data: ServerFormData) => {
 		const currentPort = Number(data.port)
 		const verificationMatches =
-			isVerified &&
 			!!verifiedTarget &&
 			verifiedTarget.ipAddress === data.ipAddress &&
 			verifiedTarget.port === currentPort
@@ -404,7 +290,7 @@ export function AddServerForm() {
 				<Stepper
 					className="gap-8"
 					defaultValue="core"
-					disabled={isSubmitting || isGeneratingCode || isVerifying}
+					disabled={isSubmitting || isVerificationBusy}
 					onValidate={handleValidate}
 				>
 					<StepperList className="overflow-x-auto pb-1">
@@ -474,210 +360,13 @@ export function AddServerForm() {
 					</StepperContent>
 
 					<StepperContent value="verify">
-						<div className="space-y-6">
-							{verificationCode && (
-								<div className="space-y-4 rounded-lg border bg-muted/50 p-6">
-									<div className="space-y-3">
-										<h3 className="mb-2 font-semibold">
-											Verify Server Ownership
-										</h3>
-										<p className="text-muted-foreground text-sm">
-											Choose the method that best fits how
-											you manage your server.
-										</p>
-										<Tabs
-											onValueChange={
-												changeVerificationMethod
-											}
-											value={verificationMethod}
-										>
-											<TabsList className="w-full max-w-sm">
-												<TabsTrigger value="motd_token">
-													Server MOTD
-												</TabsTrigger>
-												<TabsTrigger value="dns_txt">
-													DNS Record
-												</TabsTrigger>
-											</TabsList>
-										</Tabs>
-									</div>
-
-									<div className="space-y-3">
-										<div>
-											<p className="mb-1 font-medium text-sm">
-												{verificationMethod ===
-												'motd_token'
-													? '1. Add this token anywhere in your server MOTD:'
-													: '1. Add this TXT record to your domain:'}
-											</p>
-											<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-												<code className="min-w-0 flex-1 break-all rounded border bg-background px-3 py-2 font-mono text-sm">
-													{VERIFICATION_PREFIX}
-													{verificationCode}
-												</code>
-												<Button
-													aria-label="Copy verification token"
-													className="self-start sm:self-auto"
-													onClick={() =>
-														copyToClipboard(
-															`${VERIFICATION_PREFIX}${verificationCode}`,
-														)
-													}
-													size="icon"
-													type="button"
-													variant="outline"
-												>
-													<HugeiconsIcon
-														className="size-4"
-														icon={Copy01Icon}
-													/>
-												</Button>
-											</div>
-										</div>
-
-										{verificationMethod === 'dns_txt' ? (
-											<div>
-												<p className="mb-1 font-medium text-sm">
-													2. Add the record to this
-													hostname:
-												</p>
-												<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-													<code className="min-w-0 flex-1 break-all rounded border bg-background px-3 py-2 font-mono text-sm">
-														{form.watch(
-															'ipAddress',
-														)}
-													</code>
-													<Button
-														aria-label="Copy server hostname"
-														className="self-start sm:self-auto"
-														onClick={() =>
-															copyToClipboard(
-																form.watch(
-																	'ipAddress',
-																),
-															)
-														}
-														size="icon"
-														type="button"
-														variant="outline"
-													>
-														<HugeiconsIcon
-															className="size-4"
-															icon={Copy01Icon}
-														/>
-													</Button>
-												</div>
-											</div>
-										) : (
-											<p className="text-muted-foreground text-sm">
-												2. Save or reload your server
-												configuration so the updated
-												MOTD is visible at{' '}
-												<span className="font-medium text-foreground">
-													{form.watch('ipAddress')}:
-													{form.watch('port')}
-												</span>
-												.
-											</p>
-										)}
-
-										<div className="pt-2">
-											<p className="mb-3 text-muted-foreground text-xs">
-												{verificationMethod ===
-												'dns_txt'
-													? 'DNS changes can take a few minutes to propagate. The server must be online and pass the native Bedrock software check.'
-													: 'The server must be online. Verification checks both MOTD lines and rejects Java servers using Geyser.'}
-											</p>
-
-											<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-												<Button
-													className="w-full sm:w-auto"
-													disabled={
-														isVerifying ||
-														isGeneratingCode ||
-														isVerified
-													}
-													onClick={verifyOwnership}
-													type="button"
-												>
-													{(() => {
-														if (isVerifying) {
-															return (
-																<>
-																	<Spinner className="size-4" />
-																	Verifying...
-																</>
-															)
-														}
-														if (isVerified) {
-															return (
-																<>
-																	<HugeiconsIcon
-																		className="size-4"
-																		icon={
-																			CheckmarkSquare02Icon
-																		}
-																	/>
-																	Verified
-																</>
-															)
-														}
-														return (
-															<>
-																<HugeiconsIcon
-																	className="size-4"
-																	icon={
-																		RefreshIcon
-																	}
-																/>
-																Verify Ownership
-															</>
-														)
-													})()}
-												</Button>
-
-												{!isVerified && (
-													<Button
-														className="w-full sm:w-auto"
-														disabled={
-															isVerifying ||
-															isGeneratingCode
-														}
-														onClick={generateCode}
-														type="button"
-														variant="ghost"
-													>
-														{isGeneratingCode ? (
-															<>
-																<Spinner className="size-4" />
-																Generating...
-															</>
-														) : (
-															'Generate New Code'
-														)}
-													</Button>
-												)}
-											</div>
-										</div>
-									</div>
-								</div>
-							)}
-
-							{isVerified && (
-								<Alert>
-									<HugeiconsIcon
-										className="size-4"
-										icon={CheckmarkCircle02Icon}
-									/>
-									<AlertTitle>Ownership Verified!</AlertTitle>
-									<AlertDescription>
-										You&apos;ve successfully verified
-										ownership of this server. You can now
-										continue to the next step.
-									</AlertDescription>
-								</Alert>
-							)}
-						</div>
+						<ServerOwnershipVerification
+							ipAddress={watchedIpAddress}
+							onBusyChange={setIsVerificationBusy}
+							onVerified={setVerifiedTarget}
+							port={watchedPort}
+							verified={isVerified}
+						/>
 					</StepperContent>
 
 					<StepperContent value="details">
@@ -691,7 +380,7 @@ export function AddServerForm() {
 								<h3 className="font-semibold text-base">
 									Branding
 								</h3>
-								<p className="rounded-lg border bg-muted/40 p-4 text-muted-foreground text-sm">
+								<p className="rounded-md border bg-muted/40 p-4 text-muted-foreground text-sm">
 									Branding uploads are available after the
 									draft is created so files can be stored
 									under the final server folder.

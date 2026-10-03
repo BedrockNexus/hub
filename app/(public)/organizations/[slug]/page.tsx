@@ -3,7 +3,6 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { PublicViewTracker } from '@/components/detail/public-view-tracker'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { buttonVariants } from '@/components/ui/button'
@@ -73,10 +72,6 @@ export default async function OrganizationPage({
 
 	return (
 		<div className="border-t">
-			<PublicViewTracker
-				targetId={organization.id}
-				targetType="organization"
-			/>
 			<div className="relative min-h-44 overflow-hidden border-b bg-muted sm:min-h-56">
 				{organization.bannerUrl ? (
 					<Image
@@ -92,7 +87,7 @@ export default async function OrganizationPage({
 			<div className="container mx-auto -mt-12 space-y-8 px-4 pb-12">
 				<div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
 					<div className="flex items-end gap-4">
-						<div className="flex size-24 items-center justify-center overflow-hidden rounded-lg border-4 border-background bg-muted font-bold text-3xl">
+						<div className="flex size-24 items-center justify-center overflow-hidden rounded-md border-4 border-background bg-muted font-bold text-3xl">
 							{organization.logo ? (
 								<Image
 									alt={`${organization.name} logo`}

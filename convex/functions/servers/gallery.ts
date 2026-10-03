@@ -4,6 +4,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { canEditContent } from '../../lib/permissions'
 import {
 	MAX_GALLERY_IMAGES,
 	normalizeGalleryCaption,
@@ -27,26 +28,7 @@ async function canModifyServer(
 	userId: string,
 	role?: string | null,
 ) {
-	if (role === 'admin') {
-		return true
-	}
-
-	if (server.ownerType === 'user') {
-		return server.ownerId === userId || server.registeredBy === userId
-	}
-
-	const member = (await ctx.runQuery(
-		components.betterAuth.adapter.findOne,
-		{
-			model: 'member',
-			where: [
-				{ field: 'organizationId', value: server.ownerId },
-				{ field: 'userId', value: userId },
-			],
-		},
-	)) as { id?: string } | null
-
-	return !!member
+	return canEditContent(ctx, server, { _id: userId, role }, { allowSiteAdmin: true })
 }
 
 async function assertCanManageServer(

@@ -142,10 +142,21 @@ export const listAdmin = query({
 			.query('projectCategories')
 			.order('asc')
 			.collect()
-		const projects = await ctx.db.query('projects').collect()
+		const supported = categories.filter((category) =>
+			isSupportedProjectType(category.projectType),
+		)
+		if (supported.every((category) => category.projectCount !== undefined)) {
+			return supported.map((category) => ({
+				...category,
+				projectCount: category.projectCount ?? 0,
+				publishedProjectCount: category.publishedProjectCount ?? 0,
+				contentCount: category.projectCount ?? 0,
+			}))
+		}
 
-		return categories
-			.filter((category) => isSupportedProjectType(category.projectType))
+		// Counters not backfilled yet (projects/migrations:backfillCategoryCounts).
+		const projects = await ctx.db.query('projects').collect()
+		return supported
 			.map((category) => {
 				const categoryProjects = projects.filter((project) =>
 					project.categoryIds.includes(category._id),
@@ -286,15 +297,16 @@ export const remove = mutation({
 			throw new Error('Only admins can delete categories')
 		}
 
-		const projects = await ctx.db.query('projects').collect()
-		const projectsUsingCategory = projects.filter((project) =>
-			project.categoryIds.includes(args.id),
-		)
+		const category = await ctx.db.get(args.id)
+		const usage =
+			category?.projectCount ??
+			// Counters not backfilled yet: fall back to scanning.
+			(await ctx.db.query('projects').collect()).filter((project) =>
+				project.categoryIds.includes(args.id),
+			).length
 
-		if (projectsUsingCategory.length > 0) {
-			throw new Error(
-				`Cannot delete category: ${projectsUsingCategory.length} projects are using it`,
-			)
+		if (usage > 0) {
+			throw new Error(`Cannot delete category: ${usage} projects are using it`)
 		}
 
 		await ctx.db.delete(args.id)

@@ -11,9 +11,12 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { authClient } from '@/lib/auth-client'
 
-type FavouriteButtonProps =
+type ActionSize = 'sm' | 'xl'
+
+type FavouriteButtonProps = (
 	| { targetType: 'server'; targetId: Id<'servers'> }
 	| { targetType: 'project'; targetId: Id<'projects'> }
+) & { size?: ActionSize }
 
 export function FavouriteButton(props: FavouriteButtonProps) {
 	const [pending, setPending] = useState(false)
@@ -74,7 +77,7 @@ export function FavouriteButton(props: FavouriteButtonProps) {
 			}
 			disabled={pending}
 			onClick={handleToggle}
-			size="sm"
+			size={props.size ?? 'sm'}
 			type="button"
 			variant={state?.isFavourite ? 'secondary' : 'outline'}
 		>
@@ -89,15 +92,12 @@ export function FavouriteButton(props: FavouriteButtonProps) {
 
 export function ShareButton({
 	title,
-	targetType,
-	targetId,
+	size = 'sm',
 }: {
 	title: string
-	targetType: 'server' | 'project' | 'organization' | 'profile'
-	targetId: string
+	size?: ActionSize
 }) {
 	const [pending, setPending] = useState(false)
-	const record = useMutation(api.functions.site.analytics.recordPublicEvent)
 
 	const handleShare = async () => {
 		setPending(true)
@@ -109,9 +109,6 @@ export function ShareButton({
 				await navigator.clipboard.writeText(url)
 				toast.success('Link copied')
 			}
-			record({ targetType, targetId, eventType: 'share' }).catch(
-				() => undefined,
-			)
 		} catch (error) {
 			if (error instanceof Error && error.name !== 'AbortError') {
 				toast.error('Could not share this page')
@@ -125,7 +122,7 @@ export function ShareButton({
 		<Button
 			disabled={pending}
 			onClick={handleShare}
-			size="sm"
+			size={size}
 			type="button"
 			variant="outline"
 		>

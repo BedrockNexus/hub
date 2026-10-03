@@ -24,10 +24,10 @@ export function GallerySettingsForm({ slug }: GallerySettingsFormProps) {
 					<Skeleton className="mt-2 h-4 w-72" />
 				</div>
 				<Separator />
-				<Skeleton className="h-32 w-full rounded-lg" />
+				<Skeleton className="h-32 w-full rounded-md" />
 				<div className="grid gap-4 sm:grid-cols-2">
-					<Skeleton className="h-64 rounded-lg" />
-					<Skeleton className="h-64 rounded-lg" />
+					<Skeleton className="h-64 rounded-md" />
+					<Skeleton className="h-64 rounded-md" />
 				</div>
 			</div>
 		)

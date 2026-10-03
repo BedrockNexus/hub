@@ -101,8 +101,8 @@ export function BrandingSettingsForm({
 				<Skeleton className="h-4 w-64" />
 				<Skeleton className="h-px w-full" />
 				<div className="space-y-6">
-					<Skeleton className="size-24 rounded-lg" />
-					<Skeleton className="h-32 w-full rounded-lg" />
+					<Skeleton className="size-24 rounded-md" />
+					<Skeleton className="h-32 w-full rounded-md" />
 				</div>
 			</div>
 		)

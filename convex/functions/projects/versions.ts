@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
@@ -8,9 +8,15 @@ import {
 	query,
 } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import {
+	canEditContent,
+	isAffiliatedWithContent,
+} from '../../lib/permissions'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
 	getPublishedReleaseKey,
+	isApprovedRelease,
+	isPublicRelease,
 	isValidatedRelease,
 } from '../../lib/projectReleases'
 import {
@@ -20,7 +26,9 @@ import {
 	uploadsR2,
 } from '../../lib/r2'
 import { buildProjectUploadR2ObjectKey } from '../../lib/r2Keys'
-import { enforceRateLimit } from '../../lib/rateLimits'
+import { updateProjectReleaseSummary } from './artifactValidation'
+import { recordEditorMediaReferences } from '../../lib/editorMedia'
+import { appRateLimiter, enforceRateLimit } from '../../lib/rateLimits'
 import {
 	getProjectArtifactPolicy,
 	getProjectReleasePolicy,
@@ -28,6 +36,7 @@ import {
 	normalizeProjectType,
 	validateProjectArtifactFile,
 } from '../../../lib/project-artifacts'
+import { recordReleaseActivity } from '../../lib/activity'
 
 const VERSION_DOWNLOAD_URL_EXPIRES_IN = 60 * 5
 const ARTIFACT_UPLOAD_EXPIRES_IN_MS = 1000 * 60 * 60 * 24
@@ -78,6 +87,8 @@ function toCreatorRelease(version: Doc<'projectVersions'>) {
 		validationStatus: version.validationStatus,
 		validationCode: version.validationCode,
 		validationError: version.validationError,
+		reviewStatus: version.reviewStatus,
+		reviewReason: version.reviewReason,
 		downloadUrl: isValidatedRelease(version)
 			? `/api/projects/versions/${version._id}/download`
 			: undefined,
@@ -89,20 +100,7 @@ async function canModifyProject(
 	project: { ownerType: 'user' | 'organization'; ownerId: string },
 	userId: string,
 ) {
-	if (project.ownerType === 'user') {
-		return project.ownerId === userId
-	}
-
-	const membersResult = (await ctx.runQuery(
-		components.betterAuth.adapter.findMany,
-		{
-			model: 'member',
-			where: [{ field: 'organizationId', value: project.ownerId }],
-			paginationOpts: { cursor: null, numItems: 100 },
-		},
-	)) as { page: Array<{ userId: string }> }
-
-	return (membersResult.page ?? []).some((member) => member.userId === userId)
+	return canEditContent(ctx, project, { _id: userId }, { allowSiteAdmin: false })
 }
 
 async function assertCanManageProject(
@@ -173,7 +171,7 @@ export const listPublic = query({
 		return versions
 			.filter(
 				(version) =>
-					isValidatedRelease(version) &&
+					isPublicRelease(version) &&
 					Boolean(getPublishedReleaseKey(version)),
 			)
 			.map(toPublicRelease)
@@ -200,7 +198,7 @@ export const getPublicByVersion = query({
 			.unique()
 		if (
 			!version ||
-			!isValidatedRelease(version) ||
+			!isPublicRelease(version) ||
 			!getPublishedReleaseKey(version)
 		) return null
 		return {
@@ -224,17 +222,18 @@ export const getLatest = query({
 			!isPublicProject(project)
 		) return null
 
-		const version = await ctx.db
+		// Newer releases may still be validating or awaiting review.
+		const recent = await ctx.db
 			.query('projectVersions')
 			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
 			.order('desc')
-			.first()
+			.take(50)
+		const version = recent.find(
+			(release) =>
+				isPublicRelease(release) && Boolean(getPublishedReleaseKey(release)),
+		)
 
-		return version &&
-			isValidatedRelease(version) &&
-			getPublishedReleaseKey(version)
-			? toPublicRelease(version)
-			: null
+		return version ? toPublicRelease(version) : null
 	},
 })
 
@@ -263,10 +262,109 @@ export const getByVersion = query({
 			.first()
 
 		return version &&
-			isValidatedRelease(version) &&
+			isPublicRelease(version) &&
 			getPublishedReleaseKey(version)
 			? toPublicRelease(version)
 			: null
+	},
+})
+
+/**
+ * Releases of public projects waiting for a moderator. Releases of projects
+ * still in their first review are approved with the project instead.
+ */
+export const listPendingReleases = query({
+	args: {},
+	handler: async (ctx) => {
+		const user = await authComponent.getAuthUser(ctx)
+		if (user?.role !== 'admin') {
+			throw new ConvexError('Admin role required')
+		}
+		const pending = await ctx.db
+			.query('projectVersions')
+			.withIndex('by_review_status', (q) => q.eq('reviewStatus', 'pending'))
+			.take(100)
+
+		const result = []
+		for (const version of pending) {
+			const project = await ctx.db.get(version.projectId)
+			if (!project || !isPublicProject(project)) continue
+			result.push({
+				...toCreatorRelease(version),
+				project: {
+					_id: project._id,
+					name: project.name,
+					slug: project.slug,
+				},
+			})
+		}
+		return result
+	},
+})
+
+/**
+ * Approves or rejects one release. Approval makes a validated release
+ * downloadable on a public project; rejection is final for that release.
+ * Admins cannot review releases of projects they own or belong to.
+ */
+export const reviewRelease = mutation({
+	args: {
+		versionId: v.id('projectVersions'),
+		decision: v.union(v.literal('approved'), v.literal('rejected')),
+		reason: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		const user = await authComponent.getAuthUser(ctx)
+		if (user?.role !== 'admin') {
+			throw new ConvexError('Admin role required')
+		}
+		const version = await ctx.db.get(args.versionId)
+		if (!version) {
+			throw new ConvexError('Release not found')
+		}
+		const project = await ctx.db.get(version.projectId)
+		if (!project) {
+			throw new ConvexError('Project not found')
+		}
+		if (await isAffiliatedWithContent(ctx, project, user._id)) {
+			throw new ConvexError(
+				'You cannot review releases of your own project. Ask another admin.',
+			)
+		}
+		if (version.reviewStatus !== 'pending') {
+			throw new ConvexError('This release is not waiting for review')
+		}
+		const reason = args.reason?.trim()
+		if (args.decision === 'rejected' && !reason) {
+			throw new ConvexError('A reason is required to reject a release')
+		}
+		if (args.decision === 'approved' && version.validationStatus !== 'valid') {
+			throw new ConvexError('Only validated releases can be approved')
+		}
+
+		await ctx.db.patch(version._id, {
+			reviewStatus: args.decision,
+			reviewReason: args.decision === 'rejected' ? reason : undefined,
+			reviewedAt: Date.now(),
+			reviewedBy: user._id,
+		})
+		await updateProjectReleaseSummary(ctx, project._id)
+
+		if (args.decision === 'approved') {
+			await recordReleaseActivity(ctx, project, version)
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.projects.artifactDelivery.promoteVersion,
+				{ versionId: version._id },
+			)
+		} else if (version.cdnR2Key) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.projects.artifactDelivery.demoteVersion,
+				{ versionId: version._id },
+			)
+		}
+		return version._id
 	},
 })
 
@@ -440,19 +538,19 @@ export const create = mutation({
 			downloads: 0,
 			validationStatus: 'pending',
 			validationAttempts: 0,
+			// Every release is reviewed. Releases of a project that is not yet
+			// public are approved together with the project.
+			reviewStatus: 'pending',
 			createdAt: now,
 		})
 		await ctx.db.patch(upload._id, { status: 'consumed' })
-
-		const versions = await ctx.db
-			.query('projectVersions')
-			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-			.collect()
-
-		await ctx.db.patch(args.projectId, {
-			versionCount: versions.filter(isValidatedRelease).length,
-			updatedAt: now,
-		})
+		await recordEditorMediaReferences(
+			ctx,
+			'projectVersions',
+			versionId,
+			releasePolicy.allowChangelog ? changelog : undefined,
+		)
+		await updateProjectReleaseSummary(ctx, args.projectId)
 		await ctx.scheduler.runAfter(
 			0,
 			internal.functions.projects.artifactValidation.validateVersion,
@@ -483,11 +581,27 @@ export const discardUpload = mutation({
 	},
 })
 
+/**
+ * Issues a short-lived download URL. Only the Next.js download route may call
+ * this: it proves itself with DOWNLOAD_REDIRECT_SECRET and passes a salted
+ * hash of the client address so anonymous downloads are limited per client
+ * instead of sharing one bucket per release.
+ */
 export const createDownloadUrl = mutation({
 	args: {
 		versionId: v.id('projectVersions'),
+		downloadSecret: v.string(),
+		clientKey: v.string(),
 	},
 	handler: async (ctx, args) => {
+		const expectedSecret = process.env.DOWNLOAD_REDIRECT_SECRET
+		if (!expectedSecret || args.downloadSecret !== expectedSecret) {
+			throw new ConvexError('Downloads must be requested through the download route')
+		}
+		if (!/^[a-f0-9]{64}$/.test(args.clientKey)) {
+			throw new ConvexError('Invalid download client key')
+		}
+
 		const version = await ctx.db.get(args.versionId)
 		if (!version) {
 			return {
@@ -501,6 +615,13 @@ export const createDownloadUrl = mutation({
 				ok: false as const,
 				code: 'VERSION_NOT_VALIDATED' as const,
 				message: 'This release is still being validated.',
+			}
+		}
+		if (!isApprovedRelease(version)) {
+			return {
+				ok: false as const,
+				code: 'VERSION_UNAVAILABLE' as const,
+				message: 'This release is not publicly available.',
 			}
 		}
 
@@ -518,12 +639,13 @@ export const createDownloadUrl = mutation({
 		}
 
 		const user = await authComponent.safeGetAuthUser(ctx)
+		const requesterKey = user?._id
+			? `user:${user._id}`
+			: `client:${args.clientKey}`
 		await enforceRateLimit(
 			ctx,
 			'versionDownload',
-			user?._id
-				? `user:${user._id}:${version._id}`
-				: `anonymous:${version._id}`,
+			requesterKey,
 			'Too many download requests. Please wait before trying again.',
 		)
 
@@ -551,21 +673,21 @@ export const createDownloadUrl = mutation({
 			VERSION_DOWNLOAD_URL_EXPIRES_IN,
 		)
 
-		await ctx.db.patch(args.versionId, {
-			downloads: version.downloads + 1,
-		})
-
-		await updateProjectDownloadStats(ctx, version.projectId, {
-			recordDownload: true,
-		})
-		await ctx.db.insert('analyticsEvents', {
-			targetType: 'project',
-			targetId: version.projectId,
-			eventType: 'download',
-			userId: user?._id,
-			dayKey: getUtcDayKey(Date.now()),
-			createdAt: Date.now(),
-		})
+		// Repeated downloads of the same release by the same requester within a
+		// day still get a fresh link but are not counted again.
+		const countResult = await appRateLimiter.limit(
+			ctx,
+			'versionDownloadCount',
+			{ key: `${requesterKey}:${version._id}` },
+		)
+		if (countResult.ok) {
+			await ctx.db.patch(args.versionId, {
+				downloads: version.downloads + 1,
+			})
+			await updateProjectDownloadStats(ctx, version.projectId, {
+				recordDownload: true,
+			})
+		}
 
 		return {
 			ok: true as const,
@@ -666,21 +788,7 @@ export const finalizeVersionRemoval = internalMutation({
 		await ctx.db.delete(args.id)
 		await updateProjectDownloadStats(ctx, version.projectId)
 
-		const allVersions = await ctx.db
-			.query('projectVersions')
-			.withIndex('by_project', (q) => q.eq('projectId', version.projectId))
-			.order('desc')
-			.collect()
-		const versions = allVersions.filter(isValidatedRelease)
-		const latestVersion = versions[0]
-
-		await ctx.db.patch(version.projectId, {
-			latestVersionId: latestVersion?._id,
-			latestVersionString: latestVersion?.version,
-			latestVersionAt: latestVersion?.createdAt,
-			versionCount: versions.length,
-			updatedAt: Date.now(),
-		})
+		await updateProjectReleaseSummary(ctx, version.projectId)
 	},
 })
 

@@ -61,13 +61,13 @@ export function ServerSwitcher({
 							{currentServer.logoUrl ? (
 								<Image
 									alt={currentServer.name}
-									className="size-8 rounded-lg border object-cover"
+									className="size-8 rounded-md border object-cover"
 									height={32}
 									src={currentServer.logoUrl}
 									width={32}
 								/>
 							) : (
-								<div className="flex size-8 items-center justify-center rounded-lg border bg-muted font-bold text-sm">
+								<div className="flex size-8 items-center justify-center rounded-md border bg-muted font-bold text-sm">
 									{currentServer.name.charAt(0)}
 								</div>
 							)}

@@ -1,7 +1,6 @@
 'use client'
 
 import {
-	Analytics01Icon,
 	BlueskyIcon,
 	DashboardBrowsingIcon,
 	DiscordIcon,
@@ -50,11 +49,6 @@ const data = {
 			title: 'Saved',
 			url: '/dashboard/saved',
 			icon: FavouriteIcon,
-		},
-		{
-			title: 'Analytics',
-			url: '/dashboard/analytics',
-			icon: Analytics01Icon,
 		},
 	],
 	navSettings: [

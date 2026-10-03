@@ -1,154 +1,195 @@
-'use client'
-
 import Image from 'next/image'
 import Link from 'next/link'
+import { ServerAddress } from '@/components/servers/server-address'
 import {
-	Status,
-	StatusIndicator,
-	StatusLabel,
-} from '@/components/dice-ui/status'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import type { Doc } from '@/convex/_generated/dataModel'
+	LogoTile,
+	PlayerCount,
+	RatingLabel,
+	ServerStatusLabel,
+	TagChip,
+	VerifiedMark,
+} from '@/components/servers/server-bits'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
-interface ServerCardProps {
-	server: Doc<'servers'> & {
-		logoUrl?: string
-		bannerUrl?: string
-		categories: (Doc<'serverCategories'> | null)[]
-		online?: boolean
-		playerCount?: number
-	}
+export interface ServerListItem {
+	_id: string
+	name: string
+	slug: string
+	ipAddress: string
+	port: number
+	smallDescription?: string
+	logoUrl?: string
+	bannerUrl?: string
+	categories: ({ _id: string; name: string } | null)[]
+	tags?: string[]
+	online?: boolean
+	playerCount?: number
+	maxPlayers?: number
+	verified?: boolean
+	averageRating?: number
+	reviewCount?: number
 }
 
-export function ServerCard({ server }: ServerCardProps) {
-	const isOnline = server.online === true
-	const playerCount = server.playerCount ?? 0
-	let statusVariant: 'default' | 'error' | 'success' = 'default'
-	let statusLabel = 'Unknown'
+function serverTags(server: ServerListItem) {
+	const categories = server.categories.flatMap((c) => (c ? [c.name] : []))
+	return categories.length > 0 ? categories : (server.tags ?? [])
+}
 
-	if (server.online === false) {
-		statusVariant = 'error'
-		statusLabel = 'Offline'
-	} else if (isOnline) {
-		statusVariant = 'success'
-		statusLabel = playerCount.toLocaleString()
-	}
-
-	const categories = server.categories.filter(
-		(category): category is Doc<'serverCategories'> => Boolean(category),
-	)
-	const tags = server.tags ?? []
-	const allTags = categories.length > 0 ? categories.map((c) => c.name) : tags
-
+/** The overlay link that makes the whole card clickable. */
+function CardLink({ server }: { server: ServerListItem }) {
 	return (
 		<Link
-			className="block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+			className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
 			href={`/servers/${server.slug}`}
 		>
-			<Card className="group h-full cursor-pointer overflow-hidden pt-0 transition-[border-color,box-shadow] hover:border-primary/50 hover:shadow-md">
-				<div className="relative">
-					{/* Banner */}
-					<div className="relative aspect-39/10 w-full overflow-hidden bg-muted">
-						{server.bannerUrl ? (
-							<Image
-								alt={`${server.name} banner`}
-								className="object-cover transition-transform duration-500 group-hover:scale-105"
-								fill
-								sizes="(max-width: 768px) 100vw, 50vw"
-								src={server.bannerUrl}
-							/>
-						) : (
-							<div className="absolute inset-0 bg-linear-to-br from-muted to-muted/50" />
-						)}
-					</div>
-					{/* Logo overlapping banner */}
-					<div className="absolute -bottom-6 left-4 size-12 overflow-hidden rounded-lg bg-muted ring-2 ring-background">
-						{server.logoUrl ? (
-							<Image
-								alt={server.name}
-								className="object-cover"
-								fill
-								sizes="48px"
-								src={server.logoUrl}
-							/>
-						) : (
-							<div className="flex size-full items-center justify-center font-bold text-lg text-muted-foreground">
-								{server.name.charAt(0).toUpperCase()}
-							</div>
-						)}
-					</div>
-				</div>
-
-				<CardHeader className="relative min-h-20 pt-6">
-					{/* Name + online status */}
-					<div className="flex min-w-0 items-center justify-between gap-2">
-						<h2 className="min-w-0 truncate font-semibold text-lg tracking-tight transition-colors group-hover:text-primary sm:text-xl">
-							{server.name}
-						</h2>
-						<span className="flex shrink-0 items-center text-muted-foreground text-xs">
-							<Status variant={statusVariant}>
-								<StatusIndicator />
-								<StatusLabel className="font-mono text-[11px]">
-									{statusLabel}
-								</StatusLabel>
-							</Status>
-						</span>
-					</div>
-				</CardHeader>
-
-				<CardContent className="relative my-auto flex min-h-24 flex-col">
-					{/* Description */}
-					{server.smallDescription && (
-						<p className="mb-3 line-clamp-2 text-muted-foreground text-sm leading-snug">
-							{server.smallDescription}
-						</p>
-					)}
-
-					{/* Tags */}
-					{allTags.length > 0 && (
-						<div className="mt-auto flex flex-wrap items-center gap-1.5">
-							{allTags.slice(0, 3).map((tag) => (
-								<Badge key={tag} variant="secondary">
-									{tag}
-								</Badge>
-							))}
-							{allTags.length > 3 && (
-								<Badge variant="outline">
-									+{allTags.length - 3}
-								</Badge>
-							)}
-						</div>
-					)}
-				</CardContent>
-			</Card>
+			{server.name}
 		</Link>
 	)
 }
 
-// Skeleton for loading state
-export function ServerCardSkeleton() {
+export function ServerCard({ server }: { server: ServerListItem }) {
+	const tags = serverTags(server)
 	return (
-		<Card className="overflow-hidden pt-0">
-			<div className="aspect-39/10 w-full animate-pulse bg-muted" />
-			<div className="relative px-4 pt-8 pb-4">
-				<div className="absolute -top-6 left-4 size-12 animate-pulse rounded-lg bg-muted ring-2 ring-background" />
-				<div className="mb-2 flex items-center justify-between">
-					<div className="h-5 w-1/2 animate-pulse rounded bg-muted" />
-					<div className="h-4 w-16 animate-pulse rounded bg-muted" />
+		<article className="group relative flex h-full flex-col overflow-hidden rounded-md border bg-card transition-colors focus-within:border-ember hover:border-ember">
+			<div className="relative h-24 border-ember border-b-[3px]">
+				{server.bannerUrl ? (
+					<Image
+						alt=""
+						className="object-cover"
+						fill
+						sizes="(max-width: 768px) 100vw, 400px"
+						src={server.bannerUrl}
+					/>
+				) : (
+					<div aria-hidden className="strata absolute inset-0" />
+				)}
+			</div>
+			<div className="flex flex-1 flex-col gap-3.5 px-4.5 pb-4.5">
+				<div className="-mt-7 flex items-end gap-3">
+					<LogoTile name={server.name} src={server.logoUrl} />
+					<ServerStatusLabel
+						className="ml-auto"
+						online={server.online}
+					/>
 				</div>
-				<div className="mb-3 space-y-1.5">
-					<div className="h-4 w-full animate-pulse rounded bg-muted" />
-					<div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+				<div className="flex flex-col gap-2">
+					<h3 className="flex items-center gap-2 font-bold text-xl leading-tight">
+						<span className="truncate">
+							<CardLink server={server} />
+						</span>
+						{server.verified ? <VerifiedMark /> : null}
+					</h3>
+					{server.smallDescription ? (
+						<p className="line-clamp-2 text-muted-foreground text-sm">
+							{server.smallDescription}
+						</p>
+					) : null}
+					{tags.length > 0 ? (
+						<div className="flex flex-wrap gap-1.5">
+							{tags.slice(0, 3).map((tag) => (
+								<TagChip key={tag}>{tag}</TagChip>
+							))}
+							{tags.length > 3 ? (
+								<TagChip>+{tags.length - 3}</TagChip>
+							) : null}
+						</div>
+					) : null}
 				</div>
-				<div className="flex gap-1.5">
-					<div className="h-5 w-14 animate-pulse rounded-full bg-muted" />
-					<div className="h-5 w-14 animate-pulse rounded-full bg-muted" />
+				<ServerAddress
+					className="mt-auto"
+					host={server.ipAddress}
+					port={server.port}
+					serverName={server.name}
+				/>
+				<div className="flex items-center justify-between gap-2">
+					<PlayerCount
+						maxPlayers={server.maxPlayers}
+						online={server.online}
+						playerCount={server.playerCount}
+					/>
+					<RatingLabel
+						averageRating={server.averageRating}
+						reviewCount={server.reviewCount}
+					/>
 				</div>
 			</div>
-			<div className="flex justify-center border-t px-4 py-3">
-				<div className="h-4 w-40 animate-pulse rounded bg-muted" />
-			</div>
-		</Card>
+		</article>
 	)
+}
+
+/** Dense directory row: rank, identity, address, status and rating. */
+export function ServerRow({
+	server,
+	rank,
+}: {
+	server: ServerListItem
+	rank: number
+}) {
+	const tags = serverTags(server)
+	return (
+		<article className="relative flex flex-wrap items-center gap-x-4 gap-y-3 rounded-md border bg-card px-4.5 py-4 transition-colors focus-within:border-ember hover:border-ember">
+			<span className="w-8 font-mono font-semibold text-muted-foreground text-sm">
+				#{rank}
+			</span>
+			<LogoTile name={server.name} size={52} src={server.logoUrl} />
+			<div className="flex min-w-0 flex-[1_1_180px] flex-col gap-1.5">
+				<h3 className="flex items-center gap-2 font-bold text-lg leading-tight">
+					<span className="truncate">
+						<CardLink server={server} />
+					</span>
+					{server.verified ? <VerifiedMark /> : null}
+				</h3>
+				{tags.length > 0 ? (
+					<div className="flex flex-wrap gap-1.5">
+						{tags.slice(0, 4).map((tag) => (
+							<TagChip key={tag}>{tag}</TagChip>
+						))}
+					</div>
+				) : null}
+			</div>
+			<ServerAddress
+				className="min-w-52 flex-[0_1_300px]"
+				host={server.ipAddress}
+				port={server.port}
+				serverName={server.name}
+			/>
+			<div className="flex w-28 flex-col gap-1">
+				<ServerStatusLabel online={server.online} />
+				<PlayerCount
+					maxPlayers={server.maxPlayers}
+					online={server.online}
+					playerCount={server.playerCount}
+				/>
+			</div>
+			<RatingLabel
+				averageRating={server.averageRating}
+				className="w-32 justify-end max-sm:justify-start"
+				reviewCount={server.reviewCount}
+			/>
+		</article>
+	)
+}
+
+export function ServerCardSkeleton({ className }: { className?: string }) {
+	return (
+		<div
+			className={cn(
+				'flex flex-col overflow-hidden rounded-md border bg-card',
+				className,
+			)}
+		>
+			<Skeleton className="h-24 rounded-none" />
+			<div className="flex flex-col gap-3 p-4.5">
+				<Skeleton className="-mt-11 size-14" />
+				<Skeleton className="h-6 w-2/3" />
+				<Skeleton className="h-5 w-1/2" />
+				<Skeleton className="h-10 w-full" />
+			</div>
+		</div>
+	)
+}
+
+export function ServerRowSkeleton() {
+	return <Skeleton className="h-21 w-full rounded-md" />
 }

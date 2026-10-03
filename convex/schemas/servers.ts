@@ -37,6 +37,9 @@ export const tables = {
 		color: v.optional(v.string()),
 		sortOrder: v.number(),
 		isActive: v.boolean(),
+		// Usage counters maintained by lib/categoryCounts.ts.
+		serverCount: v.optional(v.number()),
+		publishedServerCount: v.optional(v.number()),
 	})
 		.index('by_slug', ['slug'])
 		.index('by_active', ['isActive'])
@@ -55,6 +58,9 @@ export const tables = {
 		// Connection
 		ipAddress: v.string(),
 		port: v.number(),
+		// Normalized `host:port`; one listing per address. Optional until the
+		// servers/migrations:backfillAddressKeys backfill has run everywhere.
+		addressKey: v.optional(v.string()),
 
 		// Media
 		logoR2Key: v.optional(v.string()),
@@ -103,6 +109,7 @@ export const tables = {
 		.index('by_registered_by', ['registeredBy'])
 		.index('by_status', ['status'])
 		.index('by_featured', ['isFeatured'])
+		.index('by_address_key', ['addressKey'])
 		.searchIndex('search_servers', {
 			searchField: 'name',
 			filterFields: ['status', 'categoryIds', 'tags'],
@@ -117,6 +124,18 @@ export const tables = {
 		expiresAt: v.number(),
 	})
 		.index('by_user_address', ['userId', 'ipAddress', 'port'])
+		.index('by_expiry', ['expiresAt']),
+
+	// One active ownership-verification code per user. The code is issued and
+	// checked server-side so a token copied from another server's public DNS
+	// record or MOTD cannot be replayed by a different account.
+	serverVerificationChallenges: defineTable({
+		userId: v.string(),
+		code: v.string(),
+		createdAt: v.number(),
+		expiresAt: v.number(),
+	})
+		.index('by_user', ['userId'])
 		.index('by_expiry', ['expiresAt']),
 
 	// ===========================================================================

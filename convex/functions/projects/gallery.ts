@@ -4,6 +4,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { canEditContent } from '../../lib/permissions'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
 	MAX_GALLERY_IMAGES,
@@ -23,23 +24,10 @@ type ProjectOwner = {
 
 async function canModifyProject(
 	ctx: MutationCtx | QueryCtx,
-	project: ProjectOwner,
+	project: { ownerType: 'user' | 'organization'; ownerId: string },
 	userId: string,
 ) {
-	if (project.ownerType === 'user') {
-		return project.ownerId === userId
-	}
-
-	const membersResult = (await ctx.runQuery(
-		components.betterAuth.adapter.findMany,
-		{
-			model: 'member',
-			where: [{ field: 'organizationId', value: project.ownerId }],
-			paginationOpts: { cursor: null, numItems: 100 },
-		},
-	)) as { page: Array<{ userId: string }> }
-
-	return (membersResult.page ?? []).some((member) => member.userId === userId)
+	return canEditContent(ctx, project, { _id: userId }, { allowSiteAdmin: false })
 }
 
 async function assertCanManageProject(

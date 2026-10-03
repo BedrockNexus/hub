@@ -60,13 +60,13 @@ export function ProjectSwitcher({
 							{currentProject.iconUrl ? (
 								<Image
 									alt={currentProject.name}
-									className="size-8 rounded-lg border object-cover"
+									className="size-8 rounded-md border object-cover"
 									height={32}
 									src={currentProject.iconUrl}
 									width={32}
 								/>
 							) : (
-								<div className="flex size-8 items-center justify-center rounded-lg border bg-muted font-bold text-sm">
+								<div className="flex size-8 items-center justify-center rounded-md border bg-muted font-bold text-sm">
 									{currentProject.name.charAt(0)}
 								</div>
 							)}

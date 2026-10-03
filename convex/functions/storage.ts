@@ -1,8 +1,11 @@
 import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../_generated/api'
+import type { Doc } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import { internalMutation, mutation, query } from '../_generated/server'
 import { authComponent } from '../auth'
+import { extractEditorMediaKeys } from '../lib/editorMedia'
+import { canEditContent } from '../lib/permissions'
 import {
 	buildEntityImageR2ObjectKey,
 	buildProfileMediaR2ObjectKey,
@@ -18,45 +21,8 @@ import { enforceRateLimit } from '../lib/rateLimits'
 const R2_EDITOR_MEDIA_URL_EXPIRES_IN = 60 * 10
 const STALE_MANAGED_UPLOAD_AGE_MS = 1000 * 60 * 60 * 24
 
-function collectEditorMediaKeysFromMarkdown(
-	keys: Set<string>,
-	markdown?: string,
-) {
-	if (!markdown) return
-	const matches = markdown.matchAll(
-		/\/api\/r2\/editor-media\/([^\s)"'<>]+)/g,
-	)
-	for (const match of matches) {
-		try {
-			keys.add(
-				match[1]
-					.split('/')
-					.map((segment) => decodeURIComponent(segment))
-					.join('/'),
-			)
-		} catch {
-			// Invalid encoded URLs are not valid managed references.
-		}
-	}
-}
 
-async function isOrganizationMember(
-	ctx: MutationCtx,
-	organizationId: string,
-	userId: string,
-) {
-	const member = (await ctx.runQuery(
-		components.betterAuth.adapter.findOne,
-		{
-			model: 'member',
-			where: [
-				{ field: 'organizationId', value: organizationId },
-				{ field: 'userId', value: userId },
-			],
-		},
-	)) as { id?: string } | null
-	return Boolean(member)
-}
+
 
 async function assertCanManageImageEntity(
 	ctx: MutationCtx,
@@ -67,99 +33,152 @@ async function assertCanManageImageEntity(
 		role?: string | null
 	},
 ) {
-	if (args.role === 'admin') return
-
+	const actor = { _id: args.userId, role: args.role }
 	if (args.resourceType === 'projects') {
 		const id = ctx.db.normalizeId('projects', args.entityId)
 		const project = id ? await ctx.db.get(id) : null
 		if (!project) throw new ConvexError('Project not found')
-		if (project.ownerType === 'user' && project.ownerId === args.userId) return
-		if (
-			project.ownerType === 'organization' &&
-			(await isOrganizationMember(ctx, project.ownerId, args.userId))
-		) {
-			return
+		if (!(await canEditContent(ctx, project, actor, { allowSiteAdmin: true }))) {
+			throw new ConvexError('You do not have permission to upload project images')
 		}
-		throw new ConvexError('You do not have permission to upload project images')
+		return
 	}
 
 	const id = ctx.db.normalizeId('servers', args.entityId)
 	const server = id ? await ctx.db.get(id) : null
 	if (!server) throw new ConvexError('Server not found')
-	if (
-		server.ownerType === 'user' &&
-		(server.ownerId === args.userId || server.registeredBy === args.userId)
-	) {
-		return
+	if (!(await canEditContent(ctx, server, actor, { allowSiteAdmin: true }))) {
+		throw new ConvexError('You do not have permission to upload server images')
 	}
-	if (
-		server.ownerType === 'organization' &&
-		(await isOrganizationMember(ctx, server.ownerId, args.userId))
-	) {
-		return
-	}
-	throw new ConvexError('You do not have permission to upload server images')
 }
 
-async function collectReferencedManagedR2Keys(ctx: MutationCtx) {
-	const keys = new Set<string>()
+const MEDIA_KEY_PATTERN =
+	/^media\/(servers|projects|organizations|profiles|site)\/([^/]+)\/([^/]+)\/[^/]+$/
+const RELEASE_KEY_PATTERN =
+	/^(?:artifacts|downloads|uploads)\/projects\/([^/]+)\/releases\/[^/]+\/[^/]+$/
+export const EDITOR_MEDIA_BACKFILL_SETTING = 'editorMediaReferencesBackfilled'
 
-	const servers = await ctx.db.query('servers').collect()
-	for (const server of servers) {
-		if (server.logoR2Key) keys.add(server.logoR2Key)
-		if (server.bannerR2Key) keys.add(server.bannerR2Key)
-		collectEditorMediaKeysFromMarkdown(keys, server.description)
+async function isEditorMediaReferenced(ctx: MutationCtx, key: string) {
+	const references = await ctx.db
+		.query('editorMediaReferences')
+		.withIndex('by_key', (q) => q.eq('key', key))
+		.take(50)
+	for (const reference of references) {
+		const markdown = await loadReferenceMarkdown(ctx, reference)
+		if (extractEditorMediaKeys(markdown).includes(key)) {
+			return true
+		}
+		// The source no longer embeds this upload.
+		await ctx.db.delete(reference._id)
+	}
+	return false
+}
+
+async function loadReferenceMarkdown(
+	ctx: MutationCtx,
+	reference: Doc<'editorMediaReferences'>,
+) {
+	if (reference.sourceTable === 'servers') {
+		const id = ctx.db.normalizeId('servers', reference.sourceId)
+		return id ? (await ctx.db.get(id))?.description : undefined
+	}
+	if (reference.sourceTable === 'projects') {
+		const id = ctx.db.normalizeId('projects', reference.sourceId)
+		return id ? (await ctx.db.get(id))?.description : undefined
+	}
+	const id = ctx.db.normalizeId('projectVersions', reference.sourceId)
+	return id ? (await ctx.db.get(id))?.changelog : undefined
+}
+
+/**
+ * Whether a managed object is still used. Keys encode the record that owns
+ * them, so each check reads only that record instead of scanning every table.
+ * Unknown and legacy layouts are kept.
+ */
+async function isManagedKeyReferenced(
+	ctx: MutationCtx,
+	key: string,
+	options: { editorMediaIndexed: boolean },
+): Promise<boolean> {
+	if (isTemporaryR2Key(key)) {
+		return false
+	}
+	if (isEditorMediaR2Key(key)) {
+		return options.editorMediaIndexed ? isEditorMediaReferenced(ctx, key) : true
 	}
 
-	const serverGallery = await ctx.db.query('serverGallery').collect()
-	for (const item of serverGallery) {
-		keys.add(item.r2Key)
+	const release = key.match(RELEASE_KEY_PATTERN)
+	if (release) {
+		const projectId = ctx.db.normalizeId('projects', release[1])
+		if (!projectId) return false
+		const versions = await ctx.db
+			.query('projectVersions')
+			.withIndex('by_project', (q) => q.eq('projectId', projectId))
+			.collect()
+		return versions.some(
+			(version) =>
+				version.r2Key === key ||
+				version.uploadR2Key === key ||
+				version.cdnR2Key === key,
+		)
 	}
 
-	const projects = await ctx.db.query('projects').collect()
-	for (const project of projects) {
-		if (project.iconR2Key) keys.add(project.iconR2Key)
-		if (project.bannerR2Key) keys.add(project.bannerR2Key)
-		collectEditorMediaKeysFromMarkdown(keys, project.description)
+	const media = key.match(MEDIA_KEY_PATTERN)
+	if (!media) {
+		return true
 	}
-
-	const projectGallery = await ctx.db.query('projectGallery').collect()
-	for (const item of projectGallery) {
-		keys.add(item.r2Key)
+	const [, entityType, entityId, mediaKind] = media
+	if (entityType === 'servers') {
+		const id = ctx.db.normalizeId('servers', entityId)
+		const server = id ? await ctx.db.get(id) : null
+		if (!(id && server)) return false
+		if (server.logoR2Key === key || server.bannerR2Key === key) return true
+		const gallery = await ctx.db
+			.query('serverGallery')
+			.withIndex('by_server', (q) => q.eq('serverId', id))
+			.collect()
+		return gallery.some((item) => item.r2Key === key)
 	}
-
-	const projectVersions = await ctx.db.query('projectVersions').collect()
-	for (const version of projectVersions) {
-		keys.add(version.r2Key)
-		if (version.uploadR2Key) keys.add(version.uploadR2Key)
-		if (version.cdnR2Key) keys.add(version.cdnR2Key)
-		collectEditorMediaKeysFromMarkdown(keys, version.changelog)
+	if (entityType === 'projects') {
+		const id = ctx.db.normalizeId('projects', entityId)
+		const project = id ? await ctx.db.get(id) : null
+		if (!(id && project)) return false
+		if (project.iconR2Key === key || project.bannerR2Key === key) return true
+		const gallery = await ctx.db
+			.query('projectGallery')
+			.withIndex('by_project', (q) => q.eq('projectId', id))
+			.collect()
+		return gallery.some((item) => item.r2Key === key)
 	}
-
-	const organizationProfiles = await ctx.db.query('organizationProfiles').collect()
-	for (const profile of organizationProfiles) {
-		if (profile.bannerR2Key) keys.add(profile.bannerR2Key)
+	if (entityType === 'organizations') {
+		const profile = await ctx.db
+			.query('organizationProfiles')
+			.withIndex('by_organization', (q) => q.eq('organizationId', entityId))
+			.unique()
+		return profile?.bannerR2Key === key
 	}
-
-	const userProfiles = await ctx.db.query('userProfiles').collect()
-	for (const profile of userProfiles) {
-		if (profile.bannerR2Key) keys.add(profile.bannerR2Key)
+	if (entityType === 'profiles' && mediaKind === 'banner') {
+		const profile = await ctx.db
+			.query('userProfiles')
+			.withIndex('by_user', (q) => q.eq('userId', entityId))
+			.unique()
+		return profile?.bannerR2Key === key
 	}
-
-	const seoSetting = await ctx.db
-		.query('siteSettings')
-		.withIndex('by_key', (q) => q.eq('key', 'seo'))
-		.unique()
-	const seo = seoSetting?.value as
-		| {
-				ogImageR2Key?: string
-		  }
-		| undefined
-	if (seo?.ogImageR2Key) {
-		keys.add(seo.ogImageR2Key)
+	if (entityType === 'site') {
+		const seo = await ctx.db
+			.query('siteSettings')
+			.withIndex('by_key', (q) => q.eq('key', 'seo'))
+			.unique()
+		const value = seo?.value as
+			| { ogImageR2Key?: string; siteLogoR2Key?: string; faviconR2Key?: string }
+			| undefined
+		return (
+			value?.ogImageR2Key === key ||
+			value?.siteLogoR2Key === key ||
+			value?.faviconR2Key === key
+		)
 	}
-
-	return keys
+	return true
 }
 
 // =============================================================================
@@ -294,7 +313,14 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 		const target = bucket === 'uploads' ? uploadsR2 : r2
 		const acceptsKey = bucket === 'uploads' ? isPrivateUploadR2Key : isCdnR2Key
 		const now = Date.now()
-		const referencedKeys = await collectReferencedManagedR2Keys(ctx)
+		// Until existing descriptions are indexed, editor uploads are never
+		// deleted (functions/storageMigrations:backfillEditorMediaReferences).
+		const editorMediaIndexed = Boolean(
+			await ctx.db
+				.query('siteSettings')
+				.withIndex('by_key', (q) => q.eq('key', EDITOR_MEDIA_BACKFILL_SETTING))
+				.unique(),
+		)
 		const cutoff =
 			now - (args.olderThanMs ?? STALE_MANAGED_UPLOAD_AGE_MS)
 		const expiredReservations = await ctx.db
@@ -302,7 +328,7 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 			.withIndex('by_status_expires', (q) =>
 				q.eq('status', 'pending').lt('expiresAt', now),
 			)
-			.take(Math.min(args.limit ?? 250, 500))
+			.take(Math.min(args.limit ?? 100, 250))
 
 		for (const reservation of expiredReservations) {
 			const reservationBucket = isPrivateUploadR2Key(reservation.r2Key)
@@ -313,7 +339,7 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 		}
 		const page = await target.listMetadata(
 			ctx,
-			Math.min(args.limit ?? 250, 500),
+			Math.min(args.limit ?? 100, 250),
 			args.cursor ?? null,
 		)
 		let deleted = 0
@@ -322,12 +348,13 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 			if (!isManagedR2Key(metadata.key) || !acceptsKey(metadata.key)) {
 				continue
 			}
-			if (referencedKeys.has(metadata.key)) {
-				continue
-			}
-
 			const lastModified = Date.parse(metadata.lastModified)
 			if (Number.isNaN(lastModified) || lastModified > cutoff) {
+				continue
+			}
+			if (
+				await isManagedKeyReferenced(ctx, metadata.key, { editorMediaIndexed })
+			) {
 				continue
 			}
 

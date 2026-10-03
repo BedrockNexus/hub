@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import type { Plugin } from 'unified'
 import { visit } from 'unist-util-visit'
 import { YoutubeEmbed } from '@/components/editor/youtube-embed'
+import { legacyHtmlToMarkdown, looksLikeLegacyHtml } from '@/lib/legacy-html'
 import { cn } from '@/lib/utils'
 import { getYoutubeVideoId } from '@/lib/youtube'
 
@@ -205,6 +206,9 @@ export function RichTextViewer({ content, className }: RichTextViewerProps) {
 	if (!content?.trim()) {
 		return null
 	}
+	const markdown = looksLikeLegacyHtml(content)
+		? legacyHtmlToMarkdown(content)
+		: content
 
 	return (
 		<div className={cn('max-w-none text-base text-foreground', className)}>
@@ -216,7 +220,7 @@ export function RichTextViewer({ content, className }: RichTextViewerProps) {
 					remarkYoutubeDirective,
 				]}
 			>
-				{content}
+				{markdown}
 			</ReactMarkdown>
 		</div>
 	)

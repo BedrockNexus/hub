@@ -3,7 +3,9 @@
 import { SearchRemoveIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
-import { useCallback, useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useCallback, useState } from 'react'
 import { PageShell } from '@/components/page-shell'
 import {
 	AdvancedProjectSearch,
@@ -15,7 +17,7 @@ import {
 } from '@/components/projects/project-card'
 import { EMPTY_PROJECT_TYPE_FILTERS } from '@/components/projects/project-type-search-filters'
 import { PublicListingPagination } from '@/components/public-listing-pagination'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
 	Empty,
 	EmptyContent,
@@ -52,9 +54,23 @@ const SKELETON_KEYS = [
 	'12',
 ]
 
-export default function ProjectsPage() {
-	const [filters, setFilters] =
-		useState<ProjectSearchFilters>(INITIAL_FILTERS)
+const PROJECT_TYPES = new Set(['addon', 'resource_pack'])
+
+function ProjectsDirectory() {
+	const params = useSearchParams()
+	const [filters, setFilters] = useState<ProjectSearchFilters>(() => {
+		const type = params.get('type')
+		const sort = params.get('sort')
+		return {
+			...INITIAL_FILTERS,
+			query: params.get('q') ?? '',
+			type:
+				type && PROJECT_TYPES.has(type)
+					? (type as ProjectSearchFilters['type'])
+					: 'all',
+			sort: sort === 'newest' ? 'newest' : INITIAL_FILTERS.sort,
+		}
+	})
 	const [cursor, setCursor] = useState<number>(0)
 
 	const handleFiltersChange = useCallback((next: ProjectSearchFilters) => {
@@ -101,7 +117,7 @@ export default function ProjectsPage() {
 	const renderResults = () => {
 		if (isLoading) {
 			return (
-				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+				<div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
 					{SKELETON_KEYS.map((key) => (
 						<ProjectCardSkeleton key={key} />
 					))}
@@ -135,7 +151,7 @@ export default function ProjectsPage() {
 
 		return (
 			<>
-				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+				<div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
 					{searchResults.items.map((item) => (
 						<ProjectCard content={item} key={item._id} />
 					))}
@@ -153,9 +169,17 @@ export default function ProjectsPage() {
 
 	return (
 		<PageShell
-			description="Search community add-ons and resource packs, then filter by category, project type, and compatibility."
-			eyebrow="Project directory"
-			title="Discover Bedrock projects"
+			actions={
+				<Link
+					className={buttonVariants({ variant: 'brand', size: 'xl' })}
+					href="/dashboard/projects/add"
+				>
+					Publish a project
+				</Link>
+			}
+			breadcrumb={[{ href: '/', label: 'Home' }]}
+			description="Community addons and resource packs. Every release is checked and reviewed before it goes live."
+			title="Addons & resource packs"
 		>
 			<div className="mb-6">
 				<AdvancedProjectSearch
@@ -179,5 +203,13 @@ export default function ProjectsPage() {
 				{renderResults()}
 			</div>
 		</PageShell>
+	)
+}
+
+export default function ProjectsPage() {
+	return (
+		<Suspense>
+			<ProjectsDirectory />
+		</Suspense>
 	)
 }

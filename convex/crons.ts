@@ -17,4 +17,11 @@ crons.daily(
 	{},
 )
 
+crons.daily(
+	'cleanup-expired-server-verifications',
+	{ hourUTC: 3, minuteUTC: 30 },
+	internal.functions.servers.verification.cleanupExpired,
+	{},
+)
+
 export default crons

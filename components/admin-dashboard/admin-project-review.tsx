@@ -10,6 +10,10 @@ import {
 	ModerationStatusBadge,
 } from '@/components/admin-dashboard/admin-content-status'
 import { AdminModerationActions } from '@/components/admin-dashboard/admin-moderation-actions'
+import {
+	ReleaseReviewActions,
+	ReleaseReviewBadge,
+} from '@/components/admin-dashboard/admin-release-review'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { ProjectTypeDetailsCard } from '@/components/projects/detail/project-type-details-card'
@@ -45,7 +49,7 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 	})
 
 	if (project === undefined) {
-		return <Skeleton className="h-[70svh] w-full rounded-lg" />
+		return <Skeleton className="h-[70svh] w-full rounded-md" />
 	}
 
 	if (!project) {
@@ -81,7 +85,7 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 						{project.iconUrl ? (
 							<Image
 								alt={`${project.name} icon`}
-								className="size-16 rounded-lg border object-cover"
+								className="size-16 rounded-md border object-cover"
 								height={64}
 								src={project.iconUrl}
 								width={64}
@@ -175,6 +179,7 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 										<TableHead>Version</TableHead>
 										<TableHead>File</TableHead>
 										<TableHead>Game versions</TableHead>
+										<TableHead>Review</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -196,13 +201,34 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 													', ',
 												) || 'Not specified'}
 											</TableCell>
+											<TableCell>
+												{version.reviewStatus ===
+													'pending' &&
+												project.status ===
+													'published' ? (
+													<ReleaseReviewActions
+														canApprove={
+															version.validationStatus ===
+															'valid'
+														}
+														versionId={version._id}
+														versionLabel={`v${version.version}`}
+													/>
+												) : (
+													<ReleaseReviewBadge
+														status={
+															version.reviewStatus
+														}
+													/>
+												)}
+											</TableCell>
 										</TableRow>
 									))}
 									{project.versions.length === 0 ? (
 										<TableRow>
 											<TableCell
 												className="h-24 text-center text-muted-foreground"
-												colSpan={3}
+												colSpan={4}
 											>
 												No version files uploaded
 											</TableCell>

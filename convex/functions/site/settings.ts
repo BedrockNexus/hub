@@ -463,7 +463,10 @@ export const getStats = query({
 			.collect()
 
 		const activeServerIds = new Set(servers.map((s) => s._id))
-		const statuses = await ctx.db.query('serverStatus').collect()
+		const statuses = await ctx.db
+			.query('serverStatus')
+			.withIndex('by_online', (q) => q.eq('online', true))
+			.collect()
 		const onlinePlayers = statuses
 			.filter((s) => activeServerIds.has(s.serverId))
 			.reduce((sum, s) => sum + (s.online ? (s.playerCount ?? 0) : 0), 0)

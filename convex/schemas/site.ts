@@ -78,6 +78,20 @@ export const tables = {
 		updatedBy: v.string(),
 	}).index('by_organization', ['organizationId']),
 
+	// Which documents embed which editor uploads (see lib/editorMedia.ts).
+	editorMediaReferences: defineTable({
+		key: v.string(),
+		sourceTable: v.union(
+			v.literal('servers'),
+			v.literal('projects'),
+			v.literal('projectVersions'),
+		),
+		sourceId: v.string(),
+		createdAt: v.number(),
+	})
+		.index('by_key', ['key'])
+		.index('by_key_and_source', ['key', 'sourceTable', 'sourceId']),
+
 	favourites: defineTable({
 		userId: v.string(),
 		targetType: v.union(v.literal('server'), v.literal('project')),
@@ -91,6 +105,10 @@ export const tables = {
 		.index('by_server', ['serverId'])
 		.index('by_project', ['projectId']),
 
+	// Retired: hub no longer records analytics (a shared Amblydia analytics
+	// platform will replace it). Kept only so existing rows still validate until
+	// `functions/site/migrations:purgeAnalyticsEvents` empties the table; then
+	// delete this definition.
 	analyticsEvents: defineTable({
 		targetType: v.union(
 			v.literal('server'),

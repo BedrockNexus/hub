@@ -8,7 +8,7 @@ export function DashboardTableSkeleton() {
 		<div className="space-y-4">
 			<div className="grid gap-4 sm:grid-cols-3">
 				{STATS_SKELETON_KEYS.map((key) => (
-					<div className="rounded-lg border bg-card p-4" key={key}>
+					<div className="rounded-md border bg-card p-4" key={key}>
 						<Skeleton className="mb-2 h-4 w-24" />
 						<Skeleton className="h-8 w-16" />
 					</div>

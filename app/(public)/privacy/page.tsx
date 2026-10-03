@@ -63,7 +63,7 @@ export default function PrivacyPage() {
 					Verify server ownership and maintain live server status.
 				</li>
 				<li>Moderate content and communicate review decisions.</li>
-				<li>Show creators useful, aggregated content analytics.</li>
+				<li>Show public download, review, and favourite counts.</li>
 				<li>Prevent abuse, enforce limits, and protect the service.</li>
 				<li>Send account verification and password-reset messages.</li>
 				<li>
@@ -124,12 +124,12 @@ export default function PrivacyPage() {
 				requested account and creator features to work correctly.
 			</p>
 			<p>
-				Our lightweight first-party analytics record events such as page
-				views, copied server addresses, downloads, shares, and outbound
-				link clicks. Bedrock Nexus does not use third-party advertising
-				cookies or sell browsing data. If non-essential tracking
-				technologies are added in the future, this policy and any
-				required consent controls will be updated before they are
+				Bedrock Nexus does not currently run analytics or record page
+				views, shares, or link clicks. Downloads are counted per release
+				without storing who downloaded them. We do not use third-party
+				advertising cookies or sell browsing data. If non-essential
+				tracking technologies are added in the future, this policy and
+				any required consent controls will be updated before they are
 				enabled.
 			</p>
 			<p>

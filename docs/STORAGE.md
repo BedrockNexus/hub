@@ -78,8 +78,7 @@ R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
 ```
 
-`R2_BUCKET` remains a temporary fallback for the public bucket in code, but new
-deployments should use `R2_CDN_BUCKET` explicitly.
+`R2_CDN_BUCKET` is required; the old `R2_BUCKET` fallback has been removed.
 
 ## Rollout Check
 
@@ -95,3 +94,20 @@ production:
 5. Unpublish and republish the project, confirming the object moves between
    buckets each time.
 6. Delete the release and project, confirming no tracked objects remain.
+
+## Stale upload cleanup
+
+`storage:cleanupStaleManagedR2Uploads` runs daily and pages through each
+bucket. It never scans whole tables: object keys encode their owner
+(`media/<type>/<id>/<kind>/…`, `uploads|downloads|artifacts/projects/<id>/…`),
+so each key is checked against only the record that would reference it.
+Objects newer than 24 hours, unknown layouts, and legacy layouts are kept.
+
+Editor uploads embedded in markdown (server and project descriptions, release
+changelogs) are tracked in `editorMediaReferences`, written whenever those
+fields are saved. Cleanup re-reads the source before trusting a reference.
+Editor uploads are never deleted until the one-time backfill has finished:
+
+```bash
+npx convex run functions/storageMigrations:backfillEditorMediaReferences
+```

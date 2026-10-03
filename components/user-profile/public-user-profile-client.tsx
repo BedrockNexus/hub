@@ -1,334 +1,102 @@
 'use client'
 
+import {
+	ArrowRight02Icon,
+	Calendar03Icon,
+	CubeIcon,
+	GlobeIcon,
+	Location01Icon,
+	OfficeIcon,
+	PulseIcon,
+	StarIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
+import type { FunctionReturnType } from 'convex/server'
+import { formatDistanceToNowStrict } from 'date-fns'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import type * as React from 'react'
 import { RoleBadgeList } from '@/components/auth/role-badge'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
-import { PublicViewTracker } from '@/components/detail/public-view-tracker'
+import { ensureHttpUrl, SideCard } from '@/components/detail/detail-parts'
+import { ShareButton } from '@/components/detail/public-actions'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
-import { Card, CardContent } from '@/components/ui/card'
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@/components/ui/empty'
-import { PackageIcon, SearchIcon } from '@/components/ui/icons'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/convex/_generated/api'
 
-type ServerItem = React.ComponentProps<typeof ServerCard>['server']
-type ProjectItem = React.ComponentProps<typeof ProjectCard>['content']
-type RoleValue = React.ComponentProps<typeof RoleBadgeList>['role']
+type Profile = NonNullable<
+	FunctionReturnType<
+		typeof api.functions.site.users.getPublicProfileByUsername
+	>
+>
+type Activity = Profile['activity'][number]
 
-interface PublicProfile {
-	id: string
-	username?: string | null
-	displayUsername?: string | null
-	displayName?: string | null
-	image?: string | null
-	bannerUrl?: string | null
-	bio?: string | null
-	location?: string | null
-	website?: string | null
-	minecraftUsername?: string | null
-	socials?: Record<string, string | undefined> | null
-	joinedAt: string
-	role: RoleValue
-	servers: ServerItem[]
-	projects: ProjectItem[]
+const SOCIAL_LABELS: Record<string, string> = {
+	github: 'GitHub',
+	discord: 'Discord',
+	youtube: 'YouTube',
+	twitch: 'Twitch',
+	twitter: 'X',
+	bluesky: 'Bluesky',
+	instagram: 'Instagram',
+	tiktok: 'TikTok',
 }
 
-function formatJoinedDate(isoDate: string) {
-	return new Date(isoDate).toLocaleDateString('en-US', {
-		year: 'numeric',
-		month: 'long',
-	})
+function activityText(entry: Activity) {
+	switch (entry.type) {
+		case 'server_added':
+			return {
+				verb: 'Listed',
+				icon: PulseIcon,
+				href: `/servers/${entry.targetSlug}`,
+			}
+		case 'project_added':
+			return {
+				verb: 'Published',
+				icon: CubeIcon,
+				href: `/projects/${entry.targetSlug}`,
+			}
+		case 'version_released':
+			return {
+				verb: `Released ${entry.metadata?.version ? `v${entry.metadata.version} of` : 'a new version of'}`,
+				icon: CubeIcon,
+				href: `/projects/${entry.targetSlug}/releases`,
+			}
+		case 'review_added':
+			return {
+				verb: 'Reviewed',
+				icon: StarIcon,
+				href: `/${entry.metadata?.targetType === 'project' ? 'projects' : 'servers'}/${entry.targetSlug}`,
+			}
+		default:
+			return null
+	}
 }
 
-function ProfileLoadingState() {
+function Stat({ value, label }: { value: number; label: string }) {
 	return (
-		<div className="container mx-auto py-12">
-			<div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-				<Card className="overflow-hidden border-border/70 shadow-sm">
-					<CardContent className="space-y-6 p-6">
-						<div className="flex items-center gap-4">
-							<Skeleton className="size-20 rounded-full" />
-							<div className="min-w-0 flex-1 space-y-2">
-								<Skeleton className="h-6 w-24 rounded-full" />
-								<Skeleton className="h-7 w-40" />
-								<Skeleton className="h-4 w-28" />
-							</div>
-						</div>
-
-						<div className="space-y-2">
-							<Skeleton className="h-4 w-full" />
-							<Skeleton className="h-4 w-[88%]" />
-							<Skeleton className="h-4 w-[72%]" />
-						</div>
-
-						<div className="space-y-3">
-							<Skeleton className="h-14 rounded-xl" />
-							<Skeleton className="h-14 rounded-xl" />
-							<Skeleton className="h-14 rounded-xl" />
-						</div>
-					</CardContent>
-				</Card>
-
-				<div className="space-y-6">
-					<div className="space-y-4">
-						<div className="flex flex-col gap-4">
-							<div className="space-y-2">
-								<Skeleton className="h-8 w-32" />
-								<Skeleton className="h-4 w-80 max-w-full" />
-							</div>
-							<Skeleton className="h-10 w-52 rounded-xl" />
-						</div>
-
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-							<Skeleton className="h-64 rounded-xl" />
-							<Skeleton className="h-64 rounded-xl" />
-						</div>
-					</div>
-				</div>
-			</div>
+		<div className="flex flex-[1_1_9rem] flex-col gap-0.5 rounded-md border bg-card px-4 py-3.5">
+			<span className="font-mono font-semibold text-2xl tabular-nums">
+				{value.toLocaleString()}
+			</span>
+			<span className="text-[13px] text-muted-foreground">{label}</span>
 		</div>
 	)
 }
 
-function ProfileNotFoundState({ username }: { username: string }) {
+function ProfileSkeleton() {
 	return (
-		<div className="container mx-auto max-w-3xl py-12">
-			<Empty className="border border-border/70 border-dashed py-16">
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<SearchIcon className="size-6" />
-					</EmptyMedia>
-					<EmptyTitle>User Not Found</EmptyTitle>
-					<EmptyDescription>
-						We couldn&apos;t find anyone with the username &quot;
-						{username}&quot;.
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		</div>
-	)
-}
-
-function ProfileShowcase({ profile }: { profile: PublicProfile }) {
-	const hasContent = profile.servers.length > 0 || profile.projects.length > 0
-
-	return (
-		<Tabs className="flex-col gap-4" defaultValue="all">
-			<div className="flex flex-col gap-4">
-				<div>
-					<h2 className="font-semibold text-2xl tracking-tight">
-						Projects
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						Browse the public servers and projects associated with
-						this profile.
-					</p>
-				</div>
-				<TabsList className="w-fit flex-wrap">
-					<TabsTrigger value="all">All</TabsTrigger>
-					{profile.servers.length > 0 && (
-						<TabsTrigger value="servers">Servers</TabsTrigger>
-					)}
-					{profile.projects.length > 0 && (
-						<TabsTrigger value="projects">Projects</TabsTrigger>
-					)}
-				</TabsList>
-			</div>
-
-			<TabsContent className="mt-0" value="all">
-				{hasContent ? (
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						{profile.servers.map((server) => (
-							<ServerCard key={server._id} server={server} />
-						))}
-						{profile.projects.map((item) => (
-							<ProjectCard content={item} key={item._id} />
-						))}
-					</div>
-				) : (
-					<Empty className="border border-border/70 border-dashed py-14">
-						<EmptyHeader>
-							<EmptyMedia variant="icon">
-								<PackageIcon className="size-6" />
-							</EmptyMedia>
-							<EmptyTitle>Nothing to show yet</EmptyTitle>
-							<EmptyDescription>
-								This user hasn&apos;t published any servers or
-								projects yet.
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				)}
-			</TabsContent>
-
-			{profile.servers.length > 0 && (
-				<TabsContent className="mt-0" value="servers">
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						{profile.servers.map((server) => (
-							<ServerCard key={server._id} server={server} />
-						))}
-					</div>
-				</TabsContent>
-			)}
-
-			{profile.projects.length > 0 && (
-				<TabsContent className="mt-0" value="projects">
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						{profile.projects.map((item) => (
-							<ProjectCard content={item} key={item._id} />
-						))}
-					</div>
-				</TabsContent>
-			)}
-		</Tabs>
-	)
-}
-
-function PanelProfileDesign({
-	profile,
-	username,
-	displayName,
-}: {
-	profile: PublicProfile
-	username: string
-	displayName: string
-}) {
-	return (
-		<div className="space-y-8">
-			{profile.bannerUrl ? (
-				<div className="relative aspect-[4/1] min-h-36 overflow-hidden rounded-lg border">
-					<Image
-						alt={`${displayName} banner`}
-						className="object-cover"
-						fill
-						priority
-						sizes="100vw"
-						src={profile.bannerUrl}
-					/>
-				</div>
-			) : null}
-			<div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-				<Card className="overflow-hidden border-border/70 shadow-sm">
-					<CardContent className="space-y-6 p-6">
-						<div className="flex items-center gap-4">
-							<UserAvatarImage
-								avatarClassName="size-20"
-								image={profile.image}
-								size={80}
-								username={displayName}
-							/>
-							<div className="min-w-0 space-y-1">
-								<RoleBadgeList role={profile.role} />
-								<h1 className="truncate font-bold text-2xl tracking-tight">
-									{displayName}
-								</h1>
-								<p className="font-mono text-muted-foreground text-sm">
-									@{username}
-								</p>
-							</div>
-						</div>
-
-						<p className="text-muted-foreground text-sm leading-relaxed">
-							{profile.bio ||
-								'This user has not added a public bio yet.'}
-						</p>
-
-						{profile.minecraftUsername || profile.location ? (
-							<div className="space-y-1 text-sm">
-								{profile.minecraftUsername ? (
-									<p>
-										<span className="text-muted-foreground">
-											Minecraft:
-										</span>{' '}
-										{profile.minecraftUsername}
-									</p>
-								) : null}
-								{profile.location ? (
-									<p>
-										<span className="text-muted-foreground">
-											Location:
-										</span>{' '}
-										{profile.location}
-									</p>
-								) : null}
-							</div>
-						) : null}
-
-						{profile.website ||
-						Object.values(profile.socials ?? {}).some(Boolean) ? (
-							<div className="flex flex-wrap gap-2 text-sm">
-								{profile.website ? (
-									<Link
-										className="text-primary hover:underline"
-										href={profile.website}
-										rel="noopener noreferrer"
-										target="_blank"
-									>
-										Website
-									</Link>
-								) : null}
-								{Object.entries(profile.socials ?? {})
-									.filter(
-										(entry): entry is [string, string] =>
-											Boolean(entry[1]),
-									)
-									.map(([name, url]) => (
-										<Link
-											className="text-primary capitalize hover:underline"
-											href={url}
-											key={name}
-											rel="noopener noreferrer"
-											target="_blank"
-										>
-											{name}
-										</Link>
-									))}
-							</div>
-						) : null}
-
-						<div className="space-y-3">
-							<div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
-								<span className="text-muted-foreground text-sm">
-									Servers
-								</span>
-								<span className="font-semibold text-lg">
-									{profile.servers.length}
-								</span>
-							</div>
-							<div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
-								<span className="text-muted-foreground text-sm">
-									Projects
-								</span>
-								<span className="font-semibold text-lg">
-									{profile.projects.length}
-								</span>
-							</div>
-							<div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
-								<span className="text-muted-foreground text-sm">
-									Joined
-								</span>
-								<span className="font-semibold text-sm">
-									{formatJoinedDate(profile.joinedAt)}
-								</span>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-
-				<div className="space-y-6">
-					<ProfileShowcase profile={profile} />
+		<div className="flex-1">
+			<Skeleton className="h-40 w-full rounded-none" />
+			<div className="container mx-auto flex flex-col gap-5 px-4 pb-12 md:px-6">
+				<Skeleton className="-mt-16 size-34" />
+				<Skeleton className="h-10 w-64" />
+				<Skeleton className="h-5 w-full max-w-lg" />
+				<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+					<Skeleton className="h-80" />
+					<Skeleton className="h-80" />
 				</div>
 			</div>
 		</div>
@@ -344,31 +112,291 @@ export default function PublicUserProfilePage() {
 	)
 
 	if (profile === undefined) {
-		return <ProfileLoadingState />
+		return <ProfileSkeleton />
 	}
 
 	if (!profile) {
-		return <ProfileNotFoundState username={username} />
+		return (
+			<main className="container mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-20 text-center">
+				<h1 className="font-bold text-3xl">Creator not found</h1>
+				<p className="text-muted-foreground">
+					Nobody on Bedrock Nexus uses the username &quot;{username}
+					&quot;.
+				</p>
+			</main>
+		)
 	}
 
-	const typedProfile = profile as PublicProfile
 	const displayName =
-		typedProfile.displayName ??
-		typedProfile.displayUsername ??
-		typedProfile.username ??
-		'User'
+		profile.displayName ??
+		profile.displayUsername ??
+		profile.username ??
+		'Creator'
+	const socials = Object.entries(profile.socials ?? {}).filter(
+		(entry): entry is [string, string] => Boolean(entry[1]),
+	)
+	const activity = profile.activity
+		.map((entry) => ({ entry, text: activityText(entry) }))
+		.filter((item) => item.text !== null)
 
 	return (
-		<div className="container mx-auto py-12">
-			<PublicViewTracker
-				targetId={typedProfile.id}
-				targetType="profile"
-			/>
-			<PanelProfileDesign
-				displayName={displayName}
-				profile={typedProfile}
-				username={username}
-			/>
-		</div>
+		<main className="flex-1">
+			<section className="border-b">
+				<div className="relative h-40 border-ember border-b-[3px]">
+					{profile.bannerUrl ? (
+						<Image
+							alt=""
+							className="object-cover"
+							fill
+							priority
+							sizes="100vw"
+							src={profile.bannerUrl}
+						/>
+					) : (
+						<div aria-hidden className="strata absolute inset-0" />
+					)}
+				</div>
+				<div className="container relative mx-auto flex flex-col gap-5 px-4 pb-7 md:px-6">
+					<div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+						<div className="extrude -mt-16 shrink-0 rounded-md border-[3px] border-edge bg-stone">
+							<UserAvatarImage
+								avatarClassName="size-32 rounded-sm"
+								image={profile.image}
+								size={128}
+								username={displayName}
+							/>
+						</div>
+						<div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-2 pt-4">
+							<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+								<h1 className="font-bold text-[clamp(2rem,4vw,2.875rem)] leading-none">
+									{displayName}
+								</h1>
+								{profile.username ? (
+									<span className="font-mono text-muted-foreground">
+										@{profile.username}
+									</span>
+								) : null}
+								<RoleBadgeList role={profile.role} />
+							</div>
+							{profile.bio ? (
+								<p className="max-w-2xl text-muted-foreground">
+									{profile.bio}
+								</p>
+							) : null}
+							<div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-muted-foreground text-sm">
+								<span className="inline-flex items-center gap-1.5">
+									<HugeiconsIcon
+										aria-hidden
+										className="size-4"
+										icon={Calendar03Icon}
+									/>
+									Joined{' '}
+									{new Date(
+										profile.joinedAt,
+									).toLocaleDateString('en-US', {
+										month: 'short',
+										year: 'numeric',
+									})}
+								</span>
+								{profile.location ? (
+									<span className="inline-flex items-center gap-1.5">
+										<HugeiconsIcon
+											aria-hidden
+											className="size-4"
+											icon={Location01Icon}
+										/>
+										{profile.location}
+									</span>
+								) : null}
+								{profile.website ? (
+									<a
+										className="inline-flex items-center gap-1.5 text-ember-text hover:text-foreground"
+										href={ensureHttpUrl(profile.website)}
+										rel="noopener noreferrer"
+										target="_blank"
+									>
+										<HugeiconsIcon
+											aria-hidden
+											className="size-4"
+											icon={GlobeIcon}
+										/>
+										Website
+									</a>
+								) : null}
+								{socials.map(([name, url]) => (
+									<a
+										className="text-ember-text hover:text-foreground"
+										href={ensureHttpUrl(url)}
+										key={name}
+										rel="noopener noreferrer"
+										target="_blank"
+									>
+										{SOCIAL_LABELS[name] ?? name}
+									</a>
+								))}
+							</div>
+						</div>
+						<div className="pt-4">
+							<ShareButton size="xl" title={displayName} />
+						</div>
+					</div>
+					<div className="flex flex-wrap gap-3">
+						<Stat label="Projects" value={profile.stats.projects} />
+						<Stat label="Servers" value={profile.stats.servers} />
+						<Stat
+							label="Total downloads"
+							value={profile.stats.totalDownloads}
+						/>
+						<Stat
+							label="Reviews written"
+							value={profile.stats.reviewsWritten}
+						/>
+					</div>
+				</div>
+			</section>
+
+			<div className="container mx-auto grid gap-7 px-4 pt-8 pb-18 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+				<div className="flex min-w-0 flex-col gap-8">
+					<section className="flex flex-col gap-4">
+						<h2 className="font-bold text-2xl">Projects</h2>
+						{profile.projects.length > 0 ? (
+							<div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+								{profile.projects.map((project) => (
+									<ProjectCard
+										content={project}
+										key={project._id}
+									/>
+								))}
+							</div>
+						) : (
+							<p className="rounded-md border border-dashed px-6 py-8 text-center text-muted-foreground">
+								No published projects yet.
+							</p>
+						)}
+					</section>
+					<section className="flex flex-col gap-4">
+						<h2 className="font-bold text-2xl">Servers</h2>
+						{profile.servers.length > 0 ? (
+							<div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-4">
+								{profile.servers.map((server) => (
+									<ServerCard
+										key={server._id}
+										server={server}
+									/>
+								))}
+							</div>
+						) : (
+							<p className="rounded-md border border-dashed px-6 py-8 text-center text-muted-foreground">
+								No listed servers yet.
+							</p>
+						)}
+					</section>
+				</div>
+
+				<aside className="flex min-w-0 flex-col gap-4">
+					{profile.organizations.length > 0 ? (
+						<SideCard title="Organizations">
+							<div className="flex flex-col gap-2.5">
+								{profile.organizations.map((organization) => (
+									<Link
+										className="flex items-center gap-3 rounded-sm border bg-background p-3 transition-colors hover:border-ember"
+										href={`/organizations/${organization.slug}`}
+										key={organization.slug}
+									>
+										<span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-sm border-2 border-edge bg-primary text-primary-foreground">
+											{organization.logo ? (
+												<Image
+													alt=""
+													className="object-cover"
+													fill
+													sizes="44px"
+													src={organization.logo}
+												/>
+											) : (
+												<HugeiconsIcon
+													aria-hidden
+													className="size-5"
+													icon={OfficeIcon}
+												/>
+											)}
+										</span>
+										<span className="flex min-w-0 flex-1 flex-col">
+											<span className="truncate font-bold font-display">
+												{organization.name}
+											</span>
+											<span className="text-muted-foreground text-xs capitalize">
+												{organization.role}
+											</span>
+										</span>
+										<HugeiconsIcon
+											aria-hidden
+											className="size-4 text-muted-foreground"
+											icon={ArrowRight02Icon}
+										/>
+									</Link>
+								))}
+							</div>
+						</SideCard>
+					) : null}
+
+					<SideCard title="Recent activity">
+						{activity.length > 0 ? (
+							<ol className="flex flex-col">
+								{activity.map(({ entry, text }) =>
+									text ? (
+										<li
+											className="flex gap-2.5 border-b border-dashed py-2 text-sm last:border-b-0"
+											key={entry._id}
+										>
+											<HugeiconsIcon
+												aria-hidden
+												className="mt-0.5 size-4 shrink-0 text-ember-text"
+												icon={text.icon}
+											/>
+											<span className="text-muted-foreground">
+												{text.verb}{' '}
+												<Link
+													className="font-medium text-foreground hover:text-ember-text"
+													href={text.href}
+												>
+													{entry.targetName}
+												</Link>
+												<span className="block text-xs">
+													{formatDistanceToNowStrict(
+														entry.createdAt,
+														{
+															addSuffix: true,
+														},
+													)}
+												</span>
+											</span>
+										</li>
+									) : null,
+								)}
+							</ol>
+						) : (
+							<p className="text-muted-foreground text-sm">
+								No public activity yet.
+							</p>
+						)}
+					</SideCard>
+
+					{profile.support?.externalUrl ? (
+						<SideCard title="Support">
+							<a
+								className="inline-flex min-h-11 items-center justify-center rounded-sm border-2 border-edge bg-primary px-4 font-bold font-display text-primary-foreground uppercase"
+								href={ensureHttpUrl(
+									profile.support.externalUrl,
+								)}
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								Support {displayName}
+							</a>
+						</SideCard>
+					) : null}
+				</aside>
+			</div>
+		</main>
 	)
 }

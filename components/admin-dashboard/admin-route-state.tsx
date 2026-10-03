@@ -45,7 +45,7 @@ export function AdminRouteLoadingState() {
 			</div>
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 				{STAT_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-28 rounded-xl" key={key} />
+					<Skeleton className="h-28 rounded-md" key={key} />
 				))}
 			</div>
 			<div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
