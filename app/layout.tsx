@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Chakra_Petch, IBM_Plex_Sans, JetBrains_Mono } from 'next/font/google'
+import localFont from 'next/font/local'
 import '@mdxeditor/editor/style.css'
 import './globals.css'
 import { headers } from 'next/headers'
@@ -13,23 +13,63 @@ import { getSiteUrl } from '@/lib/seo'
 import { siteConfig } from '@/lib/site'
 import { getSiteSeo } from '@/lib/site-settings'
 
-// Brand type: Chakra Petch for display, IBM Plex Sans for text, JetBrains
-// Mono for server addresses and numbers.
-const displayFont = Chakra_Petch({
-	subsets: ['latin'],
-	weight: ['500', '600', '700'],
+// Brand type, self-hosted (no network fetch at build time): Chakra Petch for
+// display, IBM Plex Sans for text, JetBrains Mono for addresses and numbers.
+// Licensed under the SIL Open Font License; see the OFL-*.txt files.
+const displayFont = localFont({
+	src: [
+		{
+			path: './fonts/chakra-petch-latin-500-normal.woff2',
+			weight: '500',
+			style: 'normal',
+		},
+		{
+			path: './fonts/chakra-petch-latin-600-normal.woff2',
+			weight: '600',
+			style: 'normal',
+		},
+		{
+			path: './fonts/chakra-petch-latin-700-normal.woff2',
+			weight: '700',
+			style: 'normal',
+		},
+	],
 	variable: '--font-display-family',
+	display: 'swap',
 })
 
-const sansFont = IBM_Plex_Sans({
-	subsets: ['latin'],
-	weight: ['400', '500', '600', '700'],
+const sansFont = localFont({
+	src: [
+		{
+			path: './fonts/ibm-plex-sans-latin-400-normal.woff2',
+			weight: '400',
+			style: 'normal',
+		},
+		{
+			path: './fonts/ibm-plex-sans-latin-500-normal.woff2',
+			weight: '500',
+			style: 'normal',
+		},
+		{
+			path: './fonts/ibm-plex-sans-latin-600-normal.woff2',
+			weight: '600',
+			style: 'normal',
+		},
+		{
+			path: './fonts/ibm-plex-sans-latin-700-normal.woff2',
+			weight: '700',
+			style: 'normal',
+		},
+	],
 	variable: '--font-sans-family',
+	display: 'swap',
 })
 
-const monoFont = JetBrains_Mono({
-	subsets: ['latin'],
+const monoFont = localFont({
+	src: './fonts/jetbrains-mono-latin-wght-normal.woff2',
+	weight: '100 800',
 	variable: '--font-mono-family',
+	display: 'swap',
 })
 
 export async function generateMetadata(): Promise<Metadata> {
