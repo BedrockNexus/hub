@@ -51,7 +51,6 @@ export function GeneralSettingsForm({
 	const updateAdminServer = useMutation(
 		api.functions.servers.servers.updateAdmin,
 	)
-	const updateServer = mode === 'admin' ? updateAdminServer : updateUserServer
 
 	const form = useForm<ServerFormData>({
 		resolver: zodResolver(
@@ -86,15 +85,24 @@ export function GeneralSettingsForm({
 
 		setIsSubmitting(true)
 		try {
-			await updateServer({
+			const fields = {
 				id: server._id,
-				organizationId: data.organizationId || undefined,
 				name: data.name,
 				smallDescription: data.smallDescription,
 				region: data.region || undefined,
 				language: data.language,
 				gameVersions: data.gameVersions,
-			})
+			}
+			// Only owners can move a server between accounts; the admin
+			// mutation edits listing fields only.
+			if (mode === 'admin') {
+				await updateAdminServer(fields)
+			} else {
+				await updateUserServer({
+					...fields,
+					organizationId: data.organizationId || undefined,
+				})
+			}
 			form.reset(data)
 			toast.success('General settings saved!')
 		} catch (error) {
