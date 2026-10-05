@@ -19,8 +19,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN bun run lint && bun run typecheck && bun run test
 
-# Rebuild the source code only when needed
-FROM base AS builder
+# Rebuild the source code only when needed. Bun installs the dependencies,
+# but Next.js builds under Node (the same major as the runner): running
+# `next build` on Bun 1.3.6 crashes while collecting page data.
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -42,7 +44,7 @@ ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Secrets are supplied by the deployment environment, never copied into images.
-RUN BROWSERSLIST_IGNORE_OLD_DATA=true bun --bun next build
+RUN BROWSERSLIST_IGNORE_OLD_DATA=true node node_modules/next/dist/bin/next build
 
 # Production image, copy all the files and run next
 FROM node:22-alpine AS runner
