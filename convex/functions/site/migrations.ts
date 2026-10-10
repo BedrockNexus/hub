@@ -3,7 +3,14 @@ import { internal } from '../../_generated/api'
 import { internalMutation } from '../../_generated/server'
 import { recordActivity, recordReleaseActivity } from '../../lib/activity'
 import { isPublicProject, isPublicServer } from '../../lib/contentVisibility'
+import {
+	ensureProjectStats,
+	ensureServerStats,
+	syncProject,
+	syncServer,
+} from '../../lib/discovery'
 import { isPublicRelease } from '../../lib/projectReleases'
+import { supportedGameVersions } from '../projects/artifactValidation'
 
 const BATCH_SIZE = 500
 
@@ -170,5 +177,88 @@ export const backfillActivity = internalMutation({
 			})
 		}
 		return { source, isDone }
+	},
+})
+
+const DISCOVERY_BATCH_SIZE = 50
+
+/**
+ * Fills in the listing fields kept by lib/discovery.ts for content that
+ * existed before they did: public flags, types, publish and release dates,
+ * exact save counts, supported Minecraft versions, and search text. New
+ * writes maintain all of these themselves. Safe to re-run; it also repairs
+ * drift and refreshes search text after categories are renamed.
+ *
+ * Run: npx convex run functions/site/migrations:backfillDiscovery
+ */
+export const backfillDiscovery = internalMutation({
+	args: {
+		source: v.optional(v.union(v.literal('servers'), v.literal('projects'))),
+		cursor: v.optional(v.union(v.string(), v.null())),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const source = args.source ?? 'servers'
+		const paginationOpts = {
+			cursor: args.cursor ?? null,
+			numItems: DISCOVERY_BATCH_SIZE,
+		}
+		let isDone: boolean
+		let continueCursor: string
+
+		if (source === 'servers') {
+			const page = await ctx.db.query('servers').paginate(paginationOpts)
+			for (const server of page.page) {
+				const saves = await ctx.db
+					.query('favourites')
+					.withIndex('by_server', (q) => q.eq('serverId', server._id))
+					.collect()
+				const stats = await ensureServerStats(ctx, server._id)
+				if (stats.favouriteCount !== saves.length) {
+					await ctx.db.patch(stats._id, { favouriteCount: saves.length })
+				}
+				await syncServer(ctx, server)
+			}
+			;({ isDone, continueCursor } = page)
+		} else {
+			const page = await ctx.db.query('projects').paginate(paginationOpts)
+			for (const project of page.page) {
+				const saves = await ctx.db
+					.query('favourites')
+					.withIndex('by_project', (q) => q.eq('projectId', project._id))
+					.collect()
+				const stats = await ensureProjectStats(ctx, project._id)
+				if (stats.favouriteCount !== saves.length) {
+					await ctx.db.patch(stats._id, { favouriteCount: saves.length })
+				}
+
+				const releases = await ctx.db
+					.query('projectVersions')
+					.withIndex('by_project', (q) => q.eq('projectId', project._id))
+					.order('desc')
+					.collect()
+				const versions = supportedGameVersions(releases.filter(isPublicRelease))
+				if (versions.join('\n') !== (project.supportedGameVersions ?? []).join('\n')) {
+					await ctx.db.patch(project._id, { supportedGameVersions: versions })
+				}
+				await syncProject(ctx, project)
+			}
+			;({ isDone, continueCursor } = page)
+		}
+
+		if (!isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.site.migrations.backfillDiscovery,
+				{ source, cursor: continueCursor },
+			)
+		} else if (source === 'servers') {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.site.migrations.backfillDiscovery,
+				{ source: 'projects', cursor: null },
+			)
+		}
+		return null
 	},
 })

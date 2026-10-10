@@ -14,6 +14,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { ServerBasicFields } from '@/components/user-dashboard/servers/fields/server-basic-fields'
 import { ServerMetadataFields } from '@/components/user-dashboard/servers/fields/server-metadata-fields'
 import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { SERVER_FORM_DEFAULTS, type ServerFormData } from '@/lib/schemas/server'
 
@@ -30,6 +31,7 @@ const generalSchema = z.object({
 	region: z.string().optional().or(z.literal('')),
 	language: z.array(z.string()),
 	gameVersions: z.array(z.string()),
+	softwareId: z.string().optional().or(z.literal('')),
 })
 
 interface GeneralSettingsFormProps {
@@ -74,6 +76,7 @@ export function GeneralSettingsForm({
 				region: server.region || '',
 				language: server.language ?? [],
 				gameVersions: server.gameVersions ?? [],
+				softwareId: server.softwareId ?? '',
 			})
 		}
 	}, [server, form])
@@ -92,6 +95,10 @@ export function GeneralSettingsForm({
 				region: data.region || undefined,
 				language: data.language,
 				gameVersions: data.gameVersions,
+				// null clears a previously declared software.
+				softwareId: data.softwareId
+					? (data.softwareId as Id<'serverSoftware'>)
+					: null,
 			}
 			// Only owners can move a server between accounts; the admin
 			// mutation edits listing fields only.

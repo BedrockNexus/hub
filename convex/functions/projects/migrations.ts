@@ -1,21 +1,9 @@
 import { v } from 'convex/values'
 import { internal } from '../../_generated/api'
-import { internalMutation, internalQuery } from '../../_generated/server'
+import { internalMutation } from '../../_generated/server'
 
 const DEFAULT_PROJECT_CATEGORIES = {
 	addon: ['Gameplay', 'Utility', 'Mobs', 'Items', 'Blocks', 'Scripts'],
-	map: [
-		'Adventure',
-		'Survival',
-		'Minigame',
-		'Parkour',
-		'PvP',
-		'Horror',
-		'Puzzle',
-		'Roleplay',
-		'Spawn',
-		'Creative',
-	],
 	resource_pack: ['Vanilla+', 'PvP', 'UI', 'Realistic', 'Stylized', 'Audio'],
 } as const
 
@@ -25,42 +13,6 @@ function categorySlug(name: string): string {
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/(^-|-$)/g, '')
 }
-
-/**
- * Maps are no longer a project type. Reports what still uses the legacy `map`
- * value; the literal can be removed from schemas/projects.ts (and the map
- * entries from this file and lib/project-metadata.ts) once every count is 0.
- *
- * Run: npx convex run functions/projects/migrations:countLegacyMapContent
- */
-export const countLegacyMapContent = internalQuery({
-	args: {},
-	returns: v.object({
-		projects: v.number(),
-		categories: v.number(),
-		uploads: v.number(),
-	}),
-	handler: async (ctx) => {
-		const projects = await ctx.db
-			.query('projects')
-			.filter((q) => q.eq(q.field('type'), 'map'))
-			.collect()
-		const categories = await ctx.db
-			.query('projectCategories')
-			.withIndex('by_type', (q) => q.eq('projectType', 'map'))
-			.collect()
-		const uploads = await ctx.db
-			.query('projectArtifactUploads')
-			.filter((q) => q.eq(q.field('projectType'), 'map'))
-			.collect()
-
-		return {
-			projects: projects.length,
-			categories: categories.length,
-			uploads: uploads.length,
-		}
-	},
-})
 
 /**
  * Run once before removing the legacy `texture_pack` validator from the schema.

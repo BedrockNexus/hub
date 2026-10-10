@@ -37,6 +37,9 @@ mutation functions/servers/servers:create
 mutation functions/servers/servers:remove
 mutation functions/servers/servers:update
 mutation functions/servers/servers:updateAdmin
+mutation functions/servers/software:create
+mutation functions/servers/software:remove
+mutation functions/servers/software:update
 mutation functions/site/favourites:toggleProject
 mutation functions/site/favourites:toggleServer
 mutation functions/site/gameVersions:create
@@ -105,8 +108,12 @@ query    functions/servers/servers:listByOrganization
 query    functions/servers/servers:listMyServers
 query    functions/servers/servers:search
 query    functions/servers/servers:searchAdvanced
+query    functions/servers/software:getBySlug
+query    functions/servers/software:listAdmin
+query    functions/servers/software:listEnabled
 query    functions/servers/status:getStatus
 query    functions/servers/status:getStatusBatch
+query    functions/site/audit:list
 query    functions/site/favourites:getProjectState
 query    functions/site/favourites:getServerState
 query    functions/site/favourites:listMine

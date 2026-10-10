@@ -46,6 +46,24 @@ export const tables = {
 		.index('by_sort_order', ['sortOrder']),
 
 	// ===========================================================================
+	// SERVER SOFTWARE (PocketMine-MP, PowerNukkitX, ...)
+	// Declared by the server owner: the Bedrock ping does not reveal it.
+	// ===========================================================================
+	serverSoftware: defineTable({
+		slug: v.string(),
+		name: v.string(),
+		description: v.string(),
+		websiteUrl: v.optional(v.string()),
+		repositoryUrl: v.optional(v.string()),
+		enabled: v.boolean(),
+		sortOrder: v.number(),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index('by_slug', ['slug'])
+		.index('by_enabled_and_sortOrder', ['enabled', 'sortOrder']),
+
+	// ===========================================================================
 	// SERVERS
 	// ===========================================================================
 	servers: defineTable({
@@ -69,6 +87,7 @@ export const tables = {
 		// Categorization
 		categoryIds: v.array(v.id('serverCategories')),
 		tags: v.optional(v.array(v.string())),
+		softwareId: v.optional(v.id('serverSoftware')),
 
 		// Links
 		website: v.optional(v.string()),
@@ -101,6 +120,9 @@ export const tables = {
 		verifiedBy: v.optional(v.string()),
 		verificationMethod: v.optional(serverVerificationMethod),
 
+		// Name, summary, tags, category and software names; see lib/discovery.ts.
+		searchText: v.optional(v.string()),
+
 		// Timestamps
 		updatedAt: v.optional(v.number()),
 	})
@@ -110,9 +132,14 @@ export const tables = {
 		.index('by_status', ['status'])
 		.index('by_featured', ['isFeatured'])
 		.index('by_address_key', ['addressKey'])
+		.index('by_softwareId', ['softwareId'])
 		.searchIndex('search_servers', {
 			searchField: 'name',
 			filterFields: ['status', 'categoryIds', 'tags'],
+		})
+		.searchIndex('search_text', {
+			searchField: 'searchText',
+			filterFields: ['status', 'softwareId'],
 		}),
 
 	serverVerificationProofs: defineTable({
@@ -167,9 +194,6 @@ export const tables = {
 		totalIpCopies: v.number(),
 		totalIpCopiesToday: v.optional(v.number()),
 		totalIpCopiesThisMonth: v.optional(v.number()),
-		totalVotes: v.optional(v.number()),
-		totalVotesToday: v.optional(v.number()),
-		totalVotesThisMonth: v.optional(v.number()),
 
 		// Date keys (UTC) for today/month counters
 		dailyKey: v.optional(v.string()), // YYYY-MM-DD
@@ -179,11 +203,47 @@ export const tables = {
 		averageRating: v.number(), // 0-5
 		reviewCount: v.number(),
 
+		// Discovery fields, maintained by lib/discovery.ts and the hourly
+		// trending job so public listings read in index order. Live player
+		// counts stay on serverStatus, which changes every few minutes.
+		isPublic: v.optional(v.boolean()),
+		softwareId: v.optional(v.id('serverSoftware')),
+		publishedAt: v.optional(v.number()),
+		favouriteCount: v.optional(v.number()),
+		avgPlayers7d: v.optional(v.number()),
+		peakPlayers7d: v.optional(v.number()),
+		uptime7d: v.optional(v.number()), // 0-1
+		trendingScore: v.optional(v.number()),
+
 		// Timestamps
 		updatedAt: v.number(),
 	})
 		.index('by_server', ['serverId'])
-		.index('by_rating', ['averageRating']),
+		.index('by_rating', ['averageRating'])
+		.index('by_isPublic_and_trendingScore', ['isPublic', 'trendingScore'])
+		.index('by_isPublic_and_publishedAt', ['isPublic', 'publishedAt'])
+		.index('by_isPublic_and_averageRating', ['isPublic', 'averageRating'])
+		.index('by_isPublic_and_favouriteCount', ['isPublic', 'favouriteCount'])
+		.index('by_isPublic_and_avgPlayers7d', ['isPublic', 'avgPlayers7d'])
+		.index('by_isPublic_and_softwareId_and_avgPlayers7d', [
+			'isPublic',
+			'softwareId',
+			'avgPlayers7d',
+		]),
+
+	// One row per server per UTC day, updated on every status check. Sums are
+	// stored instead of averages so a day can be extended one check at a time:
+	// average players = playerSum / checks, uptime = checksOnline / checks.
+	serverDailyStats: defineTable({
+		serverId: v.id('servers'),
+		dayKey: v.string(), // YYYY-MM-DD
+		checks: v.number(),
+		checksOnline: v.number(),
+		playerSum: v.number(),
+		peakPlayers: v.number(),
+		latencySum: v.number(),
+		latencySamples: v.number(),
+	}).index('by_serverId_and_dayKey', ['serverId', 'dayKey']),
 
 	// ===========================================================================
 	// SERVER STATUS CACHE
@@ -218,10 +278,19 @@ export const tables = {
 		checksTotal: v.number(),
 		checksOnline: v.number(),
 		uptimePercent: v.number(),
+
+		// Whether the server is published; lets the busiest-servers listing
+		// read this table in index order. Maintained by lib/discovery.ts.
+		isPublic: v.optional(v.boolean()),
 	})
 		.index('by_server', ['serverId'])
 		.index('by_online', ['online'])
-		.index('by_last_checked', ['lastChecked']),
+		.index('by_last_checked', ['lastChecked'])
+		.index('by_isPublic_and_online_and_playerCount', [
+			'isPublic',
+			'online',
+			'playerCount',
+		]),
 
 	// ===========================================================================
 	// SERVER REVIEWS

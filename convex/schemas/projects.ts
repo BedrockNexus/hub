@@ -7,8 +7,6 @@ import { v } from 'convex/values'
 
 export const projectType = v.union(
 	v.literal('addon'),
-	// Legacy stored value. Maps are not available for creation or publication.
-	v.literal('map'),
 	v.literal('resource_pack'),
 	// Remove after functions/projects/migrations:migrateTexturePacks is run.
 	v.literal('texture_pack'),
@@ -23,17 +21,6 @@ export const projectMetadata = v.union(
 		dependencies: v.array(
 			v.object({ name: v.string(), url: v.optional(v.string()) }),
 		),
-	}),
-	v.object({
-		type: v.literal('map'),
-		gameMode: v.union(
-			v.literal('survival'),
-			v.literal('creative'),
-			v.literal('adventure'),
-			v.literal('mixed'),
-		),
-		multiplayerSupport: v.boolean(),
-		estimatedPlaytimeMinutes: v.optional(v.number()),
 	}),
 	v.object({
 		type: v.literal('resource_pack'),
@@ -56,6 +43,12 @@ export const projectMetadata = v.union(
 			),
 		),
 	}),
+)
+
+// Stored types after normalization; see normalizeProjectType.
+export const projectDiscoveryType = v.union(
+	v.literal('addon'),
+	v.literal('resource_pack'),
 )
 
 // =============================================================================
@@ -120,6 +113,7 @@ export const tables = {
 
 		// Categorization
 		categoryIds: v.array(v.id('projectCategories')),
+		tags: v.optional(v.array(v.string())),
 		metadata: v.optional(projectMetadata),
 
 		// Links
@@ -164,6 +158,11 @@ export const tables = {
 		latestVersionString: v.optional(v.string()),
 		latestVersionAt: v.optional(v.number()),
 		versionCount: v.optional(v.number()),
+		// Minecraft versions covered by any public release.
+		supportedGameVersions: v.optional(v.array(v.string())),
+
+		// Name, summary, tags and category names; see lib/discovery.ts.
+		searchText: v.optional(v.string()),
 
 		// Timestamps (epoch ms)
 		updatedAt: v.number(),
@@ -178,6 +177,10 @@ export const tables = {
 		.searchIndex('search_projects', {
 			searchField: 'name',
 			filterFields: ['status', 'categoryIds', 'type'],
+		})
+		.searchIndex('search_text', {
+			searchField: 'searchText',
+			filterFields: ['status', 'moderationStatus', 'type'],
 		}),
 
 	projectGallery: defineTable({
@@ -298,11 +301,68 @@ export const tables = {
 		averageRating: v.number(),
 		reviewCount: v.number(),
 
+		// Discovery fields, copied here by lib/discovery.ts so public listings
+		// read in index order instead of scanning and sorting every project.
+		// They live on this document, not on the project, so counters changing
+		// never invalidate queries that only read the project.
+		isPublic: v.optional(v.boolean()),
+		type: v.optional(projectDiscoveryType),
+		publishedAt: v.optional(v.number()),
+		lastReleaseAt: v.optional(v.number()),
+		favouriteCount: v.optional(v.number()),
+		downloads7d: v.optional(v.number()),
+		trendingScore: v.optional(v.number()),
+
 		updatedAt: v.number(),
 	})
 		.index('by_project', ['projectId'])
 		.index('by_rating', ['averageRating'])
-		.index('by_downloads', ['totalDownloads']),
+		.index('by_downloads', ['totalDownloads'])
+		.index('by_isPublic_and_totalDownloads', ['isPublic', 'totalDownloads'])
+		.index('by_isPublic_and_trendingScore', ['isPublic', 'trendingScore'])
+		.index('by_isPublic_and_lastReleaseAt', ['isPublic', 'lastReleaseAt'])
+		.index('by_isPublic_and_publishedAt', ['isPublic', 'publishedAt'])
+		.index('by_isPublic_and_favouriteCount', ['isPublic', 'favouriteCount'])
+		.index('by_isPublic_and_averageRating', ['isPublic', 'averageRating'])
+		.index('by_isPublic_and_type_and_totalDownloads', [
+			'isPublic',
+			'type',
+			'totalDownloads',
+		])
+		.index('by_isPublic_and_type_and_trendingScore', [
+			'isPublic',
+			'type',
+			'trendingScore',
+		])
+		.index('by_isPublic_and_type_and_lastReleaseAt', [
+			'isPublic',
+			'type',
+			'lastReleaseAt',
+		])
+		.index('by_isPublic_and_type_and_publishedAt', [
+			'isPublic',
+			'type',
+			'publishedAt',
+		])
+		.index('by_isPublic_and_type_and_favouriteCount', [
+			'isPublic',
+			'type',
+			'favouriteCount',
+		])
+		.index('by_isPublic_and_type_and_averageRating', [
+			'isPublic',
+			'type',
+			'averageRating',
+		]),
+
+	// One row per project per UTC day that had activity. Feeds trending and,
+	// later, creator analytics; rows are never rewritten after their day ends.
+	projectDailyStats: defineTable({
+		projectId: v.id('projects'),
+		dayKey: v.string(), // YYYY-MM-DD
+		downloads: v.number(),
+		favourites: v.number(), // net saves that day
+	}).index('by_projectId_and_dayKey', ['projectId', 'dayKey']),
 
 	projectReviews: defineTable({
 		projectId: v.id('projects'),

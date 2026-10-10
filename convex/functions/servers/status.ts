@@ -11,6 +11,8 @@ import {
 } from '../../_generated/server'
 import { authComponent } from '../../auth'
 
+import { isPublicServer } from '../../lib/contentVisibility'
+import { recordServerCheck } from '../../lib/discovery'
 import { enforceRateLimit } from '../../lib/rateLimits'
 
 // Spacing between scheduled status checks (5-minute cron window).
@@ -264,6 +266,13 @@ export const internalUpdateStatus = internalMutation({
 			latency: args.online ? args.latency : undefined,
 			checkedAt: now,
 		})
+		await recordServerCheck(ctx, args.serverId, {
+			checkedAt: now,
+			online: args.online,
+			playerCount: args.playerCount ?? 0,
+			latency: args.latency,
+		})
+		const isPublic = isPublicServer(server)
 
 		const existing = await ctx.db
 			.query('serverStatus')
@@ -296,6 +305,7 @@ export const internalUpdateStatus = internalMutation({
 				checksTotal,
 				checksOnline,
 				uptimePercent,
+				isPublic,
 			})
 		} else {
 			await ctx.db.insert('serverStatus', {
@@ -314,6 +324,7 @@ export const internalUpdateStatus = internalMutation({
 				checksTotal: 1,
 				checksOnline: args.online ? 1 : 0,
 				uptimePercent: args.online ? 100 : 0,
+				isPublic,
 			})
 		}
 	},
@@ -493,7 +504,10 @@ export const purgeStatusHistory = internalMutation({
 	},
 })
 
-/** Deletes a removed server's status history, one batch per transaction. */
+/**
+ * Deletes a removed server's status history and daily totals, one batch per
+ * transaction.
+ */
 export const deleteServerHistory = internalMutation({
 	args: { serverId: v.id('servers') },
 	handler: async (ctx, args) => {
@@ -506,6 +520,24 @@ export const deleteServerHistory = internalMutation({
 			await ctx.db.delete(row._id)
 		}
 		if (rows.length === STATUS_HISTORY_DELETE_BATCH) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.status.deleteServerHistory,
+				{ serverId: args.serverId },
+			)
+			return
+		}
+
+		const days = await ctx.db
+			.query('serverDailyStats')
+			.withIndex('by_serverId_and_dayKey', (q) =>
+				q.eq('serverId', args.serverId),
+			)
+			.take(STATUS_HISTORY_DELETE_BATCH)
+		for (const day of days) {
+			await ctx.db.delete(day._id)
+		}
+		if (days.length === STATUS_HISTORY_DELETE_BATCH) {
 			await ctx.scheduler.runAfter(
 				0,
 				internal.functions.servers.status.deleteServerHistory,

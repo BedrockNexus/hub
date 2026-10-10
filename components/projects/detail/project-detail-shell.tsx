@@ -30,7 +30,6 @@ import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import {
-	assertSupportedProjectType,
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
 } from '@/lib/project-artifacts'
@@ -301,7 +300,7 @@ export function ProjectDetailShell({
 		)
 	}
 
-	const projectType = assertSupportedProjectType(content.type)
+	const projectType = normalizeProjectType(content.type)
 	const latestRelease = versions?.[0]
 	const categories = content.categories.filter((c) => c !== null)
 
@@ -399,6 +398,7 @@ export function ProjectDetailShell({
 					owner={content.owner}
 					publishedAt={content.publishedAt}
 					sourceUrl={content.sourceUrl}
+					tags={content.tags}
 					updatedAt={content.updatedAt}
 					websiteUrl={content.websiteUrl}
 					wikiUrl={content.wikiUrl}

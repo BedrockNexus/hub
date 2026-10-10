@@ -8,6 +8,7 @@ import { isPublicServer } from '../../lib/contentVisibility'
 import { isAffiliatedWithContent } from '../../lib/permissions'
 import { enforceRateLimit } from '../../lib/rateLimits'
 import { recordActivity } from '../../lib/activity'
+import { ensureServerStats } from '../../lib/discovery'
 
 // =============================================================================
 // QUERIES
@@ -278,30 +279,10 @@ async function updateServerReviewStats(
 
 	const now = Date.now()
 
-	// Get or create serverStats
-	const stats = await ctx.db
-		.query('serverStats')
-		.withIndex('by_server', (q) => q.eq('serverId', serverId))
-		.first()
-
-	if (stats) {
-		await ctx.db.patch(stats._id, {
-			averageRating,
-			reviewCount,
-			updatedAt: now,
-		})
-	} else {
-		// Create new stats record
-		await ctx.db.insert('serverStats', {
-			serverId,
-			totalIpCopies: 0,
-			totalIpCopiesToday: 0,
-			totalIpCopiesThisMonth: 0,
-			dailyKey: new Date(now).toISOString().slice(0, 10),
-			monthlyKey: new Date(now).toISOString().slice(0, 7),
-			averageRating,
-			reviewCount,
-			updatedAt: now,
-		})
-	}
+	const stats = await ensureServerStats(ctx, serverId)
+	await ctx.db.patch(stats._id, {
+		averageRating,
+		reviewCount,
+		updatedAt: now,
+	})
 }

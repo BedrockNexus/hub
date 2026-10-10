@@ -1,6 +1,7 @@
 import type { Doc } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import { syncProjectCategoryCounts, syncServerCategoryCounts } from './categoryCounts'
+import { syncProject, syncServer } from './discovery'
 import { isPublicProject, isPublicServer } from './contentVisibility'
 import { isPublicRelease } from './projectReleases'
 
@@ -40,13 +41,16 @@ export async function recordActivity(ctx: MutationCtx, entry: ActivityEntry) {
 	})
 }
 
-/** Category counters plus the "listed a server" activity. */
+/** Category counters, listing fields, and the "listed a server" activity. */
 export async function afterServerWrite(
 	ctx: MutationCtx,
 	before: Doc<'servers'> | null,
 	after: Doc<'servers'> | null,
 ) {
 	await syncServerCategoryCounts(ctx, before, after)
+	if (after) {
+		await syncServer(ctx, after)
+	}
 	if (after && isPublicServer(after) && !(before && isPublicServer(before))) {
 		await recordActivity(ctx, {
 			userId: after.registeredBy,
@@ -58,13 +62,16 @@ export async function afterServerWrite(
 	}
 }
 
-/** Category counters plus the "published a project" activity. */
+/** Category counters, listing fields, and the "published a project" activity. */
 export async function afterProjectWrite(
 	ctx: MutationCtx,
 	before: Doc<'projects'> | null,
 	after: Doc<'projects'> | null,
 ) {
 	await syncProjectCategoryCounts(ctx, before, after)
+	if (after) {
+		await syncProject(ctx, after)
+	}
 	if (after && isPublicProject(after) && !(before && isPublicProject(before))) {
 		await recordActivity(ctx, {
 			userId: after.createdBy,

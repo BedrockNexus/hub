@@ -40,12 +40,6 @@ export type ProjectMetadata =
 			dependencies: Array<{ name: string; url?: string }>
 	  }
 	| {
-			type: 'map'
-			gameMode: 'survival' | 'creative' | 'adventure' | 'mixed'
-			multiplayerSupport: boolean
-			estimatedPlaytimeMinutes?: number
-	  }
-	| {
 			type: 'resource_pack'
 			resolution: ResourcePackResolution
 			contentTypes: ResourcePackContentType[]
@@ -81,8 +75,6 @@ export function projectMetadataSeoProperties(metadata: ProjectMetadata) {
 					metadata.experimentalFeaturesRequired,
 				),
 			]
-		case 'map':
-			return []
 		case 'resource_pack':
 			return [
 				property('Resolution', metadata.resolution),

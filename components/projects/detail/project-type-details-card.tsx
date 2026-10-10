@@ -97,8 +97,6 @@ function MetadataContent({ metadata }: { metadata: ProjectMetadata }) {
 	switch (metadata.type) {
 		case 'addon':
 			return <AddonDetails metadata={metadata} />
-		case 'map':
-			return null
 		case 'resource_pack':
 			return <ResourcePackDetails metadata={metadata} />
 		default:

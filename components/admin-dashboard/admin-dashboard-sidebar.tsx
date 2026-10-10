@@ -58,6 +58,11 @@ const data = {
 			url: '/admin/categories',
 			icon: GridIcon,
 		},
+		{
+			title: 'Server Software',
+			url: '/admin/server-software',
+			icon: ServerStack03Icon,
+		},
 	],
 	navSystem: [
 		{

@@ -18,8 +18,10 @@ import { validateEntityImageUpload } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { validateServerFields } from '../../lib/contentValidation'
 import { afterServerWrite } from '../../lib/activity'
+import { recordAdminAction } from '../../lib/audit'
 import { recordEditorMediaReferences } from '../../lib/editorMedia'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import { readHomeAggregates } from '../../lib/siteAggregates'
 import {
 	normalizeServerAddress,
 	type ServerAddress,
@@ -308,6 +310,29 @@ async function resolveAddressUpdate(
 	}
 }
 
+/**
+ * Resolves a change to the software an owner declares for their server:
+ * undefined leaves it alone, null clears it. Only software an admin has
+ * enabled can be newly selected.
+ */
+async function resolveSoftwareUpdate(
+	ctx: MutationCtx,
+	server: Doc<'servers'> | null,
+	softwareId: Id<'serverSoftware'> | null | undefined,
+) {
+	if (softwareId === undefined || softwareId === server?.softwareId) {
+		return {}
+	}
+	if (softwareId === null) {
+		return { softwareId: undefined }
+	}
+	const software = await ctx.db.get(softwareId)
+	if (!software?.enabled) {
+		throw new ConvexError('Select a supported server software')
+	}
+	return { softwareId }
+}
+
 async function canModifyServer(
 	ctx: QueryCtx | MutationCtx,
 	server: ServerOwnerRef,
@@ -392,6 +417,10 @@ async function enrichServerDetail(ctx: QueryCtx, server: Doc<'servers'>) {
 		.query('serverStatus')
 		.withIndex('by_server', (q) => q.eq('serverId', server._id))
 		.first()
+
+	const software = server.softwareId
+		? await ctx.db.get(server.softwareId)
+		: null
 
 	const totalIpCopiesToday =
 		stats && stats.dailyKey === dayKey
@@ -511,6 +540,8 @@ async function enrichServerDetail(ctx: QueryCtx, server: Doc<'servers'>) {
 		playerCount: status?.playerCount ?? 0,
 		maxPlayers: status?.maxPlayers,
 		verified: server.verifiedAt !== undefined,
+		// Declared by the owner; a status ping cannot confirm it.
+		software: software ? { name: software.name, slug: software.slug } : null,
 		owner: ownerData,
 	}
 }
@@ -692,20 +723,12 @@ export const searchAdvanced = query({
 })
 
 /**
- * Get unique regions from all servers (for filter dropdown)
+ * Regions that have at least one published server (for the filter dropdown).
  */
 export const getRegions = query({
 	args: {},
 	handler: async (ctx) => {
-		const servers = await ctx.db
-			.query('servers')
-			.withIndex('by_status', (q) => q.eq('status', 'published'))
-			.collect()
-
-		const regions = [
-			...new Set(servers.map((s) => s.region).filter(Boolean)),
-		]
-		return regions.sort() as string[]
+		return (await readHomeAggregates(ctx)).regions
 	},
 })
 
@@ -1190,6 +1213,7 @@ export const create = mutation({
 		region: v.optional(v.string()),
 		language: v.optional(v.array(v.string())),
 		gameVersions: v.optional(v.array(v.string())),
+		softwareId: v.optional(v.id('serverSoftware')),
 		organizationId: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
@@ -1251,6 +1275,7 @@ export const create = mutation({
 			region: args.region,
 			language: args.language,
 			gameVersions: args.gameVersions,
+			...(await resolveSoftwareUpdate(ctx, null, args.softwareId)),
 			ownerType,
 			ownerId,
 			registeredBy: user._id,
@@ -1263,19 +1288,6 @@ export const create = mutation({
 		await afterServerWrite(ctx, null, await ctx.db.get(serverId))
 
 		await recordEditorMediaReferences(ctx, 'servers', serverId, args.description)
-
-		// Create initial serverStats record
-		await ctx.db.insert('serverStats', {
-			serverId,
-			totalIpCopies: 0,
-			totalIpCopiesToday: 0,
-			totalIpCopiesThisMonth: 0,
-			dailyKey: getUtcDayKey(now),
-			monthlyKey: getUtcMonthKey(now),
-			averageRating: 0,
-			reviewCount: 0,
-			updatedAt: now,
-		})
 
 		return serverId
 	},
@@ -1303,6 +1315,7 @@ export const update = mutation({
 		region: v.optional(v.string()),
 		language: v.optional(v.array(v.string())),
 		gameVersions: v.optional(v.array(v.string())),
+		softwareId: v.optional(v.union(v.id('serverSoftware'), v.null())),
 		status: v.optional(serverOwnerStatus),
 	},
 	handler: async (ctx, args) => {
@@ -1352,6 +1365,7 @@ export const update = mutation({
 			bannerR2Key: nextBannerR2Key,
 			ipAddress,
 			port,
+			softwareId: nextSoftwareId,
 			...updates
 		} = args
 		const addressUpdates = await resolveAddressUpdate(
@@ -1450,6 +1464,7 @@ export const update = mutation({
 			...mediaUpdates,
 			...ownerUpdates,
 			...addressUpdates,
+			...(await resolveSoftwareUpdate(ctx, server, nextSoftwareId)),
 			...publicationUpdates,
 			slug,
 			updatedAt: now,
@@ -1509,6 +1524,7 @@ export const updateAdmin = adminMutation({
 		region: v.optional(v.string()),
 		language: v.optional(v.array(v.string())),
 		gameVersions: v.optional(v.array(v.string())),
+		softwareId: v.optional(v.union(v.id('serverSoftware'), v.null())),
 		status: v.optional(serverAdminStatus),
 		moderationStatus: v.optional(serverModerationStatus),
 		moderationReason: v.optional(v.string()),
@@ -1530,6 +1546,7 @@ export const updateAdmin = adminMutation({
 			moderationReason,
 			ipAddress,
 			port,
+			softwareId: nextSoftwareId,
 			...updates
 		} = args
 		// A rejection is final: the server stays hidden in review and the owner
@@ -1640,12 +1657,34 @@ export const updateAdmin = adminMutation({
 			...updates,
 			...mediaUpdates,
 			...addressUpdates,
+			...(await resolveSoftwareUpdate(ctx, server, nextSoftwareId)),
 			...publicationUpdates,
 			...moderationUpdates,
 			slug,
 			updatedAt: now,
 		})
 		await afterServerWrite(ctx, server, await ctx.db.get(args.id))
+		await recordAdminAction(ctx, user._id, {
+			action:
+				updates.status !== undefined || moderationStatus !== undefined
+					? 'server.moderate'
+					: 'server.update',
+			targetType: 'server',
+			targetId: args.id,
+			targetLabel: server.name,
+			changes: {
+				status: updates.status,
+				moderationStatus:
+					'moderationStatus' in moderationUpdates
+						? moderationUpdates.moderationStatus
+						: undefined,
+				fields:
+					Object.keys(updates)
+						.filter((field) => field !== 'status')
+						.join(', ') || undefined,
+			},
+			reason: moderationReason,
+		})
 
 		await recordEditorMediaReferences(ctx, 'servers', args.id, args.description)
 

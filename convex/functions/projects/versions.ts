@@ -33,11 +33,12 @@ import { appRateLimiter, enforceRateLimit } from '../../lib/rateLimits'
 import {
 	getProjectArtifactPolicy,
 	getProjectReleasePolicy,
-	isSupportedProjectType,
 	normalizeProjectType,
 	validateProjectArtifactFile,
 } from '../../../lib/project-artifacts'
 import { recordReleaseActivity } from '../../lib/activity'
+import { recordAdminAction } from '../../lib/audit'
+import { ensureProjectStats, recordProjectDownload } from '../../lib/discovery'
 
 const VERSION_DOWNLOAD_URL_EXPIRES_IN = 60 * 5
 const ARTIFACT_UPLOAD_EXPIRES_IN_MS = 1000 * 60 * 60 * 24
@@ -155,11 +156,7 @@ export const listPublic = query({
 	},
 	handler: async (ctx, args) => {
 		const project = await ctx.db.get(args.projectId)
-		if (
-			!project ||
-			!isSupportedProjectType(project.type) ||
-			!isPublicProject(project)
-		) {
+		if (!project || !isPublicProject(project)) {
 			return []
 		}
 
@@ -186,11 +183,7 @@ export const getPublicByVersion = query({
 			.query('projects')
 			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
 			.unique()
-		if (
-			!project ||
-			!isSupportedProjectType(project.type) ||
-			!isPublicProject(project)
-		) return null
+		if (!project || !isPublicProject(project)) return null
 		const version = await ctx.db
 			.query('projectVersions')
 			.withIndex('by_project_version', (q) =>
@@ -217,11 +210,7 @@ export const getLatest = query({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {
 		const project = await ctx.db.get(args.projectId)
-		if (
-			!project ||
-			!isSupportedProjectType(project.type) ||
-			!isPublicProject(project)
-		) return null
+		if (!project || !isPublicProject(project)) return null
 
 		// Newer releases may still be validating or awaiting review.
 		const recent = await ctx.db
@@ -248,11 +237,7 @@ export const getByVersion = query({
 			return null
 		}
 		const project = await ctx.db.get(args.projectId)
-		if (
-			!project ||
-			!isSupportedProjectType(project.type) ||
-			!isPublicProject(project)
-		) return null
+		if (!project || !isPublicProject(project)) return null
 
 		const requestedVersion = args.version
 		const version = await ctx.db
@@ -344,6 +329,14 @@ export const reviewRelease = adminMutation({
 			reviewedBy: user._id,
 		})
 		await updateProjectReleaseSummary(ctx, project._id)
+		await recordAdminAction(ctx, user._id, {
+			action: 'release.review',
+			targetType: 'projectVersion',
+			targetId: version._id,
+			targetLabel: `${project.name} ${version.version}`,
+			changes: { reviewStatus: args.decision },
+			reason: args.decision === 'rejected' ? reason : undefined,
+		})
 
 		if (args.decision === 'approved') {
 			await recordReleaseActivity(ctx, project, version)
@@ -621,11 +614,7 @@ export const createDownloadUrl = mutation({
 		}
 
 		const project = await ctx.db.get(version.projectId)
-		if (
-			!project ||
-			!isSupportedProjectType(project.type) ||
-			!isPublicProject(project)
-		) {
+		if (!project || !isPublicProject(project)) {
 			return {
 				ok: false as const,
 				code: 'VERSION_UNAVAILABLE' as const,
@@ -806,24 +795,9 @@ async function updateProjectDownloadStats(
 	const dayKey = getUtcDayKey(now)
 	const monthKey = getUtcMonthKey(now)
 
-	const stats = await ctx.db
-		.query('projectStats')
-		.withIndex('by_project', (q) => q.eq('projectId', projectId))
-		.first()
-
-	if (!stats) {
-		await ctx.db.insert('projectStats', {
-			projectId,
-			totalDownloads,
-			totalDownloadsToday: options.recordDownload ? 1 : 0,
-			totalDownloadsThisMonth: options.recordDownload ? 1 : 0,
-			dailyKey: dayKey,
-			monthlyKey: monthKey,
-			averageRating: 0,
-			reviewCount: 0,
-			updatedAt: now,
-		})
-		return
+	const stats = await ensureProjectStats(ctx, projectId)
+	if (options.recordDownload) {
+		await recordProjectDownload(ctx, projectId)
 	}
 
 	const totalDownloadsToday = options.recordDownload

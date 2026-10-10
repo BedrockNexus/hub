@@ -6,7 +6,15 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+	Field,
+	FieldDescription,
+	FieldError,
+	FieldLabel,
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
@@ -17,11 +25,19 @@ import {
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import { parseTagInput, TAG_LIMITS, tagsProblem } from '@/lib/tags'
 
 const categoriesSchema = z.object({
 	categoryIds: z
 		.array(z.string())
 		.min(1, 'Please select at least one category'),
+	// Comma-separated; stored as normalized tags (see lib/tags.ts).
+	tags: z.string().superRefine((value, ctx) => {
+		const problem = tagsProblem(parseTagInput(value))
+		if (problem) {
+			ctx.addIssue({ code: 'custom', message: problem })
+		}
+	}),
 })
 
 type CategoriesFormData = z.infer<typeof categoriesSchema>
@@ -49,6 +65,7 @@ export function ProjectCategoriesSettingsForm({
 		resolver: zodResolver(categoriesSchema),
 		defaultValues: {
 			categoryIds: [],
+			tags: '',
 		},
 		mode: 'onChange',
 	})
@@ -58,6 +75,7 @@ export function ProjectCategoriesSettingsForm({
 		if (project) {
 			form.reset({
 				categoryIds: project.categoryIds.map(String),
+				tags: (project.tags ?? []).join(', '),
 			})
 		}
 	}, [project, form])
@@ -77,14 +95,15 @@ export function ProjectCategoriesSettingsForm({
 			await updateProject({
 				id: project._id,
 				categoryIds: data.categoryIds as Id<'projectCategories'>[],
+				tags: parseTagInput(data.tags),
 			})
-			form.reset(data)
-			toast.success('Categories saved!')
+			form.reset({ ...data, tags: parseTagInput(data.tags).join(', ') })
+			toast.success('Categories and tags saved!')
 		} catch (error) {
 			const message =
 				error instanceof Error
 					? error.message
-					: 'Failed to save categories'
+					: 'Failed to save categories and tags'
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)
@@ -129,15 +148,17 @@ export function ProjectCategoriesSettingsForm({
 
 	const isSaveDisabled =
 		isSubmitting || !form.formState.isDirty || !form.formState.isValid
+	const tagPreview = parseTagInput(form.watch('tags'))
+	const tagsError = form.formState.errors.tags
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 			<div>
 				<h2 className="font-semibold text-lg tracking-tight">
-					Categories
+					Categories and tags
 				</h2>
 				<p className="text-muted-foreground text-sm">
-					Select categories that best describe your project
+					Help people find your project in listings and search
 				</p>
 			</div>
 			<Separator />
@@ -147,6 +168,30 @@ export function ProjectCategoriesSettingsForm({
 				onToggle={toggleCategory}
 				watch={form.watch as never}
 			/>
+			<Field data-invalid={Boolean(tagsError)}>
+				<FieldLabel htmlFor="tags">Tags</FieldLabel>
+				<FieldDescription>
+					Up to {TAG_LIMITS.maxTags} keywords people might search for,
+					separated by commas
+				</FieldDescription>
+				<Input
+					aria-invalid={Boolean(tagsError)}
+					disabled={isSubmitting}
+					id="tags"
+					placeholder="furniture, decoration, building"
+					{...form.register('tags')}
+				/>
+				{tagPreview.length > 0 ? (
+					<div className="flex flex-wrap gap-1.5">
+						{tagPreview.map((tag) => (
+							<Badge key={tag} variant="secondary">
+								{tag}
+							</Badge>
+						))}
+					</div>
+				) : null}
+				{tagsError ? <FieldError errors={[tagsError]} /> : null}
+			</Field>
 			<div className="flex justify-end border-t pt-6">
 				<Button
 					className="w-full sm:w-auto"

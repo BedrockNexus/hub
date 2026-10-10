@@ -1,53 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../_generated/api'
-import type { Doc, Id } from '../../_generated/dataModel'
-import { createTest, type TestClient } from '../../test.setup'
-
-async function insertProject(
-	t: TestClient,
-	overrides: Partial<Doc<'projects'>> & { slug: string },
-) {
-	return await t.run(async (ctx) =>
-		ctx.db.insert('projects', {
-			type: 'addon',
-			name: overrides.slug,
-			summary: 'A test project',
-			description: 'A test project',
-			categoryIds: [],
-			ownerType: 'user',
-			ownerId: 'owner',
-			createdBy: 'owner',
-			status: 'published',
-			moderationStatus: 'approved',
-			updatedAt: Date.now(),
-			...overrides,
-		}),
-	)
-}
-
-async function insertRelease(
-	t: TestClient,
-	projectId: Id<'projects'>,
-	version: string,
-	overrides: Partial<Doc<'projectVersions'>> = {},
-) {
-	return await t.run(async (ctx) =>
-		ctx.db.insert('projectVersions', {
-			projectId,
-			version,
-			r2Key: `uploads/${version}.mcaddon`,
-			uploadR2Key: `uploads/${version}.mcaddon`,
-			cdnR2Key: `downloads/${version}.mcaddon`,
-			fileName: `pack-${version}.mcaddon`,
-			fileSize: 1024,
-			validationStatus: 'valid',
-			reviewStatus: 'approved',
-			downloads: 0,
-			createdAt: Date.now(),
-			...overrides,
-		}),
-	)
-}
+import { createTest, insertProject, insertRelease } from '../../test.setup'
 
 describe('projects.getPublishedBySlug', () => {
 	it('hides projects that are not published and approved', async () => {

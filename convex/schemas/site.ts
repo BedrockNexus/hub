@@ -177,6 +177,42 @@ export const tables = {
 	}).index('by_user', ['userId']),
 
 	// ===========================================================================
+	// ADMIN ACTIONS (append-only audit log; see lib/audit.ts)
+	// ===========================================================================
+	adminActions: defineTable({
+		actorId: v.string(), // Better Auth user ID of the admin
+		action: v.string(), // e.g. 'project.moderate', 'user.ban'
+		targetType: v.union(
+			v.literal('server'),
+			v.literal('project'),
+			v.literal('projectVersion'),
+			v.literal('user'),
+			v.literal('serverSoftware'),
+			v.literal('setting'),
+		),
+		targetId: v.string(),
+		targetLabel: v.optional(v.string()), // name at the time, for display
+		// What changed, as short display strings.
+		changes: v.optional(v.record(v.string(), v.string())),
+		reason: v.optional(v.string()),
+		createdAt: v.number(),
+	})
+		.index('by_targetType_and_targetId', ['targetType', 'targetId'])
+		.index('by_actorId', ['actorId']),
+
+	// ===========================================================================
+	// SITE AGGREGATES (precomputed homepage numbers; see site/aggregates.ts)
+	// ===========================================================================
+	siteAggregates: defineTable({
+		key: v.literal('home'),
+		servers: v.number(),
+		onlinePlayers: v.number(),
+		projects: v.number(),
+		regions: v.array(v.string()),
+		updatedAt: v.number(),
+	}).index('by_key', ['key']),
+
+	// ===========================================================================
 	// GAME VERSIONS
 	// ===========================================================================
 	gameVersions: defineTable({

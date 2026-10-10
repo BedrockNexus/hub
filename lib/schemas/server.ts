@@ -75,6 +75,8 @@ export const serverFormSchema = z.object({
 	region: z.string().optional().or(z.literal('')),
 	language: z.array(z.string()),
 	gameVersions: z.array(z.string()),
+	// A serverSoftware document ID, or empty when not declared.
+	softwareId: z.string().optional().or(z.literal('')),
 })
 
 export type ServerFormData = z.infer<typeof serverFormSchema>
@@ -94,4 +96,5 @@ export const SERVER_FORM_DEFAULTS: ServerFormData = {
 	region: '',
 	language: [],
 	gameVersions: [],
+	softwareId: '',
 }

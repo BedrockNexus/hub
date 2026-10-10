@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { query } from '../../_generated/server'
 import type { MutationCtx } from '../../_generated/server'
+import { recordAdminAction } from '../../lib/audit'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import {
@@ -9,6 +10,7 @@ import {
 	type SiteImageKind,
 } from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import { readHomeAggregates } from '../../lib/siteAggregates'
 
 type SeoSettings = {
 	siteDescription?: string
@@ -92,6 +94,25 @@ async function validateSiteImageUpload(
 	}
 }
 
+/** The top-level fields of a settings object that differ, as `old -> new`. */
+function describeSettingChange(before: unknown, after: unknown) {
+	const isRecord = (value: unknown): value is Record<string, unknown> =>
+		typeof value === 'object' && value !== null && !Array.isArray(value)
+	if (!isRecord(after)) {
+		return { value: JSON.stringify(after) }
+	}
+	const previous = isRecord(before) ? before : {}
+	const changes: Record<string, string> = {}
+	for (const field of new Set([...Object.keys(previous), ...Object.keys(after)])) {
+		const from = JSON.stringify(previous[field])
+		const to = JSON.stringify(after[field])
+		if (from !== to) {
+			changes[field] = `${from ?? 'unset'} -> ${to ?? 'unset'}`
+		}
+	}
+	return changes
+}
+
 async function upsertSetting(
 	ctx: MutationCtx,
 	args: { key: string; value: unknown; description?: string; updatedBy?: string },
@@ -102,6 +123,14 @@ async function upsertSetting(
 		.unique()
 
 	const now = Date.now()
+	if (args.updatedBy) {
+		await recordAdminAction(ctx, args.updatedBy, {
+			action: 'setting.update',
+			targetType: 'setting',
+			targetId: args.key,
+			changes: describeSettingChange(existing?.value, args.value),
+		})
+	}
 
 	if (existing) {
 		await ctx.db.patch(existing._id, {
@@ -238,6 +267,11 @@ export const remove = adminMutation({
 
 		if (existing) {
 			await ctx.db.delete(existing._id)
+			await recordAdminAction(ctx, ctx.admin._id, {
+				action: 'setting.remove',
+				targetType: 'setting',
+				targetId: args.key,
+			})
 			return true
 		}
 		return false
@@ -442,29 +476,7 @@ export const getFeatures = query({
 export const getStats = query({
 	args: {},
 	handler: async (ctx) => {
-		const servers = await ctx.db
-			.query('servers')
-			.withIndex('by_status', (q) => q.eq('status', 'published'))
-			.collect()
-
-		const activeServerIds = new Set(servers.map((s) => s._id))
-		const statuses = await ctx.db
-			.query('serverStatus')
-			.withIndex('by_online', (q) => q.eq('online', true))
-			.collect()
-		const onlinePlayers = statuses
-			.filter((s) => activeServerIds.has(s.serverId))
-			.reduce((sum, s) => sum + (s.online ? (s.playerCount ?? 0) : 0), 0)
-
-		const projects = await ctx.db
-			.query('projects')
-			.withIndex('by_status', (q) => q.eq('status', 'published'))
-			.collect()
-
-		return {
-			servers: servers.length,
-			onlinePlayers,
-			projects: projects.length,
-		}
+		const { servers, onlinePlayers, projects } = await readHomeAggregates(ctx)
+		return { servers, onlinePlayers, projects }
 	},
 })

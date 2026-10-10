@@ -8,8 +8,11 @@ import {
 	type MutationCtx,
 } from '../../_generated/server'
 import { isApprovedRelease, isPublicRelease } from '../../lib/projectReleases'
+import { syncProject } from '../../lib/discovery'
 import { cdnR2, uploadsR2 } from '../../lib/r2'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
+
+const MAX_SUPPORTED_GAME_VERSIONS = 200
 
 const VALIDATION_URL_EXPIRES_IN = 60 * 15
 const MAX_VALIDATION_ATTEMPTS = 3
@@ -84,6 +87,15 @@ export const markValidating = internalMutation({
 })
 
 /** Recomputes the project's public release count and latest public release. */
+/** Every Minecraft version covered by at least one of the given releases. */
+export function supportedGameVersions(
+	releases: ReadonlyArray<{ gameVersions?: string[] }>,
+): string[] {
+	return [
+		...new Set(releases.flatMap((release) => release.gameVersions ?? [])),
+	].slice(0, MAX_SUPPORTED_GAME_VERSIONS)
+}
+
 export async function updateProjectReleaseSummary(
 	ctx: MutationCtx,
 	projectId: Id<'projects'>,
@@ -100,8 +112,13 @@ export async function updateProjectReleaseSummary(
 		latestVersionString: latest?.version,
 		latestVersionAt: latest?.createdAt,
 		versionCount: versions.length,
+		supportedGameVersions: supportedGameVersions(versions),
 		updatedAt: Date.now(),
 	})
+	const project = await ctx.db.get(projectId)
+	if (project) {
+		await syncProject(ctx, project)
+	}
 }
 
 export const applyValidationResult = internalMutation({

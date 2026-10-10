@@ -39,6 +39,7 @@ interface ServerMetadataFieldsProps {
 }
 
 const EMPTY_REGION_VALUE = 'none'
+const EMPTY_SOFTWARE_VALUE = 'none'
 
 export function ServerMetadataFields({
 	control,
@@ -50,6 +51,7 @@ export function ServerMetadataFields({
 	const activeGameVersionValues = (activeGameVersions ?? []).map(
 		(version: { version: string }) => version.version,
 	)
+	const software = useQuery(api.functions.servers.software.listEnabled)
 
 	return (
 		<>
@@ -89,6 +91,76 @@ export function ServerMetadataFields({
 						)}
 					</Field>
 				)}
+			/>
+
+			<Controller
+				control={control}
+				name="softwareId"
+				render={({ field, fieldState }) => {
+					// Software an admin has since disabled stays selectable on
+					// the server that already declared it.
+					const isKnown = (software ?? []).some(
+						(item) => item._id === field.value,
+					)
+					return (
+						<Field data-invalid={fieldState.invalid}>
+							<FieldLabel htmlFor="softwareId">
+								Server software
+							</FieldLabel>
+							<FieldDescription>
+								What your server runs. Shown on your listing as
+								declared by you
+							</FieldDescription>
+							<Select
+								onValueChange={(value) =>
+									field.onChange(
+										value === EMPTY_SOFTWARE_VALUE
+											? ''
+											: value,
+									)
+								}
+								value={field.value || EMPTY_SOFTWARE_VALUE}
+							>
+								<SelectTrigger
+									disabled={disabled || !software}
+									id="softwareId"
+								>
+									<SelectValue placeholder="Select server software">
+										{(value: string) =>
+											(software ?? []).find(
+												(item) => item._id === value,
+											)?.name ??
+											(value === EMPTY_SOFTWARE_VALUE
+												? 'Not specified'
+												: 'Current selection')
+										}
+									</SelectValue>
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value={EMPTY_SOFTWARE_VALUE}>
+										Not specified
+									</SelectItem>
+									{field.value && !isKnown ? (
+										<SelectItem value={field.value}>
+											Current selection
+										</SelectItem>
+									) : null}
+									{(software ?? []).map((item) => (
+										<SelectItem
+											key={item._id}
+											value={item._id}
+										>
+											{item.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							{fieldState.error && (
+								<FieldError errors={[fieldState.error]} />
+							)}
+						</Field>
+					)
+				}}
 			/>
 
 			<Controller

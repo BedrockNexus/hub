@@ -24,6 +24,28 @@ crons.daily(
 	{},
 )
 
+// Homepage counters, right after each round of status checks has landed.
+crons.interval(
+	'refresh-site-aggregates',
+	{ minutes: 5 },
+	internal.functions.site.aggregates.refresh,
+	{},
+)
+
+crons.interval(
+	'recompute-project-trending',
+	{ hours: 1 },
+	internal.functions.site.trending.recomputeProjects,
+	{},
+)
+
+crons.interval(
+	'recompute-server-trending',
+	{ hours: 1 },
+	internal.functions.site.trending.recomputeServers,
+	{},
+)
+
 crons.cron(
 	'purge-server-status-history',
 	'15 4 * * *',

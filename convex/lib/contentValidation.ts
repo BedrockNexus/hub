@@ -1,5 +1,6 @@
 import { ConvexError } from 'convex/values'
 import { richTextLength } from '../../lib/rich-text-length'
+import { normalizeTags, tagsProblem } from '../../lib/tags'
 
 /**
  * Server-side counterparts of the client form rules in lib/schemas. Every
@@ -71,6 +72,19 @@ function assertList(label: string, values: readonly string[] | undefined) {
 	if (values === undefined) return
 	if (values.length > LISTING_LIMITS.listMax) fail(`Too many ${label}`)
 	for (const value of values) assertShortText(label, value)
+}
+
+/**
+ * Canonical tags for a create or update payload (see lib/tags.ts), or
+ * undefined when the payload does not touch them.
+ */
+export function normalizeTagsField(values: readonly string[] | undefined) {
+	if (values === undefined) return undefined
+	assertList('tags', values)
+	const tags = normalizeTags(values)
+	const problem = tagsProblem(tags)
+	if (problem) fail(problem)
+	return tags
 }
 
 /** Validates the server fields present in a create or update payload. */

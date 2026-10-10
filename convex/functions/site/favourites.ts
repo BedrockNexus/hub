@@ -2,6 +2,10 @@ import { v } from 'convex/values'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { isPublicProject } from '../../lib/contentVisibility'
+import {
+	adjustProjectFavourites,
+	adjustServerFavourites,
+} from '../../lib/discovery'
 import { resolveCdnObjectUrl } from '../../lib/r2'
 import { enforceRateLimit } from '../../lib/rateLimits'
 
@@ -16,7 +20,7 @@ export const getServerState = query({
 	args: { serverId: v.id('servers') },
 	handler: async (ctx, args) => {
 		const userId = await getCurrentUserId(ctx)
-		const [existing, count] = await Promise.all([
+		const [existing, stats] = await Promise.all([
 			userId
 				? ctx.db
 						.query('favourites')
@@ -26,12 +30,22 @@ export const getServerState = query({
 						.first()
 				: null,
 			ctx.db
-				.query('favourites')
+				.query('serverStats')
 				.withIndex('by_server', (q) => q.eq('serverId', args.serverId))
-				.collect(),
+				.first(),
 		])
+		// Counted on the stats document; older content is counted on demand
+		// until its first save or the discovery backfill.
+		const count =
+			stats?.favouriteCount ??
+			(
+				await ctx.db
+					.query('favourites')
+					.withIndex('by_server', (q) => q.eq('serverId', args.serverId))
+					.collect()
+			).length
 
-		return { isFavourite: Boolean(existing), count: count.length }
+		return { isFavourite: Boolean(existing), count }
 	},
 })
 
@@ -39,7 +53,7 @@ export const getProjectState = query({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {
 		const userId = await getCurrentUserId(ctx)
-		const [existing, count] = await Promise.all([
+		const [existing, stats] = await Promise.all([
 			userId
 				? ctx.db
 						.query('favourites')
@@ -49,12 +63,20 @@ export const getProjectState = query({
 						.first()
 				: null,
 			ctx.db
-				.query('favourites')
+				.query('projectStats')
 				.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-				.collect(),
+				.first(),
 		])
+		const count =
+			stats?.favouriteCount ??
+			(
+				await ctx.db
+					.query('favourites')
+					.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+					.collect()
+			).length
 
-		return { isFavourite: Boolean(existing), count: count.length }
+		return { isFavourite: Boolean(existing), count }
 	},
 })
 
@@ -84,6 +106,7 @@ export const toggleServer = mutation({
 
 		if (existing) {
 			await ctx.db.delete(existing._id)
+			await adjustServerFavourites(ctx, args.serverId, -1)
 			return false
 		}
 
@@ -93,6 +116,7 @@ export const toggleServer = mutation({
 			serverId: args.serverId,
 			createdAt: Date.now(),
 		})
+		await adjustServerFavourites(ctx, args.serverId, 1)
 		return true
 	},
 })
@@ -123,6 +147,7 @@ export const toggleProject = mutation({
 
 		if (existing) {
 			await ctx.db.delete(existing._id)
+			await adjustProjectFavourites(ctx, args.projectId, -1)
 			return false
 		}
 
@@ -132,6 +157,7 @@ export const toggleProject = mutation({
 			projectId: args.projectId,
 			createdAt: Date.now(),
 		})
+		await adjustProjectFavourites(ctx, args.projectId, 1)
 		return true
 	},
 })

@@ -1,21 +1,17 @@
 export const PROJECT_TYPES = ['addon', 'resource_pack'] as const
 
 export type ProjectType = (typeof PROJECT_TYPES)[number]
-export type NormalizedProjectType = ProjectType | 'map'
-export type StoredProjectType = NormalizedProjectType | 'texture_pack'
+export type StoredProjectType = ProjectType | 'texture_pack'
 
-export const PROJECT_TYPE_LABELS: Record<NormalizedProjectType, string> = {
+export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
 	addon: 'Addon',
-	map: 'Map',
 	resource_pack: 'Resource Pack',
 }
 
-export const PROJECT_TYPE_PLURAL_LABELS: Record<NormalizedProjectType, string> =
-	{
-		addon: 'Addons',
-		map: 'Maps',
-		resource_pack: 'Resource Packs',
-	}
+export const PROJECT_TYPE_PLURAL_LABELS: Record<ProjectType, string> = {
+	addon: 'Addons',
+	resource_pack: 'Resource Packs',
+}
 
 export interface ProjectArtifactPolicy {
 	accept: string
@@ -69,38 +65,20 @@ export const PROJECT_RELEASE_POLICIES: Record<
 	},
 }
 
-export function normalizeProjectType(
-	type: StoredProjectType,
-): NormalizedProjectType {
+export function normalizeProjectType(type: StoredProjectType): ProjectType {
 	return type === 'texture_pack' ? 'resource_pack' : type
-}
-
-export function isSupportedProjectType(
-	type: StoredProjectType,
-): type is ProjectType | 'texture_pack' {
-	return normalizeProjectType(type) !== 'map'
-}
-
-export function assertSupportedProjectType(
-	type: StoredProjectType,
-): ProjectType {
-	const normalized = normalizeProjectType(type)
-	if (normalized === 'map') {
-		throw new Error('Maps and worlds are not currently supported')
-	}
-	return normalized
 }
 
 export function getProjectArtifactPolicy(
 	type: StoredProjectType,
 ): ProjectArtifactPolicy {
-	return PROJECT_ARTIFACT_POLICIES[assertSupportedProjectType(type)]
+	return PROJECT_ARTIFACT_POLICIES[normalizeProjectType(type)]
 }
 
 export function getProjectReleasePolicy(
 	type: StoredProjectType,
 ): ProjectReleasePolicy {
-	return PROJECT_RELEASE_POLICIES[assertSupportedProjectType(type)]
+	return PROJECT_RELEASE_POLICIES[normalizeProjectType(type)]
 }
 
 export function getFileExtension(fileName: string): string | null {

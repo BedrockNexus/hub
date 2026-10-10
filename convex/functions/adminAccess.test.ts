@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../_generated/api'
-import { createTest, insertUser, type TestClient } from '../test.setup'
+import { createTest, signIn, type TestClient } from '../test.setup'
 
 type Caller = Pick<TestClient, 'query' | 'mutation'>
 
@@ -44,14 +44,6 @@ const ADMIN_MUTATIONS = {
 }
 
 const ADMIN_FUNCTIONS = { ...ADMIN_QUERIES, ...ADMIN_MUTATIONS }
-
-async function signIn(t: TestClient, label: string, role: 'user' | 'admin') {
-	const identity = await insertUser(t, label, role)
-	return t.withIdentity({
-		...identity,
-		tokenIdentifier: `test|${identity.subject}`,
-	})
-}
 
 describe('admin functions', () => {
 	it.each(Object.entries(ADMIN_FUNCTIONS))(

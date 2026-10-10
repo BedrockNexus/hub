@@ -57,6 +57,7 @@ export function ProjectSidebar(props: {
 	metadata?: ProjectMetadata
 	owner?: Owner
 	publishedAt?: number | null
+	tags?: string[]
 	updatedAt: number
 }) {
 	const links = [
@@ -105,6 +106,16 @@ export function ProjectSidebar(props: {
 							<TagChip key={category._id}>
 								{category.name}
 							</TagChip>
+						))}
+					</div>
+				</SideCard>
+			) : null}
+
+			{props.tags && props.tags.length > 0 ? (
+				<SideCard title="Tags">
+					<div className="flex flex-wrap gap-1.5">
+						{props.tags.map((tag) => (
+							<TagChip key={tag}>{tag}</TagChip>
 						))}
 					</div>
 				</SideCard>

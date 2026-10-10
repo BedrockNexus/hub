@@ -240,6 +240,11 @@ function LiveStatusCard({ server, status, online }: ServerPartProps) {
 				<KeyValue label="Port" mono>
 					{server.port}
 				</KeyValue>
+				{server.software ? (
+					<KeyValue label="Declared software">
+						{server.software.name}
+					</KeyValue>
+				) : null}
 				{server.region ? (
 					<KeyValue label="Region">{server.region}</KeyValue>
 				) : null}

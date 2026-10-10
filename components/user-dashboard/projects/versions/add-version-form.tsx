@@ -38,9 +38,9 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import {
-	assertSupportedProjectType,
 	getProjectArtifactPolicy,
 	getProjectReleasePolicy,
+	normalizeProjectType,
 	type StoredProjectType,
 } from '@/lib/project-artifacts'
 import {
@@ -67,7 +67,7 @@ export function AddVersionForm({
 	)
 
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const normalizedProjectType = assertSupportedProjectType(projectType)
+	const normalizedProjectType = normalizeProjectType(projectType)
 	const releasePolicy = getProjectReleasePolicy(normalizedProjectType)
 
 	const {

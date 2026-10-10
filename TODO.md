@@ -13,15 +13,19 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
   server-side activity recording (dev: done).
 - [ ] Run `npx convex run functions/site/migrations:purgeAnalyticsEvents` once
   analytics data is no longer needed.
-- [ ] Server voting was dropped. Run
-  `npx convex run functions/servers/migrations:clearVoteCounters` in every
-  deployment, then delete the three `totalVotes*` fields from `serverStats` in
-  `convex/schemas/servers.ts`.
-- [ ] Maps were dropped. Run
-  `npx convex run functions/projects/migrations:countLegacyMapContent` in every
-  deployment. Once every count is 0, remove the `map` literal and metadata from
-  `convex/schemas/projects.ts`, `lib/project-metadata.ts`, and the default
-  categories in `convex/functions/projects/migrations.ts`.
+- [ ] Deployments seeded before October 2026 hold ten `map` project
+  categories, a type that no longer exists. The schema push fails on them
+  (`projectCategories ... Value: "map"`). Delete those rows in the Convex
+  dashboard first (production and Jean's dev deployment: done).
+- [ ] Discovery data (listing fields, search text, server software). After
+  deploying Convex, run once per deployment, in this order:
+  - `npx convex run functions/servers/migrations:seedDefaultServerSoftware`
+    adds the default server software list (existing entries are left alone).
+  - `npx convex run functions/site/migrations:backfillDiscovery` fills the
+    listing fields for servers and projects that already exist. Until it has
+    run, existing content is missing from the new indexes.
+  - `npx convex run functions/servers/migrations:rebuildServerDailyStats`
+    builds daily player totals from the status history recorded so far.
 
 ## P1 - Public Catalog API
 

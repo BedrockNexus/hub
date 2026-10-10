@@ -20,7 +20,6 @@ import {
 	isTemporaryR2Key,
 } from '../convex/lib/r2Keys'
 import {
-	assertSupportedProjectType,
 	getProjectArtifactPolicy,
 	getProjectReleasePolicy,
 	normalizeProjectType,
@@ -38,13 +37,6 @@ describe('project artifact policy', () => {
 		expect(
 			validateProjectArtifactFile({ type, fileName, fileSize: 1024 }),
 		).toBeNull()
-	})
-
-	test('rejects maps and worlds as unsupported project types', () => {
-		expect(() => assertSupportedProjectType('map')).toThrow(
-			'Maps and worlds are not currently supported',
-		)
-		expect(() => getProjectArtifactPolicy('map')).toThrow()
 	})
 
 	test('maps the legacy texture pack type to resource packs', () => {

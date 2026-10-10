@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { AddVersionForm } from '@/components/user-dashboard/projects/versions/add-version-form'
 import { api } from '@/convex/_generated/api'
 import { fetchAuthQuery } from '@/lib/auth-server'
-import { assertSupportedProjectType } from '@/lib/project-artifacts'
+import { normalizeProjectType } from '@/lib/project-artifacts'
 
 interface AddVersionPageProps {
 	params: Promise<{ slug: string }>
@@ -18,7 +18,7 @@ export default async function AddVersionPage({ params }: AddVersionPageProps) {
 	if (!project) {
 		notFound()
 	}
-	const projectType = assertSupportedProjectType(project.type)
+	const projectType = normalizeProjectType(project.type)
 
 	return (
 		<div className="space-y-6">

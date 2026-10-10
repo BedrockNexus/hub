@@ -8,6 +8,7 @@ import type { QueryCtx } from '../../_generated/server'
 import { validateImageObjectMetadata } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { isActivityVisible } from '../../lib/activity'
+import { recordAdminAction } from '../../lib/audit'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
 	buildProfileMediaR2ObjectKey,
@@ -472,6 +473,22 @@ export const updateAdminUser = adminMutation({
 				where: [{ field: '_id', value: args.userId }],
 				update,
 			},
+		})
+		await recordAdminAction(ctx, adminUser._id, {
+			action:
+				args.banned === undefined
+					? 'user.role'
+					: args.banned
+						? 'user.ban'
+						: 'user.unban',
+			targetType: 'user',
+			targetId: args.userId,
+			changes: {
+				role: args.role,
+				banned: args.banned,
+				banExpires: args.banned ? args.banExpires : undefined,
+			},
+			reason: args.banned ? args.banReason : undefined,
 		})
 	},
 })

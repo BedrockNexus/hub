@@ -119,6 +119,10 @@ function StepperNavigation({ isSubmitting }: { isSubmitting: boolean }) {
 	)
 }
 
+function optionalSoftwareId(value: string | undefined) {
+	return value ? (value as Id<'serverSoftware'>) : undefined
+}
+
 export function AddServerForm() {
 	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
@@ -257,6 +261,7 @@ export function AddServerForm() {
 					data.gameVersions.length > 0
 						? data.gameVersions
 						: undefined,
+				softwareId: optionalSoftwareId(data.softwareId),
 				organizationId: data.organizationId || undefined,
 			})
 
