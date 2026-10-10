@@ -53,6 +53,49 @@ export const backfillAddressKeys = internalMutation({
 	},
 })
 
+/**
+ * Server voting was dropped from the product. Clears the unused vote counters
+ * so the three `totalVotes*` fields can be deleted from `serverStats` in
+ * schemas/servers.ts. Safe to re-run; it schedules itself until done.
+ *
+ * Run: npx convex run functions/servers/migrations:clearVoteCounters
+ */
+export const clearVoteCounters = internalMutation({
+	args: { cursor: v.optional(v.union(v.string(), v.null())) },
+	returns: v.object({ cleared: v.number() }),
+	handler: async (ctx, args) => {
+		const page = await ctx.db
+			.query('serverStats')
+			.paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE })
+
+		let cleared = 0
+		for (const stats of page.page) {
+			if (
+				stats.totalVotes === undefined &&
+				stats.totalVotesToday === undefined &&
+				stats.totalVotesThisMonth === undefined
+			) {
+				continue
+			}
+			await ctx.db.patch(stats._id, {
+				totalVotes: undefined,
+				totalVotesToday: undefined,
+				totalVotesThisMonth: undefined,
+			})
+			cleared += 1
+		}
+
+		if (!page.isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.migrations.clearVoteCounters,
+				{ cursor: page.continueCursor },
+			)
+		}
+		return { cleared }
+	},
+})
+
 /** Lists address keys shared by more than one server, for manual cleanup. */
 export const listDuplicateAddresses = internalQuery({
 	args: {},

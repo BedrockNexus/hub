@@ -12,9 +12,12 @@ COPY bun.lock package.json ./
 RUN bun install --frozen-lockfile
 
 # Lint, typecheck and unit tests. CI builds this stage first (test-target:
-# test) and only builds, pushes and deploys the image when it passes.
-FROM base AS test
+# test) and only builds, pushes and deploys the image when it passes. The
+# Convex function tests use Vitest, which runs on Node; Bun is copied in to
+# run the package scripts and the `bun test` suites.
+FROM node:22-alpine AS test
 WORKDIR /app
+COPY --from=deps /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN bun run lint && bun run typecheck && bun run test

@@ -8,6 +8,7 @@ import {
 	query,
 } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { adminMutation, adminQuery } from '../../lib/functions'
 import {
 	canEditContent,
 	isAffiliatedWithContent,
@@ -273,13 +274,9 @@ export const getByVersion = query({
  * Releases of public projects waiting for a moderator. Releases of projects
  * still in their first review are approved with the project instead.
  */
-export const listPendingReleases = query({
+export const listPendingReleases = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (user?.role !== 'admin') {
-			throw new ConvexError('Admin role required')
-		}
 		const pending = await ctx.db
 			.query('projectVersions')
 			.withIndex('by_review_status', (q) => q.eq('reviewStatus', 'pending'))
@@ -307,17 +304,15 @@ export const listPendingReleases = query({
  * downloadable on a public project; rejection is final for that release.
  * Admins cannot review releases of projects they own or belong to.
  */
-export const reviewRelease = mutation({
+export const reviewRelease = adminMutation({
 	args: {
 		versionId: v.id('projectVersions'),
 		decision: v.union(v.literal('approved'), v.literal('rejected')),
 		reason: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (user?.role !== 'admin') {
-			throw new ConvexError('Admin role required')
-		}
+		const user = ctx.admin
+
 		const version = await ctx.db.get(args.versionId)
 		if (!version) {
 			throw new ConvexError('Release not found')

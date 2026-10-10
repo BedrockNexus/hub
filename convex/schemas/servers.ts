@@ -260,7 +260,8 @@ export const tables = {
 
 	// ===========================================================================
 	// SERVER STATUS HISTORY (one row per ping for graphs / uptime trends)
-	// Cron `purgeServerStatusHistory` keeps only last 30 days.
+	// Written by status.internalUpdateStatus; the `purge-server-status-history`
+	// cron keeps the last 30 days.
 	// ===========================================================================
 	serverStatusHistory: defineTable({
 		serverId: v.id('servers'),

@@ -24,4 +24,11 @@ crons.daily(
 	{},
 )
 
+crons.cron(
+	'purge-server-status-history',
+	'15 4 * * *',
+	internal.functions.servers.status.purgeStatusHistory,
+	{},
+)
+
 export default crons

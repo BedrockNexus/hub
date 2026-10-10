@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { adminQuery } from '../../lib/functions'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
 import { validateImageObjectMetadata } from '../../lib/media'
@@ -391,26 +392,18 @@ async function buildAdminOrganizationRow(
 	}
 }
 
-async function requireAdminUser(ctx: QueryCtx) {
-	const user = await authComponent.getAuthUser(ctx)
-	if (!user) throw new Error('Not authenticated')
-	if (user.role !== 'admin') throw new Error('Admin role required')
-	return user
-}
-
 /**
  * One page of organizations for the admin table, newest first, with each
  * row built from indexed lookups. `search` matches the start of the slug.
  * `now` is passed by the client so the query stays cacheable.
  */
-export const listAdmin = query({
+export const listAdmin = adminQuery({
 	args: {
 		paginationOpts: paginationOptsValidator,
 		search: v.optional(v.string()),
 		now: v.number(),
 	},
 	handler: async (ctx, args) => {
-		await requireAdminUser(ctx)
 		const search = args.search?.trim().toLowerCase()
 		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'organization',
@@ -469,10 +462,9 @@ async function scanAdapter<T>(
 }
 
 /** Totals for the admin organizations page without loading every row. */
-export const getAdminOrganizationStats = query({
+export const getAdminOrganizationStats = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		await requireAdminUser(ctx)
 		const organizationIds = new Set<string>()
 		const ownedOrganizationIds = new Set<string>()
 		const invitingOrganizationIds = new Set<string>()

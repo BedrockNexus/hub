@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
-import { mutation, query } from '../../_generated/server'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { authComponent } from '../../auth'
+import { query } from '../../_generated/server'
+import type { MutationCtx } from '../../_generated/server'
+import { adminMutation, adminQuery } from '../../lib/functions'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import {
 	buildSiteImageR2ObjectKey,
@@ -92,18 +92,6 @@ async function validateSiteImageUpload(
 	}
 }
 
-async function requireAdmin(ctx: QueryCtx | MutationCtx) {
-	const user = await authComponent.getAuthUser(ctx)
-	if (!user) {
-		throw new Error('You must be logged in to manage settings')
-	}
-	if (user.role !== 'admin') {
-		throw new Error('Only admins can manage settings')
-	}
-
-	return user
-}
-
 async function upsertSetting(
 	ctx: MutationCtx,
 	args: { key: string; value: unknown; description?: string; updatedBy?: string },
@@ -138,9 +126,10 @@ async function upsertSetting(
 // =============================================================================
 
 /**
- * Get a single setting by key
+ * Get a single setting by key. Admin only: settings are not all public, and
+ * the public ones have their own queries (getSeo, getSocials, getFeatures).
  */
-export const get = query({
+export const get = adminQuery({
 	args: { key: v.string() },
 	handler: async (ctx, args) => {
 		return await ctx.db
@@ -151,9 +140,9 @@ export const get = query({
 })
 
 /**
- * Get multiple settings by keys
+ * Get multiple settings by keys (admin only)
  */
-export const getMany = query({
+export const getMany = adminQuery({
 	args: { keys: v.array(v.string()) },
 	handler: async (ctx, args) => {
 		const settings: Record<string, unknown> = {}
@@ -176,11 +165,9 @@ export const getMany = query({
 /**
  * Get all settings (admin use)
  */
-export const getAll = query({
+export const getAll = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		await requireAdmin(ctx)
-
 		return await ctx.db.query('siteSettings').collect()
 	},
 })
@@ -188,11 +175,9 @@ export const getAll = query({
 /**
  * Get admin-editable settings in one call.
  */
-export const getAdmin = query({
+export const getAdmin = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		await requireAdmin(ctx)
-
 		const settings = await ctx.db.query('siteSettings').collect()
 		const byKey = new Map(settings.map((setting) => [setting.key, setting]))
 		const seo = byKey.get('seo')?.value as SeoSettings | undefined
@@ -222,14 +207,14 @@ export const getAdmin = query({
 /**
  * Set a single setting (upsert)
  */
-export const set = mutation({
+export const set = adminMutation({
 	args: {
 		key: v.string(),
 		value: v.any(),
 		description: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdmin(ctx)
+		const user = ctx.admin
 
 		return await upsertSetting(ctx, {
 			key: args.key,
@@ -243,11 +228,9 @@ export const set = mutation({
 /**
  * Delete a setting
  */
-export const remove = mutation({
+export const remove = adminMutation({
 	args: { key: v.string() },
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx)
-
 		const existing = await ctx.db
 			.query('siteSettings')
 			.withIndex('by_key', (q) => q.eq('key', args.key))
@@ -261,13 +244,14 @@ export const remove = mutation({
 	},
 })
 
-export const updateSeo = mutation({
+export const updateSeo = adminMutation({
 	args: {
 		siteDescription: v.string(),
 		ogImageR2Key: v.optional(v.union(v.string(), v.null())),
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdmin(ctx)
+		const user = ctx.admin
+
 		const siteDescription = args.siteDescription.trim()
 
 		if (
@@ -324,7 +308,7 @@ export const updateSeo = mutation({
 	},
 })
 
-export const updateSocials = mutation({
+export const updateSocials = adminMutation({
 	args: {
 		discord: v.optional(v.string()),
 		youtube: v.optional(v.string()),
@@ -333,7 +317,7 @@ export const updateSocials = mutation({
 		tiktok: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdmin(ctx)
+		const user = ctx.admin
 
 		return await upsertSetting(ctx, {
 			key: 'socials',
@@ -344,13 +328,13 @@ export const updateSocials = mutation({
 	},
 })
 
-export const updateFeatures = mutation({
+export const updateFeatures = adminMutation({
 	args: {
 		registrationEnabled: v.boolean(),
 		maintenanceMode: v.boolean(),
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdmin(ctx)
+		const user = ctx.admin
 
 		return await upsertSetting(ctx, {
 			key: 'features',
@@ -361,13 +345,14 @@ export const updateFeatures = mutation({
 	},
 })
 
-export const generateSiteImageUploadUrl = mutation({
+export const generateSiteImageUploadUrl = adminMutation({
 	args: {
 		fileName: v.string(),
 		imageKind: v.literal('open-graph'),
 	},
 	handler: async (ctx, args) => {
-		const user = await requireAdmin(ctx)
+		const user = ctx.admin
+
 		await enforceRateLimit(
 			ctx,
 			'uploadUrl',

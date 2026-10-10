@@ -7,7 +7,6 @@ import {
 	internalAction,
 	internalMutation,
 	internalQuery,
-	mutation,
 	query,
 } from '../../_generated/server'
 import { authComponent } from '../../auth'
@@ -16,6 +15,9 @@ import { enforceRateLimit } from '../../lib/rateLimits'
 
 // Spacing between scheduled status checks (5-minute cron window).
 const PING_STAGGER_MS = 150
+// Raw checks are kept this long; longer trends come from rollups.
+const STATUS_HISTORY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+const STATUS_HISTORY_DELETE_BATCH = 500
 
 const softwareClassificationValidator = v.union(
 	v.literal('native_bedrock'),
@@ -52,6 +54,7 @@ function getStatusApiBaseUrl() {
 interface BedrockStatusApiResponse {
 	error?: string
 	gamemode?: string
+	latencyMs?: number
 	motd?: string
 	online?: boolean
 	players?: {
@@ -88,49 +91,44 @@ interface StatusRefreshResult {
 	lastChecked: number
 }
 
-function getErrorMessage(error: unknown) {
-	return error instanceof Error ? error.message : 'Failed to refresh server status'
-}
-
-async function persistOfflineStatus(
-	ctx: ActionCtx,
-	serverId: Id<'servers'>,
-): Promise<StatusRefreshResult> {
-	await ctx.runMutation(
-		internal.functions.servers.status.internalUpdateStatus,
-		{
-			serverId,
-			online: false,
-		},
+/**
+ * Asks the status API about one server. Returns only a definite answer; throws
+ * when the API could not give one (unreachable, overloaded, or failing), which
+ * says nothing about the server and must never be recorded as downtime.
+ */
+async function fetchServerStatus(
+	server: StatusRefreshServer,
+): Promise<BedrockStatusApiResponse> {
+	const apiUrl = getStatusApiBaseUrl()
+	const apiKey = process.env.BEDROCKNEXUS_API_KEY
+	const response = await fetch(
+		`${apiUrl}/minecraft/status?ip=${encodeURIComponent(server.ipAddress)}&port=${server.port}&timeout=8000`,
+		apiKey ? { headers: { 'X-API-Key': apiKey } } : undefined,
 	)
 
-	return {
-		serverId,
-		status: 'offline',
-		online: false,
-		lastChecked: Date.now(),
+	// The API refused the address (it no longer resolves, or is not public),
+	// so players cannot reach it either.
+	if (response.status === 400) {
+		return { online: false }
 	}
+
+	const data = response.ok
+		? ((await response.json().catch(() => null)) as BedrockStatusApiResponse | null)
+		: null
+	if (typeof data?.online !== 'boolean') {
+		throw new Error(`Status API returned ${response.status}`)
+	}
+	return data
 }
 
 async function pingAndPersistServerStatus(
 	ctx: ActionCtx,
 	server: StatusRefreshServer,
 ): Promise<StatusRefreshResult> {
-	const apiUrl = getStatusApiBaseUrl()
-	const apiKey = process.env.BEDROCKNEXUS_API_KEY
-	const startedAt = Date.now()
-	const response = await fetch(
-		`${apiUrl}/minecraft/status?ip=${encodeURIComponent(server.ipAddress)}&port=${server.port}&timeout=8000`,
-		apiKey ? { headers: { 'X-API-Key': apiKey } } : undefined,
-	)
-	const data = (await response.json()) as BedrockStatusApiResponse
-	const latency = Date.now() - startedAt
-
-	if (!response.ok) {
-		throw new Error(data.error || `Status API returned ${response.status}`)
-	}
-
+	const data = await fetchServerStatus(server)
 	const online = data.online ?? false
+	// Measured by the API around the Bedrock ping itself.
+	const latency = online ? data.latencyMs : undefined
 	await ctx.runMutation(
 		internal.functions.servers.status.internalUpdateStatus,
 		{
@@ -158,7 +156,7 @@ async function pingAndPersistServerStatus(
 		gameMode: online ? data.gamemode : undefined,
 		softwareClassification: online ? data.software?.classification : undefined,
 		softwareReasons: online ? data.software?.reasons : undefined,
-		latency: online ? latency : undefined,
+		latency,
 		lastChecked: Date.now(),
 	}
 }
@@ -227,172 +225,14 @@ export const getStatusBatch = query({
 	},
 })
 
-/**
- * Get all online servers
- */
-export const getOnlineServers = query({
-	args: {},
-	handler: async (ctx) => {
-		return await ctx.db
-			.query('serverStatus')
-			.withIndex('by_online', (q) => q.eq('online', true))
-			.collect()
-	},
-})
-
-
-// =============================================================================
-// SERVER STATUS MUTATIONS
-// =============================================================================
-
-/**
- * Update server status (called after pinging)
- */
-export const updateStatus = mutation({
-	args: {
-		serverId: v.id('servers'),
-		online: v.boolean(),
-		playerCount: v.optional(v.number()),
-		maxPlayers: v.optional(v.number()),
-		motd: v.optional(v.string()),
-		version: v.optional(v.string()),
-		gameMode: v.optional(v.string()),
-		softwareClassification: v.optional(softwareClassificationValidator),
-		softwareReasons: v.optional(v.array(v.string())),
-		latency: v.optional(v.number()),
-	},
-	handler: async (ctx, args) => {
-		const now = Date.now()
-
-		const existing = await ctx.db
-			.query('serverStatus')
-			.withIndex('by_server', (q) => q.eq('serverId', args.serverId))
-			.unique()
-
-		if (existing) {
-			// Update existing record
-			const checksTotal = existing.checksTotal + 1
-			const checksOnline = existing.checksOnline + (args.online ? 1 : 0)
-			const uptimePercent = Math.round((checksOnline / checksTotal) * 100)
-
-			await ctx.db.patch(existing._id, {
-				online: args.online,
-				playerCount: args.online ? (args.playerCount ?? 0) : 0,
-				maxPlayers: args.online
-					? (args.maxPlayers ?? 0)
-					: existing.maxPlayers,
-				motd: args.online ? args.motd : existing.motd,
-				version: args.online ? args.version : existing.version,
-				gameMode: args.online ? args.gameMode : existing.gameMode,
-				softwareClassification: args.online
-					? args.softwareClassification
-					: existing.softwareClassification,
-				softwareReasons: args.online
-					? args.softwareReasons
-					: existing.softwareReasons,
-				latency: args.online ? args.latency : undefined,
-				lastChecked: now,
-				lastOnline: args.online ? now : existing.lastOnline,
-				checksTotal,
-				checksOnline,
-				uptimePercent,
-			})
-
-			return existing._id
-		}
-		// Create new record
-		return await ctx.db.insert('serverStatus', {
-			serverId: args.serverId,
-			online: args.online,
-			playerCount: args.online ? (args.playerCount ?? 0) : 0,
-			maxPlayers: args.online ? (args.maxPlayers ?? 0) : 0,
-			motd: args.motd,
-			version: args.version,
-			gameMode: args.gameMode,
-			softwareClassification: args.softwareClassification,
-			softwareReasons: args.softwareReasons,
-			latency: args.latency,
-			lastChecked: now,
-			lastOnline: args.online ? now : undefined,
-			checksTotal: 1,
-			checksOnline: args.online ? 1 : 0,
-			uptimePercent: args.online ? 100 : 0,
-		})
-	},
-})
-
-/**
- * Mark server as offline (quick update)
- */
-export const markOffline = mutation({
-	args: { serverId: v.id('servers') },
-	handler: async (ctx, args) => {
-		const now = Date.now()
-
-		const existing = await ctx.db
-			.query('serverStatus')
-			.withIndex('by_server', (q) => q.eq('serverId', args.serverId))
-			.unique()
-
-		if (existing) {
-			const checksTotal = existing.checksTotal + 1
-			const uptimePercent = Math.round(
-				(existing.checksOnline / checksTotal) * 100,
-			)
-
-			await ctx.db.patch(existing._id, {
-				online: false,
-				playerCount: 0,
-				latency: undefined,
-				lastChecked: now,
-				checksTotal,
-				uptimePercent,
-			})
-		} else {
-			await ctx.db.insert('serverStatus', {
-				serverId: args.serverId,
-				online: false,
-				playerCount: 0,
-				maxPlayers: 0,
-				lastChecked: now,
-				checksTotal: 1,
-				checksOnline: 0,
-				uptimePercent: 0,
-			})
-		}
-	},
-})
-
-/**
- * Delete status record (when server is deleted)
- */
-export const deleteStatus = mutation({
-	args: { serverId: v.id('servers') },
-	handler: async (ctx, args) => {
-		const existing = await ctx.db
-			.query('serverStatus')
-			.withIndex('by_server', (q) => q.eq('serverId', args.serverId))
-			.unique()
-
-		if (existing) {
-			await ctx.db.delete(existing._id)
-			return true
-		}
-		return false
-	},
-})
-
-// =============================================================================
-// AGGREGATE QUERIES
-// =============================================================================
-
-
 // =============================================================================
 // INTERNAL MUTATIONS (for scheduled jobs)
 // =============================================================================
 
 /**
- * Internal mutation to update server status (called by the cron action)
+ * Records the result of one definite status check: the current status, the
+ * lifetime uptime counters, and a history row. This is the only writer of
+ * server status.
  */
 export const internalUpdateStatus = internalMutation({
 	args: {
@@ -408,7 +248,22 @@ export const internalUpdateStatus = internalMutation({
 		latency: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
+		// A check can finish after its server was deleted.
+		const server = await ctx.db.get(args.serverId)
+		if (!server) {
+			return
+		}
+
 		const now = Date.now()
+
+		await ctx.db.insert('serverStatusHistory', {
+			serverId: args.serverId,
+			online: args.online,
+			playerCount: args.online ? (args.playerCount ?? 0) : 0,
+			maxPlayers: args.online ? args.maxPlayers : undefined,
+			latency: args.online ? args.latency : undefined,
+			checkedAt: now,
+		})
 
 		const existing = await ctx.db
 			.query('serverStatus')
@@ -540,8 +395,10 @@ export const refreshStatus = action({
 		try {
 			return await pingAndPersistServerStatus(ctx, server)
 		} catch (error) {
-			await persistOfflineStatus(ctx, args.serverId)
-			throw new Error(getErrorMessage(error))
+			console.error(`[Status] Could not check ${server.name}:`, error)
+			throw new Error(
+				'The status service could not check this server right now. Please try again shortly.',
+			)
 		}
 	},
 })
@@ -561,8 +418,10 @@ export const pingServer = internalAction({
 		try {
 			return await pingAndPersistServerStatus(ctx, server)
 		} catch (error) {
-			console.error(`[Status] Failed to ping ${server.name}:`, error)
-			return await persistOfflineStatus(ctx, args.serverId)
+			// No answer from the status API: skip this cycle rather than
+			// counting it against the server's uptime.
+			console.error(`[Status] Could not check ${server.name}:`, error)
+			return null
 		}
 	},
 })
@@ -605,5 +464,53 @@ export const getAllActiveServers = internalQuery({
 			.withIndex('by_status', (q) => q.eq('status', 'published'))
 			.collect()
 		return servers.map((server) => ({ _id: server._id }))
+	},
+})
+
+/**
+ * Deletes raw status checks older than the retention window, one batch per
+ * transaction. Called daily by the `purge-server-status-history` cron.
+ */
+export const purgeStatusHistory = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const cutoff = Date.now() - STATUS_HISTORY_RETENTION_MS
+		const expired = await ctx.db
+			.query('serverStatusHistory')
+			.withIndex('by_time', (q) => q.lt('checkedAt', cutoff))
+			.take(STATUS_HISTORY_DELETE_BATCH)
+
+		for (const row of expired) {
+			await ctx.db.delete(row._id)
+		}
+		if (expired.length === STATUS_HISTORY_DELETE_BATCH) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.status.purgeStatusHistory,
+				{},
+			)
+		}
+	},
+})
+
+/** Deletes a removed server's status history, one batch per transaction. */
+export const deleteServerHistory = internalMutation({
+	args: { serverId: v.id('servers') },
+	handler: async (ctx, args) => {
+		const rows = await ctx.db
+			.query('serverStatusHistory')
+			.withIndex('by_server_time', (q) => q.eq('serverId', args.serverId))
+			.take(STATUS_HISTORY_DELETE_BATCH)
+
+		for (const row of rows) {
+			await ctx.db.delete(row._id)
+		}
+		if (rows.length === STATUS_HISTORY_DELETE_BATCH) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.status.deleteServerHistory,
+				{ serverId: args.serverId },
+			)
+		}
 	},
 })

@@ -13,6 +13,15 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
   server-side activity recording (dev: done).
 - [ ] Run `npx convex run functions/site/migrations:purgeAnalyticsEvents` once
   analytics data is no longer needed.
+- [ ] Server voting was dropped. Run
+  `npx convex run functions/servers/migrations:clearVoteCounters` in every
+  deployment, then delete the three `totalVotes*` fields from `serverStats` in
+  `convex/schemas/servers.ts`.
+- [ ] Maps were dropped. Run
+  `npx convex run functions/projects/migrations:countLegacyMapContent` in every
+  deployment. Once every count is 0, remove the `map` literal and metadata from
+  `convex/schemas/projects.ts`, `lib/project-metadata.ts`, and the default
+  categories in `convex/functions/projects/migrations.ts`.
 
 ## P1 - Public Catalog API
 

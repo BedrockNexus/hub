@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { adminMutation, adminQuery } from '../../lib/functions'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import {
@@ -365,13 +366,12 @@ async function deleteServerRelatedRows(
 		await ctx.db.delete(item._id)
 	}
 
-	const history = await ctx.db
-		.query('serverStatusHistory')
-		.withIndex('by_server_time', (q) => q.eq('serverId', serverId))
-		.collect()
-	for (const item of history) {
-		await ctx.db.delete(item._id)
-	}
+	// Up to 30 days of checks: too many rows for this transaction.
+	await ctx.scheduler.runAfter(
+		0,
+		internal.functions.servers.status.deleteServerHistory,
+		{ serverId },
+	)
 }
 
 async function enrichServerDetail(ctx: QueryCtx, server: Doc<'servers'>) {
@@ -725,16 +725,16 @@ export const list = query({
 			.query('servers')
 			.withIndex('by_status', (q) => q.eq('status', 'published'))
 
-		const servers = await serversQuery.take(limit + 1)
-
-		// Filter by category if specified
-		let filteredServers = servers
+		// Categories are not indexed, so a category filter has to scan before
+		// it can limit.
 		const categoryId = args.categoryId
-		if (categoryId !== undefined) {
-			filteredServers = servers.filter((s) =>
-				s.categoryIds.includes(categoryId),
-			)
-		}
+		const servers = await serversQuery.take(
+			categoryId === undefined ? limit + 1 : MAX_SCAN,
+		)
+		const filteredServers =
+			categoryId === undefined
+				? servers
+				: servers.filter((s) => s.categoryIds.includes(categoryId))
 
 		// Get categories and stats for each server
 		const serversWithCategories = await Promise.all(
@@ -765,7 +765,7 @@ export const list = query({
 
 		return {
 			servers: serversWithCategories,
-			hasMore: servers.length > limit,
+			hasMore: filteredServers.length > limit,
 		}
 	},
 })
@@ -1078,15 +1078,11 @@ export const listByOrganization = query({
 /**
  * List servers for admin moderation.
  */
-export const listAdmin = query({
+export const listAdmin = adminQuery({
 	args: {
 		limit: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) throw new Error('Not authenticated')
-		if (user.role !== 'admin') throw new Error('Admin role required')
-
 		const limit = Math.min(args.limit ?? 250, 500)
 		const servers = await ctx.db.query('servers').order('desc').take(limit)
 
@@ -1129,14 +1125,9 @@ export const listAdmin = query({
 	},
 })
 
-export const getAdminReview = query({
+export const getAdminReview = adminQuery({
 	args: { id: v.id('servers') },
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (user.role !== 'admin') {
-			throw new Error('Admin role required')
-		}
-
 		const server = await ctx.db.get(args.id)
 		if (!server) {
 			return null
@@ -1500,7 +1491,7 @@ export const update = mutation({
 /**
  * Admin update for any server
  */
-export const updateAdmin = mutation({
+export const updateAdmin = adminMutation({
 	args: {
 		id: v.id('servers'),
 		name: v.optional(v.string()),
@@ -1523,13 +1514,7 @@ export const updateAdmin = mutation({
 		moderationReason: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) {
-			throw new Error('You must be logged in to update a server')
-		}
-		if (user.role !== 'admin') {
-			throw new Error('You must be an admin to update this server')
-		}
+		const user = ctx.admin
 
 		const server = await ctx.db.get(args.id)
 		if (!server) {

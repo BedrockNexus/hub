@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
-import { mutation, query } from '../../_generated/server'
-import { authComponent } from '../../auth'
+import { query } from '../../_generated/server'
+import { adminMutation, adminQuery } from '../../lib/functions'
 
 // =============================================================================
 // QUERIES
@@ -22,13 +22,9 @@ export const listActive = query({
 /**
  * List all game versions including inactive (admin only)
  */
-export const listAll = query({
+export const listAll = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		const user = await authComponent.safeGetAuthUser(ctx)
-		if (!user || user.role !== 'admin') {
-			throw new Error('Not authorized')
-		}
 		return await ctx.db.query('gameVersions').order('desc').collect()
 	},
 })
@@ -40,16 +36,11 @@ export const listAll = query({
 /**
  * Add a new game version (admin only)
  */
-export const create = mutation({
+export const create = adminMutation({
 	args: {
 		version: v.string(),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user || user.role !== 'admin') {
-			throw new Error('Not authorized')
-		}
-
 		const version = args.version.trim()
 		if (!version) throw new Error('Version is required')
 
@@ -71,16 +62,11 @@ export const create = mutation({
 /**
  * Toggle active status of a game version (admin only)
  */
-export const toggleActive = mutation({
+export const toggleActive = adminMutation({
 	args: {
 		id: v.id('gameVersions'),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user || user.role !== 'admin') {
-			throw new Error('Not authorized')
-		}
-
 		const gv = await ctx.db.get(args.id)
 		if (!gv) throw new Error('Game version not found')
 
@@ -91,16 +77,11 @@ export const toggleActive = mutation({
 /**
  * Delete a game version (admin only)
  */
-export const remove = mutation({
+export const remove = adminMutation({
 	args: {
 		id: v.id('gameVersions'),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user || user.role !== 'admin') {
-			throw new Error('Not authorized')
-		}
-
 		await ctx.db.delete(args.id)
 	},
 })

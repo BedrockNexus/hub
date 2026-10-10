@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
-import { mutation, query } from '../../_generated/server'
-import { authComponent } from '../../auth'
+import { query } from '../../_generated/server'
+import { adminMutation, adminQuery } from '../../lib/functions'
 
 // =============================================================================
 // QUERIES
@@ -89,17 +89,9 @@ export const listWithCounts = query({
 /**
  * List all categories with usage counts for admin taxonomy management.
  */
-export const listAdmin = query({
+export const listAdmin = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) {
-			throw new Error('You must be logged in to view categories')
-		}
-		if (user.role !== 'admin') {
-			throw new Error('Only admins can view categories')
-		}
-
 		const categories = await ctx.db
 			.query('serverCategories')
 			.order('asc')
@@ -147,7 +139,7 @@ function generateSlug(name: string): string {
 /**
  * Create a new category
  */
-export const create = mutation({
+export const create = adminMutation({
 	args: {
 		name: v.string(),
 		description: v.optional(v.string()),
@@ -156,14 +148,6 @@ export const create = mutation({
 		sortOrder: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) {
-			throw new Error('You must be logged in to create categories')
-		}
-		if (user.role !== 'admin') {
-			throw new Error('Only admins can create categories')
-		}
-
 		const slug = generateSlug(args.name)
 
 		// Check for duplicate slug
@@ -191,7 +175,7 @@ export const create = mutation({
 /**
  * Update a category
  */
-export const update = mutation({
+export const update = adminMutation({
 	args: {
 		id: v.id('serverCategories'),
 		name: v.optional(v.string()),
@@ -202,14 +186,6 @@ export const update = mutation({
 		isActive: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) {
-			throw new Error('You must be logged in to update categories')
-		}
-		if (user.role !== 'admin') {
-			throw new Error('Only admins can update categories')
-		}
-
 		const { id, ...updates } = args
 
 		// Update slug if name changed
@@ -236,17 +212,9 @@ export const update = mutation({
 /**
  * Delete a category
  */
-export const remove = mutation({
+export const remove = adminMutation({
 	args: { id: v.id('serverCategories') },
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) {
-			throw new Error('You must be logged in to delete categories')
-		}
-		if (user.role !== 'admin') {
-			throw new Error('Only admins can delete categories')
-		}
-
 		const category = await ctx.db.get(args.id)
 		const usage =
 			category?.serverCount ??

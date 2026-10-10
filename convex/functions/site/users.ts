@@ -3,7 +3,8 @@ import { v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import { adminMutation, adminQuery } from '../../lib/functions'
+import type { QueryCtx } from '../../_generated/server'
 import { validateImageObjectMetadata } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { isActivityVisible } from '../../lib/activity'
@@ -81,13 +82,6 @@ function getAdapterPage<T>(result: unknown): T[] {
 
 function getUserDisplayName(user: BetterAuthUser): string {
 	return user.displayUsername ?? user.username ?? user.name ?? user.email
-}
-
-async function requireAdmin(ctx: QueryCtx | MutationCtx) {
-	const user = await authComponent.getAuthUser(ctx)
-	if (!user) throw new Error('Not authenticated')
-	if (user.role !== 'admin') throw new Error('Admin role required')
-	return user
 }
 
 // =============================================================================
@@ -364,14 +358,15 @@ async function buildAdminUserRow(
  * matches the start of an email address (when it contains "@") or username.
  * `now` is passed by the client so the query stays cacheable.
  */
-export const listAdmin = query({
+export const listAdmin = adminQuery({
 	args: {
 		paginationOpts: paginationOptsValidator,
 		search: v.optional(v.string()),
 		now: v.number(),
 	},
 	handler: async (ctx, args) => {
-		const adminUser = await requireAdmin(ctx)
+		const adminUser = ctx.admin
+
 		const search = args.search?.trim().toLowerCase()
 		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
@@ -409,10 +404,9 @@ const STATS_PAGE_SIZE = 500
 const STATS_MAX_USERS = 10_000
 
 /** Account totals for the admin users page; reads only the user table. */
-export const getAdminUserStats = query({
+export const getAdminUserStats = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		await requireAdmin(ctx)
 		const totals = { total: 0, verified: 0, admins: 0, banned: 0 }
 		let cursor: string | null = null
 		let isDone = false
@@ -437,7 +431,7 @@ export const getAdminUserStats = query({
 /**
  * Guarded admin updates for account role and ban state.
  */
-export const updateAdminUser = mutation({
+export const updateAdminUser = adminMutation({
 	args: {
 		userId: v.string(),
 		role: v.optional(v.union(v.literal('user'), v.literal('admin'))),
@@ -446,7 +440,7 @@ export const updateAdminUser = mutation({
 		banExpires: v.optional(v.union(v.number(), v.null())),
 	},
 	handler: async (ctx, args) => {
-		const adminUser = await requireAdmin(ctx)
+		const adminUser = ctx.admin
 
 		if (
 			args.userId === adminUser._id &&

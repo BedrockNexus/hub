@@ -2,6 +2,7 @@
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { adminMutation, adminQuery } from '../../lib/functions'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
 	moderationStatus as projectModerationStatus,
@@ -15,6 +16,10 @@ import {
 	requiresModerationReason,
 } from '../../lib/contentVisibility'
 import { validateEntityImageUpload } from '../../lib/media'
+import {
+	getPublishedReleaseKey,
+	isPublicRelease,
+} from '../../lib/projectReleases'
 import { r2, resolveCdnObjectUrl, uploadsR2 } from '../../lib/r2'
 import { validateProjectFields } from '../../lib/contentValidation'
 import { afterProjectWrite, recordReleaseActivity } from '../../lib/activity'
@@ -368,11 +373,17 @@ async function enrichProjectDetail(ctx: QueryCtx, item: Doc<'projects'>) {
 	const iconUrl = await resolveProjectIconUrl(item)
 	const bannerUrl = await resolveProjectBannerUrl(item)
 
-	const latestVersion = await ctx.db
+	// Newer releases may still be validating, awaiting review, or rejected;
+	// this result is public, so it must never describe one of those.
+	const recentVersions = await ctx.db
 		.query('projectVersions')
 		.withIndex('by_project', (q) => q.eq('projectId', item._id))
 		.order('desc')
-		.first()
+		.take(50)
+	const latestVersion = recentVersions.find(
+		(release) =>
+			isPublicRelease(release) && Boolean(getPublishedReleaseKey(release)),
+	)
 
 	let ownerData:
 		| {
@@ -970,15 +981,11 @@ export const listByOrganization = query({
 /**
  * List projects for admin moderation.
  */
-export const listAdmin = query({
+export const listAdmin = adminQuery({
 	args: {
 		limit: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) throw new Error('Not authenticated')
-		if (user.role !== 'admin') throw new Error('Admin role required')
-
 		const limit = Math.min(args.limit ?? 250, 500)
 		const items = await ctx.db.query('projects').order('desc').take(limit)
 
@@ -1307,14 +1314,9 @@ export const update = mutation({
 	},
 })
 
-export const getAdminReview = query({
+export const getAdminReview = adminQuery({
 	args: { id: v.id('projects') },
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (user.role !== 'admin') {
-			throw new Error('Admin role required')
-		}
-
 		const project = await ctx.db.get(args.id)
 		if (!project) {
 			return null
@@ -1385,7 +1387,7 @@ export const remove = mutation({
 /**
  * Admin update - toggle status/moderation (no ownership check)
  */
-export const adminUpdate = mutation({
+export const adminUpdate = adminMutation({
 	args: {
 		id: v.id('projects'),
 		status: v.optional(v.union(
@@ -1397,13 +1399,7 @@ export const adminUpdate = mutation({
 		moderationReason: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) {
-			throw new Error('Not authenticated')
-		}
-		if (user.role !== 'admin') {
-			throw new Error('Admin role required')
-		}
+		const user = ctx.admin
 
 		const item = await ctx.db.get(args.id)
 		if (!item) {
@@ -1514,15 +1510,11 @@ export const adminUpdate = mutation({
 /**
  * List projects pending moderation review (admin only)
  */
-export const listPendingModeration = query({
+export const listPendingModeration = adminQuery({
 	args: {
 		limit: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) throw new Error('Not authenticated')
-		if (user.role !== 'admin') throw new Error('Admin role required')
-
 		const limit = args.limit ?? 50
 
 		const items = await ctx.db
@@ -1556,17 +1548,9 @@ export const listPendingModeration = query({
 /**
  * Admin delete - no ownership check
  */
-export const adminRemove = mutation({
+export const adminRemove = adminMutation({
 	args: { id: v.id('projects') },
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) {
-			throw new Error('Not authenticated')
-		}
-		if (user.role !== 'admin') {
-			throw new Error('Admin role required')
-		}
-
 		const item = await ctx.db.get(args.id)
 		if (!item) {
 			throw new Error('Project not found')
