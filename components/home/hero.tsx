@@ -2,7 +2,6 @@ import { CubeIcon, PulseIcon, UserGroupIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { HeroSearch } from '@/components/home/hero-search'
 import { getSiteStats } from '@/lib/site-settings'
 
 export interface HeroCategory {
@@ -40,10 +39,9 @@ export function Hero({ categories }: { categories: HeroCategory[] }) {
 					packs from independent creators.
 				</p>
 				<div className="mt-1 flex w-full flex-col items-center gap-3">
-					<HeroSearch />
 					{chips.length > 0 ? (
 						<nav
-							aria-label="Popular searches"
+							aria-label="Popular categories"
 							className="flex max-w-3xl flex-wrap justify-center gap-2"
 						>
 							{chips.map((chip) => (

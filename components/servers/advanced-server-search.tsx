@@ -14,35 +14,58 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
 import { cn } from '@/lib/utils'
 
-export type SortOption = 'players' | 'rating' | 'newest' | 'name'
+export const SERVER_SORTS = [
+	'players',
+	'trending',
+	'rating',
+	'newest',
+	'saved',
+] as const
+export type SortOption = (typeof SERVER_SORTS)[number]
 
 export interface ServerSearchFilters {
 	query: string
-	categoryIds: Id<'serverCategories'>[]
+	/** Gamemode slugs. */
+	categories: string[]
 	region: string | null
 	onlineOnly: boolean
 	verifiedOnly: boolean
+	/** Server software slug. */
+	software: string | null
+	gameVersion: string | null
+	/** Players online right now; 0 for any. */
+	minPlayers: number
 	sort: SortOption
 }
 
 export const INITIAL_SERVER_FILTERS: ServerSearchFilters = {
 	query: '',
-	categoryIds: [],
+	categories: [],
 	region: null,
 	onlineOnly: false,
 	verifiedOnly: false,
+	software: null,
+	gameVersion: null,
+	minPlayers: 0,
 	sort: 'players',
 }
 
 export const SERVER_SORT_OPTIONS: { value: SortOption; label: string }[] = [
 	{ value: 'players', label: 'Most players' },
+	{ value: 'trending', label: 'Trending' },
 	{ value: 'rating', label: 'Top rated' },
 	{ value: 'newest', label: 'Newest' },
-	{ value: 'name', label: 'A-Z' },
+	{ value: 'saved', label: 'Most saved' },
 ]
+
+const MIN_PLAYER_OPTIONS = [0, 10, 50, 100, 500]
+const ANY = 'all'
+
+function newestVersionFirst(a: string, b: string) {
+	return b.localeCompare(a, undefined, { numeric: true })
+}
 
 interface FilterProps {
 	filters: ServerSearchFilters
@@ -74,7 +97,7 @@ export function ServerSearchField({ filters, onFiltersChange }: FilterProps) {
 			<input
 				className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
 				onChange={(event) => setValue(event.target.value)}
-				placeholder="Search by server name"
+				placeholder="Search by name, gamemode or description"
 				type="search"
 				value={value}
 			/>
@@ -116,25 +139,36 @@ export function ServerFilters({ filters, onFiltersChange }: FilterProps) {
 		{},
 	)
 	const regions = useQuery(api.functions.servers.servers.getRegions, {})
+	const software = useQuery(api.functions.servers.software.listEnabled, {})
+	const gameVersions = useQuery(
+		api.functions.site.gameVersions.listActive,
+		{},
+	)
+	const versions = (gameVersions ?? [])
+		.map((item) => item.version)
+		.sort(newestVersionFirst)
 
 	const update = <K extends keyof ServerSearchFilters>(
 		key: K,
 		value: ServerSearchFilters[K],
 	) => onFiltersChange({ ...filters, [key]: value })
 
-	const toggleCategory = (id: Id<'serverCategories'>) =>
+	const toggleCategory = (slug: string) =>
 		update(
-			'categoryIds',
-			filters.categoryIds.includes(id)
-				? filters.categoryIds.filter((item) => item !== id)
-				: [...filters.categoryIds, id],
+			'categories',
+			filters.categories.includes(slug)
+				? filters.categories.filter((item) => item !== slug)
+				: [...filters.categories, slug],
 		)
 
 	const hasFilters =
-		filters.categoryIds.length > 0 ||
+		filters.categories.length > 0 ||
 		filters.region !== null ||
 		filters.onlineOnly ||
-		filters.verifiedOnly
+		filters.verifiedOnly ||
+		filters.software !== null ||
+		filters.gameVersion !== null ||
+		filters.minPlayers > 0
 
 	return (
 		<aside
@@ -187,6 +221,32 @@ export function ServerFilters({ filters, onFiltersChange }: FilterProps) {
 						}
 					/>
 				</label>
+				<Select
+					onValueChange={(value) =>
+						update('minPlayers', Number(value) || 0)
+					}
+					value={String(filters.minPlayers)}
+				>
+					<SelectTrigger
+						aria-label="Players online"
+						className="mt-1 h-11 w-full"
+					>
+						<SelectValue>
+							{filters.minPlayers > 0
+								? `${filters.minPlayers}+ players online`
+								: 'Any number of players'}
+						</SelectValue>
+					</SelectTrigger>
+					<SelectContent>
+						{MIN_PLAYER_OPTIONS.map((count) => (
+							<SelectItem key={count} value={String(count)}>
+								{count > 0
+									? `${count}+ players online`
+									: 'Any number of players'}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
 			</FilterGroup>
 
 			<FilterGroup title="Gamemode">
@@ -197,9 +257,11 @@ export function ServerFilters({ filters, onFiltersChange }: FilterProps) {
 						key={category._id}
 					>
 						<Checkbox
-							checked={filters.categoryIds.includes(category._id)}
+							checked={filters.categories.includes(category.slug)}
 							id={`filter-category-${category._id}`}
-							onCheckedChange={() => toggleCategory(category._id)}
+							onCheckedChange={() =>
+								toggleCategory(category.slug)
+							}
 						/>
 						<span className="flex-1">{category.name}</span>
 						<span className="font-mono text-muted-foreground text-xs">
@@ -239,11 +301,83 @@ export function ServerFilters({ filters, onFiltersChange }: FilterProps) {
 					</Select>
 				</FilterGroup>
 			) : null}
+
+			{software && software.length > 0 ? (
+				<FilterGroup title="Server software">
+					<Select
+						onValueChange={(value) =>
+							update(
+								'software',
+								value === ANY || !value ? null : value,
+							)
+						}
+						value={filters.software ?? ANY}
+					>
+						<SelectTrigger
+							aria-label="Server software"
+							className="h-11 w-full"
+						>
+							<SelectValue>
+								{software.find(
+									(item) => item.slug === filters.software,
+								)?.name ?? 'Any software'}
+							</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={ANY}>Any software</SelectItem>
+							{software.map((item) => (
+								<SelectItem key={item._id} value={item.slug}>
+									{item.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</FilterGroup>
+			) : null}
+
+			{versions.length > 0 ? (
+				<FilterGroup title="Minecraft version">
+					<Select
+						onValueChange={(value) =>
+							update(
+								'gameVersion',
+								value === ANY || !value ? null : value,
+							)
+						}
+						value={filters.gameVersion ?? ANY}
+					>
+						<SelectTrigger
+							aria-label="Minecraft version"
+							className="h-11 w-full"
+						>
+							<SelectValue>
+								{filters.gameVersion ?? 'Any version'}
+							</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={ANY}>Any version</SelectItem>
+							{versions.map((version) => (
+								<SelectItem key={version} value={version}>
+									{version}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</FilterGroup>
+			) : null}
 		</aside>
 	)
 }
 
 export function ServerSortButtons({ filters, onFiltersChange }: FilterProps) {
+	// Search results come back by relevance, so the sort has no effect there.
+	if (filters.query.trim() !== '') {
+		return (
+			<p className="font-bold font-display text-muted-foreground text-sm">
+				Sorted by best match
+			</p>
+		)
+	}
 	return (
 		<fieldset className="flex flex-wrap gap-1.5">
 			<legend className="sr-only">Sort servers</legend>

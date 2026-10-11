@@ -11,9 +11,9 @@ import { api } from '@/convex/_generated/api'
 const SKELETONS = ['a', 'b', 'c']
 
 export function LatestProjectsSection() {
-	const result = useQuery(api.functions.projects.projects.searchAdvanced, {
+	const result = useQuery(api.functions.projects.listing.browse, {
 		sort: 'newest',
-		limit: 6,
+		paginationOpts: { cursor: null, numItems: 6 },
 	})
 
 	return (
@@ -23,7 +23,7 @@ export function LatestProjectsSection() {
 				linkLabel="All projects"
 				title="Fresh from creators"
 			/>
-			{result !== undefined && result.items.length === 0 ? (
+			{result !== undefined && result.page.length === 0 ? (
 				<p className="rounded-md border border-dashed px-6 py-12 text-center text-muted-foreground">
 					No published projects yet. New addons and resource packs
 					will appear here.
@@ -34,7 +34,7 @@ export function LatestProjectsSection() {
 						? SKELETONS.map((key) => (
 								<ProjectCardSkeleton key={key} />
 							))
-						: result.items.map((project) => (
+						: result.page.map((project) => (
 								<ProjectCard
 									content={project}
 									key={project._id}

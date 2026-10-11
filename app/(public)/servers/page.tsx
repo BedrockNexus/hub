@@ -1,13 +1,21 @@
 'use client'
 
 import { useQuery } from 'convex/react'
+import { usePaginatedQuery } from 'convex-helpers/react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import {
+	parseAsArrayOf,
+	parseAsBoolean,
+	parseAsInteger,
+	parseAsString,
+	parseAsStringLiteral,
+	useQueryStates,
+} from 'nuqs'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { PageShell } from '@/components/page-shell'
-import { PublicListingPagination } from '@/components/public-listing-pagination'
 import {
 	INITIAL_SERVER_FILTERS,
+	SERVER_SORTS,
 	ServerFilters,
 	ServerSearchField,
 	type ServerSearchFilters,
@@ -20,59 +28,93 @@ import { api } from '@/convex/_generated/api'
 const PAGE_SIZE = 24
 const SKELETONS = ['1', '2', '3', '4', '5', '6']
 
+// Every filter lives in the URL, so a filtered listing can be shared.
+// `category` holds gamemode slugs, as the homepage links already do.
+const urlFilters = {
+	q: parseAsString.withDefault(''),
+	sort: parseAsStringLiteral(SERVER_SORTS).withDefault('players'),
+	category: parseAsArrayOf(parseAsString).withDefault([]),
+	region: parseAsString,
+	online: parseAsBoolean.withDefault(false),
+	verified: parseAsBoolean.withDefault(false),
+	software: parseAsString,
+	version: parseAsString,
+	players: parseAsInteger.withDefault(0),
+}
+
 function ServersDirectory() {
-	const params = useSearchParams()
-	const [filters, setFilters] = useState<ServerSearchFilters>(() => ({
-		...INITIAL_SERVER_FILTERS,
-		query: params.get('q') ?? '',
-	}))
-	const [cursor, setCursor] = useState(0)
+	const [url, setUrl] = useQueryStates(urlFilters, { history: 'replace' })
+	// How many results the visitor has asked to see so far.
+	const [wanted, setWanted] = useState(PAGE_SIZE)
 
-	// `?category=<slug>` from the homepage chips and gamemode tiles.
-	const categories = useQuery(api.functions.servers.categories.list, {})
-	const appliedCategory = useRef(false)
-	useEffect(() => {
-		const slug = params.get('category')
-		if (appliedCategory.current || !slug || !categories) {
-			return
-		}
-		appliedCategory.current = true
-		const match = categories.find((category) => category.slug === slug)
-		if (match) {
-			setFilters((current) => ({ ...current, categoryIds: [match._id] }))
-		}
-	}, [params, categories])
+	const filters: ServerSearchFilters = useMemo(
+		() => ({
+			query: url.q,
+			sort: url.sort,
+			categories: url.category,
+			region: url.region,
+			onlineOnly: url.online,
+			verifiedOnly: url.verified,
+			software: url.software,
+			gameVersion: url.version,
+			minPlayers: Math.max(0, url.players),
+		}),
+		[url],
+	)
 
-	const handleFiltersChange = useCallback((next: ServerSearchFilters) => {
-		setFilters(next)
-		setCursor(0)
-	}, [])
+	const handleFiltersChange = useCallback(
+		(next: ServerSearchFilters) => {
+			setWanted(PAGE_SIZE)
+			setUrl({
+				q: next.query,
+				sort: next.sort,
+				category: next.categories,
+				region: next.region,
+				online: next.onlineOnly,
+				verified: next.verifiedOnly,
+				software: next.software,
+				version: next.gameVersion,
+				players: next.minPlayers,
+			})
+		},
+		[setUrl],
+	)
 
-	const results = useQuery(api.functions.servers.servers.searchAdvanced, {
-		query: filters.query || undefined,
-		categoryIds:
-			filters.categoryIds.length > 0 ? filters.categoryIds : undefined,
-		region: filters.region ?? undefined,
-		statusFilter: filters.onlineOnly ? 'online' : undefined,
-		verifiedOnly: filters.verifiedOnly || undefined,
-		sort: filters.sort,
-		limit: PAGE_SIZE,
-		cursor,
-	})
+	const { results, status, loadMore } = usePaginatedQuery(
+		api.functions.servers.listing.browse,
+		{
+			query: filters.query || undefined,
+			sort: filters.sort,
+			categories:
+				filters.categories.length > 0 ? filters.categories : undefined,
+			region: filters.region ?? undefined,
+			onlineOnly: filters.onlineOnly || undefined,
+			verifiedOnly: filters.verifiedOnly || undefined,
+			software: filters.software ?? undefined,
+			gameVersion: filters.gameVersion ?? undefined,
+			minPlayers: filters.minPlayers || undefined,
+		},
+		{ initialNumItems: PAGE_SIZE },
+	)
 	const stats = useQuery(api.functions.site.settings.getStats, {})
 
-	const handlePageChange = (next: number) => {
-		setCursor(next)
-		document
-			.getElementById('server-results')
-			?.scrollIntoView({ block: 'start' })
-	}
+	// A load can come back short when filters reject most of what it read,
+	// so keep going until the visitor has what they asked for.
+	useEffect(() => {
+		if (status === 'CanLoadMore' && results.length < wanted) {
+			loadMore(PAGE_SIZE)
+		}
+	}, [status, results.length, wanted, loadMore])
+
+	const isExhausted = status === 'Exhausted'
+	const isSearching = !isExhausted && results.length < wanted
+	const isLoading = results.length === 0 && !isExhausted
 
 	const renderResults = () => {
-		if (results === undefined) {
+		if (isLoading) {
 			return SKELETONS.map((key) => <ServerRowSkeleton key={key} />)
 		}
-		if (results.servers.length === 0) {
+		if (results.length === 0) {
 			return (
 				<div className="flex flex-col items-center gap-3 rounded-md border border-dashed px-6 py-14 text-center">
 					<h2 className="font-bold text-xl">No servers found</h2>
@@ -92,20 +134,26 @@ function ServersDirectory() {
 		}
 		return (
 			<>
-				{results.servers.map((server, index) => (
+				{results.map((server, index) => (
 					<ServerRow
 						key={server._id}
-						rank={cursor + index + 1}
+						rank={index + 1}
 						server={server}
 					/>
 				))}
-				<PublicListingPagination
-					cursor={cursor}
-					hasMore={results.hasMore}
-					onPageChange={handlePageChange}
-					pageSize={PAGE_SIZE}
-					totalCount={results.totalCount}
-				/>
+				{isExhausted ? null : (
+					<div className="mt-4 flex justify-center border-t pt-6">
+						<Button
+							disabled={isSearching}
+							onClick={() =>
+								setWanted(results.length + PAGE_SIZE)
+							}
+							variant="outline"
+						>
+							{isSearching ? 'Loading...' : 'Load more servers'}
+						</Button>
+					</div>
+				)}
 			</>
 		)
 	}
@@ -148,15 +196,16 @@ function ServersDirectory() {
 				>
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<p aria-live="polite" className="text-muted-foreground">
-							{results ? (
-								<>
-									<strong className="text-foreground">
-										{results.totalCount.toLocaleString()}
-									</strong>{' '}
-									server{results.totalCount === 1 ? '' : 's'}
-								</>
-							) : (
+							{isLoading ? (
 								'Loading servers…'
+							) : (
+								<>
+									{isExhausted ? null : 'First '}
+									<strong className="text-foreground">
+										{results.length.toLocaleString()}
+									</strong>{' '}
+									server{results.length === 1 ? '' : 's'}
+								</>
 							)}
 						</p>
 						<ServerSortButtons

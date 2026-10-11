@@ -52,14 +52,49 @@ import {
 	PROJECT_TYPES,
 	type ProjectType,
 } from '@/lib/project-artifacts'
+import { normalizeTag } from '@/lib/tags'
 
-export type ProjectSortOption = 'newest' | 'name' | 'rating' | 'downloads'
+export const PROJECT_SORTS = [
+	'downloads',
+	'trending',
+	'updated',
+	'newest',
+	'rating',
+	'saved',
+] as const
+export type ProjectSortOption = (typeof PROJECT_SORTS)[number]
+
+export const PROJECT_UPDATED_FILTERS = [
+	'any',
+	'week',
+	'month',
+	'quarter',
+	'year',
+] as const
+export type ProjectUpdatedFilter = (typeof PROJECT_UPDATED_FILTERS)[number]
+
+export const MAX_TAG_FILTERS = 5
 
 export interface ProjectSearchFilters extends ProjectTypeFilterValues {
 	query: string
 	categoryIds: Id<'projectCategories'>[]
 	type: 'all' | ProjectType
 	sort: ProjectSortOption
+	/** A Minecraft version, or an empty string for any. */
+	gameVersion: string
+	tags: string[]
+	updated: ProjectUpdatedFilter
+}
+
+export const EMPTY_PROJECT_FILTERS: ProjectSearchFilters = {
+	query: '',
+	categoryIds: [],
+	type: 'all',
+	sort: 'downloads',
+	gameVersion: '',
+	tags: [],
+	updated: 'any',
+	...EMPTY_PROJECT_TYPE_FILTERS,
 }
 
 interface AdvancedProjectSearchProps {
@@ -68,16 +103,32 @@ interface AdvancedProjectSearchProps {
 }
 
 const sortOptions: { value: ProjectSortOption; label: string }[] = [
-	{ value: 'downloads', label: 'Most Downloads' },
+	{ value: 'downloads', label: 'Most downloaded' },
+	{ value: 'trending', label: 'Trending' },
+	{ value: 'updated', label: 'Recently updated' },
 	{ value: 'newest', label: 'Newest' },
-	{ value: 'name', label: 'Name (A-Z)' },
-	{ value: 'rating', label: 'Top Rated' },
+	{ value: 'rating', label: 'Top rated' },
+	{ value: 'saved', label: 'Most saved' },
+]
+
+const updatedOptions: { value: ProjectUpdatedFilter; label: string }[] = [
+	{ value: 'any', label: 'Updated any time' },
+	{ value: 'week', label: 'Updated this week' },
+	{ value: 'month', label: 'Updated this month' },
+	{ value: 'quarter', label: 'Updated in 3 months' },
+	{ value: 'year', label: 'Updated this year' },
 ]
 
 const typeOptions = PROJECT_TYPES.map((value) => ({
 	value,
 	label: PROJECT_TYPE_PLURAL_LABELS[value],
 }))
+
+const ANY_VERSION = 'any'
+
+function newestVersionFirst(a: string, b: string) {
+	return b.localeCompare(a, undefined, { numeric: true })
+}
 
 export function AdvancedProjectSearch({
 	filters,
@@ -86,8 +137,13 @@ export function AdvancedProjectSearch({
 	const categories = useQuery(api.functions.projects.categories.list, {
 		projectType: filters.type === 'all' ? undefined : filters.type,
 	})
+	const gameVersions = useQuery(
+		api.functions.site.gameVersions.listActive,
+		{},
+	)
 
 	const [searchInput, setSearchInput] = useState(filters.query)
+	const [tagInput, setTagInput] = useState('')
 	const [categoryOpen, setCategoryOpen] = useState(false)
 
 	// Debounced search
@@ -120,26 +176,41 @@ export function AdvancedProjectSearch({
 		updateFilter('categoryIds', newCategories)
 	}
 
+	const addTag = () => {
+		const tag = normalizeTag(tagInput)
+		setTagInput('')
+		if (
+			tag &&
+			!filters.tags.includes(tag) &&
+			filters.tags.length < MAX_TAG_FILTERS
+		) {
+			updateFilter('tags', [...filters.tags, tag])
+		}
+	}
+
 	const clearFilters = () => {
 		setSearchInput('')
-		onFiltersChange({
-			query: '',
-			categoryIds: [],
-			type: 'all',
-			sort: 'downloads',
-			...EMPTY_PROJECT_TYPE_FILTERS,
-		})
+		setTagInput('')
+		onFiltersChange(EMPTY_PROJECT_FILTERS)
 	}
 
 	const hasActiveFilters =
 		filters.query ||
 		filters.categoryIds.length > 0 ||
 		filters.type !== 'all' ||
+		filters.gameVersion ||
+		filters.tags.length > 0 ||
+		filters.updated !== 'any' ||
 		hasProjectTypeFilters(filters)
 
 	const selectedCategories = categories?.filter((c) =>
 		filters.categoryIds.includes(c._id),
 	)
+	const versionOptions = (gameVersions ?? [])
+		.map((item) => item.version)
+		.sort(newestVersionFirst)
+	// Search results come back by relevance, so the sort has no effect there.
+	const isSearching = filters.query.trim() !== ''
 
 	return (
 		<div className="space-y-4">
@@ -149,6 +220,7 @@ export function AdvancedProjectSearch({
 					<HugeiconsIcon icon={SearchIcon} />
 				</InputGroupAddon>
 				<InputGroupInput
+					aria-label="Search projects"
 					onChange={(e) => setSearchInput(e.target.value)}
 					placeholder="Search projects..."
 					value={searchInput}
@@ -181,7 +253,10 @@ export function AdvancedProjectSearch({
 					}
 					value={filters.type}
 				>
-					<SelectTrigger className="w-full sm:w-auto">
+					<SelectTrigger
+						aria-label="Project type"
+						className="w-full sm:w-auto"
+					>
 						<HugeiconsIcon icon={Package01Icon} />
 						<SelectValue>
 							{filters.type === 'all'
@@ -257,19 +332,104 @@ export function AdvancedProjectSearch({
 					</PopoverContent>
 				</Popover>
 
+				{/* Minecraft version */}
+				<Select
+					onValueChange={(value) =>
+						updateFilter(
+							'gameVersion',
+							value === ANY_VERSION ? '' : (value as string),
+						)
+					}
+					value={filters.gameVersion || ANY_VERSION}
+				>
+					<SelectTrigger
+						aria-label="Minecraft version"
+						className="w-full sm:w-auto"
+					>
+						<SelectValue>
+							{filters.gameVersion
+								? `Minecraft ${filters.gameVersion}`
+								: 'Any version'}
+						</SelectValue>
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value={ANY_VERSION}>Any version</SelectItem>
+						{versionOptions.map((version) => (
+							<SelectItem key={version} value={version}>
+								{version}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+
+				{/* Last updated */}
+				<Select
+					onValueChange={(value) =>
+						updateFilter('updated', value as ProjectUpdatedFilter)
+					}
+					value={filters.updated}
+				>
+					<SelectTrigger
+						aria-label="Last updated"
+						className="w-full sm:w-auto"
+					>
+						<SelectValue>
+							{
+								updatedOptions.find(
+									(option) =>
+										option.value === filters.updated,
+								)?.label
+							}
+						</SelectValue>
+					</SelectTrigger>
+					<SelectContent>
+						{updatedOptions.map((option) => (
+							<SelectItem key={option.value} value={option.value}>
+								{option.label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+
+				{/* Tags */}
+				<form
+					className="w-full sm:w-40"
+					onSubmit={(event) => {
+						event.preventDefault()
+						addTag()
+					}}
+				>
+					<InputGroup>
+						<InputGroupInput
+							aria-label="Filter by tag"
+							disabled={filters.tags.length >= MAX_TAG_FILTERS}
+							onChange={(e) => setTagInput(e.target.value)}
+							placeholder="Add a tag..."
+							value={tagInput}
+						/>
+					</InputGroup>
+				</form>
+
 				<Separator className="hidden sm:block" orientation="vertical" />
 
 				{/* Sort */}
 				<Select
+					disabled={isSearching}
 					onValueChange={(value) =>
 						updateFilter('sort', value as ProjectSortOption)
 					}
 					value={filters.sort}
 				>
-					<SelectTrigger className="w-full sm:w-auto">
+					<SelectTrigger
+						aria-label="Sort by"
+						className="w-full sm:w-auto"
+					>
 						<SelectValue>
-							{sortOptions.find((o) => o.value === filters.sort)
-								?.label ?? 'Sort by'}
+							{isSearching
+								? 'Best match'
+								: (sortOptions.find(
+										(o) => o.value === filters.sort,
+									)?.label ?? 'Sort by')}
 						</SelectValue>
 					</SelectTrigger>
 					<SelectContent>
@@ -298,10 +458,11 @@ export function AdvancedProjectSearch({
 				)}
 			</div>
 
-			{/* Active category badges */}
-			{selectedCategories && selectedCategories.length > 0 && (
+			{/* Active category and tag badges */}
+			{((selectedCategories && selectedCategories.length > 0) ||
+				filters.tags.length > 0) && (
 				<div className="flex flex-wrap gap-2">
-					{selectedCategories.map((category) => (
+					{selectedCategories?.map((category) => (
 						<Badge
 							className="gap-1 pr-1"
 							key={category._id}
@@ -312,6 +473,34 @@ export function AdvancedProjectSearch({
 								aria-label={`Remove ${category.name} filter`}
 								className="size-4 hover:bg-transparent"
 								onClick={() => toggleCategory(category._id)}
+								size="icon"
+								variant="ghost"
+							>
+								<HugeiconsIcon
+									className="size-3"
+									icon={Cancel01Icon}
+								/>
+							</Button>
+						</Badge>
+					))}
+					{filters.tags.map((tag) => (
+						<Badge
+							className="gap-1 pr-1"
+							key={tag}
+							variant="outline"
+						>
+							#{tag}
+							<Button
+								aria-label={`Remove ${tag} tag filter`}
+								className="size-4 hover:bg-transparent"
+								onClick={() =>
+									updateFilter(
+										'tags',
+										filters.tags.filter(
+											(item) => item !== tag,
+										),
+									)
+								}
 								size="icon"
 								variant="ghost"
 							>

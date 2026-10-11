@@ -33,6 +33,7 @@ import type * as functions_projects_artifactValidation from "../functions/projec
 import type * as functions_projects_categories from "../functions/projects/categories.js";
 import type * as functions_projects_gallery from "../functions/projects/gallery.js";
 import type * as functions_projects_index from "../functions/projects/index.js";
+import type * as functions_projects_listing from "../functions/projects/listing.js";
 import type * as functions_projects_migrations from "../functions/projects/migrations.js";
 import type * as functions_projects_projects from "../functions/projects/projects.js";
 import type * as functions_projects_reviews from "../functions/projects/reviews.js";
@@ -40,6 +41,7 @@ import type * as functions_projects_versions from "../functions/projects/version
 import type * as functions_servers_categories from "../functions/servers/categories.js";
 import type * as functions_servers_gallery from "../functions/servers/gallery.js";
 import type * as functions_servers_index from "../functions/servers/index.js";
+import type * as functions_servers_listing from "../functions/servers/listing.js";
 import type * as functions_servers_migrations from "../functions/servers/migrations.js";
 import type * as functions_servers_reviews from "../functions/servers/reviews.js";
 import type * as functions_servers_servers from "../functions/servers/servers.js";
@@ -131,6 +133,7 @@ declare const fullApi: ApiFromModules<{
   "functions/projects/categories": typeof functions_projects_categories;
   "functions/projects/gallery": typeof functions_projects_gallery;
   "functions/projects/index": typeof functions_projects_index;
+  "functions/projects/listing": typeof functions_projects_listing;
   "functions/projects/migrations": typeof functions_projects_migrations;
   "functions/projects/projects": typeof functions_projects_projects;
   "functions/projects/reviews": typeof functions_projects_reviews;
@@ -138,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   "functions/servers/categories": typeof functions_servers_categories;
   "functions/servers/gallery": typeof functions_servers_gallery;
   "functions/servers/index": typeof functions_servers_index;
+  "functions/servers/listing": typeof functions_servers_listing;
   "functions/servers/migrations": typeof functions_servers_migrations;
   "functions/servers/reviews": typeof functions_servers_reviews;
   "functions/servers/servers": typeof functions_servers_servers;

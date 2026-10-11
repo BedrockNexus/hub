@@ -11,9 +11,9 @@ import { api } from '@/convex/_generated/api'
 const SKELETONS = ['a', 'b', 'c', 'd']
 
 export function LatestServersSection() {
-	const result = useQuery(api.functions.servers.servers.searchAdvanced, {
+	const result = useQuery(api.functions.servers.listing.browse, {
 		sort: 'players',
-		limit: 4,
+		paginationOpts: { cursor: null, numItems: 4 },
 	})
 
 	return (
@@ -23,7 +23,7 @@ export function LatestServersSection() {
 				linkLabel="All servers"
 				title="Servers worth joining"
 			/>
-			{result !== undefined && result.servers.length === 0 ? (
+			{result !== undefined && result.page.length === 0 ? (
 				<p className="rounded-md border border-dashed px-6 py-12 text-center text-muted-foreground">
 					No published servers yet. The first community listings will
 					appear here.
@@ -34,7 +34,7 @@ export function LatestServersSection() {
 						? SKELETONS.map((key) => (
 								<ServerCardSkeleton key={key} />
 							))
-						: result.servers.map((server) => (
+						: result.page.map((server) => (
 								<ServerCard key={server._id} server={server} />
 							))}
 				</div>

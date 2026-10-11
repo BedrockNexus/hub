@@ -118,6 +118,7 @@ query    functions/projects/categories:listAdmin
 query    functions/projects/categories:listWithCounts
 query    functions/projects/gallery:listMine
 query    functions/projects/gallery:listPublic
+query    functions/projects/listing:browse
 query    functions/projects/projects:getAdminReview
 query    functions/projects/projects:getBySlug
 query    functions/projects/projects:getPublishedBySlug
@@ -143,6 +144,7 @@ query    functions/servers/categories:listAdmin
 query    functions/servers/categories:listWithCounts
 query    functions/servers/gallery:listMine
 query    functions/servers/gallery:listPublic
+query    functions/servers/listing:browse
 query    functions/servers/reviews:getStats
 query    functions/servers/reviews:getUserReview
 query    functions/servers/reviews:list

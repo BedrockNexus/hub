@@ -18,7 +18,10 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
   (`projectCategories ... Value: "map"`). Delete those rows in the Convex
   dashboard first (production and Jean's dev deployment: done).
 - [ ] Discovery data (listing fields, search text, server software). After
-  deploying Convex, run once per deployment, in this order:
+  deploying Convex, run once per deployment, in this order. **Production has
+  not run these yet (checked 2026-10-11) and must before the rebuilt
+  `/projects` and `/servers` listings go live: they only show content that
+  has these fields.**
   - `npx convex run functions/servers/migrations:seedDefaultServerSoftware`
     adds the default server software list (existing entries are left alone).
   - `npx convex run functions/site/migrations:backfillDiscovery` fills the
@@ -35,6 +38,12 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
   deployment to move the pictures that were saved inline as data URLs (dev:
   one avatar and one logo; production: two avatars). Until it has run, those
   accounts keep their inline picture and show none in creator search.
+
+- [ ] Once the web app using `projects/listing:browse` and
+  `servers/listing:browse` is live, delete the old `searchAdvanced`, `list`
+  and `search` queries (and `MAX_SCAN`) from
+  `convex/functions/projects/projects.ts` and
+  `convex/functions/servers/servers.ts`, and move the sitemap off `list`.
 
 ## P1 - Public Catalog API
 
