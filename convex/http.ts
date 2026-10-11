@@ -1,6 +1,7 @@
 import { httpRouter } from 'convex/server'
 import { httpAction } from './_generated/server'
 import { createAuth } from './auth'
+import { githubWebhook } from './functions/plugins/github/webhookHttp'
 import {
 	AUTH_CLIENT_IP_HEADER,
 	AUTH_PROXY_SECRET_HEADER,
@@ -63,6 +64,14 @@ http.route({
 			`${process.env.CONVEX_SITE_URL}${AUTH_BASE_PATH}/convex/.well-known/openid-configuration`,
 		)
 	}),
+})
+
+// GitHub App deliveries for the plugin registry; signature-checked in the
+// handler.
+http.route({
+	path: '/github/webhooks',
+	method: 'POST',
+	handler: githubWebhook,
 })
 
 export default http

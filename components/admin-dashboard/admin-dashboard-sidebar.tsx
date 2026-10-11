@@ -5,6 +5,7 @@ import {
 	GridIcon,
 	OfficeIcon,
 	Package01Icon,
+	PlugSocketIcon,
 	PuzzleIcon,
 	ServerStack03Icon,
 	Settings01Icon,
@@ -33,6 +34,12 @@ const data = {
 			title: 'Projects',
 			url: '/admin/projects',
 			icon: PuzzleIcon,
+		},
+		{
+			title: 'Plugins',
+			url: '/admin/plugins',
+			icon: PlugSocketIcon,
+			exactMatch: true,
 		},
 	],
 	navPeople: [
@@ -65,6 +72,16 @@ const data = {
 		},
 	],
 	navSystem: [
+		{
+			title: 'Plugin Workflows',
+			url: '/admin/plugins/workflows',
+			icon: PlugSocketIcon,
+		},
+		{
+			title: 'GitHub Deliveries',
+			url: '/admin/plugins/deliveries',
+			icon: PlugSocketIcon,
+		},
 		{
 			title: 'Settings',
 			url: '/admin/settings',

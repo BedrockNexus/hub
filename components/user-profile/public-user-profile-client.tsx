@@ -21,6 +21,7 @@ import { RoleBadgeList } from '@/components/auth/role-badge'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import { ensureHttpUrl, SideCard } from '@/components/detail/detail-parts'
 import { ShareButton } from '@/components/detail/public-actions'
+import { ProjectList } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -103,6 +104,20 @@ function ProfileSkeleton() {
 	)
 }
 
+const NO_PLUGINS = { projects: [], totalDownloads: 0 }
+
+/** A creator's published plugins, empty while the Plugins feature is switched off. */
+function useCreatorPlugins(username: string) {
+	const pluginsEnabled =
+		useQuery(api.functions.site.settings.getFeatures, {})
+			?.pluginsEnabled === true
+	const plugins = useQuery(
+		api.functions.plugins.catalog.listByUsername,
+		pluginsEnabled && username ? { username } : 'skip',
+	)
+	return plugins ?? NO_PLUGINS
+}
+
 export default function PublicUserProfilePage() {
 	const params = useParams()
 	const username = (params.username as string)?.trim() ?? ''
@@ -110,6 +125,7 @@ export default function PublicUserProfilePage() {
 		api.functions.site.users.getPublicProfileByUsername,
 		username ? { username } : 'skip',
 	)
+	const plugins = useCreatorPlugins(username)
 
 	if (profile === undefined) {
 		return <ProfileSkeleton />
@@ -243,9 +259,18 @@ export default function PublicUserProfilePage() {
 					<div className="flex flex-wrap gap-3">
 						<Stat label="Projects" value={profile.stats.projects} />
 						<Stat label="Servers" value={profile.stats.servers} />
+						{plugins.projects.length > 0 ? (
+							<Stat
+								label="Plugins"
+								value={plugins.projects.length}
+							/>
+						) : null}
 						<Stat
 							label="Total downloads"
-							value={profile.stats.totalDownloads}
+							value={
+								profile.stats.totalDownloads +
+								plugins.totalDownloads
+							}
 						/>
 						<Stat
 							label="Reviews written"
@@ -274,6 +299,12 @@ export default function PublicUserProfilePage() {
 							</p>
 						)}
 					</section>
+					{plugins.projects.length > 0 ? (
+						<section className="flex flex-col gap-4">
+							<h2 className="font-bold text-2xl">Plugins</h2>
+							<ProjectList projects={plugins.projects} />
+						</section>
+					) : null}
 					<section className="flex flex-col gap-4">
 						<h2 className="font-bold text-2xl">Servers</h2>
 						{profile.servers.length > 0 ? (

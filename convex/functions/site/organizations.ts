@@ -1,12 +1,13 @@
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { components } from '../../_generated/api'
-import { mutation, query } from '../../_generated/server'
+import { action, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { adminQuery } from '../../lib/functions'
-import type { MutationCtx, QueryCtx } from '../../_generated/server'
+import type { ActionCtx, MutationCtx, QueryCtx } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
 import { validateImageObjectMetadata } from '../../lib/media'
+import { confirmOwnerPictureUpload } from '../../lib/ownerPictures'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import {
 	buildOrganizationMediaR2ObjectKey,
@@ -67,7 +68,7 @@ function getUserDisplayName(user: BetterAuthUser | undefined): string {
 }
 
 async function requireOrganizationMember(
-	ctx: MutationCtx | QueryCtx,
+	ctx: ActionCtx | MutationCtx | QueryCtx,
 	organizationId: string,
 ) {
 	const user = await authComponent.getAuthUser(ctx)
@@ -255,6 +256,44 @@ export const generateBannerUploadUrl = mutation({
 			fileName: args.fileName,
 		})
 		return r2.generateUploadUrl(key)
+	},
+})
+
+export const generateLogoUploadUrl = mutation({
+	args: { organizationId: v.string(), fileName: v.string() },
+	returns: v.object({ key: v.string(), url: v.string() }),
+	handler: async (ctx, args) => {
+		const { user } = await requireOrganizationMember(ctx, args.organizationId)
+		await enforceRateLimit(
+			ctx,
+			'uploadUrl',
+			user._id,
+			'Too many upload requests. Please wait before uploading again.',
+		)
+		const key = buildOrganizationMediaR2ObjectKey({
+			organizationId: args.organizationId,
+			mediaKind: 'logo',
+			fileName: args.fileName,
+		})
+		return r2.generateUploadUrl(key)
+	},
+})
+
+/**
+ * Checks a logo uploaded to `generateLogoUploadUrl` and returns the URL to
+ * save as the organization's logo through Better Auth (lib/ownerPictures.ts).
+ */
+export const confirmLogoUpload = action({
+	args: { organizationId: v.string(), key: v.string() },
+	returns: v.string(),
+	handler: async (ctx, args): Promise<string> => {
+		await requireOrganizationMember(ctx, args.organizationId)
+		return confirmOwnerPictureUpload(
+			ctx,
+			'organization',
+			args.organizationId,
+			args.key,
+		)
 	},
 })
 

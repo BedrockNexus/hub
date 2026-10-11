@@ -1,8 +1,9 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
-// Convex function tests only. Pure helpers under lib/ and convex/lib/ run with
-// `bun test`.
+// Convex function tests, plus the plugin registry's shared libraries (their
+// snapshots are in Vitest's format). Other pure helpers under lib/ and
+// convex/lib/ run with `bun test`.
 export default defineConfig({
 	resolve: {
 		alias: {
@@ -11,7 +12,7 @@ export default defineConfig({
 	},
 	test: {
 		environment: 'edge-runtime',
-		include: ['convex/functions/**/*.test.ts'],
+		include: ['convex/functions/**/*.test.ts', 'lib/plugins/**/*.test.ts'],
 		testTimeout: 20_000,
 	},
 })

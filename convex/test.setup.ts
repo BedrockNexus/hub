@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 
+import aggregate from '@convex-dev/aggregate/test'
 import rateLimiter from '@convex-dev/rate-limiter/test'
+import shardedCounter from '@convex-dev/sharded-counter/test'
 import { convexTest } from 'convex-test'
 import { components } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
@@ -17,6 +19,11 @@ export function createTest() {
 	const t = convexTest(schema, modules)
 	rateLimiter.register(t)
 	t.registerComponent('betterAuth', betterAuthSchema, betterAuthModules)
+	// Plugin registry counters (convex/lib/plugins).
+	aggregate.register(t, 'pluginsBySoftware')
+	aggregate.register(t, 'pluginsByOwner')
+	shardedCounter.register(t, 'pluginDownloadCounts')
+	shardedCounter.register(t, 'pluginOwnerDownloadCounts')
 	return t
 }
 

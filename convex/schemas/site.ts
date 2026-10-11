@@ -189,6 +189,9 @@ export const tables = {
 			v.literal('user'),
 			v.literal('serverSoftware'),
 			v.literal('setting'),
+			v.literal('plugin'),
+			v.literal('pluginPublishingDraft'),
+			v.literal('pluginWorkflowTemplate'),
 		),
 		targetId: v.string(),
 		targetLabel: v.optional(v.string()), // name at the time, for display
@@ -199,6 +202,28 @@ export const tables = {
 	})
 		.index('by_targetType_and_targetId', ['targetType', 'targetId'])
 		.index('by_actorId', ['actorId']),
+
+	// ===========================================================================
+	// CREATOR LISTINGS (who can be found by name; see lib/creatorListings.ts)
+	// ===========================================================================
+	creatorListings: defineTable({
+		ownerType: v.union(v.literal('user'), v.literal('organization')),
+		ownerId: v.string(), // Better Auth user or organization ID
+		slug: v.string(), // username or organization slug
+		name: v.string(),
+		searchText: v.string(),
+		pictureUrl: v.optional(v.string()), // avatar or logo on the CDN
+		// Public items only, as shown on the owner's page.
+		serverCount: v.number(),
+		projectCount: v.number(),
+		pluginCount: v.number(),
+		updatedAt: v.number(),
+	})
+		.index('by_ownerType_and_ownerId', ['ownerType', 'ownerId'])
+		.searchIndex('search_text', {
+			searchField: 'searchText',
+			filterFields: ['ownerType'],
+		}),
 
 	// ===========================================================================
 	// SITE AGGREGATES (precomputed homepage numbers; see site/aggregates.ts)

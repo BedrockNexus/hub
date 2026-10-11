@@ -32,6 +32,7 @@ export interface SiteSocialSettings {
 export interface SiteFeatureSettings {
 	registrationEnabled: boolean
 	maintenanceMode: boolean
+	pluginsEnabled: boolean
 }
 
 export interface SiteStats {
@@ -49,6 +50,7 @@ const DEFAULT_SITE_SOCIALS: SiteSocialSettings = {}
 export const DEFAULT_SITE_FEATURES: SiteFeatureSettings = {
 	registrationEnabled: true,
 	maintenanceMode: false,
+	pluginsEnabled: false,
 }
 const DEFAULT_SITE_STATS: SiteStats = {
 	onlinePlayers: 0,

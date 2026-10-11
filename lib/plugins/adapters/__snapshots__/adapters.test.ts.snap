@@ -1,0 +1,258 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`workflow generation > generates a Gradle workflow with strict primary-JAR selection 1`] = `
+"# Managed by BedrockNexus Plugins.
+name: BedrockNexus Publish
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bedrocknexus-publish-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Build PowerNukkitX plugin
+        run: |
+          set -euo pipefail
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+          fi
+          if [ -x ./gradlew ]; then ./gradlew --no-daemon clean build; else gradle --no-daemon clean build; fi
+      - name: Select primary plugin JAR
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          mapfile -t jars < <(
+            find build/libs target -maxdepth 2 -type f -name "*.jar" \\
+              ! -name "*-sources.jar" \\
+              ! -name "*-javadoc.jar" \\
+              ! -name "*-tests.jar" \\
+              ! -name "*-test.jar" \\
+              ! -name "*-plain.jar" \\
+              ! -name "original-*.jar" \\
+              2>/dev/null | sort
+          )
+          if [ "\${#jars[@]}" -ne 1 ]; then
+            printf "Expected exactly one primary plugin JAR, found %s:\\n" "\${#jars[@]}" >&2
+            printf " - %s\\n" "\${jars[@]:-none}" >&2
+            exit 1
+          fi
+          cp "\${jars[0]}" "dist/BedrockNexusExample.jar"
+          test -s "dist/BedrockNexusExample.jar"
+      - name: Upload validation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-package
+          path: dist/BedrockNexusExample.jar
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download validated package
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-package
+          path: dist
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: gh release create "\${GITHUB_REF_NAME}" dist/BedrockNexusExample.jar --generate-notes --verify-tag
+"
+`;
+
+exports[`workflow generation > generates a Maven workflow with strict primary-JAR selection 1`] = `
+"# Managed by BedrockNexus Plugins.
+name: BedrockNexus Publish
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bedrocknexus-publish-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build PowerNukkitX plugin
+        run: |
+          set -euo pipefail
+          if [ -f mvnw ]; then
+            chmod +x mvnw
+          fi
+          if [ -x ./mvnw ]; then ./mvnw --batch-mode --no-transfer-progress clean package; else mvn --batch-mode --no-transfer-progress clean package; fi
+      - name: Select primary plugin JAR
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          mapfile -t jars < <(
+            find build/libs target -maxdepth 2 -type f -name "*.jar" \\
+              ! -name "*-sources.jar" \\
+              ! -name "*-javadoc.jar" \\
+              ! -name "*-tests.jar" \\
+              ! -name "*-test.jar" \\
+              ! -name "*-plain.jar" \\
+              ! -name "original-*.jar" \\
+              2>/dev/null | sort
+          )
+          if [ "\${#jars[@]}" -ne 1 ]; then
+            printf "Expected exactly one primary plugin JAR, found %s:\\n" "\${#jars[@]}" >&2
+            printf " - %s\\n" "\${jars[@]:-none}" >&2
+            exit 1
+          fi
+          cp "\${jars[0]}" "dist/BedrockNexusMavenExample.jar"
+          test -s "dist/BedrockNexusMavenExample.jar"
+      - name: Upload validation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-package
+          path: dist/BedrockNexusMavenExample.jar
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download validated package
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-package
+          path: dist
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: gh release create "\${GITHUB_REF_NAME}" dist/BedrockNexusMavenExample.jar --generate-notes --verify-tag
+"
+`;
+
+exports[`workflow generation > generates the canonical PocketMine workflow snapshot 1`] = `
+"# Managed by BedrockNexus Plugins.
+name: BedrockNexus Publish
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bedrocknexus-publish-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+      - name: Validate PHP sources and dependencies
+        run: |
+          set -euo pipefail
+          find src -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+          if [ -f composer.json ]; then composer validate --no-check-publish && composer install --no-interaction --no-progress --prefer-dist; fi
+      - name: Package PocketMine plugin
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          include_paths=(plugin.yml src)
+          for optional_path in resources vendor; do
+            if [ -e "\${optional_path}" ]; then
+              include_paths+=("\${optional_path}")
+            fi
+          done
+          include_csv=$(IFS=,; echo "\${include_paths[*]}")
+          curl --fail --location --retry 3 \\
+            https://github.com/pmmp/DevTools/releases/latest/download/DevTools.phar \\
+            --output "\${RUNNER_TEMP}/DevTools.phar"
+          php -dphar.readonly=0 "\${RUNNER_TEMP}/DevTools.phar" \\
+            --make "\${include_csv}" \\
+            --relative . \\
+            --out "\${RUNNER_TEMP}/BedrockNexusExample.phar"
+          mv "\${RUNNER_TEMP}/BedrockNexusExample.phar" 'dist/BedrockNexusExample.phar'
+          test -s 'dist/BedrockNexusExample.phar'
+      - name: Upload validation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-package
+          path: dist/BedrockNexusExample.phar
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download validated package
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-package
+          path: dist
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: gh release create "\${GITHUB_REF_NAME}" dist/BedrockNexusExample.phar --generate-notes --verify-tag
+"
+`;

@@ -9,6 +9,7 @@ import {
 	UserIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useQuery } from 'convex/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -18,10 +19,17 @@ import {
 import { BrandMark } from '@/components/brand-mark'
 import { CreateMenu } from '@/components/layout/create-menu'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
-import { homeNavigation, publicNavigation, siteConfig } from '@/lib/site'
+import { api } from '@/convex/_generated/api'
+import {
+	homeNavigation,
+	pluginsNavigation,
+	publicNavigation,
+	siteConfig,
+} from '@/lib/site'
 import { cn } from '@/lib/utils'
 
 const mobileNavigation = [homeNavigation, ...publicNavigation]
+const mobileNavigationWithPlugins = [...mobileNavigation, pluginsNavigation]
 
 const userButtonLinks: UserButtonLink[] = [
 	{
@@ -88,6 +96,10 @@ function isActiveRoute(pathname: string, url: string) {
 
 export function Navbar() {
 	const pathname = usePathname()
+	// Until the registry is switched on here, Plugins links to its old site.
+	const pluginsEnabled =
+		useQuery(api.functions.site.settings.getFeatures, {})
+			?.pluginsEnabled === true
 
 	return (
 		<>
@@ -117,19 +129,42 @@ export function Navbar() {
 								</Link>
 							)
 						})}
-						<a
-							className="inline-flex items-center gap-1.5 py-2 font-display font-semibold text-[15px] text-ember-text transition-colors hover:text-foreground"
-							href={siteConfig.pluginsUrl}
-							rel="noopener"
-							target="_blank"
-						>
-							Plugins
-							<HugeiconsIcon
-								aria-hidden
-								className="size-3.5"
-								icon={ArrowUpRight01Icon}
-							/>
-						</a>
+						{pluginsEnabled ? (
+							<Link
+								aria-current={
+									isActiveRoute(
+										pathname,
+										pluginsNavigation.href,
+									)
+										? 'page'
+										: undefined
+								}
+								className={cn(
+									'border-transparent border-b-2 py-2 font-display font-semibold text-[15px] text-muted-foreground transition-colors hover:text-foreground',
+									isActiveRoute(
+										pathname,
+										pluginsNavigation.href,
+									) && 'border-primary text-foreground',
+								)}
+								href={pluginsNavigation.href}
+							>
+								{pluginsNavigation.label}
+							</Link>
+						) : (
+							<a
+								className="inline-flex items-center gap-1.5 py-2 font-display font-semibold text-[15px] text-ember-text transition-colors hover:text-foreground"
+								href={siteConfig.pluginsUrl}
+								rel="noopener"
+								target="_blank"
+							>
+								Plugins
+								<HugeiconsIcon
+									aria-hidden
+									className="size-3.5"
+									icon={ArrowUpRight01Icon}
+								/>
+							</a>
+						)}
 					</div>
 
 					<div className="ml-auto flex items-center gap-2.5">
@@ -150,7 +185,10 @@ export function Navbar() {
 				className="fixed inset-x-0 bottom-0 z-50 border-t bg-card/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
 			>
 				<div className="mx-auto flex max-w-md items-stretch">
-					{mobileNavigation.map((item) => {
+					{(pluginsEnabled
+						? mobileNavigationWithPlugins
+						: mobileNavigation
+					).map((item) => {
 						const isActive = isActiveRoute(pathname, item.href)
 
 						return (

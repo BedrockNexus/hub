@@ -373,7 +373,7 @@ describe('server software', () => {
 		const t = createTest()
 		const seed = internal.functions.servers.migrations.seedDefaultServerSoftware
 
-		expect(await t.mutation(seed, {})).toEqual({ created: 7 })
+		expect(await t.mutation(seed, {})).toEqual({ created: 7, adaptersSet: 0 })
 		await t.run(async (ctx) => {
 			const pmmp = await ctx.db
 				.query('serverSoftware')
@@ -381,7 +381,7 @@ describe('server software', () => {
 				.unique()
 			if (pmmp) await ctx.db.patch(pmmp._id, { name: 'PMMP' })
 		})
-		expect(await t.mutation(seed, {})).toEqual({ created: 0 })
+		expect(await t.mutation(seed, {})).toEqual({ created: 0, adaptersSet: 0 })
 
 		const enabled = await t.query(api.functions.servers.software.listEnabled, {})
 		expect(enabled.map((software) => software.slug)).toEqual([

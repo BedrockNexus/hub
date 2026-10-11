@@ -1,7 +1,7 @@
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { components } from '../../_generated/api'
-import { mutation, query } from '../../_generated/server'
+import { action, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import type { QueryCtx } from '../../_generated/server'
@@ -10,6 +10,8 @@ import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { isActivityVisible } from '../../lib/activity'
 import { recordAdminAction } from '../../lib/audit'
 import { isPublicProject } from '../../lib/contentVisibility'
+import { syncCreatorListing } from '../../lib/creatorListings'
+import { confirmOwnerPictureUpload } from '../../lib/ownerPictures'
 import {
 	buildProfileMediaR2ObjectKey,
 	isProfileMediaR2Key,
@@ -151,6 +153,8 @@ export const updateProfile = mutation({
 		if (existing?.bannerR2Key && args.bannerR2Key && existing.bannerR2Key !== args.bannerR2Key) {
 			await r2.deleteObject(ctx, existing.bannerR2Key)
 		}
+		// The display name is part of the creator's search listing.
+		await syncCreatorListing(ctx, 'user', user._id)
 	},
 })
 
@@ -172,6 +176,41 @@ export const generateProfileBannerUploadUrl = mutation({
 			fileName: args.fileName,
 		})
 		return r2.generateUploadUrl(key)
+	},
+})
+
+export const generateAvatarUploadUrl = mutation({
+	args: { fileName: v.string() },
+	returns: v.object({ key: v.string(), url: v.string() }),
+	handler: async (ctx, args) => {
+		const user = await authComponent.getAuthUser(ctx)
+		if (!user) throw new Error('You must be logged in')
+		await enforceRateLimit(
+			ctx,
+			'uploadUrl',
+			user._id,
+			'Too many upload requests. Please wait before uploading again.',
+		)
+		const key = buildProfileMediaR2ObjectKey({
+			userId: user._id,
+			mediaKind: 'avatar',
+			fileName: args.fileName,
+		})
+		return r2.generateUploadUrl(key)
+	},
+})
+
+/**
+ * Checks an avatar uploaded to `generateAvatarUploadUrl` and returns the URL
+ * to save as the account's image through Better Auth (lib/ownerPictures.ts).
+ */
+export const confirmAvatarUpload = action({
+	args: { key: v.string() },
+	returns: v.string(),
+	handler: async (ctx, args): Promise<string> => {
+		const user = await authComponent.getAuthUser(ctx)
+		if (!user) throw new Error('You must be logged in')
+		return confirmOwnerPictureUpload(ctx, 'user', user._id, args.key)
 	},
 })
 
@@ -474,6 +513,9 @@ export const updateAdminUser = adminMutation({
 				update,
 			},
 		})
+		// Banned accounts are not searchable. This write goes around the
+		// Better Auth triggers, so the listing is rebuilt here.
+		await syncCreatorListing(ctx, 'user', args.userId)
 		await recordAdminAction(ctx, adminUser._id, {
 			action:
 				args.banned === undefined

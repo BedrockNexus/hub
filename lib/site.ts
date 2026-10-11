@@ -1,6 +1,7 @@
 import {
 	Home01Icon,
 	Package01Icon,
+	PlugSocketIcon,
 	ServerStack01Icon,
 	Wifi01Icon,
 } from '@hugeicons/core-free-icons'
@@ -38,6 +39,13 @@ export const publicNavigation = [
 		icon: Wifi01Icon,
 	},
 ] as const
+
+/** Shown in navigation only while the Plugins feature is switched on. */
+export const pluginsNavigation = {
+	href: '/plugins',
+	label: 'Plugins',
+	icon: PlugSocketIcon,
+} as const
 
 export const legalNavigation = [
 	{ href: '/privacy', label: 'Privacy Policy' },

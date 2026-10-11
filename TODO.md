@@ -26,6 +26,15 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
     run, existing content is missing from the new indexes.
   - `npx convex run functions/servers/migrations:rebuildServerDailyStats`
     builds daily player totals from the status history recorded so far.
+  - `npx convex run functions/site/migrations:backfillCreatorListings` makes
+    creators and organizations that already have public content findable by
+    name (dev: done).
+- [ ] Avatars and organization logos are stored in R2. Deploy Convex and the
+  site together, then run
+  `npx convex run functions/site/migrations:backfillInlinePictures` once per
+  deployment to move the pictures that were saved inline as data URLs (dev:
+  one avatar and one logo; production: two avatars). Until it has run, those
+  accounts keep their inline picture and show none in creator search.
 
 ## P1 - Public Catalog API
 

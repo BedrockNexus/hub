@@ -64,6 +64,32 @@ const limits = {
 		rate: 1,
 		period: 24 * HOUR,
 	},
+
+	// Plugin registry (functions/plugins). Per user unless noted.
+	// Per hashed client address and plugin.
+	pluginDownload: { kind: 'token bucket', rate: 30, period: MINUTE, capacity: 10 },
+	// GitHub App installation URLs and callbacks.
+	githubInstall: { kind: 'token bucket', rate: 10, period: HOUR, capacity: 5 },
+	// Read-heavy GitHub API work: repository analysis and state refreshes.
+	githubRead: { kind: 'token bucket', rate: 120, period: HOUR, capacity: 20 },
+	// Commits the managed workflow to a repository.
+	workflowInstall: { kind: 'token bucket', rate: 10, period: HOUR, capacity: 3 },
+	// Draft metadata, workflow, and release selection edits.
+	publishingEdit: { kind: 'token bucket', rate: 120, period: HOUR, capacity: 30 },
+	publishingSubmit: {
+		kind: 'token bucket',
+		rate: 20,
+		period: 24 * HOUR,
+		capacity: 5,
+	},
+	moderationDecision: {
+		kind: 'token bucket',
+		rate: 300,
+		period: HOUR,
+		capacity: 60,
+	},
+	// Global: requests to the GitHub webhook endpoint that fail signature checks.
+	invalidWebhook: { kind: 'token bucket', rate: 60, period: MINUTE, capacity: 60 },
 } as const
 
 export const appRateLimiter = new RateLimiter(components.rateLimiter, limits)

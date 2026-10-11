@@ -1,4 +1,8 @@
-import { createClient, type GenericCtx } from '@convex-dev/better-auth'
+import {
+	type AuthFunctions,
+	createClient,
+	type GenericCtx,
+} from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
@@ -9,6 +13,12 @@ import { query } from './_generated/server'
 import authConfig from './auth.config'
 import authSchema from './betterAuth/schema'
 import { AUTH_CLIENT_IP_HEADER } from './lib/authProxy'
+import {
+	removeCreatorListing,
+	syncOrganizationListing,
+	syncUserListing,
+} from './lib/creatorListings'
+import { afterOwnerPictureWrite } from './lib/ownerPictures'
 
 const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
 
@@ -30,6 +40,8 @@ async function runInternalAction(
 	throw new Error('runAction is not available in this context')
 }
 
+const authFunctions: AuthFunctions = internal.auth
+
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
 export const authComponent = createClient<DataModel, typeof authSchema>(
@@ -38,8 +50,100 @@ export const authComponent = createClient<DataModel, typeof authSchema>(
 		local: {
 			schema: authSchema,
 		},
+		authFunctions,
+		// Renames, bans, deletions and picture changes alter who can be found
+		// by name and how they look (lib/creatorListings.ts). Pictures are
+		// checked on every write (lib/ownerPictures.ts). These run in the same
+		// transaction as the account write, so the two cannot drift.
+		triggers: {
+			user: {
+				onCreate: async (ctx, user) => {
+					await afterOwnerPictureWrite(
+						ctx,
+						'user',
+						user._id,
+						user.image,
+						null,
+					)
+				},
+				onUpdate: async (ctx, user, previous) => {
+					if (user.image !== previous.image) {
+						await afterOwnerPictureWrite(
+							ctx,
+							'user',
+							user._id,
+							user.image,
+							previous.image,
+						)
+					}
+					if (
+						user.username !== previous.username ||
+						user.displayUsername !== previous.displayUsername ||
+						user.image !== previous.image ||
+						Boolean(user.banned) !== Boolean(previous.banned)
+					) {
+						await syncUserListing(ctx, user)
+					}
+				},
+				onDelete: async (ctx, user) => {
+					await afterOwnerPictureWrite(
+						ctx,
+						'user',
+						user._id,
+						null,
+						user.image,
+					)
+					await removeCreatorListing(ctx, 'user', user._id)
+				},
+			},
+			organization: {
+				onCreate: async (ctx, organization) => {
+					await afterOwnerPictureWrite(
+						ctx,
+						'organization',
+						organization._id,
+						organization.logo,
+						null,
+					)
+				},
+				onUpdate: async (ctx, organization, previous) => {
+					if (organization.logo !== previous.logo) {
+						await afterOwnerPictureWrite(
+							ctx,
+							'organization',
+							organization._id,
+							organization.logo,
+							previous.logo,
+						)
+					}
+					if (
+						organization.name !== previous.name ||
+						organization.slug !== previous.slug ||
+						organization.logo !== previous.logo
+					) {
+						await syncOrganizationListing(ctx, organization)
+					}
+				},
+				onDelete: async (ctx, organization) => {
+					await afterOwnerPictureWrite(
+						ctx,
+						'organization',
+						organization._id,
+						null,
+						organization.logo,
+					)
+					await removeCreatorListing(
+						ctx,
+						'organization',
+						organization._id,
+					)
+				},
+			},
+		},
 	},
 )
+
+export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
 
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 	return {
@@ -103,6 +207,22 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 		user: {
 			deleteUser: {
 				enabled: true,
+				// The plugin registry refuses while the account still owns
+				// plugins or an active GitHub App installation.
+				beforeDelete: async (user) => {
+					if (!('runMutation' in ctx)) {
+						throw new APIError('INTERNAL_SERVER_ERROR', {
+							message: 'Account deletion is unavailable in this context.',
+						})
+					}
+					const blocker = await ctx.runMutation(
+						internal.functions.plugins.accountDeletion.prepare,
+						{ userId: user.id },
+					)
+					if (blocker) {
+						throw new APIError('BAD_REQUEST', { message: blocker })
+					}
+				},
 			},
 		},
 		// Better Auth also applies built-in limits to /sign-in/*, /sign-up/*,

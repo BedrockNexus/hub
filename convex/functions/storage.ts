@@ -5,6 +5,7 @@ import type { MutationCtx } from '../_generated/server'
 import { internalMutation, mutation, query } from '../_generated/server'
 import { authComponent } from '../auth'
 import { extractEditorMediaKeys } from '../lib/editorMedia'
+import { ownerPictureKey } from '../lib/ownerPictures'
 import { canEditContent } from '../lib/permissions'
 import {
 	buildEntityImageR2ObjectKey,
@@ -149,6 +150,23 @@ async function isManagedKeyReferenced(
 			.withIndex('by_project', (q) => q.eq('projectId', id))
 			.collect()
 		return gallery.some((item) => item.r2Key === key)
+	}
+	if (entityType === 'organizations' && mediaKind === 'logo') {
+		const organization = (await ctx.runQuery(
+			components.betterAuth.adapter.findOne,
+			{
+				model: 'organization',
+				where: [{ field: '_id', value: entityId }],
+			},
+		)) as { logo?: string | null } | null
+		return ownerPictureKey('organization', entityId, organization?.logo) === key
+	}
+	if (entityType === 'profiles' && mediaKind === 'avatar') {
+		const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: '_id', value: entityId }],
+		})) as { image?: string | null } | null
+		return ownerPictureKey('user', entityId, user?.image) === key
 	}
 	if (entityType === 'organizations') {
 		const profile = await ctx.db

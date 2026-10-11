@@ -45,6 +45,7 @@ interface SocialsDraft {
 interface FeaturesDraft {
 	registrationEnabled: boolean
 	maintenanceMode: boolean
+	pluginsEnabled: boolean
 }
 
 const DEFAULT_SEO_DRAFT: SeoDraft = {
@@ -63,6 +64,7 @@ const DEFAULT_SOCIALS_DRAFT: SocialsDraft = {
 const DEFAULT_FEATURES_DRAFT: FeaturesDraft = {
 	registrationEnabled: true,
 	maintenanceMode: false,
+	pluginsEnabled: false,
 }
 const MAX_SITE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
 const ALLOWED_SITE_IMAGE_TYPES = new Set([
@@ -339,6 +341,7 @@ export function AdminSettingsManager() {
 		setFeaturesDraft({
 			registrationEnabled: settings.features.registrationEnabled,
 			maintenanceMode: settings.features.maintenanceMode,
+			pluginsEnabled: settings.features.pluginsEnabled,
 		})
 	}, [settings])
 
@@ -546,6 +549,19 @@ export function AdminSettingsManager() {
 									setFeaturesDraft({
 										...featuresDraft,
 										maintenanceMode,
+									})
+								}
+							/>
+							<FeatureToggle
+								checked={featuresDraft.pluginsEnabled}
+								description="Show the plugin registry: the public plugin and software pages, and plugin publishing in the dashboard. Admin plugin tools stay available either way."
+								disabled={pendingAction === 'features'}
+								id="plugins-enabled"
+								label="Plugins"
+								onChange={(pluginsEnabled) =>
+									setFeaturesDraft({
+										...featuresDraft,
+										pluginsEnabled,
 									})
 								}
 							/>

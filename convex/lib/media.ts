@@ -27,19 +27,22 @@ export async function validateEntityImageUpload(
 }
 
 export async function validateImageObjectMetadata(
-	ctx: MutationCtx,
+	ctx: Parameters<typeof r2.getMetadata>[0],
 	key: string,
+	maxSize = MAX_ENTITY_IMAGE_SIZE,
 ) {
 	const metadata = await r2.getMetadata(ctx, key)
 	const size = metadata?.size
 	const contentType = metadata?.contentType
 	if (
 		!size ||
-		size > MAX_ENTITY_IMAGE_SIZE ||
+		size > maxSize ||
 		!contentType ||
 		!ALLOWED_IMAGE_TYPES.has(contentType)
 	) {
-		throw new Error('The image must be a PNG, JPG, WebP, or GIF up to 8MB')
+		throw new Error(
+			`The image must be a PNG, JPG, WebP, or GIF up to ${maxSize / (1024 * 1024)}MB`,
+		)
 	}
 
 	return { ...metadata, size, contentType }

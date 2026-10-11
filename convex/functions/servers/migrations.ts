@@ -140,6 +140,7 @@ const DEFAULT_SERVER_SOFTWARE = [
 			'Server software for Minecraft: Bedrock Edition written in PHP, with a large plugin ecosystem.',
 		websiteUrl: 'https://pmmp.io/',
 		repositoryUrl: 'https://github.com/pmmp/PocketMine-MP',
+		adapterId: 'pocketmine-mp',
 	},
 	{
 		slug: 'powernukkitx',
@@ -148,6 +149,7 @@ const DEFAULT_SERVER_SOFTWARE = [
 			'A Java server software for Minecraft: Bedrock Edition with broad plugin support.',
 		websiteUrl: 'https://powernukkitx.org/',
 		repositoryUrl: 'https://github.com/PowerNukkitX/PowerNukkitX',
+		adapterId: 'powernukkitx',
 	},
 	{
 		slug: 'nukkit',
@@ -187,23 +189,32 @@ const DEFAULT_SERVER_SOFTWARE = [
 
 /**
  * Adds the default server software that is not there yet, matched by slug.
- * Never modifies an existing entry, so admin edits survive a re-run. Slugs
- * match the plugin registry's.
+ * Admin edits survive a re-run: an existing entry is only given its plugin
+ * adapter when it has none.
  *
  * Run: npx convex run functions/servers/migrations:seedDefaultServerSoftware
  */
 export const seedDefaultServerSoftware = internalMutation({
 	args: {},
-	returns: v.object({ created: v.number() }),
+	returns: v.object({ created: v.number(), adaptersSet: v.number() }),
 	handler: async (ctx) => {
 		const now = Date.now()
 		let created = 0
+		let adaptersSet = 0
 		for (const [index, software] of DEFAULT_SERVER_SOFTWARE.entries()) {
 			const existing = await ctx.db
 				.query('serverSoftware')
 				.withIndex('by_slug', (q) => q.eq('slug', software.slug))
 				.unique()
-			if (existing) continue
+			if (existing) {
+				if (software.adapterId && !existing.adapterId) {
+					await ctx.db.patch(existing._id, {
+						adapterId: software.adapterId,
+					})
+					adaptersSet += 1
+				}
+				continue
+			}
 
 			await ctx.db.insert('serverSoftware', {
 				...software,
@@ -214,7 +225,7 @@ export const seedDefaultServerSoftware = internalMutation({
 			})
 			created += 1
 		}
-		return { created }
+		return { created, adaptersSet }
 	},
 })
 

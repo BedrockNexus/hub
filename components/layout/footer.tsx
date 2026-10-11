@@ -8,7 +8,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { legalNavigation, siteConfig } from '@/lib/site'
+import { legalNavigation, pluginsNavigation, siteConfig } from '@/lib/site'
 
 interface FooterProps {
 	socials?: {
@@ -18,36 +18,62 @@ interface FooterProps {
 		bluesky?: string
 		tiktok?: string
 	}
+	/** Until the registry is switched on here, Plugins links to its old site. */
+	pluginsEnabled?: boolean
 }
 
-const footerColumns = [
-	{
-		title: 'Discover',
-		links: [
-			{ href: '/servers', label: 'Servers' },
-			{ href: '/projects', label: 'Projects' },
-			{ href: '/tools/server-ping', label: 'Server Ping' },
-			{ href: siteConfig.pluginsUrl, label: 'Plugins', external: true },
-		],
-	},
-	{
-		title: 'Creators',
-		links: [
-			{ href: '/dashboard/servers/add', label: 'List a server' },
-			{ href: '/dashboard/projects/add', label: 'Publish a project' },
-			{ href: '/dashboard/organizations', label: 'Organizations' },
-		],
-	},
-	{
-		title: 'Project',
-		links: [
-			{ href: siteConfig.githubUrl, label: 'GitHub', external: true },
-			...legalNavigation,
-		],
-	},
-]
+interface FooterLink {
+	href: string
+	label: string
+	external?: boolean
+}
 
-export function Footer({ socials = {} }: FooterProps) {
+function footerColumns(
+	pluginsEnabled: boolean,
+): { title: string; links: FooterLink[] }[] {
+	return [
+		{
+			title: 'Discover',
+			links: [
+				{ href: '/servers', label: 'Servers' },
+				{ href: '/projects', label: 'Projects' },
+				{ href: '/tools/server-ping', label: 'Server Ping' },
+				pluginsEnabled
+					? { href: pluginsNavigation.href, label: 'Plugins' }
+					: {
+							href: siteConfig.pluginsUrl,
+							label: 'Plugins',
+							external: true,
+						},
+			],
+		},
+		{
+			title: 'Creators',
+			links: [
+				{ href: '/dashboard/servers/add', label: 'List a server' },
+				{ href: '/dashboard/projects/add', label: 'Publish a project' },
+				...(pluginsEnabled
+					? [
+							{
+								href: '/dashboard/plugins/new',
+								label: 'Publish a plugin',
+							},
+						]
+					: []),
+				{ href: '/dashboard/organizations', label: 'Organizations' },
+			],
+		},
+		{
+			title: 'Project',
+			links: [
+				{ href: siteConfig.githubUrl, label: 'GitHub', external: true },
+				...legalNavigation,
+			],
+		},
+	]
+}
+
+export function Footer({ socials = {}, pluginsEnabled = false }: FooterProps) {
 	const socialLinks = [
 		{ href: socials.discord, icon: DiscordIcon, label: 'Discord' },
 		{ href: socials.youtube, icon: YoutubeIcon, label: 'YouTube' },
@@ -102,7 +128,7 @@ export function Footer({ socials = {} }: FooterProps) {
 				</div>
 
 				<div className="flex flex-wrap gap-14">
-					{footerColumns.map((column) => (
+					{footerColumns(pluginsEnabled).map((column) => (
 						<nav
 							aria-label={column.title}
 							className="flex flex-col gap-2.5"
@@ -112,7 +138,7 @@ export function Footer({ socials = {} }: FooterProps) {
 								{column.title}
 							</h2>
 							{column.links.map((link) =>
-								'external' in link && link.external ? (
+								link.external ? (
 									<a
 										className="text-muted-foreground text-sm transition-colors hover:text-foreground"
 										href={link.href}

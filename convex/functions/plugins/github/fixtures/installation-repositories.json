@@ -1,0 +1,49 @@
+{
+	"action": "added",
+	"installation": {
+		"id": 424242,
+		"account": {
+			"id": 10101,
+			"login": "BedrockNexus",
+			"type": "Organization",
+			"avatar_url": "https://avatars.githubusercontent.com/u/10101"
+		},
+		"repository_selection": "selected",
+		"suspended_at": null
+	},
+	"repositories_added": [
+		{
+			"id": 7001,
+			"owner": { "login": "BedrockNexus" },
+			"name": "public-plugin",
+			"full_name": "BedrockNexus/public-plugin",
+			"description": "A public fixture repository.",
+			"html_url": "https://github.com/BedrockNexus/public-plugin",
+			"default_branch": "main",
+			"language": "Java",
+			"private": false,
+			"archived": false,
+			"updated_at": "2026-07-24T12:00:00Z",
+			"pushed_at": "2026-07-24T11:00:00Z"
+		},
+		{
+			"id": 7002,
+			"owner": { "login": "BedrockNexus" },
+			"name": "private-plugin",
+			"full_name": "BedrockNexus/private-plugin",
+			"description": "A private fixture repository.",
+			"html_url": "https://github.com/BedrockNexus/private-plugin",
+			"default_branch": "main",
+			"language": "PHP",
+			"private": true,
+			"archived": false,
+			"updated_at": "2026-07-24T12:00:00Z",
+			"pushed_at": "2026-07-24T11:00:00Z"
+		}
+	],
+	"repositories_removed": [],
+	"sender": {
+		"id": 42,
+		"login": "fixture-user"
+	}
+}

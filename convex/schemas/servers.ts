@@ -55,12 +55,16 @@ export const tables = {
 		description: v.string(),
 		websiteUrl: v.optional(v.string()),
 		repositoryUrl: v.optional(v.string()),
+		// Set when the plugin registry can publish for this software; names
+		// the adapter in lib/plugins/adapters that reads its repositories.
+		adapterId: v.optional(v.string()),
 		enabled: v.boolean(),
 		sortOrder: v.number(),
 		createdAt: v.number(),
 		updatedAt: v.number(),
 	})
 		.index('by_slug', ['slug'])
+		.index('by_adapterId', ['adapterId'])
 		.index('by_enabled_and_sortOrder', ['enabled', 'sortOrder']),
 
 	// ===========================================================================

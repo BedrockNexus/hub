@@ -7,7 +7,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
-import { siteConfig } from '@/lib/site'
+import { pluginsNavigation, siteConfig } from '@/lib/site'
 
 const LINK_CLASS =
 	'inline-flex min-h-11 items-center gap-1.5 font-semibold text-ember-text hover:text-foreground'
@@ -27,7 +27,12 @@ const LISTING_STEPS = [
 	},
 ]
 
-export function CreatorsSection() {
+export function CreatorsSection({
+	pluginsEnabled = false,
+}: {
+	/** Until the registry is switched on here, plugins link to their old site. */
+	pluginsEnabled?: boolean
+}) {
 	return (
 		<section className="container mx-auto flex flex-col gap-6 px-4 pt-14 pb-20 md:px-6">
 			<h2 className="font-bold text-[clamp(1.625rem,3vw,2.25rem)] leading-tight">
@@ -112,19 +117,33 @@ export function CreatorsSection() {
 							Open-source PHP plugins with traceable GitHub
 							builds.
 						</p>
-						<a
-							className={LINK_CLASS}
-							href={siteConfig.pluginsUrl}
-							rel="noopener"
-							target="_blank"
-						>
-							Browse plugins
-							<HugeiconsIcon
-								aria-hidden
-								className="size-4"
-								icon={ArrowUpRight01Icon}
-							/>
-						</a>
+						{pluginsEnabled ? (
+							<Link
+								className={LINK_CLASS}
+								href={pluginsNavigation.href}
+							>
+								Browse plugins
+								<HugeiconsIcon
+									aria-hidden
+									className="size-4"
+									icon={ArrowRight02Icon}
+								/>
+							</Link>
+						) : (
+							<a
+								className={LINK_CLASS}
+								href={siteConfig.pluginsUrl}
+								rel="noopener"
+								target="_blank"
+							>
+								Browse plugins
+								<HugeiconsIcon
+									aria-hidden
+									className="size-4"
+									icon={ArrowUpRight01Icon}
+								/>
+							</a>
+						)}
 					</div>
 				</div>
 			</div>

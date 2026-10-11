@@ -3,9 +3,11 @@
 import {
 	Add01Icon,
 	CubeIcon,
+	PlugSocketIcon,
 	ServerStack03Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useQuery } from 'convex/react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +16,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { api } from '@/convex/_generated/api'
 
 const ITEMS = [
 	{
@@ -30,14 +33,31 @@ const ITEMS = [
 	},
 ]
 
+const PLUGIN_ITEM = {
+	href: '/dashboard/plugins/new',
+	label: 'Add a plugin',
+	description: 'Publish a server plugin from GitHub',
+	icon: PlugSocketIcon,
+}
+
 /** Header "+" button: the one entry point for adding content. */
 export function CreateMenu() {
+	// Plugin publishing appears only while the feature is switched on.
+	const pluginsEnabled =
+		useQuery(api.functions.site.settings.getFeatures, {})
+			?.pluginsEnabled === true
+	const items = pluginsEnabled ? [...ITEMS, PLUGIN_ITEM] : ITEMS
+
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
 					<Button
-						aria-label="Add a server or project"
+						aria-label={
+							pluginsEnabled
+								? 'Add a server, project or plugin'
+								: 'Add a server or project'
+						}
 						size="icon-lg"
 						variant="brand"
 					/>
@@ -46,7 +66,7 @@ export function CreateMenu() {
 				<HugeiconsIcon icon={Add01Icon} strokeWidth={2.5} />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-72" sideOffset={8}>
-				{ITEMS.map((item) => (
+				{items.map((item) => (
 					<DropdownMenuItem
 						className="items-start gap-3 py-2.5"
 						key={item.href}

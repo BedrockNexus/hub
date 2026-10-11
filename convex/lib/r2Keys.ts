@@ -16,6 +16,8 @@ type BuildProjectReleaseR2ObjectKeyArgs = {
 export type EditorMediaKind = 'audio' | 'file' | 'image' | 'video'
 export type SiteImageKind = 'open-graph'
 type RecognizedSiteImageKind = 'favicon' | 'logo' | SiteImageKind
+export type ProfileMediaKind = 'avatar' | 'banner' | `editor-${EditorMediaKind}`
+export type OrganizationMediaKind = 'banner' | 'logo'
 export type MediaEntityType =
 	| 'organizations'
 	| 'profiles'
@@ -79,7 +81,7 @@ export function buildEntityImageR2ObjectKey({
 
 export function buildProfileMediaR2ObjectKey(args: {
 	userId: string
-	mediaKind: 'banner' | `editor-${EditorMediaKind}`
+	mediaKind: ProfileMediaKind
 	fileName: string
 }): string {
 	return buildMediaR2ObjectKey({
@@ -92,7 +94,7 @@ export function buildProfileMediaR2ObjectKey(args: {
 
 export function buildOrganizationMediaR2ObjectKey(args: {
 	organizationId: string
-	mediaKind: 'banner'
+	mediaKind: OrganizationMediaKind
 	fileName: string
 }): string {
 	return buildMediaR2ObjectKey({
@@ -220,7 +222,7 @@ export function isEntityImageR2Key(args: {
 export function isProfileMediaR2Key(
 	key: string,
 	userId: string,
-	mediaKind: 'banner' | `editor-${EditorMediaKind}`,
+	mediaKind: ProfileMediaKind,
 ): boolean {
 	const prefix = ['media', 'profiles', userId, mediaKind]
 		.map(sanitizeR2PathSegment)
@@ -231,7 +233,7 @@ export function isProfileMediaR2Key(
 export function isOrganizationMediaR2Key(
 	key: string,
 	organizationId: string,
-	mediaKind: 'banner',
+	mediaKind: OrganizationMediaKind,
 ): boolean {
 	const prefix = ['media', 'organizations', organizationId, mediaKind]
 		.map(sanitizeR2PathSegment)

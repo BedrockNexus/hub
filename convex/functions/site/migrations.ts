@@ -1,8 +1,15 @@
+import { createFunctionHandle } from 'convex/server'
 import { v } from 'convex/values'
-import { internal } from '../../_generated/api'
-import { internalMutation } from '../../_generated/server'
+import { components, internal } from '../../_generated/api'
+import {
+	type ActionCtx,
+	internalAction,
+	internalMutation,
+} from '../../_generated/server'
 import { recordActivity, recordReleaseActivity } from '../../lib/activity'
 import { isPublicProject, isPublicServer } from '../../lib/contentVisibility'
+import { syncCreatorListing } from '../../lib/creatorListings'
+import { parseImageDataUrl } from '../../lib/dataUrls'
 import {
 	ensureProjectStats,
 	ensureServerStats,
@@ -10,6 +17,11 @@ import {
 	syncServer,
 } from '../../lib/discovery'
 import { isPublicRelease } from '../../lib/projectReleases'
+import { cdnR2, getCdnObjectUrl } from '../../lib/r2'
+import {
+	buildOrganizationMediaR2ObjectKey,
+	buildProfileMediaR2ObjectKey,
+} from '../../lib/r2Keys'
 import { supportedGameVersions } from '../projects/artifactValidation'
 
 const BATCH_SIZE = 500
@@ -180,6 +192,39 @@ export const backfillActivity = internalMutation({
 	},
 })
 
+/**
+ * Switches the plugin registry's pages on or off from the command line, for
+ * deployments where no admin can sign in yet. Everywhere else, use the
+ * Plugins toggle in the admin settings, which also records who changed it.
+ *
+ * Run: npx convex run functions/site/migrations:setPluginsEnabled '{"enabled":true}'
+ */
+export const setPluginsEnabled = internalMutation({
+	args: { enabled: v.boolean() },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const existing = await ctx.db
+			.query('siteSettings')
+			.withIndex('by_key', (q) => q.eq('key', 'features'))
+			.unique()
+		const value = {
+			...(existing?.value as Record<string, unknown> | undefined),
+			pluginsEnabled: args.enabled,
+		}
+		if (existing) {
+			await ctx.db.patch(existing._id, { value, updatedAt: Date.now() })
+		} else {
+			await ctx.db.insert('siteSettings', {
+				key: 'features',
+				value,
+				description: 'Operational feature flags',
+				updatedAt: Date.now(),
+			})
+		}
+		return null
+	},
+})
+
 const DISCOVERY_BATCH_SIZE = 50
 
 /**
@@ -258,6 +303,241 @@ export const backfillDiscovery = internalMutation({
 				internal.functions.site.migrations.backfillDiscovery,
 				{ source: 'projects', cursor: null },
 			)
+		}
+		return null
+	},
+})
+
+const CREATOR_LISTING_SOURCES = ['servers', 'projects', 'plugins'] as const
+const CREATOR_LISTING_BATCH = 25
+
+/**
+ * Builds the search listings kept by lib/creatorListings.ts for creators and
+ * organizations whose content existed before those listings did. New writes
+ * maintain them. Safe to re-run; it also repairs drift.
+ *
+ * Run: npx convex run functions/site/migrations:backfillCreatorListings
+ */
+export const backfillCreatorListings = internalMutation({
+	args: {
+		source: v.optional(
+			v.union(
+				v.literal('servers'),
+				v.literal('projects'),
+				v.literal('plugins'),
+			),
+		),
+		cursor: v.optional(v.union(v.string(), v.null())),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const source = args.source ?? 'servers'
+		const paginationOpts = {
+			cursor: args.cursor ?? null,
+			numItems: CREATOR_LISTING_BATCH,
+		}
+		// `type:id` keys, so an owner of several items is rebuilt once.
+		const owners = new Set<string>()
+		let isDone: boolean
+		let continueCursor: string
+
+		if (source === 'servers') {
+			const page = await ctx.db.query('servers').paginate(paginationOpts)
+			for (const server of page.page) {
+				owners.add(`user:${server.registeredBy}`)
+				if (server.ownerType === 'organization') {
+					owners.add(`organization:${server.ownerId}`)
+				}
+			}
+			;({ isDone, continueCursor } = page)
+		} else {
+			const page = await ctx.db.query(source).paginate(paginationOpts)
+			for (const item of page.page) {
+				owners.add(`${item.ownerType}:${item.ownerId}`)
+			}
+			;({ isDone, continueCursor } = page)
+		}
+
+		for (const key of owners) {
+			const separator = key.indexOf(':')
+			await syncCreatorListing(
+				ctx,
+				key.slice(0, separator) as 'user' | 'organization',
+				key.slice(separator + 1),
+			)
+		}
+
+		const nextSource =
+			CREATOR_LISTING_SOURCES[CREATOR_LISTING_SOURCES.indexOf(source) + 1]
+		if (!isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.site.migrations.backfillCreatorListings,
+				{ source, cursor: continueCursor },
+			)
+		} else if (nextSource) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.site.migrations.backfillCreatorListings,
+				{ source: nextSource, cursor: null },
+			)
+		}
+		return null
+	},
+})
+
+const pictureOwnerValidator = v.union(
+	v.literal('user'),
+	v.literal('organization'),
+)
+// Rows holding an inline picture are tens of kilobytes each.
+const INLINE_PICTURE_BATCH = 10
+
+/** `user.image` or `organization.logo`, whichever the owner has. */
+async function readOwnerPicture(
+	ctx: Pick<ActionCtx, 'runQuery'>,
+	ownerType: 'user' | 'organization',
+	ownerId: string,
+) {
+	const owner = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+		model: ownerType,
+		where: [{ field: '_id', value: ownerId }],
+	})) as { image?: string | null; logo?: string | null } | null
+	return (ownerType === 'user' ? owner?.image : owner?.logo) ?? null
+}
+
+/**
+ * Moves avatars and organization logos that were saved inline as data URLs
+ * into R2 and leaves their CDN URL in their place (lib/ownerPictures.ts). New
+ * uploads go to R2 directly. Safe to re-run: only accounts still holding a
+ * data URL are touched, and a picture that cannot be decoded is logged and
+ * left as it is.
+ *
+ * Run: npx convex run functions/site/migrations:backfillInlinePictures
+ */
+export const backfillInlinePictures = internalMutation({
+	args: {
+		ownerType: v.optional(pictureOwnerValidator),
+		cursor: v.optional(v.union(v.string(), v.null())),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const ownerType = args.ownerType ?? 'user'
+		const page = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: ownerType,
+			paginationOpts: {
+				cursor: args.cursor ?? null,
+				numItems: INLINE_PICTURE_BATCH,
+			},
+		})) as {
+			page: Array<{ _id: string; image?: string | null; logo?: string | null }>
+			isDone: boolean
+			continueCursor: string
+		}
+
+		for (const owner of page.page) {
+			const picture = ownerType === 'user' ? owner.image : owner.logo
+			if (picture?.startsWith('data:')) {
+				await ctx.scheduler.runAfter(
+					0,
+					internal.functions.site.migrations.moveInlinePicture,
+					{ ownerType, ownerId: owner._id },
+				)
+			}
+		}
+
+		if (!page.isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.site.migrations.backfillInlinePictures,
+				{ ownerType, cursor: page.continueCursor },
+			)
+		} else if (ownerType === 'user') {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.site.migrations.backfillInlinePictures,
+				{ ownerType: 'organization', cursor: null },
+			)
+		}
+		return null
+	},
+})
+
+/** Uploads one owner's inline picture to R2; see backfillInlinePictures. */
+export const moveInlinePicture = internalAction({
+	args: { ownerType: pictureOwnerValidator, ownerId: v.string() },
+	returns: v.null(),
+	handler: async (ctx, args): Promise<null> => {
+		const picture = await readOwnerPicture(ctx, args.ownerType, args.ownerId)
+		if (!picture?.startsWith('data:')) {
+			return null
+		}
+		const image = parseImageDataUrl(picture)
+		if (!image) {
+			console.warn(
+				`The inline picture of ${args.ownerType} ${args.ownerId} is not a PNG, JPG, WebP or GIF; left as it is`,
+			)
+			return null
+		}
+		const key =
+			args.ownerType === 'user'
+				? buildProfileMediaR2ObjectKey({
+						userId: args.ownerId,
+						mediaKind: 'avatar',
+						fileName: `avatar.${image.extension}`,
+					})
+				: buildOrganizationMediaR2ObjectKey({
+						organizationId: args.ownerId,
+						mediaKind: 'logo',
+						fileName: `logo.${image.extension}`,
+					})
+		if (!getCdnObjectUrl(key)) {
+			throw new Error('R2_CDN_PUBLIC_URL is not configured')
+		}
+		await cdnR2.store(ctx, image.bytes, { key, type: image.contentType })
+		await ctx.runMutation(
+			internal.functions.site.migrations.saveMovedPicture,
+			{ ...args, key, inlineLength: picture.length },
+		)
+		return null
+	},
+})
+
+/** Points the owner at their uploaded picture; see backfillInlinePictures. */
+export const saveMovedPicture = internalMutation({
+	args: {
+		ownerType: pictureOwnerValidator,
+		ownerId: v.string(),
+		key: v.string(),
+		inlineLength: v.number(),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const url = getCdnObjectUrl(args.key)
+		const current = await readOwnerPicture(ctx, args.ownerType, args.ownerId)
+		// The owner changed or removed the picture while it was uploading.
+		if (
+			!url ||
+			!current?.startsWith('data:') ||
+			current.length !== args.inlineLength
+		) {
+			await cdnR2.deleteObject(ctx, args.key)
+			return null
+		}
+		// The handle runs the triggers in auth.ts, which check the upload and
+		// add the picture to the owner's search listing.
+		const onUpdateHandle = await createFunctionHandle(internal.auth.onUpdate)
+		const where = [{ field: '_id' as const, value: args.ownerId }]
+		if (args.ownerType === 'user') {
+			await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+				input: { model: 'user', where, update: { image: url } },
+				onUpdateHandle,
+			})
+		} else {
+			await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+				input: { model: 'organization', where, update: { logo: url } },
+				onUpdateHandle,
+			})
 		}
 		return null
 	},

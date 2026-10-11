@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ProjectList } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { buttonVariants } from '@/components/ui/button'
@@ -10,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
 import { siteConfig } from '@/lib/site'
-import { getSiteSeo } from '@/lib/site-settings'
+import { getSiteFeatures, getSiteSeo } from '@/lib/site-settings'
 
 interface OrganizationPageProps {
 	params: Promise<{ slug: string }>
@@ -69,6 +70,16 @@ export default async function OrganizationPage({
 	if (!organization) {
 		notFound()
 	}
+	// Plugins appear only while the feature is switched on.
+	const features = await getSiteFeatures()
+	const plugins = features.pluginsEnabled
+		? ((
+				await fetchQuery(
+					api.functions.plugins.catalog.listByOrganizationSlug,
+					{ slug },
+				)
+			)?.projects ?? [])
+		: []
 
 	return (
 		<div className="border-t">
@@ -171,6 +182,14 @@ export default async function OrganizationPage({
 										/>
 									))}
 								</div>
+							</section>
+						) : null}
+						{plugins.length > 0 ? (
+							<section className="space-y-4">
+								<h2 className="font-semibold text-xl">
+									Plugins
+								</h2>
+								<ProjectList projects={plugins} />
 							</section>
 						) : null}
 					</div>

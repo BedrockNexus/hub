@@ -38,6 +38,23 @@ export function getCdnObjectUrl(key: string): string | null {
 	return `${baseUrl}/${encodedKey}`
 }
 
+/** The key of an object served from the public CDN; null for any other URL. */
+export function getCdnObjectKey(url: string): string | null {
+	const baseUrl = process.env.R2_CDN_PUBLIC_URL?.replace(/\/$/, '')
+	if (!baseUrl || !url.startsWith(`${baseUrl}/`)) return null
+	try {
+		const key = url
+			.slice(baseUrl.length + 1)
+			.split('/')
+			.map((segment) => decodeURIComponent(segment))
+			.join('/')
+		// Only the exact URL getCdnObjectUrl builds; no query strings or aliases.
+		return getCdnObjectUrl(key) === url ? key : null
+	} catch {
+		return null
+	}
+}
+
 export async function resolveCdnObjectUrl(key: string, expiresIn: number) {
 	return getCdnObjectUrl(key) ?? await cdnR2.getUrl(key, { expiresIn })
 }

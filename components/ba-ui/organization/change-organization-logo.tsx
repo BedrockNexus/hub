@@ -1,6 +1,5 @@
 "use client"
 
-import { fileToBase64 } from "@better-auth-ui/core"
 import {
   type OrganizationAuthClient,
   useActiveOrganization,
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { useOrganizationLogoUpload } from "@/hooks/use-picture-upload"
 import { organizationPlugin } from "@/lib/organization-plugin"
 import { cn } from "@/lib/utils"
 import { OrganizationLogo } from "./organization-logo"
@@ -42,6 +42,8 @@ export function ChangeOrganizationLogo({
   const { mutate: updateOrganization, isPending: updatePending } =
     useUpdateOrganization(authClient as OrganizationAuthClient)
 
+  const uploadLogo = useOrganizationLogoUpload()
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -60,8 +62,8 @@ export function ChangeOrganizationLogo({
       const resized =
         (await logo.resize?.(file, logo.size, logo.extension)) || file
 
-      const image =
-        (await logo.upload?.(resized)) || (await fileToBase64(resized))
+      // Stored in R2; `organization.logo` holds the CDN URL, never the image.
+      const image = await uploadLogo(activeOrganization.id, resized)
 
       updateOrganization(
         { data: { logo: image } },

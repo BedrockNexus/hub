@@ -71,5 +71,27 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "lib/plugins/**",
+        "components/plugins/**",
+        "app/**/plugins/**",
+        "app/**/software/**",
+        "app/api/github/**"
+      ],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off",
+            "noVoid": "off"
+          },
+          "performance": { "noBarrelFile": "off", "useTopLevelRegex": "off" },
+          "style": { "noNestedTernary": "off" },
+          "suspicious": { "noAlert": "off" }
+        }
+      }
+    }
+  ],
   "extends": ["ultracite/biome/core", "ultracite/biome/next"]
 }

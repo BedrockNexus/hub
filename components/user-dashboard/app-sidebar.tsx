@@ -7,18 +7,23 @@ import {
 	FavouriteIcon,
 	InstagramIcon,
 	OfficeIcon,
+	PlugSocketIcon,
 	PuzzleIcon,
 	ServerStack03Icon,
 	Settings01Icon,
 	TiktokIcon,
 	YoutubeIcon,
 } from '@hugeicons/core-free-icons'
+import { useQuery } from 'convex/react'
 import type * as React from 'react'
 import { SidebarCollapsibleNav } from '@/components/sidebar/sidebar-collapsible-nav'
 import { SidebarNav } from '@/components/sidebar/sidebar-nav'
 import { SidebarSocialsNav } from '@/components/sidebar/sidebar-socials-nav'
 import { Sidebar, SidebarContent, SidebarHeader } from '@/components/ui/sidebar'
 import { DashboardOrganizationSwitcher } from '@/components/user-dashboard/organizations/dashboard-organization-switcher'
+import { api } from '@/convex/_generated/api'
+
+const PLUGINS_URL = '/dashboard/plugins'
 
 const data = {
 	navMain: [
@@ -39,6 +44,11 @@ const data = {
 			title: 'Projects',
 			url: '/dashboard/projects',
 			icon: PuzzleIcon,
+		},
+		{
+			title: 'Plugins',
+			url: PLUGINS_URL,
+			icon: PlugSocketIcon,
 		},
 		{
 			title: 'Organizations',
@@ -101,6 +111,13 @@ export function AppSidebar({ socials = {}, ...props }: AppSidebarProps) {
 		url: string
 		icon: typeof DiscordIcon
 	}>
+	// Plugin publishing appears only while the feature is switched on.
+	const pluginsEnabled =
+		useQuery(api.functions.site.settings.getFeatures, {})
+			?.pluginsEnabled === true
+	const navManage = data.navManage.filter(
+		(item) => pluginsEnabled || item.url !== PLUGINS_URL,
+	)
 
 	return (
 		<Sidebar collapsible="icon" variant="floating" {...props}>
@@ -109,7 +126,7 @@ export function AppSidebar({ socials = {}, ...props }: AppSidebarProps) {
 			</SidebarHeader>
 			<SidebarContent>
 				<SidebarNav groupLabel="Dashboard" items={data.navMain} />
-				<SidebarNav groupLabel="Manage" items={data.navManage} />
+				<SidebarNav groupLabel="Manage" items={navManage} />
 				<SidebarCollapsibleNav
 					collapsibleItems={data.navSettings}
 					groupLabel="Settings"

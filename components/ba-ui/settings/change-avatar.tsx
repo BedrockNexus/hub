@@ -1,6 +1,5 @@
 "use client"
 
-import { fileToBase64 } from "@better-auth-ui/core"
 import { useAuth, useSession, useUpdateUser } from "@better-auth-ui/react"
 import { Trash2, Upload } from "@/components/ui/icons"
 import { type ChangeEvent, useRef, useState } from "react"
@@ -16,6 +15,7 @@ import {
 import { Field } from "@/components/ui/field"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { useAvatarUpload } from "@/hooks/use-picture-upload"
 
 export type ChangeAvatarProps = {
   className?: string
@@ -27,6 +27,8 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
 
   const { mutate: updateUser, isPending: updatePending } =
     useUpdateUser(authClient)
+
+  const uploadAvatar = useAvatarUpload()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -46,8 +48,8 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
       const resized =
         (await avatar.resize?.(file, avatar.size, avatar.extension)) || file
 
-      const image =
-        (await avatar.upload?.(resized)) || (await fileToBase64(resized))
+      // Stored in R2; `user.image` holds the CDN URL, never the image itself.
+      const image = await uploadAvatar(resized)
 
       updateUser(
         { image },

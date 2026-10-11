@@ -7,6 +7,7 @@ import { LatestProjectsSection } from '@/components/home/latest-projects-section
 import { LatestServersSection } from '@/components/home/latest-servers-section'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl } from '@/lib/seo'
+import { getSiteFeatures } from '@/lib/site-settings'
 
 export const metadata: Metadata = {
 	alternates: {
@@ -38,7 +39,10 @@ async function getGamemodes() {
 }
 
 export default async function Home() {
-	const gamemodes = await getGamemodes()
+	const [gamemodes, features] = await Promise.all([
+		getGamemodes(),
+		getSiteFeatures(),
+	])
 
 	return (
 		<>
@@ -47,7 +51,7 @@ export default async function Home() {
 			<LatestServersSection />
 			<GamemodesSection categories={gamemodes.slice(0, 8)} />
 			<LatestProjectsSection />
-			<CreatorsSection />
+			<CreatorsSection pluginsEnabled={features.pluginsEnabled} />
 		</>
 	)
 }

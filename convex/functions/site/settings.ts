@@ -33,6 +33,7 @@ type SocialSettings = {
 type FeatureSettings = {
 	registrationEnabled?: boolean
 	maintenanceMode?: boolean
+	pluginsEnabled?: boolean
 }
 
 const DEFAULT_SEO = {
@@ -43,6 +44,8 @@ const DEFAULT_SEO = {
 const DEFAULT_FEATURES = {
 	registrationEnabled: true,
 	maintenanceMode: false,
+	// The plugin registry's public and dashboard pages; off until launch.
+	pluginsEnabled: false,
 }
 
 const R2_SITE_IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
@@ -366,6 +369,7 @@ export const updateFeatures = adminMutation({
 	args: {
 		registrationEnabled: v.boolean(),
 		maintenanceMode: v.boolean(),
+		pluginsEnabled: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => {
 		const user = ctx.admin

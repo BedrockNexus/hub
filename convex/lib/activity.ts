@@ -3,6 +3,7 @@ import type { MutationCtx, QueryCtx } from '../_generated/server'
 import { syncProjectCategoryCounts, syncServerCategoryCounts } from './categoryCounts'
 import { syncProject, syncServer } from './discovery'
 import { isPublicProject, isPublicServer } from './contentVisibility'
+import { syncProjectOwners, syncServerOwners } from './creatorListings'
 import { isPublicRelease } from './projectReleases'
 
 /**
@@ -41,13 +42,17 @@ export async function recordActivity(ctx: MutationCtx, entry: ActivityEntry) {
 	})
 }
 
-/** Category counters, listing fields, and the "listed a server" activity. */
+/**
+ * Category counters, listing fields, the owners' search listings, and the
+ * "listed a server" activity.
+ */
 export async function afterServerWrite(
 	ctx: MutationCtx,
 	before: Doc<'servers'> | null,
 	after: Doc<'servers'> | null,
 ) {
 	await syncServerCategoryCounts(ctx, before, after)
+	await syncServerOwners(ctx, before, after)
 	if (after) {
 		await syncServer(ctx, after)
 	}
@@ -62,13 +67,17 @@ export async function afterServerWrite(
 	}
 }
 
-/** Category counters, listing fields, and the "published a project" activity. */
+/**
+ * Category counters, listing fields, the owner's search listing, and the
+ * "published a project" activity.
+ */
 export async function afterProjectWrite(
 	ctx: MutationCtx,
 	before: Doc<'projects'> | null,
 	after: Doc<'projects'> | null,
 ) {
 	await syncProjectCategoryCounts(ctx, before, after)
+	await syncProjectOwners(ctx, before, after)
 	if (after) {
 		await syncProject(ctx, after)
 	}
