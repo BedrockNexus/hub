@@ -1,3 +1,4 @@
+import type { Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 
 /**
@@ -14,10 +15,27 @@ export interface HomeAggregates {
 	regions: string[]
 }
 
+export interface SoftwareAggregates {
+	softwareId: Id<'serverSoftware'>
+	serverCount: number
+	onlineServers: number
+	playersOnline: number
+	versions: { version: string; servers: number }[]
+}
+
+const SOFTWARE_VERSIONS_SHOWN = 8
+
 /** Counts everything from the source tables. Only the refresh job should need this. */
 export async function computeHomeAggregates(
 	ctx: QueryCtx | MutationCtx,
 ): Promise<HomeAggregates> {
+	return (await computeAggregates(ctx)).home
+}
+
+/** The homepage numbers and the per-software totals, from one pass. */
+export async function computeAggregates(
+	ctx: QueryCtx | MutationCtx,
+): Promise<{ home: HomeAggregates; software: SoftwareAggregates[] }> {
 	const servers = await ctx.db
 		.query('servers')
 		.withIndex('by_status', (q) => q.eq('status', 'published'))
@@ -31,6 +49,47 @@ export async function computeHomeAggregates(
 	const onlinePlayers = onlineStatuses
 		.filter((status) => publishedServerIds.has(status.serverId))
 		.reduce((sum, status) => sum + status.playerCount, 0)
+
+	const playersByServer = new Map(
+		onlineStatuses.map((status) => [status.serverId, status.playerCount]),
+	)
+	const bySoftware = new Map<
+		Id<'serverSoftware'>,
+		Omit<SoftwareAggregates, 'versions'> & { versions: Map<string, number> }
+	>()
+	for (const server of servers) {
+		if (!server.softwareId) continue
+		const entry = bySoftware.get(server.softwareId) ?? {
+			softwareId: server.softwareId,
+			serverCount: 0,
+			onlineServers: 0,
+			playersOnline: 0,
+			versions: new Map<string, number>(),
+		}
+		entry.serverCount += 1
+		const players = playersByServer.get(server._id)
+		if (players !== undefined) {
+			entry.onlineServers += 1
+			entry.playersOnline += players
+		}
+		for (const version of server.gameVersions ?? []) {
+			entry.versions.set(version, (entry.versions.get(version) ?? 0) + 1)
+		}
+		bySoftware.set(server.softwareId, entry)
+	}
+	const software = [...bySoftware.values()].map((entry) => ({
+		...entry,
+		versions: [...entry.versions]
+			.map(([version, count]) => ({ version, servers: count }))
+			.sort(
+				(a, b) =>
+					b.servers - a.servers ||
+					b.version.localeCompare(a.version, undefined, {
+						numeric: true,
+					}),
+			)
+			.slice(0, SOFTWARE_VERSIONS_SHOWN),
+	}))
 
 	const projects = await ctx.db
 		.query('projects')
@@ -46,10 +105,13 @@ export async function computeHomeAggregates(
 	].sort()
 
 	return {
-		servers: servers.length,
-		onlinePlayers,
-		projects: projects.length,
-		regions,
+		home: {
+			servers: servers.length,
+			onlinePlayers,
+			projects: projects.length,
+			regions,
+		},
+		software,
 	}
 }
 

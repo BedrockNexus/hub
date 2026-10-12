@@ -9,7 +9,7 @@ import {
 export const siteConfig = {
 	name: 'BedrockNexus',
 	description:
-		'Discover Minecraft Bedrock servers, add-ons, resource packs, and community content.',
+		'Discover Minecraft Bedrock servers, addons and resource packs, and publish your own. Free for creators and server owners.',
 	url: 'https://bedrocknexus.com',
 	githubUrl: 'https://github.com/BedrockNexus/hub',
 	pluginsUrl: 'https://plugins.bedrocknexus.com',
@@ -39,6 +39,12 @@ export const publicNavigation = [
 		icon: Wifi01Icon,
 	},
 ] as const
+
+/** Desktop header only; the mobile bar has no room for it. */
+export const trendingNavigation = {
+	href: '/trending',
+	label: 'Trending',
+} as const
 
 /** Shown in navigation only while the Plugins feature is switched on. */
 export const pluginsNavigation = {

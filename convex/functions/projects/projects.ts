@@ -39,12 +39,11 @@ import {
 	type StoredProjectType,
 } from '../../../lib/project-artifacts'
 import { updateProjectReleaseSummary } from './artifactValidation'
+import { removePicksFor } from '../site/picks'
 
 // =============================================================================
 // TYPES
 // =============================================================================
-
-type SortOption = 'newest' | 'name' | 'rating' | 'downloads'
 
 // Max items to scan per query — prevents unbounded full-table reads.
 // Sorting by downloads/rating requires a full pre-filter scan; denormalizing
@@ -188,48 +187,6 @@ async function resolveProjectOwnerLabels(
 	}
 }
 
-async function getProjectCategoryMap(
-	ctx: QueryCtx,
-	projects: Doc<'projects'>[],
-): Promise<Map<Id<'projectCategories'>, Doc<'projectCategories'>>> {
-	const categoryIds = new Set<Id<'projectCategories'>>()
-	for (const project of projects) {
-		for (const categoryId of project.categoryIds) {
-			categoryIds.add(categoryId)
-		}
-	}
-
-	const categories = await Promise.all(
-		Array.from(categoryIds).map((id) => ctx.db.get(id)),
-	)
-
-	return new Map(
-		categories
-			.filter(
-				(category): category is Doc<'projectCategories'> =>
-					category !== null,
-			)
-			.map((category) => [category._id, category]),
-	)
-}
-
-async function getProjectStatsMap(ctx: QueryCtx, projects: Doc<'projects'>[]) {
-	const stats = await Promise.all(
-		projects.map((project) =>
-			ctx.db
-				.query('projectStats')
-				.withIndex('by_project', (q) => q.eq('projectId', project._id))
-				.first(),
-		),
-	)
-
-	return new Map(
-		stats
-			.filter((item): item is NonNullable<typeof item> => item !== null)
-			.map((item) => [item.projectId, item]),
-	)
-}
-
 async function enrichProjectListItem(ctx: QueryCtx, item: Doc<'projects'>) {
 	const categories = await Promise.all(
 		item.categoryIds.map((id) => ctx.db.get(id)),
@@ -319,6 +276,8 @@ async function deleteProjectRelatedRows(
 	ctx: MutationCtx,
 	projectId: Id<'projects'>,
 ) {
+	await removePicksFor(ctx, { projectId })
+
 	const stats = await ctx.db
 		.query('projectStats')
 		.withIndex('by_project', (q) => q.eq('projectId', projectId))
@@ -492,183 +451,6 @@ async function getUserOrganizationIds(
 // =============================================================================
 // QUERIES
 // =============================================================================
-
-/**
- * Advanced project search with filtering and sorting
- */
-export const searchAdvanced = query({
-	args: {
-		query: v.optional(v.string()),
-		type: v.optional(projectType),
-		categoryIds: v.optional(v.array(v.id('projectCategories'))),
-		experimentalFeaturesRequired: v.optional(v.boolean()),
-		resourcePackResolution: v.optional(
-			v.union(
-				v.literal('8x'),
-				v.literal('16x'),
-				v.literal('32x'),
-				v.literal('64x'),
-				v.literal('128x'),
-				v.literal('256x'),
-				v.literal('512x'),
-				v.literal('custom'),
-			),
-		),
-		resourcePackContentType: v.optional(
-			v.union(
-				v.literal('textures'),
-				v.literal('ui'),
-				v.literal('sounds'),
-				v.literal('shaders'),
-			),
-		),
-		sort: v.optional(
-			v.union(
-				v.literal('newest'),
-				v.literal('name'),
-				v.literal('rating'),
-				v.literal('downloads'),
-			),
-		),
-		limit: v.optional(v.number()),
-		cursor: v.optional(v.number()),
-	},
-	handler: async (ctx, args) => {
-		const limit = args.limit ?? 24
-		const offset = args.cursor ?? 0
-		const sort: SortOption = args.sort ?? 'downloads'
-
-		let items: Doc<'projects'>[]
-		const queryText = args.query?.trim()
-		const typeFilter = args.type
-
-		if (queryText) {
-			items = await ctx.db
-				.query('projects')
-				.withSearchIndex('search_projects', (q) => {
-					const search = q.search('name', queryText).eq('status', 'published')
-					return typeFilter ? search.eq('type', typeFilter) : search
-				})
-				.take(MAX_SCAN)
-		} else if (typeFilter) {
-			items = await ctx.db
-				.query('projects')
-				.withIndex('by_type_status', (q) =>
-					q.eq('type', typeFilter).eq('status', 'published'),
-				)
-				.take(MAX_SCAN)
-		} else {
-			items = await ctx.db
-				.query('projects')
-				.withIndex('by_status', (q) => q.eq('status', 'published'))
-				.take(MAX_SCAN)
-		}
-
-		// Filter by categories
-		const categoryIds = args.categoryIds ?? []
-		if (categoryIds.length > 0) {
-			items = items.filter((a) =>
-				categoryIds.some((catId) => a.categoryIds.includes(catId)),
-			)
-		}
-
-		items = items.filter((project) => {
-			const metadata = project.metadata
-			if (
-				args.experimentalFeaturesRequired !== undefined &&
-				(metadata?.type !== 'addon' ||
-					metadata.experimentalFeaturesRequired !==
-						args.experimentalFeaturesRequired)
-			) {
-				return false
-			}
-			if (
-				args.resourcePackResolution &&
-				(metadata?.type !== 'resource_pack' ||
-					metadata.resolution !== args.resourcePackResolution)
-			) {
-				return false
-			}
-			if (
-				args.resourcePackContentType &&
-				(metadata?.type !== 'resource_pack' ||
-					!metadata.contentTypes.includes(args.resourcePackContentType))
-			) {
-				return false
-			}
-			return true
-		})
-
-		items = items.filter(isPublicProject)
-
-		const needsStatsForSort = sort === 'rating' || sort === 'downloads'
-		let statsMap = needsStatsForSort
-			? await getProjectStatsMap(ctx, items)
-			: new Map()
-
-		// Sort
-		switch (sort) {
-			case 'newest':
-				items.sort((a, b) => b._creationTime - a._creationTime)
-				break
-			case 'name':
-				items.sort((a, b) => a.name.localeCompare(b.name))
-				break
-			case 'rating':
-				items.sort(
-					(a, b) =>
-						(statsMap.get(b._id)?.averageRating ?? 0) -
-						(statsMap.get(a._id)?.averageRating ?? 0),
-				)
-				break
-			case 'downloads':
-				items.sort(
-					(a, b) =>
-						(statsMap.get(b._id)?.totalDownloads ?? 0) -
-						(statsMap.get(a._id)?.totalDownloads ?? 0),
-				)
-				break
-		}
-
-		// Pagination
-		const totalCount = items.length
-		const paginatedItems = items.slice(offset, offset + limit)
-		if (!needsStatsForSort) {
-			statsMap = await getProjectStatsMap(ctx, paginatedItems)
-		}
-		const categoryMap = await getProjectCategoryMap(ctx, paginatedItems)
-
-		// Enrich
-		const enrichedItems = await Promise.all(
-			paginatedItems.map(async (item) => {
-				const stats = statsMap.get(item._id)
-
-				const iconUrl = await resolveProjectIconUrl(item)
-
-				return {
-					...item,
-					iconUrl,
-					categories: item.categoryIds
-						.map((id) => categoryMap.get(id))
-						.filter(
-							(category): category is Doc<'projectCategories'> =>
-								category !== undefined,
-						),
-					averageRating: stats?.averageRating ?? 0,
-					reviewCount: stats?.reviewCount ?? 0,
-					totalDownloads: stats?.totalDownloads ?? 0,
-				}
-			}),
-		)
-
-		return {
-			items: enrichedItems,
-			totalCount,
-			hasMore: offset + limit < totalCount,
-			nextCursor: offset + limit < totalCount ? offset + limit : null,
-		}
-	},
-})
 
 /**
  * List all published projects

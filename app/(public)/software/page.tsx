@@ -16,19 +16,24 @@ import { api } from '@/convex/_generated/api'
 export const metadata: Metadata = {
 	title: 'Server software',
 	description:
-		'Browse Minecraft Bedrock server software and the plugins published for each on BedrockNexus.',
+		'The software Minecraft Bedrock servers run, with the servers using each and how many players they have online.',
 	alternates: { canonical: '/software' },
+}
+
+function plural(count: number, noun: string) {
+	return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`
 }
 
 export default async function SoftwarePage() {
 	const software = await fetchQuery(
-		api.functions.plugins.catalog.listSoftware,
+		api.functions.servers.software.directory,
 		{},
 	)
 
 	return (
 		<PageShell
-			description="The software Bedrock servers run, and the plugins published for each."
+			breadcrumb={[{ href: '/', label: 'Home' }]}
+			description="The software Bedrock servers run, as declared by their owners."
 			title="Server software"
 		>
 			<div className="grid gap-5 md:grid-cols-2">
@@ -40,7 +45,7 @@ export default async function SoftwarePage() {
 					>
 						<Card className="h-full transition-[transform,border-color] group-hover:-translate-y-1 group-hover:border-primary">
 							<CardHeader className="grid-cols-[auto_1fr_auto] items-center gap-x-4">
-								<span className="extrude row-span-2 grid size-12 place-items-center rounded-sm border-2 border-edge bg-primary text-primary-foreground">
+								<span className="extrude row-span-3 grid size-12 place-items-center rounded-sm border-2 border-edge bg-primary text-primary-foreground">
 									<HugeiconsIcon
 										aria-hidden="true"
 										className="size-5"
@@ -53,15 +58,18 @@ export default async function SoftwarePage() {
 								<CardDescription className="col-start-2 line-clamp-1">
 									{item.description}
 								</CardDescription>
-								{item.adapterId ? (
+								<p className="col-start-2 font-mono text-muted-foreground text-xs">
+									{plural(item.serverCount, 'server')}
+									{item.playersOnline > 0
+										? ` · ${plural(item.playersOnline, 'player')} online`
+										: ''}
+								</p>
+								{item.pluginCount > 0 ? (
 									<Badge
 										className="col-start-3 row-start-1"
 										variant="outline"
 									>
-										{item.projectCount}{' '}
-										{item.projectCount === 1
-											? 'plugin'
-											: 'plugins'}
+										{plural(item.pluginCount, 'plugin')}
 									</Badge>
 								) : null}
 								<HugeiconsIcon

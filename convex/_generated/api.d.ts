@@ -56,6 +56,7 @@ import type * as functions_site_gameVersions from "../functions/site/gameVersion
 import type * as functions_site_index from "../functions/site/index.js";
 import type * as functions_site_migrations from "../functions/site/migrations.js";
 import type * as functions_site_organizations from "../functions/site/organizations.js";
+import type * as functions_site_picks from "../functions/site/picks.js";
 import type * as functions_site_settings from "../functions/site/settings.js";
 import type * as functions_site_support from "../functions/site/support.js";
 import type * as functions_site_trending from "../functions/site/trending.js";
@@ -71,6 +72,7 @@ import type * as lib_contentOwnership from "../lib/contentOwnership.js";
 import type * as lib_contentValidation from "../lib/contentValidation.js";
 import type * as lib_contentVisibility from "../lib/contentVisibility.js";
 import type * as lib_creatorListings from "../lib/creatorListings.js";
+import type * as lib_creatorRank from "../lib/creatorRank.js";
 import type * as lib_dataUrls from "../lib/dataUrls.js";
 import type * as lib_dayKeys from "../lib/dayKeys.js";
 import type * as lib_discovery from "../lib/discovery.js";
@@ -156,6 +158,7 @@ declare const fullApi: ApiFromModules<{
   "functions/site/index": typeof functions_site_index;
   "functions/site/migrations": typeof functions_site_migrations;
   "functions/site/organizations": typeof functions_site_organizations;
+  "functions/site/picks": typeof functions_site_picks;
   "functions/site/settings": typeof functions_site_settings;
   "functions/site/support": typeof functions_site_support;
   "functions/site/trending": typeof functions_site_trending;
@@ -171,6 +174,7 @@ declare const fullApi: ApiFromModules<{
   "lib/contentValidation": typeof lib_contentValidation;
   "lib/contentVisibility": typeof lib_contentVisibility;
   "lib/creatorListings": typeof lib_creatorListings;
+  "lib/creatorRank": typeof lib_creatorRank;
   "lib/dataUrls": typeof lib_dataUrls;
   "lib/dayKeys": typeof lib_dayKeys;
   "lib/discovery": typeof lib_discovery;

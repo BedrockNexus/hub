@@ -9,14 +9,12 @@ function isDirectMediaUrl(value: string | null | undefined): value is string {
 	)
 }
 
+/**
+ * The picture someone uploaded, or nothing. Without one the avatar shows the
+ * first letter of the name (see components/auth/user-avatar-image.tsx).
+ */
 export function getAvatarUrl(
 	image: string | null | undefined,
-	name: string,
-	size = 60,
-): string {
-	if (isDirectMediaUrl(image)) {
-		return image
-	}
-
-	return `https://avatar.vercel.sh/${encodeURIComponent(name)}?size=${size}`
+): string | undefined {
+	return isDirectMediaUrl(image) ? image : undefined
 }

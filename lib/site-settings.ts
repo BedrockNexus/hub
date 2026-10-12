@@ -43,7 +43,7 @@ export interface SiteStats {
 
 export const DEFAULT_SITE_SEO: SiteSeoSettings = {
 	siteDescription:
-		'Discover Minecraft Bedrock servers, projects, and community content.',
+		'Discover Minecraft Bedrock servers, addons and resource packs, and publish your own. Free for creators and server owners.',
 }
 
 const DEFAULT_SITE_SOCIALS: SiteSocialSettings = {}

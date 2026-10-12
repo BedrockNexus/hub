@@ -94,14 +94,14 @@ function matchesFilters({ server, status }: Row, filters: Filters) {
 	return (status?.playerCount ?? 0) >= filters.minPlayers
 }
 
-async function statsOf(ctx: QueryCtx, serverId: Id<'servers'>) {
+export async function statsOf(ctx: QueryCtx, serverId: Id<'servers'>) {
 	return await ctx.db
 		.query('serverStats')
 		.withIndex('by_server', (q) => q.eq('serverId', serverId))
 		.first()
 }
 
-async function statusOf(ctx: QueryCtx, serverId: Id<'servers'>) {
+export async function statusOf(ctx: QueryCtx, serverId: Id<'servers'>) {
 	return await ctx.db
 		.query('serverStatus')
 		.withIndex('by_server', (q) => q.eq('serverId', serverId))
@@ -112,7 +112,8 @@ async function imageUrl(key: string | undefined) {
 	return key ? await resolveCdnObjectUrl(key, IMAGE_URL_EXPIRES_IN) : undefined
 }
 
-async function toCards(ctx: QueryCtx, rows: Row[]) {
+/** The shape every public server card and row is drawn from. */
+export async function toCards(ctx: QueryCtx, rows: Row[]) {
 	const categoryIds = [
 		...new Set(rows.flatMap((row) => row.server.categoryIds)),
 	]
@@ -282,5 +283,35 @@ export const browse = query({
 			})
 			.paginate(limits)
 		return { ...result, page: await toCards(ctx, result.page) }
+	},
+})
+
+const SITEMAP_LIMIT = 2000
+
+/** Address and last change of every listed server, newest first, for the sitemap. */
+export const sitemapEntries = query({
+	args: {},
+	returns: v.array(v.object({ slug: v.string(), updatedAt: v.number() })),
+	handler: async (ctx) => {
+		const listed = await ctx.db
+			.query('serverStats')
+			.withIndex('by_isPublic_and_publishedAt', (q) =>
+				q.eq('isPublic', true),
+			)
+			.order('desc')
+			.take(SITEMAP_LIMIT)
+		const servers = await Promise.all(
+			listed.map((stats) => ctx.db.get('servers', stats.serverId)),
+		)
+		return servers.flatMap((server) =>
+			server && isPublicServer(server)
+				? [
+						{
+							slug: server.slug,
+							updatedAt: server.updatedAt ?? server._creationTime,
+						},
+					]
+				: [],
+		)
 	},
 })

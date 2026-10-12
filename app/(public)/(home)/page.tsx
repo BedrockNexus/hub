@@ -3,8 +3,10 @@ import type { Metadata } from 'next'
 import { CreatorsSection } from '@/components/home/creators-section'
 import { GamemodesSection } from '@/components/home/gamemodes-section'
 import { Hero, SiteStatsBand } from '@/components/home/hero'
-import { LatestProjectsSection } from '@/components/home/latest-projects-section'
-import { LatestServersSection } from '@/components/home/latest-servers-section'
+import { PicksSection } from '@/components/home/picks-section'
+import { PopularCreatorsSection } from '@/components/home/popular-creators-section'
+import { ProjectListSection } from '@/components/home/project-list-section'
+import { ServerListSection } from '@/components/home/server-list-section'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl } from '@/lib/seo'
 import { getSiteFeatures } from '@/lib/site-settings'
@@ -48,9 +50,29 @@ export default async function Home() {
 		<>
 			<Hero categories={gamemodes.slice(0, 4)} />
 			<SiteStatsBand />
-			<LatestServersSection />
+			<PicksSection />
+			<ServerListSection
+				href="/servers?sort=trending"
+				linkLabel="All trending servers"
+				sort="trending"
+				title="Trending servers"
+			/>
 			<GamemodesSection categories={gamemodes.slice(0, 8)} />
-			<LatestProjectsSection />
+			<ProjectListSection
+				href="/projects?sort=trending"
+				linkLabel="All trending projects"
+				sort="trending"
+				title="Trending addons & packs"
+			/>
+			<ProjectListSection
+				count={3}
+				hideWhenEmpty
+				href="/projects?sort=updated"
+				linkLabel="All recently updated"
+				sort="updated"
+				title="Recently updated"
+			/>
+			<PopularCreatorsSection />
 			<CreatorsSection pluginsEnabled={features.pluginsEnabled} />
 		</>
 	)

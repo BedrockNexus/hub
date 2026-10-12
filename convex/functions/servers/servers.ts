@@ -18,6 +18,7 @@ import { validateEntityImageUpload } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { validateServerFields } from '../../lib/contentValidation'
 import { afterServerWrite } from '../../lib/activity'
+import { removePicksFor } from '../site/picks'
 import { recordAdminAction } from '../../lib/audit'
 import { recordEditorMediaReferences } from '../../lib/editorMedia'
 import { enforceRateLimit } from '../../lib/rateLimits'
@@ -41,7 +42,6 @@ function getUtcMonthKey(epoch: number): string {
 // TYPES
 // =============================================================================
 
-type SortOption = 'newest' | 'name' | 'rating' | 'players'
 type ServerOwnerRef = {
 	ownerType: 'user' | 'organization'
 	ownerId: string
@@ -119,83 +119,6 @@ async function resolveServerOwnerLabels(
 		registeredByName: getUserDisplayName(registeredBy) ?? 'Unknown user',
 	}
 }
-
-async function getServerCategoryMap(
-	ctx: QueryCtx,
-	servers: Doc<'servers'>[],
-): Promise<Map<Id<'serverCategories'>, Doc<'serverCategories'>>> {
-	const categoryIds = new Set<Id<'serverCategories'>>()
-	for (const server of servers) {
-		for (const categoryId of server.categoryIds) {
-			categoryIds.add(categoryId)
-		}
-	}
-
-	const categories = await Promise.all(
-		Array.from(categoryIds).map((id) => ctx.db.get(id)),
-	)
-
-	return new Map(
-		categories
-			.filter(
-				(category): category is Doc<'serverCategories'> =>
-					category !== null,
-			)
-			.map((category) => [category._id, category]),
-	)
-}
-
-async function getServerStatsMap(ctx: QueryCtx, servers: Doc<'servers'>[]) {
-	const stats = await Promise.all(
-		servers.map((server) =>
-			ctx.db
-				.query('serverStats')
-				.withIndex('by_server', (q) => q.eq('serverId', server._id))
-				.first(),
-		),
-	)
-
-	return new Map(
-		stats
-			.filter((item): item is NonNullable<typeof item> => item !== null)
-			.map((item) => [item.serverId, item]),
-	)
-}
-
-type ServerStatusSummary = {
-	online: boolean
-	playerCount: number
-	maxPlayers: number
-}
-
-async function getServerStatusMap(
-	ctx: QueryCtx,
-	servers: Doc<'servers'>[],
-): Promise<Map<Id<'servers'>, ServerStatusSummary>> {
-	const statuses = await Promise.all(
-		servers.map((server) =>
-			ctx.db
-				.query('serverStatus')
-				.withIndex('by_server', (q) => q.eq('serverId', server._id))
-				.first(),
-		),
-	)
-
-	return new Map(
-		statuses
-			.filter((status): status is NonNullable<typeof status> => status !== null)
-			.map((status) => [
-				status.serverId,
-				{
-					online: status.online,
-					playerCount: status.playerCount,
-					maxPlayers: status.maxPlayers,
-				},
-			]),
-	)
-}
-
-
 
 function parseServerAddress(ipAddress: string, port: number): ServerAddress {
 	try {
@@ -367,6 +290,8 @@ async function deleteServerRelatedRows(
 	ctx: MutationCtx,
 	serverId: Id<'servers'>,
 ) {
+	await removePicksFor(ctx, { serverId })
+
 	const stats = await ctx.db
 		.query('serverStats')
 		.withIndex('by_server', (q) => q.eq('serverId', serverId))
@@ -549,178 +474,6 @@ async function enrichServerDetail(ctx: QueryCtx, server: Doc<'servers'>) {
 // =============================================================================
 // QUERIES
 // =============================================================================
-
-/**
- * Advanced server search with filtering and sorting
- */
-export const searchAdvanced = query({
-	args: {
-		query: v.optional(v.string()),
-		categoryIds: v.optional(v.array(v.id('serverCategories'))),
-		region: v.optional(v.string()),
-		statusFilter: v.optional(
-			v.union(v.literal('online'), v.literal('offline')),
-		),
-		sort: v.optional(
-			v.union(
-				v.literal('newest'),
-				v.literal('name'),
-				v.literal('rating'),
-				v.literal('players'),
-			),
-		),
-		verifiedOnly: v.optional(v.boolean()),
-		limit: v.optional(v.number()),
-		cursor: v.optional(v.number()), // offset-based pagination
-	},
-	handler: async (ctx, args) => {
-		const limit = args.limit ?? 24
-		const offset = args.cursor ?? 0
-		const sort: SortOption = args.sort ?? 'rating'
-
-		let servers: Doc<'servers'>[]
-		const queryText = args.query?.trim()
-
-		// If there's a search query, use the search index
-		if (queryText) {
-			servers = await ctx.db
-				.query('servers')
-				.withSearchIndex('search_servers', (q) =>
-					q.search('name', queryText).eq('status', 'published'),
-				)
-				.take(MAX_SCAN)
-		} else {
-			// Otherwise get all published servers
-			servers = await ctx.db
-				.query('servers')
-				.withIndex('by_status', (q) => q.eq('status', 'published'))
-				.take(MAX_SCAN)
-		}
-
-		// Filter by categories
-		const categoryIds = args.categoryIds ?? []
-		if (categoryIds.length > 0) {
-			servers = servers.filter((s) =>
-				categoryIds.some((catId) =>
-					s.categoryIds.includes(catId),
-				),
-			)
-		}
-
-		// Filter by region
-		if (args.region) {
-			servers = servers.filter((s) => s.region === args.region)
-		}
-
-		if (args.verifiedOnly) {
-			servers = servers.filter((s) => s.verifiedAt !== undefined)
-		}
-
-		// Get online status for filtering if needed
-		let serverStatusMap: Map<Id<'servers'>, ServerStatusSummary> =
-			new Map()
-		if (args.statusFilter) {
-			const onlineFilter = args.statusFilter === 'online'
-			const allStatus = await ctx.db
-				.query('serverStatus')
-				.withIndex('by_online', (q) => q.eq('online', onlineFilter))
-				.collect()
-			serverStatusMap = new Map(
-				allStatus.map((s) => [
-					s.serverId,
-					{
-						online: s.online,
-						playerCount: s.playerCount,
-						maxPlayers: s.maxPlayers,
-					},
-				]),
-			)
-			servers = servers.filter((s) => serverStatusMap.has(s._id))
-		} else if (sort === 'players') {
-			serverStatusMap = await getServerStatusMap(ctx, servers)
-		}
-
-		const needsStatsForSort = sort === 'rating'
-		let statsMap = needsStatsForSort
-			? await getServerStatsMap(ctx, servers)
-			: new Map()
-
-		// Sort servers
-		switch (sort) {
-			case 'newest':
-				servers.sort((a, b) => b._creationTime - a._creationTime)
-				break
-			case 'name':
-				servers.sort((a, b) => a.name.localeCompare(b.name))
-				break
-			case 'rating':
-				servers.sort(
-					(a, b) =>
-						(statsMap.get(b._id)?.averageRating ?? 0) -
-						(statsMap.get(a._id)?.averageRating ?? 0),
-				)
-				break
-			case 'players': {
-				// Online servers first, busiest first; offline and unchecked last.
-				const players = (id: Id<'servers'>) => {
-					const status = serverStatusMap.get(id)
-					return status?.online ? status.playerCount : -1
-				}
-				servers.sort((a, b) => players(b._id) - players(a._id))
-				break
-			}
-		}
-
-		// Pagination
-		const totalCount = servers.length
-		const paginatedServers = servers.slice(offset, offset + limit)
-		if (!needsStatsForSort) {
-			statsMap = await getServerStatsMap(ctx, paginatedServers)
-		}
-		if (!args.statusFilter && sort !== 'players') {
-			serverStatusMap = await getServerStatusMap(ctx, paginatedServers)
-		}
-		const categoryMap = await getServerCategoryMap(ctx, paginatedServers)
-
-		// Enrich with categories and URLs
-		const enrichedServers = await Promise.all(
-			paginatedServers.map(async (server) => {
-				// Get stats from the map
-				const stats = statsMap.get(server._id)
-
-				const logoUrl = await resolveServerLogoUrl(server)
-				const bannerUrl = await resolveServerBannerUrl(server)
-
-				const status = serverStatusMap.get(server._id)
-
-				return {
-					...server,
-					logoUrl,
-					bannerUrl,
-					categories: server.categoryIds
-						.map((id) => categoryMap.get(id))
-						.filter(
-							(category): category is Doc<'serverCategories'> =>
-								category !== undefined,
-						),
-					online: status?.online,
-					playerCount: status?.playerCount ?? 0,
-					maxPlayers: status?.maxPlayers,
-					verified: server.verifiedAt !== undefined,
-					averageRating: stats?.averageRating ?? 0,
-					reviewCount: stats?.reviewCount ?? 0,
-				}
-			}),
-		)
-
-		return {
-			servers: enrichedServers,
-			totalCount,
-			hasMore: offset + limit < totalCount,
-			nextCursor: offset + limit < totalCount ? offset + limit : null,
-		}
-	},
-})
 
 /**
  * Regions that have at least one published server (for the filter dropdown).
@@ -965,41 +718,6 @@ export const getBySlug = query({
 			// Owner info
 			owner: ownerData,
 		}
-	},
-})
-
-/**
- * Search servers by name
- */
-export const search = query({
-	args: { query: v.string() },
-	handler: async (ctx, args) => {
-		if (!args.query.trim()) return []
-
-		const results = await ctx.db
-			.query('servers')
-			.withSearchIndex('search_servers', (q) =>
-				q.search('name', args.query).eq('status', 'published'),
-			)
-			.take(20)
-
-		return Promise.all(
-			results.map(async (server) => {
-				const categories = await Promise.all(
-					server.categoryIds.map((id) => ctx.db.get(id)),
-				)
-
-				const logoUrl = await resolveServerLogoUrl(server)
-				const bannerUrl = await resolveServerBannerUrl(server)
-
-				return {
-					...server,
-					logoUrl,
-					bannerUrl,
-					categories: categories.filter(Boolean),
-				}
-			}),
-		)
 	},
 })
 

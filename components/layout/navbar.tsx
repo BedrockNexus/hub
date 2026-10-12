@@ -25,10 +25,12 @@ import {
 	pluginsNavigation,
 	publicNavigation,
 	siteConfig,
+	trendingNavigation,
 } from '@/lib/site'
 import { cn } from '@/lib/utils'
 
 const mobileNavigation = [homeNavigation, ...publicNavigation]
+const desktopNavigation = [...publicNavigation, trendingNavigation]
 const mobileNavigationWithPlugins = [...mobileNavigation, pluginsNavigation]
 
 const userButtonLinks: UserButtonLink[] = [
@@ -111,7 +113,7 @@ export function Navbar() {
 					<BrandMark imageClassName="w-36" priority withIcon />
 
 					<div className="flex items-center gap-6">
-						{publicNavigation.map((item) => {
+						{desktopNavigation.map((item) => {
 							const isActive = isActiveRoute(pathname, item.href)
 
 							return (

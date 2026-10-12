@@ -46,6 +46,14 @@ crons.interval(
 	{},
 )
 
+// Order of /creators and /organizations (lib/creatorRank.ts).
+crons.interval(
+	'recompute-creator-ranks',
+	{ hours: 1 },
+	internal.functions.site.creators.recomputeRanks,
+	{},
+)
+
 crons.cron(
 	'purge-server-status-history',
 	'15 4 * * *',

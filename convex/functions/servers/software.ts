@@ -1,5 +1,9 @@
 import { ConvexError, v } from 'convex/values'
-import { query } from '../../_generated/server'
+import type { Doc } from '../../_generated/dataModel'
+import { type QueryCtx, query } from '../../_generated/server'
+import { isPublicServer } from '../../lib/contentVisibility'
+import { countPublishedProjectsForSoftwareBatch } from '../../lib/plugins/aggregates'
+import { statusOf, toCards } from './listing'
 import { recordAdminAction } from '../../lib/audit'
 import { assertOptionalHttpUrl } from '../../lib/contentValidation'
 import { adminMutation, adminQuery } from '../../lib/functions'
@@ -197,5 +201,128 @@ export const remove = adminMutation({
 			targetId: args.id,
 			targetLabel: software.name,
 		})
+	},
+})
+
+// =============================================================================
+// PUBLIC DIRECTORY (/software)
+// =============================================================================
+
+const DIRECTORY_LIMIT = 50
+const SERVERS_SHOWN = 6
+
+async function pluginsAreEnabled(ctx: QueryCtx) {
+	const features = await ctx.db
+		.query('siteSettings')
+		.withIndex('by_key', (q) => q.eq('key', 'features'))
+		.unique()
+	return (
+		(features?.value as { pluginsEnabled?: boolean } | undefined)
+			?.pluginsEnabled === true
+	)
+}
+
+async function statsFor(ctx: QueryCtx, software: Doc<'serverSoftware'>) {
+	const stats = await ctx.db
+		.query('serverSoftwareStats')
+		.withIndex('by_softwareId', (q) => q.eq('softwareId', software._id))
+		.unique()
+	return {
+		serverCount: stats?.serverCount ?? 0,
+		onlineServers: stats?.onlineServers ?? 0,
+		playersOnline: stats?.playersOnline ?? 0,
+		versions: stats?.versions ?? [],
+	}
+}
+
+function publicFields(software: Doc<'serverSoftware'>) {
+	return {
+		slug: software.slug,
+		name: software.name,
+		description: software.description,
+		websiteUrl: software.websiteUrl,
+		repositoryUrl: software.repositoryUrl,
+		// Whether plugins can be published for it here.
+		supportsPlugins: software.adapterId !== undefined,
+	}
+}
+
+/**
+ * Every enabled software with how many listed servers declare it and how many
+ * players those servers have online. The totals are a few minutes old (see
+ * functions/site/aggregates:refresh). Plugin counts are zero while the
+ * Plugins feature is off.
+ */
+export const directory = query({
+	args: {},
+	handler: async (ctx) => {
+		const [software, pluginsEnabled] = await Promise.all([
+			ctx.db
+				.query('serverSoftware')
+				.withIndex('by_enabled_and_sortOrder', (q) =>
+					q.eq('enabled', true),
+				)
+				.take(DIRECTORY_LIMIT),
+			pluginsAreEnabled(ctx),
+		])
+		const [stats, pluginCounts] = await Promise.all([
+			Promise.all(software.map((item) => statsFor(ctx, item))),
+			pluginsEnabled
+				? countPublishedProjectsForSoftwareBatch(
+						ctx,
+						software.map((item) => item._id),
+					)
+				: [],
+		])
+		return software.map((item, index) => ({
+			...publicFields(item),
+			serverCount: stats[index].serverCount,
+			playersOnline: stats[index].playersOnline,
+			pluginCount: pluginCounts[index] ?? 0,
+			updatedAt: item.updatedAt,
+		}))
+	},
+})
+
+/** One software's page: its totals and the busiest servers declaring it. */
+export const getDirectoryEntry = query({
+	args: { slug: v.string() },
+	handler: async (ctx, args) => {
+		const software = await ctx.db
+			.query('serverSoftware')
+			.withIndex('by_slug', (q) => q.eq('slug', args.slug.trim()))
+			.unique()
+		if (!software?.enabled) {
+			return null
+		}
+		const [stats, busiest] = await Promise.all([
+			statsFor(ctx, software),
+			ctx.db
+				.query('serverStats')
+				.withIndex('by_isPublic_and_softwareId_and_avgPlayers7d', (q) =>
+					q.eq('isPublic', true).eq('softwareId', software._id),
+				)
+				.order('desc')
+				.take(SERVERS_SHOWN),
+		])
+		const rows = (
+			await Promise.all(
+				busiest.map(async (row) => {
+					const server = await ctx.db.get('servers', row.serverId)
+					return server && isPublicServer(server)
+						? {
+								server,
+								stats: row,
+								status: await statusOf(ctx, server._id),
+							}
+						: null
+				}),
+			)
+		).flatMap((row) => (row ? [row] : []))
+		return {
+			...publicFields(software),
+			...stats,
+			servers: await toCards(ctx, rows),
+		}
 	},
 })

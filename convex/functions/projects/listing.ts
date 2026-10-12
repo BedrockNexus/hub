@@ -170,7 +170,8 @@ interface Row {
 	stats: Doc<'projectStats'> | null
 }
 
-async function toCards(ctx: QueryCtx, rows: Row[]) {
+/** The shape every public project card is drawn from. */
+export async function toCards(ctx: QueryCtx, rows: Row[]) {
 	const categoryIds = [
 		...new Set(rows.flatMap((row) => row.project.categoryIds)),
 	]
@@ -281,5 +282,30 @@ export const browse = query({
 			})
 			.paginate({ ...paginationOpts, maximumRowsRead: MAX_ROWS_PER_PAGE })
 		return { ...result, page: await toCards(ctx, result.page) }
+	},
+})
+
+const SITEMAP_LIMIT = 2000
+
+/** Address and last change of every public project, newest first, for the sitemap. */
+export const sitemapEntries = query({
+	args: {},
+	returns: v.array(v.object({ slug: v.string(), updatedAt: v.number() })),
+	handler: async (ctx) => {
+		const listed = await ctx.db
+			.query('projectStats')
+			.withIndex('by_isPublic_and_publishedAt', (q) =>
+				q.eq('isPublic', true),
+			)
+			.order('desc')
+			.take(SITEMAP_LIMIT)
+		const projects = await Promise.all(
+			listed.map((stats) => ctx.db.get('projects', stats.projectId)),
+		)
+		return projects.flatMap((project) =>
+			project && isPublicProject(project)
+				? [{ slug: project.slug, updatedAt: project.updatedAt }]
+				: [],
+		)
 	},
 })

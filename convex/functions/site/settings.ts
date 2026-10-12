@@ -38,7 +38,7 @@ type FeatureSettings = {
 
 const DEFAULT_SEO = {
 	siteDescription:
-		'Discover Minecraft Bedrock servers, projects, and community content.',
+		'Discover Minecraft Bedrock servers, addons and resource packs, and publish your own. Free for creators and server owners.',
 }
 
 const DEFAULT_FEATURES = {
@@ -449,7 +449,7 @@ export const getSeo = query({
 		return {
 			siteDescription:
 				value?.siteDescription ??
-				'Discover Minecraft Bedrock servers, projects, and community content.',
+				'Discover Minecraft Bedrock servers, addons and resource packs, and publish your own. Free for creators and server owners.',
 			ogImageR2Key: value?.ogImageR2Key,
 			ogImageUrl: await resolveSiteImageUrl(value?.ogImageR2Key),
 		}

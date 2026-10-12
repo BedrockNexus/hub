@@ -32,11 +32,11 @@ export function Hero({ categories }: { categories: HeroCategory[] }) {
 					width={2000}
 				/>
 				<h1 className="-mt-3 max-w-3xl text-balance font-bold text-[clamp(1.75rem,4vw,2.75rem)] leading-tight">
-					Find your next Bedrock server, addon or pack.
+					Discover, publish and grow on Minecraft Bedrock.
 				</h1>
 				<p className="max-w-xl text-lg text-muted-foreground">
-					Verified servers with live status, plus addons and resource
-					packs from independent creators.
+					Find servers with live status, and addons and resource packs
+					from independent creators. Publishing your own is free.
 				</p>
 				<div className="mt-1 flex w-full flex-col items-center gap-3">
 					{chips.length > 0 ? (

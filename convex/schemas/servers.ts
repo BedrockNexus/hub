@@ -67,6 +67,20 @@ export const tables = {
 		.index('by_adapterId', ['adapterId'])
 		.index('by_enabled_and_sortOrder', ['enabled', 'sortOrder']),
 
+	// Per-software totals for /software, recounted every few minutes by
+	// functions/site/aggregates:refresh (see lib/siteAggregates.ts).
+	serverSoftwareStats: defineTable({
+		softwareId: v.id('serverSoftware'),
+		serverCount: v.number(), // listed servers declaring it
+		onlineServers: v.number(),
+		playersOnline: v.number(),
+		// Most declared Minecraft versions first, at most 8.
+		versions: v.array(
+			v.object({ version: v.string(), servers: v.number() }),
+		),
+		updatedAt: v.number(),
+	}).index('by_softwareId', ['softwareId']),
+
 	// ===========================================================================
 	// SERVERS
 	// ===========================================================================

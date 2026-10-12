@@ -9,6 +9,7 @@ import {
 	PuzzleIcon,
 	ServerStack03Icon,
 	Settings01Icon,
+	StarIcon,
 	UserGroupIcon,
 } from '@hugeicons/core-free-icons'
 import type * as React from 'react'
@@ -43,6 +44,11 @@ const data = {
 		},
 	],
 	navPeople: [
+		{
+			title: 'Picks',
+			url: '/admin/picks',
+			icon: StarIcon,
+		},
 		{
 			title: 'Users',
 			url: '/admin/users',

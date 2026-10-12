@@ -367,4 +367,79 @@ describe('creator listings', () => {
 			},
 		])
 	})
+
+	it('ranks creators by downloads, weekly players and listings', async () => {
+		const t = createTest()
+		const modder = await signIn(t, 'modder')
+		const host = await signIn(t, 'host')
+		const { projectId } = await publishProject(t, 'big-pack', modder.userId)
+		await t.run(async (ctx) => {
+			const stats = await ctx.db
+				.query('projectStats')
+				.withIndex('by_project', (q) => q.eq('projectId', projectId))
+				.unique()
+			if (stats) {
+				await ctx.db.patch(stats._id, { totalDownloads: 100 })
+			}
+			const serverId = await ctx.db.insert('servers', {
+				name: 'Host SMP',
+				slug: 'host-smp',
+				smallDescription: 'A test server',
+				ipAddress: 'host.example.com',
+				port: 19_132,
+				categoryIds: [],
+				ownerType: 'user',
+				ownerId: host.userId,
+				registeredBy: host.userId,
+				status: 'published',
+			})
+			await afterServerWrite(ctx, null, await ctx.db.get(serverId))
+			const serverStats = await ctx.db
+				.query('serverStats')
+				.withIndex('by_server', (q) => q.eq('serverId', serverId))
+				.unique()
+			if (serverStats) {
+				await ctx.db.patch(serverStats._id, { avgPlayers7d: 3 })
+			}
+		})
+
+		const popular = () =>
+			t.query(api.functions.site.creators.listPopular, {
+				ownerType: 'user',
+			})
+		// Listed, but unranked until the hourly job has run.
+		expect((await popular()).map((creator) => creator.slug).sort()).toEqual([
+			'host',
+			'modder',
+		])
+
+		await t.mutation(internal.functions.site.creators.recomputeRanks, {})
+		await t.finishAllScheduledFunctions(() => undefined)
+
+		expect(await popular()).toEqual([
+			{
+				slug: 'modder',
+				name: 'modder',
+				serverCount: 0,
+				projectCount: 1,
+				pluginCount: 0,
+				totalDownloads: 100,
+				avgPlayers7d: 0,
+			},
+			{
+				slug: 'host',
+				name: 'host',
+				serverCount: 1,
+				projectCount: 0,
+				pluginCount: 0,
+				totalDownloads: 0,
+				avgPlayers7d: 3,
+			},
+		])
+		expect(
+			await t.query(api.functions.site.creators.listPopular, {
+				ownerType: 'organization',
+			}),
+		).toEqual([])
+	})
 })

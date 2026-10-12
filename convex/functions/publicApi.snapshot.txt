@@ -70,6 +70,9 @@ mutation functions/site/gameVersions:toggleActive
 mutation functions/site/organizations:generateBannerUploadUrl
 mutation functions/site/organizations:generateLogoUploadUrl
 mutation functions/site/organizations:updateProfile
+mutation functions/site/picks:add
+mutation functions/site/picks:remove
+mutation functions/site/picks:updateNote
 mutation functions/site/settings:generateSiteImageUploadUrl
 mutation functions/site/settings:remove
 mutation functions/site/settings:set
@@ -119,6 +122,7 @@ query    functions/projects/categories:listWithCounts
 query    functions/projects/gallery:listMine
 query    functions/projects/gallery:listPublic
 query    functions/projects/listing:browse
+query    functions/projects/listing:sitemapEntries
 query    functions/projects/projects:getAdminReview
 query    functions/projects/projects:getBySlug
 query    functions/projects/projects:getPublishedBySlug
@@ -127,7 +131,6 @@ query    functions/projects/projects:listAdmin
 query    functions/projects/projects:listByOrganization
 query    functions/projects/projects:listMyContent
 query    functions/projects/projects:listPendingModeration
-query    functions/projects/projects:searchAdvanced
 query    functions/projects/reviews:getStats
 query    functions/projects/reviews:getUserReview
 query    functions/projects/reviews:list
@@ -145,6 +148,7 @@ query    functions/servers/categories:listWithCounts
 query    functions/servers/gallery:listMine
 query    functions/servers/gallery:listPublic
 query    functions/servers/listing:browse
+query    functions/servers/listing:sitemapEntries
 query    functions/servers/reviews:getStats
 query    functions/servers/reviews:getUserReview
 query    functions/servers/reviews:list
@@ -156,15 +160,17 @@ query    functions/servers/servers:list
 query    functions/servers/servers:listAdmin
 query    functions/servers/servers:listByOrganization
 query    functions/servers/servers:listMyServers
-query    functions/servers/servers:search
-query    functions/servers/servers:searchAdvanced
+query    functions/servers/software:directory
 query    functions/servers/software:getBySlug
+query    functions/servers/software:getDirectoryEntry
 query    functions/servers/software:listAdmin
 query    functions/servers/software:listEnabled
 query    functions/servers/status:getStatus
 query    functions/servers/status:getStatusBatch
 query    functions/site/audit:list
+query    functions/site/creators:listPopular
 query    functions/site/creators:search
+query    functions/site/creators:sitemapEntries
 query    functions/site/favourites:getProjectState
 query    functions/site/favourites:getServerState
 query    functions/site/favourites:listMine
@@ -175,6 +181,8 @@ query    functions/site/organizations:getProfileForSettings
 query    functions/site/organizations:getPublicBySlug
 query    functions/site/organizations:listAdmin
 query    functions/site/organizations:listPublicForSitemap
+query    functions/site/picks:list
+query    functions/site/picks:listAdmin
 query    functions/site/settings:get
 query    functions/site/settings:getAdmin
 query    functions/site/settings:getAll

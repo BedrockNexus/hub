@@ -192,6 +192,7 @@ export const tables = {
 			v.literal('plugin'),
 			v.literal('pluginPublishingDraft'),
 			v.literal('pluginWorkflowTemplate'),
+			v.literal('pick'),
 		),
 		targetId: v.string(),
 		targetLabel: v.optional(v.string()), // name at the time, for display
@@ -202,6 +203,23 @@ export const tables = {
 	})
 		.index('by_targetType_and_targetId', ['targetType', 'targetId'])
 		.index('by_actorId', ['actorId']),
+
+	// ===========================================================================
+	// PICKS (editorial choices by admins; see functions/site/picks.ts)
+	// Shown in their own clearly labelled places and never read by any
+	// ranking or listing order.
+	// ===========================================================================
+	picks: defineTable({
+		targetType: v.union(v.literal('server'), v.literal('project')),
+		serverId: v.optional(v.id('servers')),
+		projectId: v.optional(v.id('projects')),
+		note: v.string(), // why it was picked, shown publicly
+		pickedBy: v.string(), // Better Auth user ID of the admin
+		pickedAt: v.number(),
+	})
+		.index('by_pickedAt', ['pickedAt'])
+		.index('by_serverId', ['serverId'])
+		.index('by_projectId', ['projectId']),
 
 	// ===========================================================================
 	// CREATOR LISTINGS (who can be found by name; see lib/creatorListings.ts)
@@ -217,9 +235,15 @@ export const tables = {
 		serverCount: v.number(),
 		projectCount: v.number(),
 		pluginCount: v.number(),
+		// Refreshed hourly by site/creators:recomputeRanks; the order of
+		// /creators and /organizations (formula in lib/creatorRank.ts).
+		totalDownloads: v.optional(v.number()),
+		avgPlayers7d: v.optional(v.number()),
+		rankScore: v.optional(v.number()),
 		updatedAt: v.number(),
 	})
 		.index('by_ownerType_and_ownerId', ['ownerType', 'ownerId'])
+		.index('by_ownerType_and_rankScore', ['ownerType', 'rankScore'])
 		.searchIndex('search_text', {
 			searchField: 'searchText',
 			filterFields: ['ownerType'],

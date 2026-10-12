@@ -37,6 +37,11 @@ function footerColumns(
 			links: [
 				{ href: '/servers', label: 'Servers' },
 				{ href: '/projects', label: 'Projects' },
+				{ href: '/trending', label: 'Trending' },
+				{ href: '/picks', label: 'Picks' },
+				{ href: '/creators', label: 'Creators' },
+				{ href: '/organizations', label: 'Organizations' },
+				{ href: '/software', label: 'Server software' },
 				{ href: '/tools/server-ping', label: 'Server Ping' },
 				pluginsEnabled
 					? { href: pluginsNavigation.href, label: 'Plugins' }
@@ -60,7 +65,10 @@ function footerColumns(
 							},
 						]
 					: []),
-				{ href: '/dashboard/organizations', label: 'Organizations' },
+				{
+					href: '/dashboard/organizations',
+					label: 'Your organizations',
+				},
 			],
 		},
 		{
@@ -101,8 +109,9 @@ export function Footer({ socials = {}, pluginsEnabled = false }: FooterProps) {
 						</span>
 					</div>
 					<p className="text-muted-foreground text-sm leading-relaxed">
-						The open-source community directory for Minecraft
-						Bedrock Edition. An Amblydia project.
+						The open-source home for Minecraft Bedrock servers,
+						addons and the people who make them. An Amblydia
+						project.
 					</p>
 					{socialLinks.length > 0 && (
 						<div className="flex gap-1">
