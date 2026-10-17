@@ -60,7 +60,11 @@ export const CONVEX_REQUIRED = [
 	'R2_CDN_PUBLIC_URL',
 ]
 
-export const CONVEX_OPTIONAL = ['ARTIFACT_VALIDATOR_API_KEY']
+export const CONVEX_OPTIONAL = [
+	'ARTIFACT_VALIDATOR_API_KEY',
+	// Turns on the Runqora plugin in convex/auth.ts.
+	'RUNQORA_AUTH_SECRET',
+]
 
 /** The GitHub App behind the plugin registry: all six, or none of them. */
 export const CONVEX_PLUGINS = [

@@ -7,6 +7,7 @@ import { convex } from '@convex-dev/better-auth/plugins'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { admin, organization, username } from 'better-auth/plugins'
+import { runqora } from 'runqora/better-auth'
 import { api, components, internal } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
 import { query } from './_generated/server'
@@ -21,6 +22,12 @@ import {
 import { afterOwnerPictureWrite } from './lib/ownerPictures'
 
 const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
+
+// Lets Runqora (runqora.dev) list and manage users, sessions and
+// organizations through signed requests to /api/auth/runqora. Off until the
+// deployment has RUNQORA_AUTH_SECRET: the plugin refuses a missing or short
+// secret, and that would fail every auth request.
+const runqoraSecret = process.env.RUNQORA_AUTH_SECRET
 
 type ActionCapableCtx = GenericCtx<DataModel> & {
 	runAction?: (ref: unknown, args: unknown) => Promise<unknown>
@@ -263,6 +270,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			username(),
 			organization(),
 			admin(),
+			...(runqoraSecret ? [runqora({ secret: runqoraSecret })] : []),
 		],
 	} satisfies BetterAuthOptions
 }
