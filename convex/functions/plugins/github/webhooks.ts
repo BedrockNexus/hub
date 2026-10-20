@@ -378,6 +378,16 @@ export const processDelivery = internalMutation({
 			: null
 		const now = Date.now()
 
+		// A build started or finished: refresh the plugin's builds list.
+		if (args.payload.event === 'workflow_run' && repository) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.plugins.publishing.actions
+					.syncBuildsFromWebhook,
+				{ repositoryId: repository._id },
+			)
+		}
+
 		await completeAttempt(
 			ctx,
 			args.webhookDeliveryId,

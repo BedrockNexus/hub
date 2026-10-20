@@ -32,14 +32,11 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/convex/_generated/api'
-
-type AdapterId = 'pocketmine-mp' | 'powernukkitx'
-type BuildSystem = 'composer' | 'gradle' | 'maven'
+import type { Id } from '@/convex/_generated/dataModel'
 
 interface NewWorkflow {
 	label: string
-	adapterId: AdapterId
-	buildSystem: BuildSystem
+	softwareId: Id<'serverSoftware'> | null
 	content: string
 }
 
@@ -49,16 +46,19 @@ function errorMessage(error: unknown) {
 		: 'The workflow template update failed.'
 }
 
-function defaultBuildSystem(adapterId: AdapterId): BuildSystem {
-	return adapterId === 'pocketmine-mp' ? 'composer' : 'gradle'
-}
-
 export function WorkflowTemplateEditor() {
 	const auth = useConvexAuth()
 	const templates = useQuery(
 		api.functions.plugins.workflowTemplates.list,
 		auth.isAuthenticated ? {} : 'skip',
 	)
+	const software = useQuery(
+		api.functions.servers.software.listAdmin,
+		auth.isAuthenticated ? {} : 'skip',
+	)
+	// Only software with a plugin file type accepts plugins.
+	const pluginSoftware =
+		software?.filter((item) => item.pluginFileExtension) ?? []
 	const createTemplate = useMutation(
 		api.functions.plugins.workflowTemplates.create,
 	)
@@ -73,8 +73,7 @@ export function WorkflowTemplateEditor() {
 	const [adding, setAdding] = useState(false)
 	const [newWorkflow, setNewWorkflow] = useState<NewWorkflow>({
 		label: '',
-		adapterId: 'pocketmine-mp',
-		buildSystem: 'composer',
+		softwareId: null,
 		content: '',
 	})
 	const [busy, setBusy] = useState(false)
@@ -90,7 +89,7 @@ export function WorkflowTemplateEditor() {
 		setContent(selected.content)
 	}, [adding, selected])
 
-	if (auth.isLoading || templates === undefined) {
+	if (auth.isLoading || templates === undefined || software === undefined) {
 		return (
 			<p className="text-muted-foreground text-sm">
 				Loading workflow templates…
@@ -98,45 +97,30 @@ export function WorkflowTemplateEditor() {
 		)
 	}
 
-	// A new workflow starts as a copy of an existing one for the same software
-	// and build system, when there is one.
-	function starterContent(adapterId: AdapterId, buildSystem: BuildSystem) {
+	// A new workflow starts as a copy of an existing one for the same
+	// software, when there is one.
+	function starterContent(softwareId: Id<'serverSoftware'> | null) {
 		return (
-			templates?.find(
-				(template) =>
-					template.adapterId === adapterId &&
-					template.buildSystem === buildSystem,
-			)?.content ?? ''
+			templates?.find((template) => template.softwareId === softwareId)
+				?.content ?? ''
 		)
 	}
 
 	function beginAdding() {
-		const adapterId = 'pocketmine-mp' as const
-		const buildSystem = 'composer' as const
+		const softwareId = pluginSoftware[0]?._id ?? null
 		setNewWorkflow({
 			label: '',
-			adapterId,
-			buildSystem,
-			content: starterContent(adapterId, buildSystem),
+			softwareId,
+			content: starterContent(softwareId),
 		})
 		setAdding(true)
 	}
 
-	function updateNewWorkflowAdapter(adapterId: AdapterId) {
-		const buildSystem = defaultBuildSystem(adapterId)
+	function updateNewWorkflowSoftware(softwareId: Id<'serverSoftware'>) {
 		setNewWorkflow((current) => ({
 			...current,
-			adapterId,
-			buildSystem,
-			content: starterContent(adapterId, buildSystem),
-		}))
-	}
-
-	function updateNewWorkflowBuildSystem(buildSystem: BuildSystem) {
-		setNewWorkflow((current) => ({
-			...current,
-			buildSystem,
-			content: starterContent(current.adapterId, buildSystem),
+			softwareId,
+			content: current.content || starterContent(softwareId),
 		}))
 	}
 
@@ -158,9 +142,10 @@ export function WorkflowTemplateEditor() {
 					</span>
 					<CardTitle>Workflow variants</CardTitle>
 					<CardDescription>
-						Publishers choose from these validated workflows for
-						compatible projects. A server software without one
-						cannot be published for.
+						Publishers pick one of these when adding a plugin, and
+						it sets the plugin's server software. A software needs a
+						plugin file type (in Server software) and at least one
+						workflow before plugins can be published for it.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-2">
@@ -197,7 +182,7 @@ export function WorkflowTemplateEditor() {
 										: 'mt-1 text-muted-foreground text-xs'
 								}
 							>
-								{template.buildSystem} · version{' '}
+								{template.softwareName} · version{' '}
 								{template.version}
 							</span>
 						</button>
@@ -221,8 +206,14 @@ export function WorkflowTemplateEditor() {
 								event.preventDefault()
 								setBusy(true)
 								try {
-									const result =
-										await createTemplate(newWorkflow)
+									if (!newWorkflow.softwareId) {
+										return
+									}
+									const result = await createTemplate({
+										label: newWorkflow.label,
+										softwareId: newWorkflow.softwareId,
+										content: newWorkflow.content,
+									})
 									setAdding(false)
 									setSelectedKey(result.key)
 									toast.success(
@@ -247,76 +238,48 @@ export function WorkflowTemplateEditor() {
 											label: event.target.value,
 										}))
 									}
-									placeholder="PowerNukkitX · Gradle with tests"
+									placeholder="PowerNukkitX · Gradle"
 									value={newWorkflow.label}
 								/>
 							</div>
-							<div className="grid gap-4 sm:grid-cols-2">
-								<div className="space-y-2">
-									<Label htmlFor="new-workflow-adapter">
-										Server software
-									</Label>
+							<div className="space-y-2">
+								<Label htmlFor="new-workflow-software">
+									Server software
+								</Label>
+								{pluginSoftware.length === 0 ? (
+									<p className="rounded-md border border-dashed p-3 text-muted-foreground text-sm">
+										No server software accepts plugins yet.
+										Set a plugin file type (like phar or
+										jar) on one in Server software first.
+									</p>
+								) : (
 									<Select
 										onValueChange={(value) =>
-											updateNewWorkflowAdapter(
-												value as AdapterId,
+											updateNewWorkflowSoftware(
+												value as Id<'serverSoftware'>,
 											)
 										}
-										value={newWorkflow.adapterId}
+										value={newWorkflow.softwareId}
 									>
 										<SelectTrigger
 											className="w-full"
-											id="new-workflow-adapter"
+											id="new-workflow-software"
 										>
-											<SelectValue />
+											<SelectValue placeholder="Choose software" />
 										</SelectTrigger>
 										<SelectContent>
-											<SelectItem value="pocketmine-mp">
-												PocketMine-MP
-											</SelectItem>
-											<SelectItem value="powernukkitx">
-												PowerNukkitX
-											</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="new-workflow-build-system">
-										Build system
-									</Label>
-									<Select
-										onValueChange={(value) =>
-											updateNewWorkflowBuildSystem(
-												value as BuildSystem,
-											)
-										}
-										value={newWorkflow.buildSystem}
-									>
-										<SelectTrigger
-											className="w-full"
-											id="new-workflow-build-system"
-										>
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											{newWorkflow.adapterId ===
-											'pocketmine-mp' ? (
-												<SelectItem value="composer">
-													Composer
+											{pluginSoftware.map((item) => (
+												<SelectItem
+													key={item._id}
+													value={item._id}
+												>
+													{item.name} (.
+													{item.pluginFileExtension})
 												</SelectItem>
-											) : (
-												<>
-													<SelectItem value="gradle">
-														Gradle
-													</SelectItem>
-													<SelectItem value="maven">
-														Maven
-													</SelectItem>
-												</>
-											)}
+											))}
 										</SelectContent>
 									</Select>
-								</div>
+								)}
 							</div>
 							<div className="space-y-2">
 								<Label id="new-workflow-template-label">
@@ -338,9 +301,12 @@ export function WorkflowTemplateEditor() {
 								<code className="text-foreground">
 									{'{{package_name}}'}
 								</code>{' '}
-								placeholder and pass the permission, trigger,
-								secret, and runner checks every workflow must
-								pass.
+								placeholder, build on push but never on tags,
+								upload the plugin as a{' '}
+								<code className="text-foreground">
+									plugin-package
+								</code>{' '}
+								artifact, and only read the repository.
 							</div>
 							<div className="flex justify-end gap-2">
 								<Button
@@ -355,6 +321,7 @@ export function WorkflowTemplateEditor() {
 									disabled={
 										busy ||
 										!newWorkflow.label.trim() ||
+										!newWorkflow.softwareId ||
 										newWorkflowError !== null
 									}
 									type="submit"
@@ -400,9 +367,14 @@ export function WorkflowTemplateEditor() {
 							<code className="text-foreground">
 								{'{{package_name}}'}
 							</code>{' '}
-							placeholder. The backend also validates release
-							gating, GitHub Release creation, and least-privilege
-							permissions before saving.
+							placeholder and upload the built plugin as a{' '}
+							<code className="text-foreground">
+								plugin-package
+							</code>{' '}
+							artifact. Workflows only build: they cannot run on
+							tags, write to the repository, or read secrets.
+							BedrockNexus creates the GitHub release after a
+							version is approved.
 						</div>
 						<div className="flex flex-wrap justify-end gap-2">
 							<Button
@@ -467,9 +439,8 @@ export function WorkflowTemplateEditor() {
 					<CardHeader>
 						<CardTitle>No publishing workflows yet</CardTitle>
 						<CardDescription>
-							Add one for each server software and build system
-							publishers can use. Until then nobody can publish a
-							plugin for it.
+							Add one for each server software publishers can use.
+							Until then nobody can publish a plugin for it.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>

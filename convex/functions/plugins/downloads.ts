@@ -7,6 +7,7 @@ import {
 	projectDownloadCounts,
 } from '../../lib/plugins/downloadCounts'
 import { projectOwnerKey } from '../../lib/plugins/aggregates'
+import { getCdnObjectUrl } from '../../lib/r2'
 import { rateLimiter } from '../../lib/plugins/rateLimits'
 
 const notFound = () =>
@@ -38,65 +39,6 @@ export const refreshMaterializedCount = internalMutation({
 		return null
 	},
 })
-
-function validateGitHubAssetUrl(args: {
-	url: string
-	owner: string
-	repository: string
-	tag: string
-	assetName: string
-}) {
-	let url: URL
-	try {
-		url = new URL(args.url)
-	} catch {
-		throw notFound()
-	}
-
-	if (
-		url.protocol !== 'https:' ||
-		url.hostname !== 'github.com' ||
-		url.port !== '' ||
-		url.username !== '' ||
-		url.password !== '' ||
-		url.search !== '' ||
-		url.hash !== ''
-	) {
-		throw notFound()
-	}
-
-	let segments: string[]
-	try {
-		segments = url.pathname
-			.split('/')
-			.filter(Boolean)
-			.map((segment) => decodeURIComponent(segment))
-	} catch {
-		throw notFound()
-	}
-
-	const expected = [
-		args.owner,
-		args.repository,
-		'releases',
-		'download',
-		args.tag,
-		args.assetName,
-	]
-	if (
-		segments.length !== expected.length ||
-		segments.some((segment, index) =>
-			index < 2
-				? segment.toLocaleLowerCase() !==
-					expected[index]?.toLocaleLowerCase()
-				: segment !== expected[index],
-		)
-	) {
-		throw notFound()
-	}
-
-	return url.toString()
-}
 
 export const resolveAndRecord = mutation({
 	args: {
@@ -151,54 +93,19 @@ export const resolveAndRecord = mutation({
 			throw notFound()
 		}
 
-		const releases = await ctx.db
+		const release = await ctx.db
 			.query('pluginReleases')
 			.withIndex('by_version_id', (index) =>
 				index.eq('versionId', version._id),
 			)
-			.order('desc')
-			.take(10)
-		const release = releases.find(
-			(item) =>
-				item.status === 'published' &&
-				item.verifiedBuild &&
-				item.repositoryId === project.repositoryId,
-		)
-		if (!release) {
+			.first()
+		const url =
+			release?.status === 'published' && release.cdnKey
+				? getCdnObjectUrl(release.cdnKey)
+				: null
+		if (!release || !url) {
 			throw notFound()
 		}
-
-		const primaryAssets = await ctx.db
-			.query('pluginReleaseAssets')
-			.withIndex('by_release_id_and_is_primary', (index) =>
-				index.eq('releaseId', release._id).eq('isPrimary', true),
-			)
-			.take(2)
-		const asset = primaryAssets[0]
-		if (
-			primaryAssets.length !== 1 ||
-			asset?.status !== 'accepted' ||
-			asset.size <= 0
-		) {
-			throw notFound()
-		}
-
-		const repository = await ctx.db.get(project.repositoryId)
-		if (
-			repository?.accessStatus !== 'granted' ||
-			repository.isPrivate ||
-			repository.isArchived
-		) {
-			throw notFound()
-		}
-
-		const url = validateGitHubAssetUrl({
-			url: asset.downloadUrl,
-			owner: repository.ownerLogin,
-			repository: repository.name,
-			tag: release.tagName,
-			assetName: asset.name,
-		})
 
 		const rateLimit = await rateLimiter.limit(ctx, 'pluginDownload', {
 			key: args.anonymousIdHash,
@@ -222,7 +129,7 @@ export const resolveAndRecord = mutation({
 			.order('desc')
 			.take(10)
 		const isDuplicate = recentDownloads.some(
-			(download) => download.releaseAssetId === asset._id,
+			(download) => download.releaseId === release._id,
 		)
 		if (isDuplicate) {
 			return { url, counted: false }
@@ -232,7 +139,7 @@ export const resolveAndRecord = mutation({
 		await ctx.db.insert('pluginDownloads', {
 			projectId: project._id,
 			versionId: version._id,
-			releaseAssetId: asset._id,
+			releaseId: release._id,
 			anonymousIdHash: args.anonymousIdHash,
 			userAgentHash: args.userAgentHash,
 			ownerCountedAt: now,

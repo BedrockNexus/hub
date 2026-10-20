@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function PublishingReviewsPage() {
 	return (
 		<DashboardPageShell
-			description="Review the exact verified release, repository, workflow correlation, asset, and metadata before making a project public."
+			description="Download and check the exact build a developer sent, its commit and changelog, before it goes public."
 			eyebrow="Moderation"
 			title="Publishing reviews"
 		>

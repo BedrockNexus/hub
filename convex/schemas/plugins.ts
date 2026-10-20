@@ -86,52 +86,21 @@ export const webhookDeliveryAttemptValidator = v.union(
 	}),
 )
 
-export const publishingDraftStatusValidator = v.union(
-	v.literal('detected'),
-	v.literal('metadataReady'),
-	v.literal('workflowInstalled'),
-	v.literal('releaseDetected'),
-	v.literal('readyToPublish'),
-	v.literal('inReview'),
-	v.literal('changesRequested'),
-	v.literal('rejected'),
-	v.literal('published'),
-)
-
 export const workflowTemplateKeyValidator = v.string()
 
-export const publishingDraftValidator = v.object({
-	_id: v.id('pluginPublishingDrafts'),
-	_creationTime: v.number(),
-	ownerType: ownerTypeValidator,
-	ownerId: v.string(),
-	createdBy: v.string(),
-	repositoryId: v.id('githubRepositories'),
-	projectId: v.optional(v.id('plugins')),
-	adapterId: v.union(v.literal('pocketmine-mp'), v.literal('powernukkitx')),
-	projectType: v.literal('plugin'),
-	detectionScore: v.number(),
-	detectionSummary: v.string(),
-	name: v.string(),
-	slug: v.string(),
-	summary: v.string(),
-	description: v.optional(v.string()),
-	license: v.optional(v.string()),
+/**
+ * Fields of the tag-and-detection publishing flow. Optional only until
+ * functions/plugins/migrations:moveToCommitPublishing has cleared them on
+ * every deployment; then delete them.
+ */
+const deprecatedDraftFields = {
+	adapterId: v.optional(v.string()),
+	detectionScore: v.optional(v.number()),
+	detectionSummary: v.optional(v.string()),
 	readmeExcerpt: v.optional(v.string()),
-	workflowPath: v.string(),
-	workflowBranch: v.optional(v.string()),
 	workflowPullRequestNumber: v.optional(v.number()),
 	workflowPullRequestUrl: v.optional(v.string()),
-	workflowPullRequestState: v.optional(
-		v.union(v.literal('open'), v.literal('closed'), v.literal('merged')),
-	),
-	workflowCommitSha: v.optional(v.string()),
-	// Git blob SHA of the managed workflow file BedrockNexus installed.
-	workflowBlobSha: v.optional(v.string()),
-	workflowTemplateKey: v.optional(v.string()),
-	workflowTemplateVersion: v.optional(v.number()),
-	workflowInstalledAt: v.optional(v.number()),
-	workflowInstalled: v.boolean(),
+	workflowPullRequestState: v.optional(v.string()),
 	latestWorkflowRunId: v.optional(v.number()),
 	latestWorkflowRunUrl: v.optional(v.string()),
 	latestWorkflowRunStatus: v.optional(v.string()),
@@ -143,16 +112,89 @@ export const publishingDraftValidator = v.object({
 	primaryAssetId: v.optional(v.number()),
 	primaryAssetName: v.optional(v.string()),
 	primaryAssetUrl: v.optional(v.string()),
-	verifiedBuild: v.boolean(),
-	moderationReady: v.boolean(),
-	status: publishingDraftStatusValidator,
+	verifiedBuild: v.optional(v.boolean()),
+	moderationReady: v.optional(v.boolean()),
+	status: v.optional(v.string()),
 	submittedAt: v.optional(v.number()),
 	reviewedAt: v.optional(v.number()),
 	reviewedBy: v.optional(v.string()),
 	reviewNotes: v.optional(v.string()),
+}
+
+/**
+ * One per repository: the plugin's setup. A draft starts from the repository
+ * (name, description, README); the workflow the developer picks decides the
+ * server software. The plugin row is created once both are known.
+ */
+const draftFields = {
+	ownerType: ownerTypeValidator,
+	ownerId: v.string(),
+	createdBy: v.string(),
+	repositoryId: v.id('githubRepositories'),
+	projectId: v.optional(v.id('plugins')),
+	// Set with the workflow template.
+	softwareId: v.optional(v.id('serverSoftware')),
+	projectType: v.literal('plugin'),
+	name: v.string(),
+	slug: v.string(),
+	summary: v.string(),
+	description: v.optional(v.string()),
+	license: v.optional(v.string()),
+	workflowPath: v.string(),
+	workflowBranch: v.optional(v.string()),
+	workflowCommitSha: v.optional(v.string()),
+	// Git blob SHA of the managed workflow file BedrockNexus installed.
+	workflowBlobSha: v.optional(v.string()),
+	workflowTemplateKey: v.optional(v.string()),
+	workflowTemplateVersion: v.optional(v.number()),
+	workflowInstalledAt: v.optional(v.number()),
+	workflowInstalled: v.boolean(),
+	buildsSyncedAt: v.optional(v.number()),
+	// A rejected first submission is final for a plugin that was never published.
+	rejectedAt: v.optional(v.number()),
 	createdAt: v.number(),
 	updatedAt: v.number(),
+	...deprecatedDraftFields,
+}
+
+export const publishingDraftValidator = v.object({
+	_id: v.id('pluginPublishingDrafts'),
+	_creationTime: v.number(),
+	...draftFields,
 })
+
+export const buildStatusValidator = v.union(
+	v.literal('queued'),
+	v.literal('inProgress'),
+	v.literal('completed'),
+)
+
+export const buildConclusionValidator = v.union(
+	v.literal('success'),
+	v.literal('failure'),
+	v.literal('cancelled'),
+	v.literal('skipped'),
+	v.literal('timedOut'),
+	v.literal('actionRequired'),
+)
+
+export const releaseStatusValidator = v.union(
+	// Copying the build from GitHub into private storage.
+	v.literal('preparing'),
+	v.literal('preparationFailed'),
+	v.literal('inReview'),
+	v.literal('changesRequested'),
+	v.literal('rejected'),
+	// Approved; copying the file to the public CDN.
+	v.literal('publishing'),
+	v.literal('published'),
+)
+
+export const githubReleaseStatusValidator = v.union(
+	v.literal('pending'),
+	v.literal('created'),
+	v.literal('failed'),
+)
 
 export const githubInstallationValidator = v.object({
 	_id: v.id('githubInstallations'),
@@ -290,89 +332,29 @@ export const tables = {
 		])
 		.index('by_full_name', ['fullName']),
 
-	pluginPublishingDrafts: defineTable({
-		ownerType: ownerTypeValidator,
-		ownerId: v.string(),
-		createdBy: v.string(),
-		repositoryId: v.id('githubRepositories'),
-		projectId: v.optional(v.id('plugins')),
-		adapterId: v.union(
-			v.literal('pocketmine-mp'),
-			v.literal('powernukkitx'),
-		),
-		projectType: v.literal('plugin'),
-		detectionScore: v.number(),
-		detectionSummary: v.string(),
-		name: v.string(),
-		slug: v.string(),
-		summary: v.string(),
-		description: v.optional(v.string()),
-		license: v.optional(v.string()),
-		readmeExcerpt: v.optional(v.string()),
-		workflowPath: v.string(),
-		workflowBranch: v.optional(v.string()),
-		workflowPullRequestNumber: v.optional(v.number()),
-		workflowPullRequestUrl: v.optional(v.string()),
-		workflowPullRequestState: v.optional(
-			v.union(
-				v.literal('open'),
-				v.literal('closed'),
-				v.literal('merged'),
-			),
-		),
-		workflowCommitSha: v.optional(v.string()),
-		// Git blob SHA of the managed workflow file BedrockNexus installed.
-		workflowBlobSha: v.optional(v.string()),
-		workflowTemplateKey: v.optional(v.string()),
-		workflowTemplateVersion: v.optional(v.number()),
-		workflowInstalledAt: v.optional(v.number()),
-		workflowInstalled: v.boolean(),
-		latestWorkflowRunId: v.optional(v.number()),
-		latestWorkflowRunUrl: v.optional(v.string()),
-		latestWorkflowRunStatus: v.optional(v.string()),
-		latestWorkflowRunConclusion: v.optional(v.string()),
-		latestTag: v.optional(v.string()),
-		latestReleaseId: v.optional(v.number()),
-		latestReleaseUrl: v.optional(v.string()),
-		latestReleaseCommitSha: v.optional(v.string()),
-		primaryAssetId: v.optional(v.number()),
-		primaryAssetName: v.optional(v.string()),
-		primaryAssetUrl: v.optional(v.string()),
-		verifiedBuild: v.boolean(),
-		moderationReady: v.boolean(),
-		status: publishingDraftStatusValidator,
-		submittedAt: v.optional(v.number()),
-		reviewedAt: v.optional(v.number()),
-		reviewedBy: v.optional(v.string()),
-		reviewNotes: v.optional(v.string()),
-		createdAt: v.number(),
-		updatedAt: v.number(),
-	})
+	pluginPublishingDrafts: defineTable(draftFields)
 		.index('by_owner_type_and_owner_id', ['ownerType', 'ownerId'])
-		.index('by_status', ['status'])
 		.index('by_repository_id', ['repositoryId'])
 		.index('by_project_id', ['projectId'])
-		.index('by_workflow_template_key', ['workflowTemplateKey'])
-		.index('by_repository_id_and_status', ['repositoryId', 'status']),
+		.index('by_workflow_template_key', ['workflowTemplateKey']),
 
 	pluginWorkflowTemplates: defineTable({
 		key: workflowTemplateKeyValidator,
-		adapterId: v.union(
-			v.literal('pocketmine-mp'),
-			v.literal('powernukkitx'),
-		),
-		buildSystem: v.union(
-			v.literal('composer'),
-			v.literal('gradle'),
-			v.literal('maven'),
-		),
+		// Optional only until functions/plugins/migrations:moveToCommitPublishing
+		// has run everywhere.
+		softwareId: v.optional(v.id('serverSoftware')),
 		label: v.optional(v.string()),
 		content: v.string(),
 		version: v.number(),
 		updatedBy: v.string(),
 		createdAt: v.number(),
 		updatedAt: v.number(),
-	}).index('by_key', ['key']),
+		// Deprecated; cleared by the same migration.
+		adapterId: v.optional(v.string()),
+		buildSystem: v.optional(v.string()),
+	})
+		.index('by_key', ['key'])
+		.index('by_softwareId', ['softwareId']),
 
 	githubInstallIntents: defineTable({
 		stateHash: v.string(),
@@ -495,96 +477,98 @@ export const tables = {
 		])
 		.index('by_project_id_and_status', ['projectId', 'status']),
 
+	// One per run of the managed workflow, kept in sync from GitHub. Builds of
+	// pushes that succeeded with the unmodified workflow can be sent to review.
 	pluginBuilds: defineTable({
 		projectId: v.id('plugins'),
 		repositoryId: v.id('githubRepositories'),
-		versionId: v.optional(v.id('pluginVersions')),
 		workflowRunId: v.number(),
 		workflowName: v.string(),
+		// push, pull_request, or workflow_dispatch.
+		event: v.optional(v.string()),
 		commitSha: v.string(),
+		commitMessage: v.optional(v.string()),
 		branch: v.optional(v.string()),
-		tag: v.optional(v.string()),
-		status: v.union(
-			v.literal('queued'),
-			v.literal('inProgress'),
-			v.literal('completed'),
-		),
-		conclusion: v.optional(
-			v.union(
-				v.literal('success'),
-				v.literal('failure'),
-				v.literal('cancelled'),
-				v.literal('skipped'),
-				v.literal('timedOut'),
-				v.literal('actionRequired'),
-			),
-		),
+		status: buildStatusValidator,
+		conclusion: v.optional(buildConclusionValidator),
 		logsUrl: v.string(),
+		// The `plugin-package` artifact. GitHub deletes artifacts after their
+		// retention period, so a build is copied to R2 when it is sent to review.
+		artifactId: v.optional(v.number()),
+		artifactSize: v.optional(v.number()),
+		artifactExpiresAt: v.optional(v.number()),
+		// Git blob SHA of the workflow file at the build's commit.
+		workflowBlobSha: v.optional(v.string()),
+		// True when that file is byte-identical to the one BedrockNexus
+		// installed, so the build ran the managed workflow unmodified.
+		traceable: v.optional(v.boolean()),
 		completedAt: v.optional(v.number()),
 		createdAt: v.number(),
 		updatedAt: v.number(),
+		// Deprecated; cleared by functions/plugins/migrations:moveToCommitPublishing.
+		versionId: v.optional(v.id('pluginVersions')),
+		tag: v.optional(v.string()),
 	})
 		.index('by_workflow_run_id', ['workflowRunId'])
 		.index('by_project_id', ['projectId'])
-		.index('by_project_id_and_status', ['projectId', 'status'])
-		.index('by_version_id', ['versionId'])
+		.index('by_project_id_and_created_at', ['projectId', 'createdAt'])
 		.index('by_repository_id_and_commit_sha', [
 			'repositoryId',
 			'commitSha',
 		]),
 
+	// A build a developer sent to review under a version number. Approval makes
+	// it a published pluginVersions row and serves the file from the CDN.
 	pluginReleases: defineTable({
 		projectId: v.id('plugins'),
-		versionId: v.id('pluginVersions'),
-		buildId: v.optional(v.id('pluginBuilds')),
 		repositoryId: v.id('githubRepositories'),
-		githubReleaseId: v.number(),
-		tagName: v.string(),
-		releaseUrl: v.string(),
+		buildId: v.id('pluginBuilds'),
+		// Created when the release is published.
+		versionId: v.optional(v.id('pluginVersions')),
+		version: v.string(),
+		normalizedVersion: v.string(),
+		changelog: v.string(),
 		commitSha: v.string(),
-		status: v.union(
-			v.literal('detected'),
-			v.literal('verified'),
-			v.literal('published'),
-			v.literal('rejected'),
-		),
-		verifiedBuild: v.boolean(),
-		// Why the release is not a traceable build (see convex/lib/buildProvenance.ts).
-		verificationFailure: v.optional(v.string()),
+		branch: v.optional(v.string()),
+		traceable: v.boolean(),
+		status: releaseStatusValidator,
+		failureReason: v.optional(v.string()),
+		fileName: v.optional(v.string()),
+		size: v.optional(v.number()),
+		sha256: v.optional(v.string()),
+		// Private copy for moderators, removed once published.
+		uploadKey: v.optional(v.string()),
+		// Public copy downloads are served from.
+		cdnKey: v.optional(v.string()),
+		// The GitHub release BedrockNexus creates after approval, with the file
+		// attached. A copy for people browsing GitHub; downloads use the CDN.
+		githubReleaseStatus: v.optional(githubReleaseStatusValidator),
+		githubReleaseId: v.optional(v.number()),
+		githubReleaseUrl: v.optional(v.string()),
+		githubReleaseError: v.optional(v.string()),
+		submittedBy: v.string(),
+		submittedAt: v.number(),
+		reviewedAt: v.optional(v.number()),
+		reviewedBy: v.optional(v.string()),
+		reviewNotes: v.optional(v.string()),
 		publishedAt: v.optional(v.number()),
 		createdAt: v.number(),
 		updatedAt: v.number(),
 	})
-		.index('by_github_release_id', ['githubReleaseId'])
 		.index('by_project_id', ['projectId'])
 		.index('by_project_id_and_status', ['projectId', 'status'])
+		.index('by_project_id_and_normalized_version', [
+			'projectId',
+			'normalizedVersion',
+		])
+		.index('by_status_and_submitted_at', ['status', 'submittedAt'])
 		.index('by_version_id', ['versionId'])
-		.index('by_build_id', ['buildId'])
-		.index('by_repository_id', ['repositoryId']),
-
-	pluginReleaseAssets: defineTable({
-		releaseId: v.id('pluginReleases'),
-		githubAssetId: v.number(),
-		name: v.string(),
-		downloadUrl: v.string(),
-		size: v.number(),
-		contentType: v.optional(v.string()),
-		// GitHub-reported digest of the asset, e.g. `sha256:...`.
-		digest: v.optional(v.string()),
-		sha256: v.optional(v.string()),
-		isPrimary: v.boolean(),
-		status: v.union(v.literal('accepted'), v.literal('rejected')),
-		createdAt: v.number(),
-		updatedAt: v.number(),
-	})
-		.index('by_github_asset_id', ['githubAssetId'])
-		.index('by_release_id', ['releaseId'])
-		.index('by_release_id_and_is_primary', ['releaseId', 'isPrimary']),
+		.index('by_build_id', ['buildId']),
 
 	pluginDownloads: defineTable({
 		projectId: v.id('plugins'),
 		versionId: v.id('pluginVersions'),
-		releaseAssetId: v.id('pluginReleaseAssets'),
+		releaseId: v.id('pluginReleases'),
 		userId: v.optional(v.string()),
 		anonymousIdHash: v.optional(v.string()),
 		userAgentHash: v.optional(v.string()),
@@ -593,10 +577,7 @@ export const tables = {
 	})
 		.index('by_project_id_and_created_at', ['projectId', 'createdAt'])
 		.index('by_version_id_and_created_at', ['versionId', 'createdAt'])
-		.index('by_release_asset_id_and_created_at', [
-			'releaseAssetId',
-			'createdAt',
-		])
+		.index('by_release_id_and_created_at', ['releaseId', 'createdAt'])
 		.index('by_user_id_and_created_at', ['userId', 'createdAt'])
 		.index('by_anonymous_id_hash_and_created_at', [
 			'anonymousIdHash',

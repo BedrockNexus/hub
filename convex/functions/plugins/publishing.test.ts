@@ -1,57 +1,25 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/workflow-templates.fixtures'
 import { createTest } from '../../test.setup'
 import { api, components, internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
-import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/adapters/fixtures'
 
 type TestClient = ReturnType<typeof createTest>
 
-const FIXTURE_WORKFLOW_BLOB_SHA = 'fixture-workflow-blob'
+const WORKFLOW_BLOB_SHA = 'fixture-workflow-blob'
+const SHA256 = 'a'.repeat(64)
 
-/** The workflows these tests select, as an admin would have added them. */
-async function seedWorkflowTemplates(t: TestClient) {
-	await t.run(async (ctx) => {
-		const templates = [
-			['pocketmine-mp:composer', 'pocketmine-mp', 'composer'],
-			['powernukkitx:gradle', 'powernukkitx', 'gradle'],
-		] as const
-		for (const [key, adapterId, buildSystem] of templates) {
-			const existing = await ctx.db
-				.query('pluginWorkflowTemplates')
-				.withIndex('by_key', (q) => q.eq('key', key))
-				.unique()
-			if (existing) continue
-			await ctx.db.insert('pluginWorkflowTemplates', {
-				key,
-				adapterId,
-				buildSystem,
-				label: key,
-				content: TEST_WORKFLOW_TEMPLATE,
-				version: 1,
-				updatedBy: 'admin',
-				createdAt: 1,
-				updatedAt: 1,
-			})
-		}
-	})
-}
+// Scheduled actions (copying files, GitHub releases) stay queued: the tests
+// play their results through the internal mutations they call.
+beforeEach(() => {
+	vi.useFakeTimers()
+})
+afterEach(() => {
+	vi.useRealTimers()
+})
 
-/** Evidence that the managed workflow run created the release and asset. */
-function workflowProvenance(assetCreatedAt: number) {
-	return {
-		releaseAuthor: 'github-actions[bot]',
-		assetUploader: 'github-actions[bot]',
-		assetCreatedAt,
-		workflowBlobShaAtCommit: FIXTURE_WORKFLOW_BLOB_SHA,
-	}
-}
-
-async function insertUser(
-	t: TestClient,
-	label: string,
-	role: 'user' | 'admin',
-) {
+async function insertUser(t: TestClient, label: string, role: 'user' | 'admin') {
 	const now = Date.now()
 	const user = await t.mutation(components.betterAuth.adapter.create, {
 		input: {
@@ -73,36 +41,46 @@ async function insertUser(
 			data: {
 				token: `session-${label}`,
 				userId,
-				expiresAt: now + 60_000,
+				expiresAt: now + 60 * 60_000,
 				createdAt: now,
 				updatedAt: now,
 			},
 		},
 	})
-	return { userId, sessionId: session._id as string }
+	const tokenIdentifier = `https://convex.test|${userId}`
+	return {
+		userId,
+		tokenIdentifier,
+		client: t.withIdentity({
+			subject: userId,
+			sessionId: session._id as string,
+			tokenIdentifier,
+		}),
+	}
 }
 
-async function createPublishingFoundation(
+/**
+ * A developer who picked a repository, saved its details, chose a workflow
+ * and installed it: ready for builds.
+ */
+async function createFoundation(
 	t: TestClient,
-	adapterId: 'pocketmine-mp' | 'powernukkitx',
+	software: { slug: string; name: string; extension: string },
 ) {
-	const user = await insertUser(t, adapterId, 'user')
-	const moderatorUser = await insertUser(t, `${adapterId}-moderator`, 'admin')
-	const authUserId = user.userId
-	const moderatorUserId = moderatorUser.userId
-	const tokenIdentifier = `https://convex.test|${authUserId}`
-	const created = await t.run(async (ctx) => {
+	const developer = await insertUser(t, software.slug, 'user')
+	const moderator = await insertUser(t, `${software.slug}-moderator`, 'admin')
+	const ids = await t.run(async (ctx) => {
 		const now = Date.now()
 		const installationDocumentId = await ctx.db.insert(
 			'githubInstallations',
 			{
-				installationId: adapterId === 'pocketmine-mp' ? 4001 : 4002,
+				installationId: 4001,
 				accountId: 41,
 				accountLogin: 'BedrockNexus',
 				accountType: 'Organization',
 				ownerType: 'user',
-				ownerId: authUserId,
-				connectedBy: authUserId,
+				ownerId: developer.userId,
+				connectedBy: developer.userId,
 				status: 'active',
 				createdAt: now,
 				updatedAt: now,
@@ -110,11 +88,11 @@ async function createPublishingFoundation(
 		)
 		const repositoryId = await ctx.db.insert('githubRepositories', {
 			installationId: installationDocumentId,
-			githubRepositoryId: adapterId === 'pocketmine-mp' ? 5001 : 5002,
+			githubRepositoryId: 5001,
 			ownerLogin: 'BedrockNexus',
-			name: `${adapterId}-fixture`,
-			fullName: `BedrockNexus/${adapterId}-fixture`,
-			htmlUrl: `https://github.com/BedrockNexus/${adapterId}-fixture`,
+			name: `${software.slug}-fixture`,
+			fullName: `BedrockNexus/${software.slug}-fixture`,
+			htmlUrl: `https://github.com/BedrockNexus/${software.slug}-fixture`,
 			defaultBranch: 'main',
 			isPrivate: false,
 			isArchived: false,
@@ -122,907 +100,699 @@ async function createPublishingFoundation(
 			createdAt: now,
 			updatedAt: now,
 		})
-		await ctx.db.insert('serverSoftware', {
-			slug: adapterId,
-			name: adapterId,
+		const softwareId = await ctx.db.insert('serverSoftware', {
+			slug: software.slug,
+			name: software.name,
 			description: 'Publishing fixture software',
-			adapterId,
-			websiteUrl: 'https://example.com',
+			pluginFileExtension: software.extension,
 			enabled: true,
 			sortOrder: 1,
 			createdAt: now,
 			updatedAt: now,
 		})
-		return { repositoryId }
+		await ctx.db.insert('pluginWorkflowTemplates', {
+			key: `${software.slug}:default`,
+			softwareId,
+			label: `${software.name} build`,
+			content: TEST_WORKFLOW_TEMPLATE,
+			version: 1,
+			updatedBy: 'admin',
+			createdAt: now,
+			updatedAt: now,
+		})
+		return { repositoryId, softwareId }
 	})
 
 	const draftId = await t.mutation(
-		internal.functions.plugins.publishing.model.upsertAnalysis,
+		internal.functions.plugins.publishing.model.createDraft,
 		{
-			tokenIdentifier,
-			analysis: {
-				repositoryId: created.repositoryId,
-				adapterId,
-				detectionScore: 96,
-				detectionSummary: 'Fixture matched with high confidence.',
-				name: `${adapterId} Fixture`,
-				slug: `${adapterId}-fixture`,
-				summary: 'A complete publishing workflow fixture.',
-				license: 'MIT',
-			},
+			tokenIdentifier: developer.tokenIdentifier,
+			repositoryId: ids.repositoryId,
+			name: `${software.slug}-fixture`,
+			slug: `${software.slug}-fixture`,
+			summary: 'A complete publishing workflow fixture.',
+			description: '# Fixture\n\nThe README.',
+			license: 'MIT',
 		},
 	)
-	const client = t.withIdentity({
-		subject: authUserId,
-		sessionId: user.sessionId,
-		tokenIdentifier,
-	})
-	await client.mutation(api.functions.plugins.publishing.model.saveMetadata, {
-		draftId,
-		name: `${adapterId} Fixture`,
-		slug: `${adapterId}-fixture`,
-		summary: 'A complete publishing workflow fixture.',
-		adapterId,
-		projectType: 'plugin',
-	})
-	await seedWorkflowTemplates(t)
-	await client.mutation(
-		api.functions.plugins.publishing.model.selectWorkflow,
+	await developer.client.mutation(
+		api.functions.plugins.publishing.model.saveMetadata,
 		{
 			draftId,
-			key:
-				adapterId === 'pocketmine-mp'
-					? 'pocketmine-mp:composer'
-					: 'powernukkitx:gradle',
+			name: `${software.name} Fixture`,
+			slug: `${software.slug}-fixture`,
+			summary: 'A complete publishing workflow fixture.',
+			description: '# Fixture\n\nThe README.',
 		},
+	)
+	const projectId = await developer.client.mutation(
+		api.functions.plugins.publishing.model.selectWorkflow,
+		{ draftId, key: `${software.slug}:default` },
 	)
 	await t.mutation(
 		internal.functions.plugins.publishing.model.recordWorkflowCommit,
 		{
-			tokenIdentifier,
+			tokenIdentifier: developer.tokenIdentifier,
 			draftId,
 			branch: 'main',
 			commitSha: 'workflow-commit',
-			workflowBlobSha: FIXTURE_WORKFLOW_BLOB_SHA,
-			templateKey:
-				adapterId === 'pocketmine-mp'
-					? 'pocketmine-mp:composer'
-					: 'powernukkitx:gradle',
+			workflowBlobSha: WORKFLOW_BLOB_SHA,
+			templateKey: `${software.slug}:default`,
 			templateVersion: 1,
 		},
 	)
-	const moderator = t.withIdentity({
-		subject: moderatorUserId,
-		sessionId: moderatorUser.sessionId,
-		tokenIdentifier: `https://convex.test|${moderatorUserId}`,
-	})
-	return { client, moderator, moderatorUserId, draftId, tokenIdentifier }
+	return {
+		developer,
+		moderator,
+		draftId,
+		projectId,
+		...ids,
+		extension: software.extension,
+		slug: `${software.slug}-fixture`,
+	}
 }
 
-async function recordVerifiedRelease(
+type Foundation = Awaited<ReturnType<typeof createFoundation>>
+
+const POCKETMINE = { slug: 'pocketmine-mp', name: 'PocketMine-MP', extension: 'phar' }
+
+async function recordBuild(
 	t: TestClient,
-	foundation: {
-		tokenIdentifier: string
-		draftId: Id<'pluginPublishingDrafts'>
-	},
-	version: string,
-	ids: { run: number; release: number; asset: number },
+	foundation: Foundation,
+	runId: number,
+	overrides: {
+		event?: string
+		conclusion?: 'success' | 'failure'
+		workflowBlobSha?: string
+		artifactId?: number | null
+		artifactExpiresAt?: number
+		createdAt?: number
+	} = {},
 ) {
 	const now = Date.now()
-	return await t.mutation(
-		internal.functions.plugins.publishing.model.recordGitHubState,
-		{
-			tokenIdentifier: foundation.tokenIdentifier,
-			draftId: foundation.draftId,
-			workflowInstalled: true,
-			run: {
-				id: ids.run,
-				url: `https://github.com/BedrockNexus/fixture/actions/runs/${ids.run}`,
+	await t.mutation(internal.functions.plugins.publishing.model.upsertBuilds, {
+		draftId: foundation.draftId,
+		builds: [
+			{
+				workflowRunId: runId,
+				workflowName: 'BedrockNexus Publish',
+				event: overrides.event ?? 'push',
+				commitSha: `commit-${runId}`,
+				commitMessage: `Change ${runId}`,
+				branch: 'main',
 				status: 'completed',
-				conclusion: 'success',
-				commitSha: `commit-${version}`,
-				tag: `v${version}`,
-				createdAt: now,
-				startedAt: now,
+				conclusion: overrides.conclusion ?? 'success',
+				logsUrl: `https://github.com/BedrockNexus/fixture/actions/runs/${runId}`,
+				...(overrides.artifactId === null
+					? {}
+					: {
+							artifactId: overrides.artifactId ?? runId + 1,
+							artifactSize: 2048,
+							...(overrides.artifactExpiresAt
+								? { artifactExpiresAt: overrides.artifactExpiresAt }
+								: {}),
+						}),
+				workflowBlobSha: overrides.workflowBlobSha ?? WORKFLOW_BLOB_SHA,
+				createdAt: overrides.createdAt ?? now,
 				completedAt: now,
 			},
-			release: {
-				id: ids.release,
-				url: `https://github.com/BedrockNexus/fixture/releases/tag/v${version}`,
-				tag: `v${version}`,
-				commitSha: `commit-${version}`,
-				version,
-				asset: {
-					id: ids.asset,
-					name: `fixture-${version}.phar`,
-					url: `https://github.com/BedrockNexus/fixture/releases/download/v${version}/fixture.phar`,
-					size: 1024,
-				},
-				provenance: workflowProvenance(now),
-			},
+		],
+	})
+	const build = await t.run((ctx) =>
+		ctx.db
+			.query('pluginBuilds')
+			.withIndex('by_workflow_run_id', (q) => q.eq('workflowRunId', runId))
+			.unique(),
+	)
+	if (!build) throw new Error('The build was not recorded.')
+	return build._id
+}
+
+async function sendToReview(
+	t: TestClient,
+	foundation: Foundation,
+	buildId: Id<'pluginBuilds'>,
+	version: string,
+) {
+	const releaseId = await foundation.developer.client.mutation(
+		api.functions.plugins.publishing.model.submitRelease,
+		{
+			draftId: foundation.draftId,
+			buildId,
+			version,
+			changelog: `Changes in ${version}.`,
+		},
+	)
+	// What actions:prepareRelease records after copying the build.
+	await t.mutation(
+		internal.functions.plugins.publishing.model.finishPreparation,
+		{
+			releaseId,
+			fileName: `Fixture.${foundation.extension}`,
+			size: 1024,
+			sha256: SHA256,
+			uploadKey: `plugins/${foundation.projectId}/review/${releaseId}/Fixture.${foundation.extension}`,
+		},
+	)
+	return releaseId
+}
+
+async function approveAndPublish(
+	t: TestClient,
+	foundation: Foundation,
+	releaseId: Id<'pluginReleases'>,
+	version: string,
+) {
+	await foundation.moderator.client.mutation(
+		api.functions.plugins.publishing.model.approveReview,
+		{ releaseId },
+	)
+	// What actions:publishRelease records after copying the file to the CDN.
+	await t.mutation(
+		internal.functions.plugins.publishing.model.finishPublishing,
+		{
+			releaseId,
+			cdnKey: `plugins/${foundation.projectId}/versions/${version}/Fixture.${foundation.extension}`,
 		},
 	)
 }
 
 describe.each([
-	['pocketmine-mp', 'fixture.phar'],
-	['powernukkitx', 'fixture.jar'],
-] as const)('publishing workflow for %s', (adapterId, assetName) => {
-	it('correlates a successful tag run and publishes only after moderator approval', async () => {
+	POCKETMINE,
+	{ slug: 'powernukkitx', name: 'PowerNukkitX', extension: 'jar' },
+])('publishing a $name plugin', (software) => {
+	it('takes a build from the repository to a published version', async () => {
 		const t = createTest()
-		const foundation = await createPublishingFoundation(t, adapterId)
-		const now = Date.now()
+		const foundation = await createFoundation(t, software)
+		const buildId = await recordBuild(t, foundation, 7001)
+
+		const builds = await foundation.developer.client.query(
+			api.functions.plugins.publishing.model.listBuilds,
+			{ draftId: foundation.draftId, now: Date.now() },
+		)
+		expect(builds).toEqual([
+			expect.objectContaining({
+				buildId,
+				traceable: true,
+				publishable: true,
+				release: null,
+			}),
+		])
+
+		const releaseId = await foundation.developer.client.mutation(
+			api.functions.plugins.publishing.model.submitRelease,
+			{
+				draftId: foundation.draftId,
+				buildId,
+				version: 'v1.0.0',
+				changelog: 'First release.',
+			},
+		)
+		const preparing = await t.run(async (ctx) => ({
+			release: await ctx.db.get('pluginReleases', releaseId),
+			project: await ctx.db.get('plugins', foundation.projectId),
+		}))
+		expect(preparing.release).toMatchObject({
+			version: '1.0.0',
+			status: 'preparing',
+			commitSha: 'commit-7001',
+			traceable: true,
+		})
+		expect(preparing.project).toMatchObject({
+			status: 'review',
+			visibility: 'draft',
+		})
 
 		await t.mutation(
-			internal.functions.plugins.publishing.model.recordGitHubState,
+			internal.functions.plugins.publishing.model.finishPreparation,
 			{
-				tokenIdentifier: foundation.tokenIdentifier,
-				draftId: foundation.draftId,
-				pullRequestState: 'merged',
-				workflowInstalled: true,
-				run: {
-					id: adapterId === 'pocketmine-mp' ? 6001 : 6002,
-					url: 'https://github.com/BedrockNexus/fixture/actions/runs/6001',
-					status: 'completed',
-					conclusion: 'success',
-					commitSha: 'matching-commit',
-					tag: 'v1.0.0',
-					createdAt: now,
-					startedAt: now,
-					completedAt: now,
-				},
-				release: {
-					id: adapterId === 'pocketmine-mp' ? 7001 : 7002,
-					url: 'https://github.com/BedrockNexus/fixture/releases/tag/v1.0.0',
-					tag: 'v1.0.0',
-					commitSha: 'matching-commit',
-					version: '1.0.0',
-					publishedAt: now,
-					asset: {
-						id: adapterId === 'pocketmine-mp' ? 8001 : 8002,
-						name: assetName,
-						url: `https://github.com/BedrockNexus/fixture/releases/download/v1.0.0/${assetName}`,
-						size: 1024,
-					},
-					provenance: workflowProvenance(now),
-				},
+				releaseId,
+				fileName: `Fixture.${software.extension}`,
+				size: 1024,
+				sha256: SHA256,
+				uploadKey: `plugins/${foundation.projectId}/review/${releaseId}/Fixture.${software.extension}`,
 			},
 		)
+		expect(
+			await foundation.moderator.client.query(
+				api.functions.plugins.publishing.model.listReviewQueue,
+				{},
+			),
+		).toEqual([
+			expect.objectContaining({
+				releaseId,
+				status: 'inReview',
+				version: '1.0.0',
+				changelog: 'First release.',
+				sha256: SHA256,
+				firstRelease: true,
+				softwareName: software.name,
+			}),
+		])
+		expect(
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: foundation.slug,
+			}),
+		).toBeNull()
 
-		const projectId = await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
+		await approveAndPublish(t, foundation, releaseId, '1.0.0')
+
+		const published = await t.query(
+			api.functions.plugins.catalog.getProject,
+			{ slug: foundation.slug },
+		)
+		expect(published).toMatchObject({
+			project: {
+				name: `${software.name} Fixture`,
+				latestVersion: { version: '1.0.0', verifiedBuild: true },
+			},
+			versions: [
+				{
+					version: '1.0.0',
+					changelog: 'First release.',
+					release: {
+						commitSha: 'commit-7001',
+						verifiedBuild: true,
+						asset: {
+							name: `Fixture.${software.extension}`,
+							size: 1024,
+							sha256: SHA256,
+						},
+					},
+				},
+			],
+		})
+		const [release] = await foundation.developer.client.query(
+			api.functions.plugins.publishing.model.listReleases,
 			{ draftId: foundation.draftId },
 		)
-		const pending = await t.run(async (ctx) => ({
-			draft: await ctx.db.get(
-				'pluginPublishingDrafts',
-				foundation.draftId,
-			),
-			project: await ctx.db.get('plugins', projectId),
-		}))
-		expect(pending.draft?.status).toBe('inReview')
-		expect(pending.project).toMatchObject({
-			visibility: 'draft',
-			status: 'review',
-		})
-		await expect(
-			foundation.client.mutation(
-				api.functions.plugins.publishing.model.approveReview,
-				{
-					draftId: foundation.draftId,
-				},
-			),
-		).rejects.toThrow('Admin role required')
-
-		await foundation.moderator.mutation(
-			api.functions.plugins.publishing.model.approveReview,
-			{
-				draftId: foundation.draftId,
-				note: 'Metadata, workflow, commit, and release asset verified.',
-			},
-		)
-		const stored = await t.run(async (ctx) => {
-			const draft = await ctx.db.get(
-				'pluginPublishingDrafts',
-				foundation.draftId,
-			)
-			const project = await ctx.db.get('plugins', projectId)
-			const releases = await ctx.db
-				.query('pluginReleases')
-				.withIndex('by_project_id', (query) =>
-					query.eq('projectId', projectId),
-				)
-				.take(2)
-			return { draft, project, release: releases[0] }
-		})
-
-		expect(stored.draft).toMatchObject({
-			verifiedBuild: true,
+		expect(release).toMatchObject({
 			status: 'published',
-			latestTag: 'v1.0.0',
-			latestReleaseCommitSha: 'matching-commit',
-			primaryAssetName: assetName,
-		})
-		expect(stored.project).toMatchObject({
-			license: 'MIT',
-			visibility: 'public',
-			status: 'published',
-		})
-		expect(stored.release).toMatchObject({
-			verifiedBuild: true,
-			status: 'published',
-		})
-		const actions = await t.run(async (ctx) =>
-			ctx.db
-				.query('adminActions')
-				.withIndex('by_targetType_and_targetId', (query) =>
-					query
-						.eq('targetType', 'pluginPublishingDraft')
-						.eq('targetId', foundation.draftId),
-				)
-				.collect(),
-		)
-		expect(actions).toHaveLength(1)
-		expect(actions[0]).toMatchObject({
-			action: 'plugin.approve',
-			changes: {
-				previousState: 'inReview',
-				resultingState: 'published',
-			},
+			githubReleaseStatus: 'pending',
 		})
 	})
 })
 
-describe('publishing verification boundaries', () => {
-	it('requires the owner to choose a workflow compatible with the detected project', async () => {
+describe('builds', () => {
+	it('only lets successful, traceable push builds with files be published', async () => {
 		const t = createTest()
-		const foundation = await createPublishingFoundation(t, 'pocketmine-mp')
+		const foundation = await createFoundation(t, POCKETMINE)
+		const now = Date.now()
+		const cases = [
+			[await recordBuild(t, foundation, 7101, { event: 'pull_request' }), 'pull requests'],
+			[await recordBuild(t, foundation, 7102, { conclusion: 'failure' }), 'did not succeed'],
+			[await recordBuild(t, foundation, 7103, { workflowBlobSha: 'edited' }), 'not traceable'],
+			[await recordBuild(t, foundation, 7104, { workflowBlobSha: '' }), 'not traceable'],
+			[await recordBuild(t, foundation, 7105, { artifactId: null }), 'plugin-package'],
+			[
+				await recordBuild(t, foundation, 7106, { artifactExpiresAt: now - 1 }),
+				'deleted',
+			],
+		] as const
 
-		await expect(
-			foundation.client.mutation(
-				api.functions.plugins.publishing.model.selectWorkflow,
-				{
-					draftId: foundation.draftId,
-					key: 'powernukkitx:gradle',
-				},
-			),
-		).rejects.toThrow('not available for this project')
-
-		const project = await foundation.client.query(
-			api.functions.plugins.publishing.model.getMine,
-			{
-				draftId: foundation.draftId,
-			},
+		const builds = await foundation.developer.client.query(
+			api.functions.plugins.publishing.model.listBuilds,
+			{ draftId: foundation.draftId, now },
 		)
-		expect(project.draft.workflowTemplateKey).toBe('pocketmine-mp:composer')
+		expect(builds.every((build) => !build.publishable)).toBe(true)
+		for (const [buildId, reason] of cases) {
+			await expect(
+				foundation.developer.client.mutation(
+					api.functions.plugins.publishing.model.submitRelease,
+					{
+						draftId: foundation.draftId,
+						buildId,
+						version: '1.0.0',
+						changelog: 'Should not work.',
+					},
+				),
+			).rejects.toThrow(reason)
+		}
 	})
 
-	it('lets an owner choose a verified release and resubmit after requested changes', async () => {
+	it('keeps a build traceable after the workflow is reinstalled', async () => {
 		const t = createTest()
-		const foundation = await createPublishingFoundation(t, 'pocketmine-mp')
-		const now = Date.now()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const buildId = await recordBuild(t, foundation, 7201)
+		await t.mutation(
+			internal.functions.plugins.publishing.model.recordWorkflowCommit,
+			{
+				tokenIdentifier: foundation.developer.tokenIdentifier,
+				draftId: foundation.draftId,
+				branch: 'main',
+				commitSha: 'workflow-update',
+				workflowBlobSha: 'newer-workflow-blob',
+				templateKey: 'pocketmine-mp:default',
+				templateVersion: 2,
+			},
+		)
+		await recordBuild(t, foundation, 7201)
+		expect(
+			(await t.run((ctx) => ctx.db.get('pluginBuilds', buildId)))?.traceable,
+		).toBe(true)
+	})
+})
 
-		for (const [version, releaseId, runId, assetId] of [
-			['1.0.0', 7301, 6301, 8301],
-			['2.0.0', 7302, 6302, 8302],
-		] as const) {
-			await t.mutation(
-				internal.functions.plugins.publishing.model.recordGitHubState,
+describe('version rules', () => {
+	it('never reuses a published version and allows one review at a time', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const first = await recordBuild(t, foundation, 7301)
+		const second = await recordBuild(t, foundation, 7302)
+		const third = await recordBuild(t, foundation, 7303)
+
+		const releaseId = await sendToReview(t, foundation, first, '1.0.0')
+		await expect(
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitRelease,
 				{
-					tokenIdentifier: foundation.tokenIdentifier,
 					draftId: foundation.draftId,
-					pullRequestState: 'merged',
-					workflowInstalled: true,
-					run: {
-						id: runId,
-						url: `https://github.com/BedrockNexus/fixture/actions/runs/${runId}`,
-						status: 'completed',
-						conclusion: 'success',
-						commitSha: `commit-${version}`,
-						tag: `v${version}`,
-						createdAt: now,
-						startedAt: now,
-						completedAt: now,
-					},
-					release: {
-						id: releaseId,
-						url: `https://github.com/BedrockNexus/fixture/releases/tag/v${version}`,
-						tag: `v${version}`,
-						commitSha: `commit-${version}`,
-						version,
-						asset: {
-							id: assetId,
-							name: `fixture-${version}.phar`,
-							url: `https://github.com/BedrockNexus/fixture/releases/download/v${version}/fixture.phar`,
-							size: 1024,
-						},
-						provenance: workflowProvenance(now),
-					},
+					buildId: second,
+					version: '1.1.0',
+					changelog: 'Too early.',
 				},
-			)
-		}
+			),
+		).rejects.toThrow('already in review')
+		await approveAndPublish(t, foundation, releaseId, '1.0.0')
 
-		const releases = await foundation.client.query(
-			api.functions.plugins.publishing.model.listDetectedReleases,
+		await expect(
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitRelease,
+				{
+					draftId: foundation.draftId,
+					buildId: second,
+					version: 'v1.0.0',
+					changelog: 'Same version again.',
+				},
+			),
+		).rejects.toThrow('already used')
+		await expect(
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitRelease,
+				{
+					draftId: foundation.draftId,
+					buildId: first,
+					version: '1.0.1',
+					changelog: 'Same build again.',
+				},
+			),
+		).rejects.toThrow('already published')
+		await expect(
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitRelease,
+				{
+					draftId: foundation.draftId,
+					buildId: third,
+					version: '1.1.0',
+					changelog: '   ',
+				},
+			),
+		).rejects.toThrow('Write what changed')
+	})
+
+	it('keeps the newest build as latest when an older build is approved later', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const older = await recordBuild(t, foundation, 7401, { createdAt: 1_000 })
+		const newer = await recordBuild(t, foundation, 7402, { createdAt: 2_000 })
+
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(t, foundation, newer, '2.0.0'),
+			'2.0.0',
+		)
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(t, foundation, older, '1.5.0'),
+			'1.5.0',
+		)
+
+		const project = await t.query(api.functions.plugins.catalog.getProject, {
+			slug: foundation.slug,
+		})
+		expect(project?.project.latestVersion?.version).toBe('2.0.0')
+		expect(project?.versions.map((version) => version.version).sort()).toEqual(
+			['1.5.0', '2.0.0'],
+		)
+	})
+})
+
+describe('review decisions', () => {
+	it('lets the developer send again after changes are requested', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const buildId = await recordBuild(t, foundation, 7501)
+		const releaseId = await sendToReview(t, foundation, buildId, '1.0.0')
+
+		await expect(
+			foundation.moderator.client.mutation(
+				api.functions.plugins.publishing.model.requestReviewChanges,
+				{ releaseId, reason: '  ' },
+			),
+		).rejects.toThrow('reason is required')
+		await foundation.moderator.client.mutation(
+			api.functions.plugins.publishing.model.requestReviewChanges,
+			{ releaseId, reason: 'Add a config example to the README.' },
+		)
+		const [release] = await foundation.developer.client.query(
+			api.functions.plugins.publishing.model.listReleases,
 			{ draftId: foundation.draftId },
 		)
-		expect(releases).toHaveLength(2)
-		const firstRelease = releases.find(
-			(release) => release.tagName === 'v1.0.0',
-		)
-		if (!firstRelease) {
-			throw new Error('Expected the first verified release.')
-		}
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.selectDetectedRelease,
-			{
-				draftId: foundation.draftId,
-				releaseId: firstRelease.releaseId,
-			},
-		)
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-		await foundation.moderator.mutation(
-			api.functions.plugins.publishing.model.requestReviewChanges,
-			{
-				draftId: foundation.draftId,
-				reason: 'Clarify the compatibility range.',
-			},
-		)
-
-		const changedDraft = await t.run((ctx) =>
-			ctx.db.get('pluginPublishingDrafts', foundation.draftId),
-		)
-		expect(changedDraft).toMatchObject({
+		expect(release).toMatchObject({
 			status: 'changesRequested',
-			reviewNotes: 'Clarify the compatibility range.',
+			reviewNotes: 'Add a config example to the README.',
 		})
+		expect(
+			(await t.run((ctx) => ctx.db.get('plugins', foundation.projectId)))
+				?.status,
+		).toBe('draft')
 
-		const secondRelease = releases.find(
-			(release) => release.tagName === 'v2.0.0',
-		)
-		if (!secondRelease) {
-			throw new Error('Expected the second verified release.')
-		}
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.selectDetectedRelease,
-			{
-				draftId: foundation.draftId,
-				releaseId: secondRelease.releaseId,
-			},
-		)
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-		await foundation.moderator.mutation(
-			api.functions.plugins.publishing.model.approveReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-
-		const publishedDraft = await t.run((ctx) =>
-			ctx.db.get('pluginPublishingDrafts', foundation.draftId),
-		)
-		expect(publishedDraft).toMatchObject({
-			status: 'published',
-			latestTag: 'v2.0.0',
-		})
+		// The same build and version may be sent again.
+		await sendToReview(t, foundation, buildId, '1.0.0')
 	})
 
-	it('keeps a rejected first submission rejected', async () => {
+	it('makes rejecting a first submission final', async () => {
 		const t = createTest()
-		const foundation = await createPublishingFoundation(t, 'pocketmine-mp')
-		await recordVerifiedRelease(t, foundation, '1.0.0', {
-			run: 6401,
-			release: 7401,
-			asset: 8401,
-		})
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
-			{
-				draftId: foundation.draftId,
-			},
+		const foundation = await createFoundation(t, POCKETMINE)
+		const releaseId = await sendToReview(
+			t,
+			foundation,
+			await recordBuild(t, foundation, 7601),
+			'1.0.0',
 		)
-		await foundation.moderator.mutation(
+		await foundation.moderator.client.mutation(
 			api.functions.plugins.publishing.model.rejectReview,
-			{
-				draftId: foundation.draftId,
-				reason: 'The plugin bundles a known malicious library.',
-			},
+			{ releaseId, reason: 'Not a Minecraft plugin.' },
 		)
-
 		await expect(
-			foundation.client.mutation(
-				api.functions.plugins.publishing.model.submitForReview,
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitRelease,
 				{
 					draftId: foundation.draftId,
+					buildId: await recordBuild(t, foundation, 7602),
+					version: '1.0.1',
+					changelog: 'Try again.',
 				},
 			),
-		).rejects.toThrow('cannot be resubmitted')
-
-		const refreshed = await recordVerifiedRelease(t, foundation, '1.0.1', {
-			run: 6402,
-			release: 7402,
-			asset: 8402,
-		})
-		expect(refreshed).toEqual({
-			verifiedBuild: false,
-			readyToPublish: false,
-		})
-
-		const stored = await t.run(async (ctx) => ({
-			draft: await ctx.db.get(
-				'pluginPublishingDrafts',
-				foundation.draftId,
-			),
-			release: await ctx.db
-				.query('pluginReleases')
-				.withIndex('by_github_release_id', (query) =>
-					query.eq('githubReleaseId', 7401),
-				)
-				.unique(),
-		}))
-		expect(stored.draft?.status).toBe('rejected')
-		expect(stored.release?.status).toBe('rejected')
+		).rejects.toThrow('rejected by a moderator')
 	})
 
-	it('forbids moderators from approving their own submission', async () => {
+	it('forbids moderators from approving their own plugin', async () => {
 		const t = createTest()
-		const foundation = await createPublishingFoundation(t, 'pocketmine-mp')
-		await recordVerifiedRelease(t, foundation, '1.0.0', {
-			run: 6501,
-			release: 7501,
-			asset: 8501,
-		})
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
-			{
-				draftId: foundation.draftId,
-			},
+		const foundation = await createFoundation(t, POCKETMINE)
+		const releaseId = await sendToReview(
+			t,
+			foundation,
+			await recordBuild(t, foundation, 7701),
+			'1.0.0',
 		)
-		// The moderator is also the submitter.
-		await t.run(async (ctx) => {
-			await ctx.db.patch('pluginPublishingDrafts', foundation.draftId, {
-				createdBy: foundation.moderatorUserId,
-			})
+		await t.mutation(components.betterAuth.adapter.updateOne, {
+			input: {
+				model: 'user',
+				where: [{ field: '_id', value: foundation.developer.userId }],
+				update: { role: 'admin' },
+			},
 		})
-
 		await expect(
-			foundation.moderator.mutation(
+			foundation.developer.client.mutation(
 				api.functions.plugins.publishing.model.approveReview,
-				{
-					draftId: foundation.draftId,
-				},
+				{ releaseId },
 			),
 		).rejects.toThrow('cannot approve your own submission')
 	})
 
-	it('keeps the newest release as latest when an older release is approved', async () => {
+	it('puts a plugin back to draft when copying the build fails', async () => {
 		const t = createTest()
-		const foundation = await createPublishingFoundation(t, 'pocketmine-mp')
-		await recordVerifiedRelease(t, foundation, '1.0.0', {
-			run: 6601,
-			release: 7601,
-			asset: 8601,
+		const foundation = await createFoundation(t, POCKETMINE)
+		const buildId = await recordBuild(t, foundation, 7801)
+		const releaseId = await foundation.developer.client.mutation(
+			api.functions.plugins.publishing.model.submitRelease,
+			{
+				draftId: foundation.draftId,
+				buildId,
+				version: '1.0.0',
+				changelog: 'First release.',
+			},
+		)
+		await t.mutation(
+			internal.functions.plugins.publishing.model.failPreparation,
+			{ releaseId, reason: 'The build must contain exactly one .phar file.' },
+		)
+		const state = await t.run(async (ctx) => ({
+			release: await ctx.db.get('pluginReleases', releaseId),
+			project: await ctx.db.get('plugins', foundation.projectId),
+		}))
+		expect(state.release).toMatchObject({
+			status: 'preparationFailed',
+			failureReason: 'The build must contain exactly one .phar file.',
 		})
-		await t.run(async (ctx) => {
-			const older = await ctx.db
-				.query('pluginReleases')
-				.withIndex('by_github_release_id', (query) =>
-					query.eq('githubReleaseId', 7601),
-				)
-				.unique()
-			if (older)
-				await ctx.db.patch('pluginReleases', older._id, {
-					createdAt: 1,
-				})
-		})
-		await recordVerifiedRelease(t, foundation, '2.0.0', {
-			run: 6602,
-			release: 7602,
-			asset: 8602,
-		})
-
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-		await foundation.moderator.mutation(
-			api.functions.plugins.publishing.model.approveReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-
-		const releases = await foundation.client.query(
-			api.functions.plugins.publishing.model.listDetectedReleases,
-			{ draftId: foundation.draftId },
-		)
-		const older = releases.find((release) => release.tagName === 'v1.0.0')
-		if (!older) throw new Error('Expected the older release.')
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.selectDetectedRelease,
-			{
-				draftId: foundation.draftId,
-				releaseId: older.releaseId,
-			},
-		)
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-		await foundation.moderator.mutation(
-			api.functions.plugins.publishing.model.approveReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-
-		const latestTag = await t.run(async (ctx) => {
-			const draft = await ctx.db.get(
-				'pluginPublishingDrafts',
-				foundation.draftId,
-			)
-			const project = draft?.projectId
-				? await ctx.db.get('plugins', draft.projectId)
-				: null
-			const version = project?.latestVersionId
-				? await ctx.db.get('pluginVersions', project.latestVersionId)
-				: null
-			return version?.version
-		})
-		expect(latestTag).toBe('2.0.0')
-	})
-
-	it('never treats a normal default-branch run as a releasable build', async () => {
-		const t = createTest()
-		const foundation = await createPublishingFoundation(t, 'powernukkitx')
-
-		const result = await t.mutation(
-			internal.functions.plugins.publishing.model.recordGitHubState,
-			{
-				tokenIdentifier: foundation.tokenIdentifier,
-				draftId: foundation.draftId,
-				pullRequestState: 'merged',
-				workflowInstalled: true,
-				run: {
-					id: 6100,
-					url: 'https://github.com/BedrockNexus/fixture/actions/runs/6100',
-					status: 'completed',
-					conclusion: 'success',
-					commitSha: 'main-branch-commit',
-					createdAt: Date.now(),
-				},
-			},
-		)
-
-		expect(result).toEqual({ verifiedBuild: false, readyToPublish: false })
-		await expect(
-			foundation.client.mutation(
-				api.functions.plugins.publishing.model.submitForReview,
-				{
-					draftId: foundation.draftId,
-				},
-			),
-		).rejects.toThrow('Publication requires')
-	})
-
-	it('rejects a release whose commit does not match the successful tag run', async () => {
-		const t = createTest()
-		const foundation = await createPublishingFoundation(t, 'pocketmine-mp')
-		const now = Date.now()
-
-		const result = await t.mutation(
-			internal.functions.plugins.publishing.model.recordGitHubState,
-			{
-				tokenIdentifier: foundation.tokenIdentifier,
-				draftId: foundation.draftId,
-				workflowInstalled: true,
-				run: {
-					id: 6200,
-					url: 'https://github.com/BedrockNexus/fixture/actions/runs/6200',
-					status: 'completed',
-					conclusion: 'success',
-					commitSha: 'build-commit',
-					tag: 'v2.0.0',
-					createdAt: now,
-				},
-				release: {
-					id: 7200,
-					url: 'https://github.com/BedrockNexus/fixture/releases/tag/v2.0.0',
-					tag: 'v2.0.0',
-					commitSha: 'different-commit',
-					version: '2.0.0',
-					asset: {
-						id: 8200,
-						name: 'fixture.phar',
-						url: 'https://github.com/BedrockNexus/fixture/releases/download/v2.0.0/fixture.phar',
-						size: 1024,
-					},
-				},
-			},
-		)
-
-		expect(result.verifiedBuild).toBe(false)
+		expect(state.project?.status).toBe('draft')
+		await sendToReview(t, foundation, buildId, '1.0.0')
 	})
 })
 
-describe('end-to-end publishing journey', () => {
-	it('takes a verified release from repository to public catalog and a counted download', async () => {
-		const redirectSecret = 'journey-redirect-secret'
-		process.env.DOWNLOAD_REDIRECT_SECRET = redirectSecret
+describe('workflow selection', () => {
+	it('offers only workflows of software that accepts plugins', async () => {
 		const t = createTest()
-		const foundation = await createPublishingFoundation(t, 'pocketmine-mp')
-		const now = Date.now()
-		const repository = 'pocketmine-mp-fixture'
-
-		// GitHub reports a successful tag build whose asset the workflow uploaded.
-		const state = await t.mutation(
-			internal.functions.plugins.publishing.model.recordGitHubState,
-			{
-				tokenIdentifier: foundation.tokenIdentifier,
-				draftId: foundation.draftId,
-				workflowInstalled: true,
-				run: {
-					id: 6901,
-					url: `https://github.com/BedrockNexus/${repository}/actions/runs/6901`,
-					status: 'completed',
-					conclusion: 'success',
-					commitSha: 'journey-commit',
-					tag: 'v1.2.0',
-					createdAt: now,
-					startedAt: now,
-					completedAt: now,
-				},
-				release: {
-					id: 7901,
-					url: `https://github.com/BedrockNexus/${repository}/releases/tag/v1.2.0`,
-					tag: 'v1.2.0',
-					commitSha: 'journey-commit',
-					version: '1.2.0',
-					publishedAt: now,
-					asset: {
-						id: 8901,
-						name: 'journey.phar',
-						url: `https://github.com/BedrockNexus/${repository}/releases/download/v1.2.0/journey.phar`,
-						size: 4096,
-					},
-					provenance: workflowProvenance(now),
-				},
-			},
-		)
-		expect(state).toEqual({ verifiedBuild: true, readyToPublish: true })
-
-		// Not public before moderation.
-		expect(
-			await t.query(api.functions.plugins.catalog.getProject, {
-				slug: 'pocketmine-mp-fixture',
-			}),
-		).toBeNull()
-
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-		await foundation.moderator.mutation(
-			api.functions.plugins.publishing.model.approveReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-
-		const listed = await t.query(api.functions.plugins.catalog.getProject, {
-			slug: 'pocketmine-mp-fixture',
+		const foundation = await createFoundation(t, POCKETMINE)
+		await t.run(async (ctx) => {
+			const softwareId = await ctx.db.insert('serverSoftware', {
+				slug: 'bds',
+				name: 'Bedrock Dedicated Server',
+				description: 'No plugin file type',
+				enabled: true,
+				sortOrder: 2,
+				createdAt: 1,
+				updatedAt: 1,
+			})
+			await ctx.db.insert('pluginWorkflowTemplates', {
+				key: 'bds:default',
+				softwareId,
+				label: 'BDS build',
+				content: TEST_WORKFLOW_TEMPLATE,
+				version: 1,
+				updatedBy: 'admin',
+				createdAt: 1,
+				updatedAt: 1,
+			})
 		})
-		expect(listed?.project).toMatchObject({
-			latestVersion: { version: '1.2.0', verifiedBuild: true },
-		})
+		const workflows = await foundation.developer.client.query(
+			api.functions.plugins.publishing.model.listAvailableWorkflows,
+			{ draftId: foundation.draftId },
+		)
+		expect(workflows.map((workflow) => workflow.key)).toEqual([
+			'pocketmine-mp:default',
+		])
+		await expect(
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.selectWorkflow,
+				{ draftId: foundation.draftId, key: 'bds:default' },
+			),
+		).rejects.toThrow('not available')
+	})
 
-		const download = {
-			projectSlug: 'pocketmine-mp-fixture',
-			version: '1.2.0',
-			anonymousIdHash: 'a'.repeat(64),
-			userAgentHash: 'b'.repeat(64),
-			redirectSecret,
-		}
-		const first = await t.mutation(
-			api.functions.plugins.downloads.resolveAndRecord,
-			download,
+	it('keeps a published plugin on its server software', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 7901),
+				'1.0.0',
+			),
+			'1.0.0',
 		)
-		const repeat = await t.mutation(
-			api.functions.plugins.downloads.resolveAndRecord,
-			download,
-		)
-		expect(first).toEqual({
-			url: `https://github.com/BedrockNexus/${repository}/releases/download/v1.2.0/journey.phar`,
-			counted: true,
+		await t.run(async (ctx) => {
+			const softwareId = await ctx.db.insert('serverSoftware', {
+				slug: 'powernukkitx',
+				name: 'PowerNukkitX',
+				description: 'Java plugins',
+				pluginFileExtension: 'jar',
+				enabled: true,
+				sortOrder: 2,
+				createdAt: 1,
+				updatedAt: 1,
+			})
+			await ctx.db.insert('pluginWorkflowTemplates', {
+				key: 'powernukkitx:default',
+				softwareId,
+				label: 'PowerNukkitX build',
+				content: TEST_WORKFLOW_TEMPLATE,
+				version: 1,
+				updatedBy: 'admin',
+				createdAt: 1,
+				updatedAt: 1,
+			})
 		})
-		expect(repeat.counted).toBe(false)
+		await expect(
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.selectWorkflow,
+				{ draftId: foundation.draftId, key: 'powernukkitx:default' },
+			),
+		).rejects.toThrow('cannot move to another server software')
 	})
 })
 
 describe('project deletion', () => {
 	async function publishProject(t: TestClient) {
-		const foundation = await createPublishingFoundation(t, 'pocketmine-mp')
-		await recordVerifiedRelease(t, foundation, '1.0.0', {
-			run: 6951,
-			release: 7951,
-			asset: 8951,
-		})
-		await foundation.client.mutation(
-			api.functions.plugins.publishing.model.submitForReview,
-			{
-				draftId: foundation.draftId,
-			},
+		const foundation = await createFoundation(t, POCKETMINE)
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 6951),
+				'1.0.0',
+			),
+			'1.0.0',
 		)
-		await foundation.moderator.mutation(
-			api.functions.plugins.publishing.model.approveReview,
-			{
-				draftId: foundation.draftId,
-			},
-		)
-		const draft = await t.run((ctx) =>
-			ctx.db.get('pluginPublishingDrafts', foundation.draftId),
-		)
-		if (!draft?.projectId) throw new Error('Expected a published project.')
-		return { foundation, projectId: draft.projectId }
+		return foundation
 	}
 
 	it('lets the owner delete a published project and purges its data', async () => {
-		vi.useFakeTimers()
-		try {
-			const t = createTest()
-			const { foundation, projectId } = await publishProject(t)
-
-			await expect(
-				foundation.client.mutation(
-					api.functions.plugins.deletion.deleteProject,
-					{
-						draftId: foundation.draftId,
-						confirmSlug: 'wrong-slug',
-					},
-				),
-			).rejects.toThrow('to confirm deletion')
-
-			await foundation.client.mutation(
-				api.functions.plugins.deletion.deleteProject,
-				{
-					draftId: foundation.draftId,
-					confirmSlug: 'pocketmine-mp-fixture',
-				},
-			)
-
-			expect(
-				await t.query(api.functions.plugins.catalog.getProject, {
-					slug: 'pocketmine-mp-fixture',
-				}),
-			).toBeNull()
-
-			await t.finishAllScheduledFunctions(vi.runAllTimers)
-			const remaining = await t.run(async (ctx) => ({
-				project: await ctx.db.get('plugins', projectId),
-				draft: await ctx.db.get(
-					'pluginPublishingDrafts',
-					foundation.draftId,
-				),
-				versions: await ctx.db
-					.query('pluginVersions')
-					.withIndex('by_project_id', (q) =>
-						q.eq('projectId', projectId),
-					)
-					.collect(),
-				releases: await ctx.db
-					.query('pluginReleases')
-					.withIndex('by_project_id', (q) =>
-						q.eq('projectId', projectId),
-					)
-					.collect(),
-				assets: await ctx.db.query('pluginReleaseAssets').collect(),
-				audit: await ctx.db
-					.query('adminActions')
-					.withIndex('by_targetType_and_targetId', (q) =>
-						q.eq('targetType', 'plugin').eq('targetId', projectId),
-					)
-					.collect(),
-			}))
-			expect(remaining).toMatchObject({
-				project: null,
-				draft: null,
-				versions: [],
-				releases: [],
-				assets: [],
-			})
-			expect(remaining.audit).toEqual([])
-
-			// With the project gone and the GitHub App uninstalled, nothing blocks
-			// self-service account deletion.
-			const userId = foundation.tokenIdentifier.split('|')[1]
-			expect(
-				await t.mutation(
-					internal.functions.plugins.accountDeletion.prepare,
-					{ userId },
-				),
-			).toContain('Uninstall the BedrockNexus GitHub App')
-			await t.run(async (ctx) => {
-				const installations = await ctx.db
-					.query('githubInstallations')
-					.collect()
-				for (const installation of installations) {
-					await ctx.db.patch(
-						'githubInstallations',
-						installation._id,
-						{ status: 'deleted' },
-					)
-				}
-			})
-			expect(
-				await t.mutation(
-					internal.functions.plugins.accountDeletion.prepare,
-					{ userId },
-				),
-			).toBeNull()
-			expect(
-				await t.run((ctx) =>
-					ctx.db.query('githubInstallations').collect(),
-				),
-			).toEqual([])
-		} finally {
-			vi.useRealTimers()
-		}
-	})
-
-	it('does not let other users delete a project', async () => {
 		const t = createTest()
-		const { foundation, projectId } = await publishProject(t)
-		const stranger = await insertUser(t, 'stranger', 'user')
+		const foundation = await publishProject(t)
 
 		await expect(
-			t
-				.withIdentity({
-					subject: stranger.userId,
-					sessionId: stranger.sessionId,
-					tokenIdentifier: `https://convex.test|${stranger.userId}`,
-				})
-				.mutation(api.functions.plugins.deletion.deleteProject, {
-					draftId: foundation.draftId,
-					confirmSlug: 'pocketmine-mp-fixture',
-				}),
-		).rejects.toThrow(
-			'Project owner or organization manager access is required',
+			foundation.developer.client.mutation(
+				api.functions.plugins.deletion.deleteProject,
+				{ draftId: foundation.draftId, confirmSlug: 'wrong-slug' },
+			),
+		).rejects.toThrow('to confirm deletion')
+
+		await foundation.developer.client.mutation(
+			api.functions.plugins.deletion.deleteProject,
+			{ draftId: foundation.draftId, confirmSlug: foundation.slug },
 		)
 		expect(
-			await t.run((ctx) => ctx.db.get('plugins', projectId)),
-		).not.toBeNull()
-	})
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: foundation.slug,
+			}),
+		).toBeNull()
 
-	it('lets an admin delete a project and records it in the audit log', async () => {
-		const t = createTest()
-		const { foundation, projectId } = await publishProject(t)
-
-		await foundation.moderator.mutation(
-			api.functions.plugins.deletion.deleteProject,
-			{
-				draftId: foundation.draftId,
-				confirmSlug: 'pocketmine-mp-fixture',
-			},
-		)
-
-		const { project, audit } = await t.run(async (ctx) => ({
+		await t.finishAllScheduledFunctions(vi.runAllTimers)
+		const projectId = foundation.projectId
+		const remaining = await t.run(async (ctx) => ({
 			project: await ctx.db.get('plugins', projectId),
+			draft: await ctx.db.get('pluginPublishingDrafts', foundation.draftId),
+			versions: await ctx.db
+				.query('pluginVersions')
+				.withIndex('by_project_id', (q) => q.eq('projectId', projectId))
+				.collect(),
+			builds: await ctx.db
+				.query('pluginBuilds')
+				.withIndex('by_project_id', (q) => q.eq('projectId', projectId))
+				.collect(),
+			releases: await ctx.db
+				.query('pluginReleases')
+				.withIndex('by_project_id', (q) => q.eq('projectId', projectId))
+				.collect(),
 			audit: await ctx.db
 				.query('adminActions')
 				.withIndex('by_targetType_and_targetId', (q) =>
@@ -1030,11 +800,74 @@ describe('project deletion', () => {
 				)
 				.collect(),
 		}))
-		expect(project).toBeNull()
+		expect(remaining).toMatchObject({
+			project: null,
+			draft: null,
+			versions: [],
+			builds: [],
+			releases: [],
+			audit: [],
+		})
+
+		// With the project gone and the GitHub App uninstalled, nothing blocks
+		// self-service account deletion.
+		const userId = foundation.developer.userId
+		expect(
+			await t.mutation(internal.functions.plugins.accountDeletion.prepare, {
+				userId,
+			}),
+		).toContain('Uninstall the BedrockNexus GitHub App')
+		await t.run(async (ctx) => {
+			for (const installation of await ctx.db
+				.query('githubInstallations')
+				.collect()) {
+				await ctx.db.patch('githubInstallations', installation._id, {
+					status: 'deleted',
+				})
+			}
+		})
+		expect(
+			await t.mutation(internal.functions.plugins.accountDeletion.prepare, {
+				userId,
+			}),
+		).toBeNull()
+	})
+
+	it('does not let other users delete a project', async () => {
+		const t = createTest()
+		const foundation = await publishProject(t)
+		const stranger = await insertUser(t, 'stranger', 'user')
+
+		await expect(
+			stranger.client.mutation(api.functions.plugins.deletion.deleteProject, {
+				draftId: foundation.draftId,
+				confirmSlug: foundation.slug,
+			}),
+		).rejects.toThrow('Project owner or organization manager access is required')
+		expect(
+			await t.run((ctx) => ctx.db.get('plugins', foundation.projectId)),
+		).not.toBeNull()
+	})
+
+	it('lets an admin delete a project and records it in the audit log', async () => {
+		const t = createTest()
+		const foundation = await publishProject(t)
+
+		await foundation.moderator.client.mutation(
+			api.functions.plugins.deletion.deleteProject,
+			{ draftId: foundation.draftId, confirmSlug: foundation.slug },
+		)
+		const audit = await t.run((ctx) =>
+			ctx.db
+				.query('adminActions')
+				.withIndex('by_targetType_and_targetId', (q) =>
+					q.eq('targetType', 'plugin').eq('targetId', foundation.projectId),
+				)
+				.collect(),
+		)
 		expect(audit).toEqual([
 			expect.objectContaining({
 				action: 'plugin.delete',
-				targetLabel: expect.any(String),
 				changes: expect.objectContaining({ resultingState: 'deleted' }),
 			}),
 		])

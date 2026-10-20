@@ -191,6 +191,7 @@ export const tables = {
 			v.literal('setting'),
 			v.literal('plugin'),
 			v.literal('pluginPublishingDraft'),
+			v.literal('pluginRelease'),
 			v.literal('pluginWorkflowTemplate'),
 			v.literal('pick'),
 		),

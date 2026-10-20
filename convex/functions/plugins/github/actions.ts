@@ -21,7 +21,6 @@ import {
 import {
 	type githubInstallationInputValidator,
 	type githubRepositoryInputValidator,
-	repositorySnapshotValidator,
 } from './validators'
 
 type NormalizedInstallation = typeof githubInstallationInputValidator.type
@@ -503,103 +502,6 @@ export const syncInstallationFromWebhook = internalAction({
 			installationId: installation.installationId,
 			accountLogin: installation.account.login,
 			...synced,
-		}
-	},
-})
-
-export const getRepositorySnapshot = action({
-	args: {
-		repositoryId: v.id('githubRepositories'),
-	},
-	returns: repositorySnapshotValidator,
-	handler: async (
-		ctx,
-		args,
-	): Promise<typeof repositorySnapshotValidator.type> => {
-		const identity = await ctx.auth.getUserIdentity()
-		const tokenIdentifier = requireIdentityTokenIdentifier(identity)
-		await enforceRateLimit(ctx, 'githubRead', tokenIdentifier)
-		const access: {
-			installationId: number
-			repositoryId: Id<'githubRepositories'>
-			ownerLogin: string
-			name: string
-			fullName: string
-			defaultBranch: string
-		} = await ctx.runQuery(
-			internal.functions.plugins.github.installations.getRepositoryAccess,
-			{
-				tokenIdentifier,
-				repositoryId: args.repositoryId,
-			},
-		)
-		const app = createGitHubApp(getConfig())
-
-		try {
-			const octokit = await app.getInstallationOctokit(
-				access.installationId,
-			)
-			const metadata = await octokit.rest.repos.get({
-				owner: access.ownerLogin,
-				repo: access.name,
-			})
-			const tree = await octokit.rest.git.getTree({
-				owner: access.ownerLogin,
-				repo: access.name,
-				tree_sha: metadata.data.default_branch,
-				recursive: 'true',
-			})
-			const entries = tree.data.tree.slice(0, 2_000).flatMap((entry) => {
-				if (
-					!entry.path ||
-					!entry.sha ||
-					(entry.type !== 'blob' &&
-						entry.type !== 'tree' &&
-						entry.type !== 'commit')
-				) {
-					return []
-				}
-
-				return [
-					{
-						path: entry.path,
-						type: entry.type as 'blob' | 'tree' | 'commit',
-						sha: entry.sha,
-						...(typeof entry.size === 'number'
-							? { size: entry.size }
-							: {}),
-					},
-				]
-			})
-			const remainingHeader = metadata.headers['x-ratelimit-remaining']
-			const rateLimitRemaining =
-				typeof remainingHeader === 'string'
-					? Number(remainingHeader)
-					: undefined
-
-			return {
-				repositoryId: access.repositoryId,
-				fullName: metadata.data.full_name,
-				defaultBranch: metadata.data.default_branch,
-				...(metadata.data.description
-					? { description: metadata.data.description }
-					: {}),
-				...(metadata.data.license?.spdx_id
-					? { license: metadata.data.license.spdx_id }
-					: {}),
-				topics: metadata.data.topics ?? [],
-				...(Number.isFinite(rateLimitRemaining)
-					? { rateLimitRemaining }
-					: {}),
-				tree: {
-					sha: tree.data.sha,
-					truncated:
-						tree.data.truncated || tree.data.tree.length > 2_000,
-					entries,
-				},
-			}
-		} catch (error) {
-			throwGitHubApiError(error)
 		}
 	},
 })

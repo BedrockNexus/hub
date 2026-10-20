@@ -143,6 +143,43 @@ export function buildProjectDownloadR2ObjectKey({
 		.join('/')
 }
 
+/**
+ * Plugin files, copied from GitHub by functions/plugins/publishing/actions.
+ * Deliberately outside the managed media patterns: the stale-upload sweeper
+ * never touches them, and plugin deletion removes them.
+ */
+export function buildPluginReviewR2ObjectKey(args: {
+	projectId: string
+	releaseId: string
+	fileName: string
+}): string {
+	return [
+		'plugins',
+		args.projectId,
+		'review',
+		args.releaseId,
+		sanitizeR2FileName(args.fileName),
+	]
+		.map(sanitizeR2PathSegment)
+		.join('/')
+}
+
+export function buildPluginDownloadR2ObjectKey(args: {
+	projectId: string
+	version: string
+	fileName: string
+}): string {
+	return [
+		'plugins',
+		args.projectId,
+		'versions',
+		args.version,
+		sanitizeR2FileName(args.fileName),
+	]
+		.map(sanitizeR2PathSegment)
+		.join('/')
+}
+
 /** Legacy public release key builder retained for existing production objects. */
 export function buildProjectVersionR2ObjectKey({
 	projectId,

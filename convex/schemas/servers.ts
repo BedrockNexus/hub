@@ -55,8 +55,11 @@ export const tables = {
 		description: v.string(),
 		websiteUrl: v.optional(v.string()),
 		repositoryUrl: v.optional(v.string()),
-		// Set when the plugin registry can publish for this software; names
-		// the adapter in lib/plugins/adapters that reads its repositories.
+		// Set when plugins can be published for this software: the file type
+		// its plugins are built as, without the dot ("phar", "jar").
+		pluginFileExtension: v.optional(v.string()),
+		// Deprecated; replaced by pluginFileExtension in
+		// functions/plugins/migrations:moveToCommitPublishing.
 		adapterId: v.optional(v.string()),
 		enabled: v.boolean(),
 		sortOrder: v.number(),
@@ -64,7 +67,6 @@ export const tables = {
 		updatedAt: v.number(),
 	})
 		.index('by_slug', ['slug'])
-		.index('by_adapterId', ['adapterId'])
 		.index('by_enabled_and_sortOrder', ['enabled', 'sortOrder']),
 
 	// Per-software totals for /software, recounted every few minutes by

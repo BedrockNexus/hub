@@ -129,7 +129,7 @@ export default async function ExplorePage({
 	// Only software that plugins can be published for is a useful filter.
 	const software = (
 		await fetchQuery(api.functions.plugins.catalog.listSoftware, {})
-	).filter((item) => item.adapterId)
+	).filter((item) => item.supportsPlugins)
 	const softwareSlug = software.some(
 		(item) => item.slug === requestedSoftware,
 	)

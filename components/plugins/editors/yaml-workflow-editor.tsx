@@ -7,7 +7,7 @@ import CodeMirror, { EditorView } from '@uiw/react-codemirror'
 import { useTheme } from 'next-themes'
 import { parseDocument } from 'yaml'
 
-import { validateWorkflowTemplate } from '@/lib/plugins/adapters/workflow-templates'
+import { validateWorkflowTemplate } from '@/lib/plugins/workflow-templates'
 import { cn } from '@/lib/utils'
 
 interface YamlWorkflowEditorProps {

@@ -22,9 +22,9 @@ export default async function ManageProjectPage({
 	const resolvedDraftId = await resolveProjectDraftId(draftId)
 	return (
 		<DashboardPageShell
-			description="Manage the catalog information for this plugin. Repository setup stays in Add Project."
+			description="What people see on the plugin page."
 			eyebrow="Projects"
-			title="Project metadata"
+			title="Plugin details"
 		>
 			<ProjectManageNav draftId={draftId} />
 			<ProjectMetadataManager draftId={resolvedDraftId} />

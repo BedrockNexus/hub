@@ -25,6 +25,7 @@ const softwareFields = {
 	description: v.string(),
 	websiteUrl: v.optional(v.string()),
 	repositoryUrl: v.optional(v.string()),
+	pluginFileExtension: v.optional(v.string()),
 	enabled: v.boolean(),
 	sortOrder: v.number(),
 }
@@ -35,6 +36,7 @@ function validateSoftware(fields: {
 	description: string
 	websiteUrl?: string
 	repositoryUrl?: string
+	pluginFileExtension?: string
 }) {
 	const name = fields.name.trim()
 	if (name.length < 2 || name.length > NAME_MAX) {
@@ -52,6 +54,14 @@ function validateSoftware(fields: {
 	}
 	assertOptionalHttpUrl('Website', fields.websiteUrl)
 	assertOptionalHttpUrl('Repository link', fields.repositoryUrl)
+	const pluginFileExtension =
+		fields.pluginFileExtension?.trim().toLowerCase().replace(/^\./, '') ||
+		undefined
+	if (pluginFileExtension && !/^[a-z0-9]{1,10}$/.test(pluginFileExtension)) {
+		throw new ConvexError(
+			'The plugin file type must be letters and numbers only, like phar or jar',
+		)
+	}
 
 	return {
 		name,
@@ -59,6 +69,7 @@ function validateSoftware(fields: {
 		description: fields.description.trim(),
 		websiteUrl: fields.websiteUrl?.trim() || undefined,
 		repositoryUrl: fields.repositoryUrl?.trim() || undefined,
+		pluginFileExtension,
 	}
 }
 
@@ -145,6 +156,7 @@ export const update = adminMutation({
 		description: v.string(),
 		websiteUrl: v.optional(v.string()),
 		repositoryUrl: v.optional(v.string()),
+		pluginFileExtension: v.optional(v.string()),
 		enabled: v.boolean(),
 		sortOrder: v.number(),
 	},
@@ -243,7 +255,7 @@ function publicFields(software: Doc<'serverSoftware'>) {
 		websiteUrl: software.websiteUrl,
 		repositoryUrl: software.repositoryUrl,
 		// Whether plugins can be published for it here.
-		supportsPlugins: software.adapterId !== undefined,
+		supportsPlugins: software.pluginFileExtension !== undefined,
 	}
 }
 

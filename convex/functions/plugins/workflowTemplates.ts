@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 
 import { recordAdminAction } from '../../lib/audit'
-import { validateWorkflowTemplate } from '../../../lib/plugins/adapters/workflow-templates'
+import { validateWorkflowTemplate } from '../../../lib/plugins/workflow-templates'
 import { internalQuery } from '../../_generated/server'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import {
@@ -10,20 +10,12 @@ import {
 } from '../../lib/plugins/workflowTemplates'
 import { workflowTemplateKeyValidator } from '../../schemas/plugins'
 
-const adapterIdValidator = v.union(
-	v.literal('pocketmine-mp'),
-	v.literal('powernukkitx'),
-)
-const buildSystemValidator = v.union(
-	v.literal('composer'),
-	v.literal('gradle'),
-	v.literal('maven'),
-)
-
 const workflowTemplateResultValidator = v.object({
 	key: workflowTemplateKeyValidator,
-	adapterId: adapterIdValidator,
-	buildSystem: buildSystemValidator,
+	softwareId: v.id('serverSoftware'),
+	softwareName: v.string(),
+	softwareSlug: v.string(),
+	fileExtension: v.optional(v.string()),
 	label: v.string(),
 	content: v.string(),
 	version: v.number(),
@@ -55,11 +47,7 @@ function validatedLabel(label: string) {
 	return normalized
 }
 
-function workflowKey(
-	label: string,
-	adapterId: 'pocketmine-mp' | 'powernukkitx',
-	buildSystem: 'composer' | 'gradle' | 'maven',
-) {
+function workflowKey(label: string, softwareSlug: string) {
 	const slug = label
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
@@ -71,23 +59,7 @@ function workflowKey(
 			message: 'The workflow name must contain letters or numbers.',
 		})
 	}
-	return `${adapterId}:${buildSystem}:${slug}`
-}
-
-function assertCompatibleBuildSystem(
-	adapterId: 'pocketmine-mp' | 'powernukkitx',
-	buildSystem: 'composer' | 'gradle' | 'maven',
-) {
-	if (
-		(adapterId === 'pocketmine-mp' && buildSystem !== 'composer') ||
-		(adapterId === 'powernukkitx' && buildSystem === 'composer')
-	) {
-		throw new ConvexError({
-			code: 'INVALID_WORKFLOW_BUILD_SYSTEM',
-			message:
-				'That build system is not supported by the selected server software.',
-		})
-	}
+	return `${softwareSlug}:${slug}`
 }
 
 export const list = adminQuery({
@@ -99,8 +71,7 @@ export const list = adminQuery({
 export const create = adminMutation({
 	args: {
 		label: v.string(),
-		adapterId: adapterIdValidator,
-		buildSystem: buildSystemValidator,
+		softwareId: v.id('serverSoftware'),
 		content: v.string(),
 	},
 	returns: v.object({
@@ -108,10 +79,16 @@ export const create = adminMutation({
 		version: v.number(),
 	}),
 	handler: async (ctx, args) => {
-		assertCompatibleBuildSystem(args.adapterId, args.buildSystem)
+		const software = await ctx.db.get('serverSoftware', args.softwareId)
+		if (!software) {
+			throw new ConvexError({
+				code: 'SERVER_SOFTWARE_NOT_FOUND',
+				message: 'Server software not found.',
+			})
+		}
 		const label = validatedLabel(args.label)
 		const content = validatedContent(args.content)
-		const key = workflowKey(label, args.adapterId, args.buildSystem)
+		const key = workflowKey(label, software.slug)
 		const existing = await ctx.db
 			.query('pluginWorkflowTemplates')
 			.withIndex('by_key', (query) => query.eq('key', key))
@@ -120,14 +97,13 @@ export const create = adminMutation({
 			throw new ConvexError({
 				code: 'WORKFLOW_TEMPLATE_EXISTS',
 				message:
-					'A workflow with that name, server software, and build system already exists.',
+					'A workflow with that name already exists for this server software.',
 			})
 		}
 		const now = Date.now()
 		await ctx.db.insert('pluginWorkflowTemplates', {
 			key,
-			adapterId: args.adapterId,
-			buildSystem: args.buildSystem,
+			softwareId: software._id,
 			label,
 			content,
 			version: 1,

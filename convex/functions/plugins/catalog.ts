@@ -108,15 +108,11 @@ async function hydrateProjectCard(
 			.withIndex('by_version_id', (index) =>
 				index.eq('versionId', latestVersion._id),
 			)
-			.order('desc')
-			.take(5)
-		const publishedRelease = release.find(
-			(item) => item.status === 'published',
-		)
+			.first()
 		latestVersionSummary = {
 			version: latestVersion.version,
 			publishedAt: latestVersion.publishedAt,
-			verifiedBuild: publishedRelease?.verifiedBuild === true,
+			verifiedBuild: release?.traceable === true,
 		}
 	}
 
@@ -320,8 +316,8 @@ const softwareDirectoryItemValidator = v.object({
 	slug: v.string(),
 	name: v.string(),
 	description: v.string(),
-	// Present when plugins can be published for this software.
-	adapterId: v.optional(v.string()),
+	// Whether plugins can be published for this software.
+	supportsPlugins: v.boolean(),
 	websiteUrl: v.optional(v.string()),
 	repositoryUrl: v.optional(v.string()),
 	projectCount: v.number(),
@@ -346,7 +342,7 @@ export const listSoftware = query({
 			slug: item.slug,
 			name: item.name,
 			description: item.description,
-			adapterId: item.adapterId,
+			supportsPlugins: item.pluginFileExtension !== undefined,
 			websiteUrl: item.websiteUrl,
 			repositoryUrl: item.repositoryUrl,
 			projectCount: projectCounts[index] ?? 0,
@@ -391,7 +387,7 @@ export const getSoftware = query({
 				slug: software.slug,
 				name: software.name,
 				description: software.description,
-				adapterId: software.adapterId,
+				supportsPlugins: software.pluginFileExtension !== undefined,
 				websiteUrl: software.websiteUrl,
 				repositoryUrl: software.repositoryUrl,
 				projectCount,
@@ -404,23 +400,24 @@ export const getSoftware = query({
 const publicAssetValidator = v.object({
 	name: v.string(),
 	size: v.number(),
+	sha256: v.optional(v.string()),
 })
 
 const publicBuildValidator = v.object({
 	workflowRunId: v.number(),
 	logsUrl: v.string(),
 	commitSha: v.string(),
-	tag: v.optional(v.string()),
+	branch: v.optional(v.string()),
 	conclusion: v.optional(v.string()),
 })
 
 const publicReleaseValidator = v.object({
-	tagName: v.string(),
-	releaseUrl: v.string(),
 	commitSha: v.string(),
+	// The build ran the unmodified managed workflow ("Traceable build").
 	verifiedBuild: v.boolean(),
 	asset: v.union(publicAssetValidator, v.null()),
 	build: v.union(publicBuildValidator, v.null()),
+	githubReleaseUrl: v.optional(v.string()),
 })
 
 const publicVersionValidator = v.object({
@@ -471,60 +468,43 @@ export const getProject = query({
 				.order('desc')
 				.take(50),
 		])
-		if (
-			!card ||
-			!repository ||
-			repository.isPrivate ||
-			repository.accessStatus !== 'granted'
-		) {
+		// Files are served from the CDN, so a plugin stays up when the GitHub
+		// App loses access to its repository.
+		if (!card || !repository) {
 			return null
 		}
 
 		const publicVersions = await Promise.all(
 			versions.map(async (version) => {
-				const releases = await ctx.db
+				const release = await ctx.db
 					.query('pluginReleases')
 					.withIndex('by_version_id', (index) =>
 						index.eq('versionId', version._id),
 					)
-					.order('desc')
-					.take(5)
-				const release =
-					releases.find((item) => item.status === 'published') ?? null
-				const [build, asset] = release
-					? await Promise.all([
-							release.buildId
-								? ctx.db.get('pluginBuilds', release.buildId)
-								: null,
-							ctx.db
-								.query('pluginReleaseAssets')
-								.withIndex(
-									'by_release_id_and_is_primary',
-									(index) =>
-										index
-											.eq('releaseId', release._id)
-											.eq('isPrimary', true),
-								)
-								.unique(),
-						])
-					: [null, null]
+					.first()
+				const published =
+					release?.status === 'published' ? release : null
+				const build = published
+					? await ctx.db.get('pluginBuilds', published.buildId)
+					: null
 				return {
 					version: version.version,
 					normalizedVersion: version.normalizedVersion,
 					changelog: sanitizeRegistryText(version.changelog),
 					minecraftVersion: version.minecraftVersion,
 					publishedAt: version.publishedAt,
-					release: release
+					release: published
 						? {
-								tagName: release.tagName,
-								releaseUrl: release.releaseUrl,
-								commitSha: release.commitSha,
-								verifiedBuild: release.verifiedBuild,
+								commitSha: published.commitSha,
+								verifiedBuild: published.traceable,
 								asset:
-									asset?.status === 'accepted'
+									published.cdnKey &&
+									published.fileName &&
+									published.size !== undefined
 										? {
-												name: asset.name,
-												size: asset.size,
+												name: published.fileName,
+												size: published.size,
+												sha256: published.sha256,
 											}
 										: null,
 								build: build
@@ -532,10 +512,14 @@ export const getProject = query({
 											workflowRunId: build.workflowRunId,
 											logsUrl: build.logsUrl,
 											commitSha: build.commitSha,
-											tag: build.tag,
+											branch: build.branch,
 											conclusion: build.conclusion,
 										}
 									: null,
+								...(published.githubReleaseStatus === 'created' &&
+								published.githubReleaseUrl
+									? { githubReleaseUrl: published.githubReleaseUrl }
+									: {}),
 							}
 						: null,
 				}

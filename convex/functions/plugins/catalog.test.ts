@@ -45,7 +45,7 @@ async function createPublishedFixture(t: TestClient) {
 			slug: 'powernukkitx',
 			name: 'PowerNukkitX',
 			description: 'PowerNukkitX plugins',
-			adapterId: 'powernukkitx',
+			pluginFileExtension: 'jar',
 			websiteUrl: 'https://powernukkitx.org/',
 			enabled: true,
 			sortOrder: 10,
@@ -87,45 +87,41 @@ async function createPublishedFixture(t: TestClient) {
 		const buildId = await ctx.db.insert('pluginBuilds', {
 			projectId,
 			repositoryId,
-			versionId,
 			workflowRunId: 10_001,
 			workflowName: 'BedrockNexus Publish',
+			event: 'push',
 			commitSha: 'abc123abc123abc123abc123abc123abc123abcd',
-			tag: 'v1.0.0',
+			branch: 'main',
 			status: 'completed',
 			conclusion: 'success',
 			logsUrl:
 				'https://github.com/BedrockNexus/trusted-plugin/actions/runs/10001',
+			artifactId: 12_001,
+			workflowBlobSha: 'workflow-blob',
+			traceable: true,
 			completedAt: now,
 			createdAt: now,
 			updatedAt: now,
 		})
 		const releaseId = await ctx.db.insert('pluginReleases', {
 			projectId,
-			versionId,
-			buildId,
 			repositoryId,
-			githubReleaseId: 11_001,
-			tagName: 'v1.0.0',
-			releaseUrl:
-				'https://github.com/BedrockNexus/trusted-plugin/releases/tag/v1.0.0',
+			buildId,
+			versionId,
+			version: '1.0.0',
+			normalizedVersion: '1.0.0',
+			changelog: 'Fixed bugs.',
 			commitSha: 'abc123abc123abc123abc123abc123abc123abcd',
+			branch: 'main',
+			traceable: true,
 			status: 'published',
-			verifiedBuild: true,
-			publishedAt: now,
-			createdAt: now,
-			updatedAt: now,
-		})
-		const assetId = await ctx.db.insert('pluginReleaseAssets', {
-			releaseId,
-			githubAssetId: 12_001,
-			name: 'TrustedPlugin.jar',
-			downloadUrl:
-				'https://github.com/BedrockNexus/trusted-plugin/releases/download/v1.0.0/TrustedPlugin.jar',
+			fileName: 'TrustedPlugin.jar',
 			size: 1_024,
-			contentType: 'application/java-archive',
-			isPrimary: true,
-			status: 'accepted',
+			sha256: 'f'.repeat(64),
+			cdnKey: `plugins/${projectId}/versions/1.0.0/TrustedPlugin.jar`,
+			submittedBy: 'auth-catalog',
+			submittedAt: now,
+			publishedAt: now,
 			createdAt: now,
 			updatedAt: now,
 		})
@@ -133,12 +129,15 @@ async function createPublishedFixture(t: TestClient) {
 		const project = await ctx.db.get('plugins', projectId)
 		if (!project) throw new Error('Published project fixture is missing.')
 		await insertProjectAggregates(ctx, project)
-		return { assetId, projectId }
+		return { releaseId, projectId }
 	})
 }
 
+const cdnUrl = 'https://cdn.example.com'
+
 function createTest() {
 	process.env.DOWNLOAD_REDIRECT_SECRET = redirectSecret
+	process.env.R2_CDN_PUBLIC_URL = cdnUrl
 	return createBackend()
 }
 
@@ -172,6 +171,11 @@ describe('public registry catalog', () => {
 		})
 		expect(project?.description).toBe('Safe documentation.')
 		expect(project?.versions[0]?.changelog).not.toContain('javascript:')
+		expect(project?.versions[0]?.release).toMatchObject({
+			verifiedBuild: true,
+			asset: { name: 'TrustedPlugin.jar', sha256: 'f'.repeat(64) },
+			build: { workflowRunId: 10_001, branch: 'main' },
+		})
 		expect(software).toEqual([
 			expect.objectContaining({
 				slug: 'powernukkitx',
@@ -196,7 +200,7 @@ describe('download redirects', () => {
 		).rejects.toThrow('Download not found')
 	})
 
-	it('resolves only the stored GitHub asset and counts rapid duplicates once', async () => {
+	it('serves the published file from the CDN and counts rapid duplicates once', async () => {
 		const t = createTest()
 		const fixture = await createPublishedFixture(t)
 		const args = {
@@ -210,7 +214,7 @@ describe('download redirects', () => {
 		await expect(
 			t.mutation(api.functions.plugins.downloads.resolveAndRecord, args),
 		).resolves.toEqual({
-			url: 'https://github.com/BedrockNexus/trusted-plugin/releases/download/v1.0.0/TrustedPlugin.jar',
+			url: `${cdnUrl}/plugins/${fixture.projectId}/versions/1.0.0/TrustedPlugin.jar`,
 			counted: true,
 		})
 		await expect(
@@ -240,14 +244,11 @@ describe('download redirects', () => {
 		expect(state.ownerDownloads).toBe(1)
 	})
 
-	it('rejects a stored asset whose host or path is not the exact GitHub release asset', async () => {
+	it('does not serve a version whose release is not published', async () => {
 		const t = createTest()
 		const fixture = await createPublishedFixture(t)
 		await t.run(async (ctx) => {
-			await ctx.db.patch(fixture.assetId, {
-				downloadUrl:
-					'https://example.com/BedrockNexus/trusted-plugin/releases/download/v1.0.0/TrustedPlugin.jar',
-			})
+			await ctx.db.patch(fixture.releaseId, { status: 'publishing' })
 		})
 
 		await expect(

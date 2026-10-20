@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createTest } from '../../test.setup'
-import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/adapters/fixtures'
+import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/workflow-templates.fixtures'
 import { api, components } from '../../_generated/api'
 
 async function insertUser(
@@ -43,6 +43,25 @@ async function insertUser(
 	})
 }
 
+async function insertSoftware(
+	t: ReturnType<typeof createTest>,
+	slug: string,
+	pluginFileExtension?: string,
+) {
+	return await t.run((ctx) =>
+		ctx.db.insert('serverSoftware', {
+			slug,
+			name: slug,
+			description: 'Workflow fixture software',
+			...(pluginFileExtension ? { pluginFileExtension } : {}),
+			enabled: true,
+			sortOrder: 1,
+			createdAt: 1,
+			updatedAt: 1,
+		}),
+	)
+}
+
 async function workflowAudit(
 	t: ReturnType<typeof createTest>,
 	key: string,
@@ -73,10 +92,10 @@ describe('admin-managed workflow templates', () => {
 		const t = createTest()
 		const developer = await insertUser(t, 'workflow-developer', 'user')
 		const admin = await insertUser(t, 'workflow-admin', 'admin')
+		const softwareId = await insertSoftware(t, 'pocketmine-mp', 'phar')
 		const create = {
 			label: 'PocketMine-MP Composer',
-			adapterId: 'pocketmine-mp' as const,
-			buildSystem: 'composer' as const,
+			softwareId,
 			content: TEST_WORKFLOW_TEMPLATE,
 		}
 
@@ -92,7 +111,7 @@ describe('admin-managed workflow templates', () => {
 			create,
 		)
 		expect(created).toEqual({
-			key: 'pocketmine-mp:composer:pocketmine-mp-composer',
+			key: 'pocketmine-mp:pocketmine-mp-composer',
 			version: 1,
 		})
 		await expect(
@@ -119,8 +138,9 @@ describe('admin-managed workflow templates', () => {
 			{
 				key: created.key,
 				label: 'PocketMine-MP Composer',
-				adapterId: 'pocketmine-mp',
-				buildSystem: 'composer',
+				softwareId,
+				softwareName: 'pocketmine-mp',
+				fileExtension: 'phar',
 				content: revised,
 				version: 2,
 			},
@@ -156,12 +176,12 @@ describe('admin-managed workflow templates', () => {
 	it('rejects invalid workflow content before saving', async () => {
 		const t = createTest()
 		const admin = await insertUser(t, 'invalid-workflow-admin', 'admin')
+		const softwareId = await insertSoftware(t, 'powernukkitx', 'jar')
 
 		await expect(
 			admin.mutation(api.functions.plugins.workflowTemplates.create, {
 				label: 'Unsafe workflow',
-				adapterId: 'powernukkitx',
-				buildSystem: 'gradle',
+				softwareId,
 				content: 'name: unsafe',
 			}),
 		).rejects.toThrow('must include {{package_name}}')

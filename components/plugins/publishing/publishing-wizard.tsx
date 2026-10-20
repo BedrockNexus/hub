@@ -2,18 +2,20 @@
 
 import {
 	CheckmarkCircle02Icon,
+	GitBranchIcon,
+	GithubIcon,
 	Package01Icon,
 	RefreshIcon,
 	RepositoryIcon,
-	Search01Icon,
 	WorkflowSquare01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react'
+import type { FunctionReturnType } from 'convex/server'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { MarkdownEditor } from '@/components/plugins/editors/markdown-editor'
 import { Badge } from '@/components/ui/badge'
@@ -34,36 +36,82 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import type { Doc, Id } from '@/convex/_generated/dataModel'
+import { formatBytes, formatRegistryDate } from '@/lib/plugins/format-registry'
 import { createProjectDashboardId } from '@/lib/plugins/project-dashboard-id'
 import {
+	CHANGELOG_MAX_LENGTH,
+	DESCRIPTION_MAX_LENGTH,
 	type ProjectMetadataInput,
 	projectMetadataSchema,
+	releaseSubmissionSchema,
+	releaseTagFor,
 } from '@/lib/plugins/publishing/metadata'
 import { cn } from '@/lib/utils'
 
-type BusyAction =
-	| 'analyze'
-	| 'metadata'
-	| 'workflow'
-	| 'refresh'
-	| 'release'
-	| 'submit'
-	| null
+type ReleaseStatus = Doc<'pluginReleases'>['status']
+
+const releaseStatusLabels: Record<ReleaseStatus, string> = {
+	preparing: 'Copying build',
+	preparationFailed: 'Copy failed',
+	inReview: 'In review',
+	changesRequested: 'Changes requested',
+	rejected: 'Rejected',
+	publishing: 'Publishing',
+	published: 'Published',
+}
+
+// A build whose version ended in one of these can be sent again.
+const reusableStatuses = new Set<ReleaseStatus>([
+	'preparationFailed',
+	'changesRequested',
+])
 
 function errorMessage(error: unknown) {
-	return error instanceof Error
-		? error.message
-		: 'The publishing action failed.'
+	if (
+		typeof error === 'object' &&
+		error !== null &&
+		'data' in error &&
+		typeof error.data === 'object' &&
+		error.data !== null &&
+		'message' in error.data &&
+		typeof error.data.message === 'string'
+	) {
+		return error.data.message
+	}
+	return error instanceof Error ? error.message : 'Something went wrong.'
 }
 
-function statusLabel(status: Doc<'pluginPublishingDrafts'>['status']) {
-	return status.replace(/([a-z])([A-Z])/g, '$1 $2')
+function useBusy() {
+	const [busy, setBusy] = useState<string | null>(null)
+	async function run(name: string, operation: () => Promise<void>) {
+		setBusy(name)
+		try {
+			await operation()
+		} catch (error) {
+			toast.error(errorMessage(error))
+		} finally {
+			setBusy(null)
+		}
+	}
+	return { busy, run }
 }
 
-function adapterLabel(adapterId: Doc<'pluginPublishingDrafts'>['adapterId']) {
-	return adapterId === 'pocketmine-mp' ? 'PocketMine-MP' : 'PowerNukkitX'
+/** The current time, refreshed every minute, for queries that compare dates. */
+function useMinute() {
+	const [now, setNow] = useState(
+		() => Math.floor(Date.now() / 60_000) * 60_000,
+	)
+	useEffect(() => {
+		const timer = setInterval(
+			() => setNow(Math.floor(Date.now() / 60_000) * 60_000),
+			60_000,
+		)
+		return () => clearInterval(timer)
+	}, [])
+	return now
 }
 
 function MetadataForm({
@@ -82,8 +130,6 @@ function MetadataForm({
 		slug: draft.slug,
 		summary: draft.summary,
 		description: draft.description,
-		adapterId: draft.adapterId,
-		projectType: 'plugin',
 	})
 	const [validationError, setValidationError] = useState<string | null>(null)
 
@@ -102,8 +148,7 @@ function MetadataForm({
 				const result = projectMetadataSchema.safeParse(metadata)
 				if (!result.success) {
 					setValidationError(
-						result.error.issues[0]?.message ??
-							'Review the metadata.',
+						result.error.issues[0]?.message ?? 'Check the details.',
 					)
 					return
 				}
@@ -112,16 +157,18 @@ function MetadataForm({
 			}}
 		>
 			<div className="space-y-2">
-				<Label htmlFor="project-name">Project name</Label>
+				<Label htmlFor="project-name">Name</Label>
 				<Input
+					disabled={busy}
 					id="project-name"
 					onChange={(event) => update('name', event.target.value)}
 					value={metadata.name}
 				/>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="project-slug">Project slug</Label>
+				<Label htmlFor="project-slug">Slug</Label>
 				<Input
+					disabled={busy}
 					id="project-slug"
 					onChange={(event) => update('slug', event.target.value)}
 					value={metadata.slug}
@@ -130,8 +177,10 @@ function MetadataForm({
 			<div className="space-y-2 sm:col-span-2">
 				<Label htmlFor="project-summary">Summary</Label>
 				<Input
+					disabled={busy}
 					id="project-summary"
 					onChange={(event) => update('summary', event.target.value)}
+					placeholder="One sentence about what the plugin does"
 					value={metadata.summary}
 				/>
 			</div>
@@ -140,7 +189,7 @@ function MetadataForm({
 				<MarkdownEditor
 					disabled={busy}
 					labelledBy="project-description-label"
-					maximumLength={8000}
+					maximumLength={DESCRIPTION_MAX_LENGTH}
 					onChange={(value) =>
 						update('description', value || undefined)
 					}
@@ -164,11 +213,11 @@ function MetadataForm({
 export function ProjectManageNav({ draftId }: { draftId: string }) {
 	const pathname = usePathname()
 	const items = [
-		{ href: `/dashboard/plugins/${draftId}`, label: 'Metadata' },
+		{ href: `/dashboard/plugins/${draftId}`, label: 'Details' },
 		{ href: `/dashboard/plugins/${draftId}/workflow`, label: 'Workflow' },
 		{
 			href: `/dashboard/plugins/${draftId}/releases`,
-			label: 'Releases & review',
+			label: 'Builds & versions',
 		},
 	] as const
 
@@ -196,6 +245,7 @@ export function ProjectManageNav({ draftId }: { draftId: string }) {
 	)
 }
 
+/** Step 1 and 2: pick a repository, then confirm the prefilled details. */
 export function AddProjectFlow() {
 	const auth = useConvexAuth()
 	const router = useRouter()
@@ -207,40 +257,27 @@ export function AddProjectFlow() {
 		api.functions.plugins.publishing.model.listMine,
 		auth.isAuthenticated ? {} : 'skip',
 	)
-	const analyzeRepository = useAction(
-		api.functions.plugins.publishing.actions.analyzeRepository,
+	const startFromRepository = useAction(
+		api.functions.plugins.publishing.actions.startFromRepository,
 	)
 	const saveMetadata = useMutation(
 		api.functions.plugins.publishing.model.saveMetadata,
 	)
-	const [selectedRepositoryId, setSelectedRepositoryId] =
+	const [repositoryId, setRepositoryId] =
 		useState<Id<'githubRepositories'> | null>(null)
-	const [selectedDraftId, setSelectedDraftId] =
-		useState<Id<'pluginPublishingDrafts'> | null>(null)
-	const [busyAction, setBusyAction] = useState<BusyAction>(null)
-	const repositories =
+	const [draftId, setDraftId] = useState<Id<'pluginPublishingDrafts'> | null>(
+		null,
+	)
+	const { busy, run } = useBusy()
+	const repositories = (
 		installations?.flatMap((installation) => installation.repositories) ??
 		[]
-	const selectedRepository = repositories.find(
-		(repository) => repository._id === selectedRepositoryId,
+	).filter(
+		(repository) =>
+			!repository.isPrivate && repository.accessStatus === 'granted',
 	)
-	const selectedDraft = drafts?.find(
-		({ draft }) => draft._id === selectedDraftId,
-	)?.draft
-
-	async function run(
-		action: Exclude<BusyAction, null>,
-		operation: () => Promise<void>,
-	) {
-		setBusyAction(action)
-		try {
-			await operation()
-		} catch (error) {
-			toast.error(errorMessage(error))
-		} finally {
-			setBusyAction(null)
-		}
-	}
+	const repository = repositories.find((item) => item._id === repositoryId)
+	const draft = drafts?.find((entry) => entry.draft._id === draftId)?.draft
 
 	return (
 		<div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
@@ -254,8 +291,8 @@ export function AddProjectFlow() {
 					</span>
 					<CardTitle>Choose a repository</CardTitle>
 					<CardDescription>
-						Repository selection and plugin detection happen once
-						while adding the project.
+						Its name, description and README fill in the plugin
+						details. Only public repositories can be published.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
@@ -266,8 +303,8 @@ export function AddProjectFlow() {
 					) : repositories.length === 0 ? (
 						<>
 							<p className="text-muted-foreground text-sm">
-								Install the GitHub App and grant the public
-								repository you want to add.
+								Install the GitHub App and give it access to the
+								public repository you want to publish.
 							</p>
 							<a
 								className={buttonVariants()}
@@ -279,13 +316,13 @@ export function AddProjectFlow() {
 					) : (
 						<>
 							<Select
-								disabled={Boolean(selectedDraft)}
+								disabled={Boolean(draft)}
 								onValueChange={(value) =>
-									setSelectedRepositoryId(
+									setRepositoryId(
 										value as Id<'githubRepositories'> | null,
 									)
 								}
-								value={selectedRepositoryId}
+								value={repositoryId}
 							>
 								<SelectTrigger
 									className="h-10 w-full"
@@ -294,12 +331,12 @@ export function AddProjectFlow() {
 									<SelectValue placeholder="Choose a public repository" />
 								</SelectTrigger>
 								<SelectContent>
-									{repositories.map((repository) => (
+									{repositories.map((item) => (
 										<SelectItem
-											key={repository._id}
-											value={repository._id}
+											key={item._id}
+											value={item._id}
 										>
-											{repository.fullName}
+											{item.fullName}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -307,75 +344,78 @@ export function AddProjectFlow() {
 							<Button
 								className="w-full"
 								disabled={
-									!selectedRepositoryId ||
-									Boolean(selectedDraft) ||
-									busyAction !== null
+									!repositoryId ||
+									Boolean(draft) ||
+									busy !== null
 								}
 								onClick={() =>
-									run('analyze', async () => {
-										if (!selectedRepositoryId) {
+									run('start', async () => {
+										if (!repositoryId) {
 											return
 										}
-										const result = await analyzeRepository({
-											repositoryId: selectedRepositoryId,
-										})
-										setSelectedDraftId(result.draftId)
-										toast.success(
-											`${result.adapterName} detected at ${result.detectionScore}% confidence.`,
+										setDraftId(
+											await startFromRepository({
+												repositoryId,
+											}),
 										)
 									})
 								}
 							>
-								<HugeiconsIcon
-									className="size-4"
-									icon={Search01Icon}
-								/>
-								Detect plugin
+								{busy === 'start'
+									? 'Reading repository…'
+									: 'Use this repository'}
 							</Button>
+							<p className="text-muted-foreground text-xs">
+								Missing a repository?{' '}
+								<a
+									className="text-primary hover:underline"
+									href="/api/github/install"
+								>
+									Change the GitHub App’s access
+								</a>
+								.
+							</p>
 						</>
 					)}
 				</CardContent>
 			</Card>
 
-			{selectedDraft ? (
+			{draft ? (
 				<Card className="shadow-none">
 					<CardHeader>
-						<div className="flex flex-wrap items-start justify-between gap-3">
-							<div>
-								<CardTitle>Confirm project metadata</CardTitle>
-								<CardDescription>
-									Review the detected plugin information
-									before creating the project workspace.
-								</CardDescription>
-							</div>
-							<Badge variant="outline">
-								{selectedDraft.detectionScore}% detection
-							</Badge>
-						</div>
+						<CardTitle>Plugin details</CardTitle>
+						<CardDescription>
+							Filled in from{' '}
+							{repository?.fullName ?? 'the repository'}. Edit
+							anything; nothing is public until a moderator
+							approves your first version.
+						</CardDescription>
 					</CardHeader>
 					<CardContent>
 						<MetadataForm
-							busy={busyAction !== null}
-							draft={selectedDraft}
-							key={`${selectedDraft._id}:${selectedDraft.updatedAt}`}
+							busy={busy !== null}
+							draft={draft}
+							key={draft._id}
 							onSave={(metadata) =>
 								run('metadata', async () => {
 									await saveMetadata({
-										draftId: selectedDraft._id,
+										draftId: draft._id,
 										...metadata,
 									})
-									toast.success('Project added.')
-									if (!selectedRepository) {
+									if (!repository) {
 										throw new Error(
 											'The selected repository is no longer available.',
 										)
 									}
+									toast.success(
+										'Details saved. Now pick a workflow.',
+									)
 									router.push(
-										`/dashboard/plugins/${createProjectDashboardId(selectedRepository.githubRepositoryId)}` as Route,
+										`/dashboard/plugins/${createProjectDashboardId(repository.githubRepositoryId)}/workflow` as Route,
 									)
 								})
 							}
-							submitLabel="Add project"
+							submitLabel="Save and continue"
 						/>
 					</CardContent>
 				</Card>
@@ -385,19 +425,34 @@ export function AddProjectFlow() {
 						<span className="grid size-14 place-items-center rounded-md border text-muted-foreground">
 							<HugeiconsIcon
 								className="size-6"
-								icon={Search01Icon}
+								icon={Package01Icon}
 							/>
 						</span>
 						<h2 className="mt-5 font-semibold text-lg">
-							Select and detect a plugin
+							Pick a repository to start
 						</h2>
 						<p className="mt-2 max-w-md text-muted-foreground text-sm">
-							Metadata confirmation appears here after
-							BedrockNexus recognizes a supported plugin.
+							Then choose a build workflow. Every push builds your
+							plugin, and you pick which build to publish.
 						</p>
 					</CardContent>
 				</Card>
 			)}
+		</div>
+	)
+}
+
+function StatusRow({
+	label,
+	children,
+}: {
+	label: string
+	children: React.ReactNode
+}) {
+	return (
+		<div className="flex items-center justify-between gap-3">
+			<span className="text-muted-foreground">{label}</span>
+			<span className="truncate text-right">{children}</span>
 		</div>
 	)
 }
@@ -415,96 +470,80 @@ export function ProjectMetadataManager({
 	const saveMetadata = useMutation(
 		api.functions.plugins.publishing.model.saveMetadata,
 	)
-	const [busy, setBusy] = useState(false)
+	const { busy, run } = useBusy()
 
 	if (auth.isLoading || project === undefined) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				Loading project metadata…
+				Loading plugin details…
 			</p>
 		)
 	}
 
 	const { draft, repository } = project
+	const published = project.project?.status === 'published'
 	return (
 		<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
 			<Card className="shadow-none">
 				<CardHeader>
-					<CardTitle>Project metadata</CardTitle>
+					<CardTitle>Plugin details</CardTitle>
 					<CardDescription>
-						Edit the catalog information for this plugin. Repository
-						selection is fixed during Add Project. Published
-						metadata changes are staged until the next release is
-						approved.
+						{published
+							? 'Changes go live together with the next approved version, so moderators see them first.'
+							: 'What people see on the plugin page.'}
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<MetadataForm
-						busy={busy || draft.status === 'inReview'}
+						busy={busy !== null || project.locked}
 						draft={draft}
 						key={`${draft._id}:${draft.updatedAt}`}
-						onSave={async (metadata) => {
-							setBusy(true)
-							try {
+						onSave={(metadata) =>
+							run('metadata', async () => {
 								await saveMetadata({
 									draftId: draft._id,
 									...metadata,
 								})
-								toast.success('Project metadata saved.')
-							} catch (error) {
-								toast.error(errorMessage(error))
-							} finally {
-								setBusy(false)
-							}
-						}}
-						submitLabel="Save metadata"
+								toast.success('Details saved.')
+							})
+						}
+						submitLabel="Save details"
 					/>
 				</CardContent>
 			</Card>
 			<div className="space-y-4">
 				<Card className="shadow-none">
 					<CardHeader>
-						<CardTitle>Project status</CardTitle>
+						<CardTitle>Plugin</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-3 text-sm">
-						<div className="flex items-center justify-between gap-3">
-							<span className="text-muted-foreground">State</span>
+						<StatusRow label="Status">
 							<Badge variant="outline">
-								{statusLabel(draft.status)}
+								{project.project?.status ?? 'setup'}
 							</Badge>
-						</div>
-						<div className="flex items-center justify-between gap-3">
-							<span className="text-muted-foreground">
-								Server software
-							</span>
-							<span>{adapterLabel(draft.adapterId)}</span>
-						</div>
-						<div className="flex items-center justify-between gap-3">
-							<span className="text-muted-foreground">
-								License
-							</span>
-							<span>{draft.license ?? 'Not detected'}</span>
-						</div>
-						<div className="flex items-center justify-between gap-3">
-							<span className="text-muted-foreground">
-								Repository
-							</span>
+						</StatusRow>
+						<StatusRow label="Server software">
+							{project.softwareName ?? 'Set by the workflow'}
+						</StatusRow>
+						<StatusRow label="License">
+							{draft.license ?? 'None on GitHub'}
+						</StatusRow>
+						<StatusRow label="Repository">
 							<a
-								className="max-w-44 truncate text-primary hover:underline"
+								className="text-primary hover:underline"
 								href={repository.htmlUrl}
 								rel="noreferrer"
 								target="_blank"
 							>
 								{repository.fullName}
 							</a>
-						</div>
+						</StatusRow>
 					</CardContent>
 				</Card>
-				{draft.status === 'inReview' ? (
+				{project.locked ? (
 					<Card className="border-primary shadow-none">
 						<CardContent className="p-4 text-sm">
-							Metadata is locked while this release is awaiting
-							moderator review.
+							Details are locked while a version is in review.
 						</CardContent>
 					</Card>
 				) : null}
@@ -519,6 +558,7 @@ export function ProjectWorkflowManager({
 	draftId: Id<'pluginPublishingDrafts'>
 }) {
 	const auth = useConvexAuth()
+	const pathname = usePathname()
 	const project = useQuery(
 		api.functions.plugins.publishing.model.getMine,
 		auth.isAuthenticated ? { draftId } : 'skip',
@@ -533,36 +573,21 @@ export function ProjectWorkflowManager({
 	const installWorkflow = useAction(
 		api.functions.plugins.publishing.actions.installWorkflow,
 	)
-	const refreshPublishingState = useAction(
-		api.functions.plugins.publishing.actions.refreshPublishingState,
-	)
-	const [busyAction, setBusyAction] = useState<BusyAction>(null)
+	const { busy, run } = useBusy()
 
 	if (auth.isLoading || project === undefined || workflows === undefined) {
 		return (
-			<p className="text-muted-foreground text-sm">
-				Loading workflow status…
-			</p>
+			<p className="text-muted-foreground text-sm">Loading workflows…</p>
 		)
 	}
 	const { draft, repository } = project
 	const selectedWorkflow = workflows.find(
 		(workflow) => workflow.key === draft.workflowTemplateKey,
 	)
-
-	async function run(
-		action: Exclude<BusyAction, null>,
-		operation: () => Promise<void>,
-	) {
-		setBusyAction(action)
-		try {
-			await operation()
-		} catch (error) {
-			toast.error(errorMessage(error))
-		} finally {
-			setBusyAction(null)
-		}
-	}
+	const softwareNames = [
+		...new Set(workflows.map((workflow) => workflow.softwareName)),
+	]
+	const releasesHref = pathname.replace(/\/workflow$/, '/releases') as Route
 
 	return (
 		<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -574,79 +599,81 @@ export function ProjectWorkflowManager({
 							icon={WorkflowSquare01Icon}
 						/>
 					</span>
-					<CardTitle>Managed publishing workflow</CardTitle>
+					<CardTitle>Build workflow</CardTitle>
 					<CardDescription>
-						Pick the build workflow for this project. BedrockNexus
-						commits the validated workflow directly to{' '}
-						<strong>{repository.defaultBranch}</strong>. Installing
-						again updates the file to the latest admin-managed
-						template.
+						Pick the workflow for your plugin’s server software.
+						BedrockNexus commits it to{' '}
+						<strong>{repository.defaultBranch}</strong>, and from
+						then on every push builds your plugin on GitHub.
+						Installing again updates it to the newest version.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-5">
-					<div className="space-y-3">
-						<Label>Publishing workflow</Label>
-						{workflows.length === 0 ? (
-							<p className="rounded-md border border-dashed p-4 text-muted-foreground text-sm">
-								No publishing workflow is available for this
-								server software yet. Bedrock Nexus admins add
-								them; check back soon.
-							</p>
-						) : null}
-						<div className="grid gap-3 sm:grid-cols-2">
-							{workflows.map((workflow) => {
-								const isSelected =
-									workflow.key === draft.workflowTemplateKey
-								return (
-									<button
-										className={
-											isSelected
-												? 'rounded-md border border-primary bg-primary p-4 text-left text-primary-foreground'
-												: 'rounded-md border p-4 text-left transition-colors hover:bg-muted'
-										}
-										disabled={
-											draft.status === 'inReview' ||
-											busyAction !== null
-										}
-										key={workflow.key}
-										onClick={() =>
-											run('workflow', async () => {
-												await selectWorkflow({
-													draftId: draft._id,
-													key: workflow.key,
-												})
-												toast.success(
-													`${workflow.label} selected.`,
-												)
-											})
-										}
-										type="button"
-									>
-										<span className="block font-medium text-sm">
-											{workflow.label}
-										</span>
-										<span
-											className={
-												isSelected
-													? 'mt-1 block text-primary-foreground/80 text-xs'
-													: 'mt-1 block text-muted-foreground text-xs'
-											}
-										>
-											{workflow.buildSystem} · v
-											{workflow.version}
-										</span>
-									</button>
-								)
-							})}
+					{workflows.length === 0 ? (
+						<p className="rounded-md border border-dashed p-4 text-muted-foreground text-sm">
+							No build workflow is available yet. BedrockNexus
+							admins add them; check back soon.
+						</p>
+					) : null}
+					{softwareNames.map((softwareName) => (
+						<div className="space-y-3" key={softwareName}>
+							<Label>{softwareName}</Label>
+							<div className="grid gap-3 sm:grid-cols-2">
+								{workflows
+									.filter(
+										(workflow) =>
+											workflow.softwareName ===
+											softwareName,
+									)
+									.map((workflow) => {
+										const isSelected =
+											workflow.key ===
+											draft.workflowTemplateKey
+										return (
+											<button
+												className={
+													isSelected
+														? 'rounded-md border border-primary bg-primary p-4 text-left text-primary-foreground'
+														: 'rounded-md border p-4 text-left transition-colors hover:bg-muted'
+												}
+												disabled={
+													project.locked ||
+													busy !== null
+												}
+												key={workflow.key}
+												onClick={() =>
+													run('select', async () => {
+														await selectWorkflow({
+															draftId: draft._id,
+															key: workflow.key,
+														})
+														toast.success(
+															`${workflow.label} selected.`,
+														)
+													})
+												}
+												type="button"
+											>
+												<span className="block font-medium text-sm">
+													{workflow.label}
+												</span>
+												<span
+													className={
+														isSelected
+															? 'mt-1 block text-primary-foreground/80 text-xs'
+															: 'mt-1 block text-muted-foreground text-xs'
+													}
+												>
+													Builds a .
+													{workflow.fileExtension} ·
+													version {workflow.version}
+												</span>
+											</button>
+										)
+									})}
+							</div>
 						</div>
-						{draft.workflowInstalled && selectedWorkflow ? (
-							<p className="text-muted-foreground text-xs">
-								Choosing a different workflow requires
-								installing the newly selected template before
-								this project can be submitted again.
-							</p>
-						) : null}
-					</div>
+					))}
 					<div className="rounded-md border bg-muted p-4 font-mono text-sm">
 						.github/workflows/bedrocknexus-publish.yml
 					</div>
@@ -656,18 +683,18 @@ export function ProjectWorkflowManager({
 								!(
 									draft.projectId && draft.workflowTemplateKey
 								) ||
-								draft.status === 'inReview' ||
-								busyAction !== null
+								project.locked ||
+								busy !== null
 							}
 							onClick={() =>
-								run('workflow', async () => {
+								run('install', async () => {
 									const result = await installWorkflow({
 										draftId: draft._id,
 									})
 									toast.success(
 										result.updated
-											? `Workflow template v${result.templateVersion} committed.`
-											: 'The repository already has the current workflow.',
+											? 'Workflow committed. Your next push builds the plugin.'
+											: 'The repository already has this workflow.',
 									)
 								})
 							}
@@ -680,56 +707,41 @@ export function ProjectWorkflowManager({
 								? 'Update workflow'
 								: 'Install workflow'}
 						</Button>
-						<Button
-							disabled={busyAction !== null}
-							onClick={() =>
-								run('refresh', async () => {
-									await refreshPublishingState({
-										draftId: draft._id,
-									})
-									toast.success(
-										'Workflow status refreshed from GitHub.',
-									)
-								})
-							}
-							variant="outline"
-						>
-							<HugeiconsIcon
-								className="size-4"
-								icon={RefreshIcon}
-							/>
-							Refresh status
-						</Button>
+						{draft.workflowInstalled ? (
+							<Link
+								className={buttonVariants({
+									variant: 'outline',
+								})}
+								href={releasesHref}
+							>
+								See builds
+							</Link>
+						) : null}
 					</div>
 				</CardContent>
 			</Card>
 			<Card className="h-fit shadow-none">
 				<CardHeader>
-					<CardTitle>Installation status</CardTitle>
+					<CardTitle>Workflow status</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4 text-sm">
-					<div className="flex items-center justify-between gap-3">
-						<span>Workflow file</span>
+					<StatusRow label="Workflow file">
 						<Badge
 							variant={
 								draft.workflowInstalled ? 'default' : 'outline'
 							}
 						>
-							{draft.workflowInstalled ? 'Installed' : 'Missing'}
+							{draft.workflowInstalled
+								? 'Installed'
+								: 'Not installed'}
 						</Badge>
-					</div>
-					<div className="flex items-center justify-between gap-3">
-						<span>Selected workflow</span>
-						<span className="text-right">
-							{selectedWorkflow?.label ?? 'Not selected'}
-						</span>
-					</div>
-					<div className="flex items-center justify-between gap-3">
-						<span>Template version</span>
-						<span>
-							{draft.workflowTemplateVersion ?? 'Not recorded'}
-						</span>
-					</div>
+					</StatusRow>
+					<StatusRow label="Selected">
+						{selectedWorkflow?.label ?? 'None'}
+					</StatusRow>
+					<StatusRow label="Version">
+						{draft.workflowTemplateVersion ?? '—'}
+					</StatusRow>
 					{draft.workflowInstalled && draft.workflowCommitSha ? (
 						<a
 							className="block truncate text-primary hover:underline"
@@ -737,12 +749,106 @@ export function ProjectWorkflowManager({
 							rel="noreferrer"
 							target="_blank"
 						>
-							Commit {draft.workflowCommitSha.slice(0, 8)}
+							Commit {draft.workflowCommitSha.slice(0, 7)}
 						</a>
 					) : null}
+					<p className="text-muted-foreground text-xs">
+						Editing the workflow file in your repository makes new
+						builds untraceable, and only traceable builds can be
+						published.
+					</p>
 				</CardContent>
 			</Card>
 		</div>
+	)
+}
+
+type Build = FunctionReturnType<
+	typeof api.functions.plugins.publishing.model.listBuilds
+>[number]
+
+function SubmitBuildForm({
+	build,
+	busy,
+	onCancel,
+	onSubmit,
+}: {
+	build: Build
+	busy: boolean
+	onCancel: () => void
+	onSubmit: (input: { version: string; changelog: string }) => Promise<void>
+}) {
+	const [version, setVersion] = useState('')
+	const [changelog, setChangelog] = useState('')
+	const [error, setError] = useState<string | null>(null)
+	return (
+		<form
+			className="mt-4 space-y-4 rounded-md border bg-muted/40 p-4"
+			onSubmit={async (event) => {
+				event.preventDefault()
+				const result = releaseSubmissionSchema.safeParse({
+					version,
+					changelog,
+				})
+				if (!result.success) {
+					setError(
+						result.error.issues[0]?.message ?? 'Check the version.',
+					)
+					return
+				}
+				setError(null)
+				await onSubmit(result.data)
+			}}
+		>
+			<p className="font-medium text-sm">
+				Send build {build.commitSha.slice(0, 7)} to review
+			</p>
+			<div className="space-y-2">
+				<Label htmlFor={`version-${build.buildId}`}>Version</Label>
+				<Input
+					disabled={busy}
+					id={`version-${build.buildId}`}
+					onChange={(event) => setVersion(event.target.value)}
+					placeholder="1.0.0"
+					value={version}
+				/>
+				<p className="text-muted-foreground text-xs">
+					Shown on the plugin page and tagged on GitHub as{' '}
+					<code>
+						{releaseTagFor(
+							version.trim().replace(/^v(?=\d)/i, '') || '1.0.0',
+						)}
+					</code>{' '}
+					once approved. Published versions are never replaced.
+				</p>
+			</div>
+			<div className="space-y-2">
+				<Label htmlFor={`changelog-${build.buildId}`}>Changelog</Label>
+				<Textarea
+					className="min-h-28"
+					disabled={busy}
+					id={`changelog-${build.buildId}`}
+					maxLength={CHANGELOG_MAX_LENGTH}
+					onChange={(event) => setChangelog(event.target.value)}
+					placeholder="What changed in this version"
+					value={changelog}
+				/>
+			</div>
+			{error ? <p className="text-destructive text-sm">{error}</p> : null}
+			<div className="flex justify-end gap-2">
+				<Button
+					disabled={busy}
+					onClick={onCancel}
+					type="button"
+					variant="outline"
+				>
+					Cancel
+				</Button>
+				<Button disabled={busy} type="submit">
+					Send to review
+				</Button>
+			</div>
+		</form>
 	)
 }
 
@@ -752,260 +858,427 @@ export function ProjectReleaseManager({
 	draftId: Id<'pluginPublishingDrafts'>
 }) {
 	const auth = useConvexAuth()
+	const now = useMinute()
 	const project = useQuery(
 		api.functions.plugins.publishing.model.getMine,
 		auth.isAuthenticated ? { draftId } : 'skip',
 	)
+	const builds = useQuery(
+		api.functions.plugins.publishing.model.listBuilds,
+		auth.isAuthenticated ? { draftId, now } : 'skip',
+	)
 	const releases = useQuery(
-		api.functions.plugins.publishing.model.listDetectedReleases,
+		api.functions.plugins.publishing.model.listReleases,
 		auth.isAuthenticated ? { draftId } : 'skip',
 	)
-	const refreshPublishingState = useAction(
-		api.functions.plugins.publishing.actions.refreshPublishingState,
+	const syncBuilds = useAction(
+		api.functions.plugins.publishing.actions.syncBuilds,
 	)
-	const selectDetectedRelease = useMutation(
-		api.functions.plugins.publishing.model.selectDetectedRelease,
+	const submitRelease = useMutation(
+		api.functions.plugins.publishing.model.submitRelease,
 	)
-	const submitForReview = useMutation(
-		api.functions.plugins.publishing.model.submitForReview,
+	const retryGitHubRelease = useMutation(
+		api.functions.plugins.publishing.model.retryGitHubRelease,
 	)
-	const [busyAction, setBusyAction] = useState<BusyAction>(null)
+	const [openBuildId, setOpenBuildId] = useState<Id<'pluginBuilds'> | null>(
+		null,
+	)
+	const { busy, run } = useBusy()
 
-	if (auth.isLoading || project === undefined || releases === undefined) {
-		return (
-			<p className="text-muted-foreground text-sm">Loading releases…</p>
-		)
-	}
-	const { draft } = project
-	const selectedRelease = releases.find(
-		(release) => release.githubReleaseId === draft.latestReleaseId,
-	)
-
-	async function run(
-		action: Exclude<BusyAction, null>,
-		operation: () => Promise<void>,
+	if (
+		auth.isLoading ||
+		project === undefined ||
+		builds === undefined ||
+		releases === undefined
 	) {
-		setBusyAction(action)
-		try {
-			await operation()
-		} catch (error) {
-			toast.error(errorMessage(error))
-		} finally {
-			setBusyAction(null)
-		}
+		return <p className="text-muted-foreground text-sm">Loading builds…</p>
 	}
+	const { draft, repository } = project
 
 	return (
 		<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-			<Card className="shadow-none">
-				<CardHeader>
-					<div className="flex flex-wrap items-start justify-between gap-3">
-						<div>
-							<CardTitle>GitHub releases</CardTitle>
-							<CardDescription>
-								Detect verified tagged builds and choose the
-								exact release to submit for review.
-							</CardDescription>
-						</div>
-						<Button
-							disabled={
-								!draft.workflowInstalled || busyAction !== null
-							}
-							onClick={() =>
-								run('refresh', async () => {
-									const result = await refreshPublishingState(
-										{ draftId: draft._id },
-									)
-									toast.success(
-										result.verifiedBuild
-											? 'Verified GitHub releases refreshed.'
-											: 'No new verified release was found.',
-									)
-								})
-							}
-							variant="outline"
-						>
-							<HugeiconsIcon
-								className="size-4"
-								icon={RefreshIcon}
-							/>
-							Refresh GitHub
-						</Button>
-					</div>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					{releases.length === 0 ? (
-						<div className="rounded-md border border-dashed p-8 text-center">
-							<HugeiconsIcon
-								className="mx-auto size-7 text-muted-foreground"
-								icon={Package01Icon}
-							/>
-							<p className="mt-3 font-medium">
-								No eligible release detected
-							</p>
-							<p className="mt-1 text-muted-foreground text-sm">
-								Install the workflow, push a v* tag, and refresh
-								GitHub.
-							</p>
-						</div>
-					) : (
-						releases.map((release) => {
-							const selected =
-								release.githubReleaseId ===
-								draft.latestReleaseId
-							return (
-								<div
-									className={cn(
-										'flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-center',
-										selected && 'border-primary',
-									)}
-									key={release.releaseId}
-								>
-									<span
-										className={cn(
-											'grid size-10 shrink-0 place-items-center rounded-md border',
-											selected &&
-												'bg-primary text-primary-foreground',
-										)}
-									>
-										<HugeiconsIcon
-											className="size-4"
-											icon={Package01Icon}
-										/>
-									</span>
-									<div className="min-w-0 flex-1">
-										<div className="flex flex-wrap items-center gap-2">
-											<a
-												className="font-semibold hover:text-primary"
-												href={release.releaseUrl}
-												rel="noreferrer"
-												target="_blank"
-											>
-												{release.tagName}
-											</a>
-											<Badge
-												variant={
-													release.verifiedBuild
-														? 'default'
-														: 'outline'
-												}
-											>
-												{release.status}
-											</Badge>
-										</div>
-										<p className="mt-1 truncate text-muted-foreground text-sm">
-											{release.assetName ??
-												'No primary asset'}
-										</p>
-									</div>
-									<Button
-										disabled={
-											release.status !== 'verified' ||
-											draft.status === 'inReview' ||
-											busyAction !== null
-										}
-										onClick={() =>
-											run('release', async () => {
-												await selectDetectedRelease({
-													draftId: draft._id,
-													releaseId:
-														release.releaseId,
-												})
-												toast.success(
-													`${release.tagName} selected.`,
-												)
-											})
-										}
-										size="sm"
-										variant={
-											selected ? 'default' : 'outline'
-										}
-									>
-										{selected ? 'Selected' : 'Select'}
-									</Button>
-								</div>
-							)
-						})
-					)}
-				</CardContent>
-			</Card>
-			<div className="space-y-4">
+			<div className="space-y-6">
 				<Card className="shadow-none">
 					<CardHeader>
-						<CardTitle>Review submission</CardTitle>
-						<CardDescription>
-							A moderator must approve the selected release before
-							it becomes public.
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="flex items-center justify-between gap-3 text-sm">
-							<span>Selected release</span>
-							<span className="font-medium">
-								{selectedRelease?.tagName ?? 'None'}
-							</span>
-						</div>
-						<div className="flex items-center justify-between gap-3 text-sm">
-							<span>Verified build</span>
-							<Badge
-								variant={
-									draft.verifiedBuild ? 'default' : 'outline'
-								}
-							>
-								{draft.verifiedBuild
-									? 'Verified'
-									: 'Not verified'}
-							</Badge>
-						</div>
-						{draft.reviewNotes ? (
-							<div className="rounded-md border bg-muted p-3 text-sm">
-								<p className="font-medium">Moderator note</p>
-								<p className="mt-1 text-muted-foreground">
-									{draft.reviewNotes}
-								</p>
+						<div className="flex flex-wrap items-start justify-between gap-3">
+							<div>
+								<CardTitle>Builds</CardTitle>
+								<CardDescription>
+									Every push to {repository.fullName} builds
+									your plugin. Pick a successful build to
+									publish it as a new version.
+								</CardDescription>
 							</div>
-						) : null}
-						<Button
-							className="w-full"
-							disabled={
-								draft.status === 'published' ||
-								draft.status === 'inReview' ||
-								!draft.verifiedBuild ||
-								!draft.moderationReady ||
-								busyAction !== null
-							}
-							onClick={() =>
-								run('submit', async () => {
-									await submitForReview({
-										draftId: draft._id,
+							<Button
+								disabled={
+									!draft.workflowInstalled || busy !== null
+								}
+								onClick={() =>
+									run('sync', async () => {
+										await syncBuilds({ draftId: draft._id })
+										toast.success(
+											'Builds refreshed from GitHub.',
+										)
 									})
-									toast.success(
-										'Release submitted for moderator review.',
-									)
-								})
-							}
-						>
-							{draft.status === 'published'
-								? 'Published'
-								: draft.status === 'inReview'
-									? 'Awaiting review'
-									: draft.status === 'changesRequested'
-										? 'Resubmit for review'
-										: 'Submit for review'}
-						</Button>
+								}
+								variant="outline"
+							>
+								<HugeiconsIcon
+									className="size-4"
+									icon={RefreshIcon}
+								/>
+								Refresh
+							</Button>
+						</div>
+					</CardHeader>
+					<CardContent className="space-y-3">
+						{draft.workflowInstalled ? (
+							builds.length === 0 ? (
+								<div className="rounded-md border border-dashed p-8 text-center">
+									<HugeiconsIcon
+										className="mx-auto size-7 text-muted-foreground"
+										icon={Package01Icon}
+									/>
+									<p className="mt-3 font-medium">
+										No builds yet
+									</p>
+									<p className="mt-1 text-muted-foreground text-sm">
+										Push a commit to your repository. Builds
+										appear here when GitHub starts them.
+									</p>
+								</div>
+							) : (
+								builds.map((build) => (
+									<div
+										className="rounded-md border p-4"
+										key={build.buildId}
+									>
+										<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+											<div className="min-w-0 flex-1">
+												<p className="truncate font-medium text-sm">
+													{build.commitMessage ??
+														'No commit message'}
+												</p>
+												<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+													<a
+														className="font-mono hover:text-foreground"
+														href={`${repository.htmlUrl}/commit/${build.commitSha}`}
+														rel="noreferrer"
+														target="_blank"
+													>
+														{build.commitSha.slice(
+															0,
+															7,
+														)}
+													</a>
+													{build.branch ? (
+														<span className="inline-flex items-center gap-1">
+															<HugeiconsIcon
+																className="size-3"
+																icon={
+																	GitBranchIcon
+																}
+															/>
+															{build.branch}
+														</span>
+													) : null}
+													<span>
+														{formatRegistryDate(
+															build.createdAt,
+														)}
+													</span>
+													{build.artifactSize ? (
+														<span>
+															{formatBytes(
+																build.artifactSize,
+															)}
+														</span>
+													) : null}
+													<a
+														className="hover:text-foreground"
+														href={build.logsUrl}
+														rel="noreferrer"
+														target="_blank"
+													>
+														Logs
+													</a>
+												</div>
+											</div>
+											<div className="flex shrink-0 flex-wrap items-center gap-2">
+												{build.release ? (
+													<Badge variant="secondary">
+														{build.release.version}{' '}
+														·{' '}
+														{
+															releaseStatusLabels[
+																build.release
+																	.status
+															]
+														}
+													</Badge>
+												) : null}
+												{build.status ===
+												'completed' ? (
+													build.conclusion ===
+													'success' ? (
+														build.traceable ? (
+															<Badge>
+																Traceable
+															</Badge>
+														) : (
+															<Badge variant="outline">
+																Not traceable
+															</Badge>
+														)
+													) : (
+														<Badge variant="destructive">
+															Failed
+														</Badge>
+													)
+												) : (
+													<Badge variant="outline">
+														Building
+													</Badge>
+												)}
+												<Button
+													disabled={
+														!build.publishable ||
+														project.locked ||
+														busy !== null ||
+														(build.release !==
+															null &&
+															!reusableStatuses.has(
+																build.release
+																	.status,
+															))
+													}
+													onClick={() =>
+														setOpenBuildId(
+															build.buildId,
+														)
+													}
+													size="sm"
+													title={
+														build.unpublishableReason
+													}
+												>
+													Publish
+												</Button>
+											</div>
+										</div>
+										{!build.publishable &&
+										build.status === 'completed' &&
+										build.unpublishableReason ? (
+											<p className="mt-2 text-muted-foreground text-xs">
+												{build.unpublishableReason}
+											</p>
+										) : null}
+										{openBuildId === build.buildId ? (
+											<SubmitBuildForm
+												build={build}
+												busy={busy !== null}
+												onCancel={() =>
+													setOpenBuildId(null)
+												}
+												onSubmit={(input) =>
+													run('submit', async () => {
+														await submitRelease({
+															draftId: draft._id,
+															buildId:
+																build.buildId,
+															...input,
+														})
+														setOpenBuildId(null)
+														toast.success(
+															`Version ${input.version} sent to review.`,
+														)
+													})
+												}
+											/>
+										) : null}
+									</div>
+								))
+							)
+						) : (
+							<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
+								Install the build workflow first.
+							</p>
+						)}
 					</CardContent>
 				</Card>
+
 				<Card className="shadow-none">
-					<CardContent className="flex items-start gap-3 p-4 text-sm">
-						<HugeiconsIcon
-							className="mt-0.5 size-5 shrink-0 text-primary"
-							icon={CheckmarkCircle02Icon}
-						/>
-						Verified Build confirms workflow provenance and artifact
-						correlation. It is not a malware or safety review.
+					<CardHeader>
+						<CardTitle>Versions</CardTitle>
+						<CardDescription>
+							Builds you sent to review, newest first.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-3">
+						{releases.length === 0 ? (
+							<p className="text-muted-foreground text-sm">
+								No versions yet.
+							</p>
+						) : (
+							releases.map((release) => (
+								<div
+									className="rounded-md border p-4 text-sm"
+									key={release.releaseId}
+								>
+									<div className="flex flex-wrap items-center justify-between gap-2">
+										<p className="font-semibold">
+											{release.version}
+										</p>
+										<Badge
+											variant={
+												release.status === 'published'
+													? 'default'
+													: release.status ===
+																'rejected' ||
+															release.status ===
+																'preparationFailed'
+														? 'destructive'
+														: 'outline'
+											}
+										>
+											{
+												releaseStatusLabels[
+													release.status
+												]
+											}
+										</Badge>
+									</div>
+									<p className="mt-1 text-muted-foreground text-xs">
+										Build {release.commitSha.slice(0, 7)}
+										{release.branch
+											? ` on ${release.branch}`
+											: ''}{' '}
+										· sent{' '}
+										{formatRegistryDate(
+											release.submittedAt,
+										)}
+										{release.fileName && release.size
+											? ` · ${release.fileName}, ${formatBytes(release.size)}`
+											: ''}
+									</p>
+									{release.failureReason ? (
+										<p className="mt-2 text-destructive text-xs">
+											{release.failureReason}
+										</p>
+									) : null}
+									{release.reviewNotes ? (
+										<div className="mt-3 rounded-md border bg-muted p-3">
+											<p className="font-medium text-xs">
+												Moderator note
+											</p>
+											<p className="mt-1 text-muted-foreground">
+												{release.reviewNotes}
+											</p>
+										</div>
+									) : null}
+									{release.status === 'published' ? (
+										<div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+											<HugeiconsIcon
+												className="size-3.5"
+												icon={GithubIcon}
+											/>
+											{release.githubReleaseStatus ===
+												'created' &&
+											release.githubReleaseUrl ? (
+												<a
+													className="text-primary hover:underline"
+													href={
+														release.githubReleaseUrl
+													}
+													rel="noreferrer"
+													target="_blank"
+												>
+													GitHub release{' '}
+													{releaseTagFor(
+														release.version,
+													)}
+												</a>
+											) : release.githubReleaseStatus ===
+												'failed' ? (
+												<>
+													<span className="text-destructive">
+														{release.githubReleaseError ??
+															'The GitHub release failed.'}
+													</span>
+													<Button
+														disabled={busy !== null}
+														onClick={() =>
+															run(
+																'github',
+																async () => {
+																	await retryGitHubRelease(
+																		{
+																			draftId:
+																				draft._id,
+																			releaseId:
+																				release.releaseId,
+																		},
+																	)
+																	toast.success(
+																		'Trying again.',
+																	)
+																},
+															)
+														}
+														size="sm"
+														variant="outline"
+													>
+														Retry
+													</Button>
+												</>
+											) : (
+												<span className="text-muted-foreground">
+													Creating the GitHub release…
+												</span>
+											)}
+										</div>
+									) : null}
+									{release.sha256 ? (
+										<p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
+											SHA-256 {release.sha256}
+										</p>
+									) : null}
+								</div>
+							))
+						)}
 					</CardContent>
 				</Card>
 			</div>
+			<Card className="h-fit shadow-none">
+				<CardHeader>
+					<CardTitle>How publishing works</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-3 text-sm">
+					<p>
+						1. Pick a build, give it a version number and write what
+						changed.
+					</p>
+					<p>
+						2. BedrockNexus copies the file from GitHub, so the file
+						reviewed is the file published.
+					</p>
+					<p>3. A moderator approves it and the version goes live.</p>
+					<p>
+						4. BedrockNexus creates the GitHub release{' '}
+						<code>v&#123;version&#125;</code> on that commit with
+						the file attached.
+					</p>
+					<div className="flex items-start gap-2 border-t pt-3 text-muted-foreground text-xs">
+						<HugeiconsIcon
+							className="mt-0.5 size-4 shrink-0 text-primary"
+							icon={CheckmarkCircle02Icon}
+						/>
+						Traceable means the build ran the unmodified
+						BedrockNexus workflow on that commit. It is not a
+						security review of the plugin’s code.
+					</div>
+				</CardContent>
+			</Card>
 		</div>
 	)
 }

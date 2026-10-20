@@ -23,6 +23,7 @@ import type * as functions_plugins_github_webhookHttp from "../functions/plugins
 import type * as functions_plugins_github_webhookPayload from "../functions/plugins/github/webhookPayload.js";
 import type * as functions_plugins_github_webhookSignature from "../functions/plugins/github/webhookSignature.js";
 import type * as functions_plugins_github_webhooks from "../functions/plugins/github/webhooks.js";
+import type * as functions_plugins_migrations from "../functions/plugins/migrations.js";
 import type * as functions_plugins_organizations from "../functions/plugins/organizations.js";
 import type * as functions_plugins_projects from "../functions/plugins/projects.js";
 import type * as functions_plugins_publishing_actions from "../functions/plugins/publishing/actions.js";
@@ -85,7 +86,6 @@ import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_plugins_access from "../lib/plugins/access.js";
 import type * as lib_plugins_aggregates from "../lib/plugins/aggregates.js";
 import type * as lib_plugins_authorization from "../lib/plugins/authorization.js";
-import type * as lib_plugins_buildProvenance from "../lib/plugins/buildProvenance.js";
 import type * as lib_plugins_downloadCounts from "../lib/plugins/downloadCounts.js";
 import type * as lib_plugins_rateLimits from "../lib/plugins/rateLimits.js";
 import type * as lib_plugins_slugs from "../lib/plugins/slugs.js";
@@ -125,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   "functions/plugins/github/webhookPayload": typeof functions_plugins_github_webhookPayload;
   "functions/plugins/github/webhookSignature": typeof functions_plugins_github_webhookSignature;
   "functions/plugins/github/webhooks": typeof functions_plugins_github_webhooks;
+  "functions/plugins/migrations": typeof functions_plugins_migrations;
   "functions/plugins/organizations": typeof functions_plugins_organizations;
   "functions/plugins/projects": typeof functions_plugins_projects;
   "functions/plugins/publishing/actions": typeof functions_plugins_publishing_actions;
@@ -187,7 +188,6 @@ declare const fullApi: ApiFromModules<{
   "lib/plugins/access": typeof lib_plugins_access;
   "lib/plugins/aggregates": typeof lib_plugins_aggregates;
   "lib/plugins/authorization": typeof lib_plugins_authorization;
-  "lib/plugins/buildProvenance": typeof lib_plugins_buildProvenance;
   "lib/plugins/downloadCounts": typeof lib_plugins_downloadCounts;
   "lib/plugins/rateLimits": typeof lib_plugins_rateLimits;
   "lib/plugins/slugs": typeof lib_plugins_slugs;

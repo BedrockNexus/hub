@@ -72,9 +72,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
 	const { project, repository, versions } = result
 	const description = registryTextParagraphs(result.description)
-	const downloadable = versions.find(
-		(version) => version.release?.verifiedBuild && version.release.asset,
-	)
+	const downloadable = versions.find((version) => version.release?.asset)
 	const repositoryUrl = `https://github.com/${repository.fullName
 		.split('/')
 		.map(encodeURIComponent)
@@ -247,8 +245,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 							Versions
 						</h2>
 						<p className="mt-1 mb-4 text-muted-foreground text-sm">
-							Files stay on GitHub. Downloads redirect to the
-							verified release asset.
+							Each version is the exact build a moderator
+							reviewed, downloaded from BedrockNexus.
 						</p>
 						{versions.length > 0 ? (
 							<div className="divide-y overflow-hidden rounded-md border bg-card">
@@ -257,9 +255,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 										version.changelog,
 									)
 									const canDownload =
-										version.release?.verifiedBuild ===
-											true &&
-										version.release.asset !== null
+										version.release?.asset != null
 									return (
 										<article
 											className="p-4 sm:p-5"
@@ -271,15 +267,12 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 														<h3 className="font-mono font-semibold">
 															v{version.version}
 														</h3>
-														{canDownload ? (
+														{version.release
+															?.verifiedBuild ? (
 															<Badge variant="default">
 																Traceable build
 															</Badge>
-														) : (
-															<Badge variant="outline">
-																Metadata only
-															</Badge>
-														)}
+														) : null}
 													</div>
 													<p className="mt-1 text-muted-foreground text-sm">
 														{[
@@ -403,9 +396,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 						</CardHeader>
 						<CardContent>
 							<p className="text-muted-foreground text-xs leading-5">
-								A traceable build links the release tag, commit,
-								workflow run, and asset. It is not a security
-								review.
+								A traceable build ran the unmodified
+								BedrockNexus workflow on the commit below, and
+								its file is the one a moderator reviewed. It is
+								not a security review of the code.
 							</p>
 							<dl className="mt-3 divide-y border-t">
 								<DetailRow label="Repository">
@@ -420,21 +414,68 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 								</DetailRow>
 								{downloadable?.release?.build ? (
 									<>
-										<DetailRow label="Workflow run">
-											#
-											{
-												downloadable.release.build
-													.workflowRunId
-											}
+										<DetailRow label="Build">
+											<a
+												className="hover:underline"
+												href={
+													downloadable.release.build
+														.logsUrl
+												}
+												rel="noreferrer"
+												target="_blank"
+											>
+												#
+												{
+													downloadable.release.build
+														.workflowRunId
+												}
+											</a>
 										</DetailRow>
 										<DetailRow label="Commit">
-											<span className="font-mono">
+											<a
+												className="font-mono hover:underline"
+												href={`${repositoryUrl}/commit/${downloadable.release.commitSha}`}
+												rel="noreferrer"
+												target="_blank"
+											>
 												{downloadable.release.commitSha.slice(
 													0,
 													12,
 												)}
-											</span>
+											</a>
 										</DetailRow>
+										{downloadable.release
+											.githubReleaseUrl ? (
+											<DetailRow label="GitHub release">
+												<a
+													className="hover:underline"
+													href={
+														downloadable.release
+															.githubReleaseUrl
+													}
+													rel="noreferrer"
+													target="_blank"
+												>
+													v{downloadable.version}
+												</a>
+											</DetailRow>
+										) : null}
+										{downloadable.release.asset?.sha256 ? (
+											<DetailRow label="SHA-256">
+												<span
+													className="block max-w-40 truncate font-mono"
+													title={
+														downloadable.release
+															.asset.sha256
+													}
+												>
+													{
+														downloadable.release
+															.asset.sha256
+													}
+												</span>
+											</DetailRow>
+										) : null}
 									</>
 								) : null}
 							</dl>

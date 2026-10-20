@@ -1,37 +1,58 @@
 'use node'
 
 import { Buffer } from 'node:buffer'
+import { createHash } from 'node:crypto'
 
+import {
+	CopyObjectCommand,
+	DeleteObjectCommand,
+	GetObjectCommand,
+	HeadObjectCommand,
+	PutObjectCommand,
+	S3Client,
+} from '@aws-sdk/client-s3'
 import { ConvexError, v } from 'convex/values'
 
 import {
-	type AdapterId,
-	createRepositorySnapshot,
-	detectCompatibleAdapters,
-	getAdapterById,
-	type RepositoryFile,
-	type RepositorySnapshot,
-} from '../../../../lib/plugins/adapters'
-import { renderWorkflowTemplate } from '../../../../lib/plugins/adapters/workflow-templates'
+	ArtifactError,
+	extractPluginFile,
+	MAX_PLUGIN_FILE_BYTES,
+} from '../../../../lib/plugins/publishing/artifact'
 import {
+	DESCRIPTION_MAX_LENGTH,
+	releaseTagFor,
 	sanitizeReadmeExcerpt,
 	slugifyProjectName,
 } from '../../../../lib/plugins/publishing/metadata'
+import {
+	ARTIFACT_NAME,
+	renderWorkflowTemplate,
+	validateWorkflowTemplate,
+	WORKFLOW_PATH,
+} from '../../../../lib/plugins/workflow-templates'
 import { internal } from '../../../_generated/api'
 import type { Doc, Id } from '../../../_generated/dataModel'
-import { type ActionCtx, action, env } from '../../../_generated/server'
+import {
+	type ActionCtx,
+	action,
+	internalAction,
+} from '../../../_generated/server'
 import { enforceRateLimit } from '../../../lib/plugins/rateLimits'
+import { cdnR2, uploadsR2 } from '../../../lib/r2'
+import {
+	buildPluginDownloadR2ObjectKey,
+	buildPluginReviewR2ObjectKey,
+	sanitizeR2FileName,
+} from '../../../lib/r2Keys'
 import {
 	createGitHubApp,
 	requireGitHubAppConfig,
 	throwGitHubApiError,
 } from '../github/lib/app'
 
-const adapterIdValidator = v.union(
-	v.literal('pocketmine-mp'),
-	v.literal('powernukkitx'),
-)
-const workflowPath = '.github/workflows/bedrocknexus-publish.yml' as const
+const WORKFLOW_FILE_NAME = WORKFLOW_PATH.split('/').pop() as string
+const RUNS_PER_SYNC = 30
+const REVIEW_LINK_SECONDS = 10 * 60
 
 type PublishingActionContext = {
 	draft: Doc<'pluginPublishingDrafts'>
@@ -39,10 +60,40 @@ type PublishingActionContext = {
 	installationId: number
 }
 
-type PublishingRefreshResult = {
-	verifiedBuild: boolean
-	readyToPublish: boolean
+type ReleaseActionContext = {
+	release: {
+		_id: Id<'pluginReleases'>
+		status: Doc<'pluginReleases'>['status']
+		version: string
+		changelog: string
+		commitSha: string
+		fileName?: string
+		sha256?: string
+		uploadKey?: string
+		cdnKey?: string
+		githubReleaseId?: number
+	}
+	projectId: Id<'plugins'>
+	projectName: string
+	projectSlug: string
+	artifactId?: number
+	artifactSize?: number
+	fileExtension?: string
+	repository: Doc<'githubRepositories'>
+	installationId: number | null
 }
+
+const r2S3 = new S3Client({
+	region: 'auto',
+	endpoint: process.env.R2_ENDPOINT,
+	credentials:
+		process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY
+			? {
+					accessKeyId: process.env.R2_ACCESS_KEY_ID,
+					secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+				}
+			: undefined,
+})
 
 function getConfig() {
 	return requireGitHubAppConfig({
@@ -54,9 +105,16 @@ function getConfig() {
 	})
 }
 
-function requireTokenIdentifier(
-	identity: Awaited<ReturnType<ActionCtx['auth']['getUserIdentity']>>,
-) {
+async function installationOctokit(installationId: number) {
+	return await createGitHubApp(getConfig()).getInstallationOctokit(
+		installationId,
+	)
+}
+
+type Octokit = Awaited<ReturnType<typeof installationOctokit>>
+
+async function requireTokenIdentifier(ctx: ActionCtx) {
+	const identity = await ctx.auth.getUserIdentity()
 	if (!identity) {
 		throw new ConvexError({
 			code: 'UNAUTHENTICATED',
@@ -83,222 +141,112 @@ function parseTimestamp(value: string | null | undefined) {
 	return Number.isFinite(timestamp) ? timestamp : undefined
 }
 
-function isRelevantContentPath(path: string) {
-	return (
-		/(^|\/)(plugin\.ya?ml|composer\.json|pom\.xml|build\.gradle(?:\.kts)?|settings\.gradle(?:\.kts)?|gradlew|mvnw)$/i.test(
-			path,
-		) || /^readme(?:\.[a-z0-9]+)?$/i.test(path)
-	)
+function errorText(error: unknown) {
+	if (error instanceof ConvexError) {
+		const data = error.data as { message?: unknown } | string
+		return typeof data === 'string'
+			? data
+			: typeof data?.message === 'string'
+				? data.message
+				: 'Unexpected error.'
+	}
+	return error instanceof Error ? error.message : 'Unexpected error.'
 }
 
-async function loadRepositorySnapshot(
-	installationId: number,
-	repository: {
-		ownerLogin: string
-		name: string
-		fullName: string
-		defaultBranch: string
-	},
+async function blobShaAt(
+	octokit: Octokit,
+	repository: { ownerLogin: string; name: string },
+	path: string,
+	ref: string,
 ) {
-	const app = createGitHubApp(getConfig())
-	const octokit = await app.getInstallationOctokit(installationId)
 	try {
-		const [tree, metadata] = await Promise.all([
-			octokit.rest.git.getTree({
-				owner: repository.ownerLogin,
-				repo: repository.name,
-				tree_sha: repository.defaultBranch,
-				recursive: 'true',
-			}),
-			octokit.rest.repos.get({
-				owner: repository.ownerLogin,
-				repo: repository.name,
-			}),
-		])
-		if (tree.data.truncated) {
-			throw new ConvexError({
-				code: 'REPOSITORY_TREE_TRUNCATED',
-				message:
-					'This repository is too large to inspect safely. Reduce generated files first.',
-			})
-		}
-
-		const files: Array<RepositoryFile> = tree.data.tree.flatMap((entry) =>
-			entry.path && entry.type === 'blob' ? [{ path: entry.path }] : [],
-		)
-		const contentFiles = files
-			.filter((file) => isRelevantContentPath(file.path))
-			.slice(0, 30)
-		await Promise.all(
-			contentFiles.map(async (file) => {
-				const response = await octokit.rest.repos.getContent({
-					owner: repository.ownerLogin,
-					repo: repository.name,
-					path: file.path,
-					ref: repository.defaultBranch,
-				})
-				if (
-					!Array.isArray(response.data) &&
-					response.data.type === 'file' &&
-					response.data.content
-				) {
-					file.content = Buffer.from(
-						response.data.content,
-						'base64',
-					).toString('utf8')
-				}
-			}),
-		)
-		return {
-			octokit,
-			snapshot: createRepositorySnapshot(
-				repository.fullName,
-				repository.defaultBranch,
-				files,
-			),
-			repositoryLicense:
-				metadata.data.license?.spdx_id &&
-				metadata.data.license.spdx_id !== 'NOASSERTION'
-					? metadata.data.license.spdx_id
-					: undefined,
-		}
+		const file = await octokit.rest.repos.getContent({
+			owner: repository.ownerLogin,
+			repo: repository.name,
+			path,
+			ref,
+		})
+		return !Array.isArray(file.data) && file.data.type === 'file'
+			? { sha: file.data.sha, content: file.data.content }
+			: undefined
 	} catch (error) {
-		throwGitHubApiError(error)
-	}
-}
-
-function selectAdapter(snapshot: RepositorySnapshot, override?: AdapterId) {
-	const resolution = detectCompatibleAdapters(snapshot)
-	if (override) {
-		const adapter = getAdapterById(override)
-		const detection = resolution.candidates.find(
-			(candidate) => candidate.adapterId === override,
-		)
-		if (!adapter || !detection || detection.score <= 0) {
-			throw new ConvexError({
-				code: 'ADAPTER_OVERRIDE_INVALID',
-				message:
-					'The selected adapter is incompatible with this repository.',
-			})
+		if (isGitHubStatus(error, 404)) {
+			return undefined
 		}
-		return { adapter, detection }
+		throw error
 	}
-	if (resolution.kind !== 'matched') {
-		throw new ConvexError({
-			code:
-				resolution.kind === 'ambiguous'
-					? 'ADAPTER_AMBIGUOUS'
-					: 'ADAPTER_UNSUPPORTED',
-			message: resolution.explanation,
-		})
-	}
-	const adapter = getAdapterById(resolution.selected.adapterId)
-	if (!adapter) {
-		throw new ConvexError({
-			code: 'ADAPTER_DISABLED',
-			message: 'The adapter is unavailable.',
-		})
-	}
-	return { adapter, detection: resolution.selected }
 }
 
-function analyzeSnapshot(snapshot: RepositorySnapshot, override?: AdapterId) {
-	const { adapter, detection } = selectAdapter(snapshot, override)
-	const metadata = adapter.extractMetadata(snapshot)
-	const validation = adapter.validate(snapshot)
-	if (!metadata.ok || !validation.valid) {
-		const issues = metadata.ok ? validation.issues : metadata.errors
-		throw new ConvexError({
-			code: 'REPOSITORY_VALIDATION_FAILED',
-			message: issues.map((issue) => issue.message).join(' '),
-		})
-	}
-	return { adapter, detection, metadata: metadata.metadata }
-}
+// ---------------------------------------------------------------------------
+// Setup
+// ---------------------------------------------------------------------------
 
-export const analyzeRepository = action({
-	args: {
-		repositoryId: v.id('githubRepositories'),
-		adapterOverride: v.optional(adapterIdValidator),
-	},
-	returns: v.object({
-		draftId: v.id('pluginPublishingDrafts'),
-		adapterId: adapterIdValidator,
-		adapterName: v.string(),
-		detectionScore: v.number(),
-		detectionSummary: v.string(),
-	}),
-	handler: async (
-		ctx,
-		args,
-	): Promise<{
-		draftId: Id<'pluginPublishingDrafts'>
-		adapterId: AdapterId
-		adapterName: string
-		detectionScore: number
-		detectionSummary: string
-	}> => {
-		const identity = await ctx.auth.getUserIdentity()
-		const tokenIdentifier = requireTokenIdentifier(identity)
+/**
+ * Starts a plugin from a repository: the name is the repository name, the
+ * summary its description, and the description its README. Nothing is
+ * detected; the developer edits all of it next.
+ */
+export const startFromRepository = action({
+	args: { repositoryId: v.id('githubRepositories') },
+	returns: v.id('pluginPublishingDrafts'),
+	handler: async (ctx, args): Promise<Id<'pluginPublishingDrafts'>> => {
+		const tokenIdentifier = await requireTokenIdentifier(ctx)
 		await enforceRateLimit(ctx, 'githubRead', tokenIdentifier)
 		const access: {
 			installationId: number
-			repositoryId: Id<'githubRepositories'>
 			ownerLogin: string
 			name: string
-			fullName: string
-			defaultBranch: string
-			description?: string
 		} = await ctx.runQuery(
 			internal.functions.plugins.github.installations.getRepositoryAccess,
+			{ tokenIdentifier, repositoryId: args.repositoryId },
+		)
+		const octokit = await installationOctokit(access.installationId)
+		let repository: Awaited<ReturnType<Octokit['rest']['repos']['get']>>
+		let readme = ''
+		try {
+			repository = await octokit.rest.repos.get({
+				owner: access.ownerLogin,
+				repo: access.name,
+			})
+			try {
+				const response = await octokit.rest.repos.getReadme({
+					owner: access.ownerLogin,
+					repo: access.name,
+				})
+				readme = Buffer.from(response.data.content, 'base64').toString(
+					'utf8',
+				)
+			} catch (error) {
+				if (!isGitHubStatus(error, 404)) {
+					throw error
+				}
+			}
+		} catch (error) {
+			throwGitHubApiError(error)
+		}
+		const name = repository.data.name
+		const license =
+			repository.data.license?.spdx_id &&
+			repository.data.license.spdx_id !== 'NOASSERTION'
+				? repository.data.license.spdx_id
+				: undefined
+		const summary = (
+			repository.data.description?.trim() ||
+			sanitizeReadmeExcerpt(readme, 180)
+		).slice(0, 180)
+		const description = readme.trim().slice(0, DESCRIPTION_MAX_LENGTH)
+		return await ctx.runMutation(
+			internal.functions.plugins.publishing.model.createDraft,
 			{
 				tokenIdentifier,
 				repositoryId: args.repositoryId,
+				name: name.slice(0, 80),
+				slug: slugifyProjectName(name),
+				summary,
+				...(description ? { description } : {}),
+				...(license ? { license } : {}),
 			},
 		)
-		const { repositoryLicense, snapshot } = await loadRepositorySnapshot(
-			access.installationId,
-			access,
-		)
-		const analysis = analyzeSnapshot(snapshot, args.adapterOverride)
-		const readme =
-			snapshot.files.find((file) =>
-				/^readme(?:\.[a-z0-9]+)?$/i.test(file.path),
-			)?.content ?? ''
-		const readmeExcerpt = sanitizeReadmeExcerpt(readme)
-		const detectedLicense = repositoryLicense ?? analysis.metadata.license
-		const summary = (
-			access.description ||
-			analysis.metadata.description ||
-			readmeExcerpt ||
-			`${analysis.metadata.name} plugin for ${analysis.adapter.name}.`
-		).slice(0, 180)
-		const draftId: Id<'pluginPublishingDrafts'> = await ctx.runMutation(
-			internal.functions.plugins.publishing.model.upsertAnalysis,
-			{
-				tokenIdentifier,
-				analysis: {
-					repositoryId: args.repositoryId,
-					adapterId: analysis.adapter.id,
-					detectionScore: analysis.detection.score,
-					detectionSummary: analysis.detection.summary,
-					name: analysis.metadata.name,
-					slug: slugifyProjectName(analysis.metadata.name),
-					summary,
-					...(readmeExcerpt
-						? { description: readmeExcerpt, readmeExcerpt }
-						: {}),
-					...(detectedLicense ? { license: detectedLicense } : {}),
-				},
-			},
-		)
-		return {
-			draftId,
-			adapterId: analysis.adapter.id,
-			adapterName: analysis.adapter.name,
-			detectionScore: analysis.detection.score,
-			detectionSummary: analysis.detection.summary,
-		}
 	},
 })
 
@@ -319,30 +267,14 @@ export const installWorkflow = action({
 		updated: boolean
 		templateVersion: number
 	}> => {
-		const identity = await ctx.auth.getUserIdentity()
-		const tokenIdentifier = requireTokenIdentifier(identity)
+		const tokenIdentifier = await requireTokenIdentifier(ctx)
 		await enforceRateLimit(ctx, 'workflowInstall', tokenIdentifier)
 		const context: PublishingActionContext = await ctx.runQuery(
 			internal.functions.plugins.publishing.model.getActionContext,
-			{
-				tokenIdentifier,
-				draftId: args.draftId,
-			},
+			{ tokenIdentifier, draftId: args.draftId },
 		)
-		if (context.draft.status === 'inReview') {
-			throw new ConvexError({
-				code: 'PUBLISHING_DRAFT_LOCKED',
-				message:
-					'The workflow is locked while this release is under review.',
-			})
-		}
-		const { octokit, snapshot } = await loadRepositorySnapshot(
-			context.installationId,
-			context.repository,
-		)
-		const analysis = analyzeSnapshot(snapshot, context.draft.adapterId)
 		const templateKey = context.draft.workflowTemplateKey
-		if (!templateKey) {
+		if (!templateKey || !context.draft.projectId) {
 			throw new ConvexError({
 				code: 'WORKFLOW_NOT_SELECTED',
 				message: 'Choose a publishing workflow before installing it.',
@@ -350,67 +282,48 @@ export const installWorkflow = action({
 		}
 		const template = await ctx.runQuery(
 			internal.functions.plugins.workflowTemplates.getTemplate,
-			{
-				key: templateKey,
-			},
+			{ key: templateKey },
 		)
-		if (!template || template.adapterId !== context.draft.adapterId) {
+		if (!template || template.softwareId !== context.draft.softwareId) {
 			throw new ConvexError({
 				code: 'WORKFLOW_TEMPLATE_UNAVAILABLE',
 				message:
-					'The selected workflow is no longer available for this project.',
+					'The selected workflow is no longer available for this plugin.',
+			})
+		}
+		try {
+			// Templates saved before the current rules may no longer pass them.
+			validateWorkflowTemplate(template.content)
+		} catch (error) {
+			throw new ConvexError({
+				code: 'WORKFLOW_TEMPLATE_OUTDATED',
+				message: `This workflow needs an update by a BedrockNexus admin before it can be installed: ${errorText(error)}`,
 			})
 		}
 		const generated = renderWorkflowTemplate(
 			template.content,
-			analysis.metadata.name,
+			context.draft.name,
 		)
-		const templateVersion = template.version
+		const { repository } = context
+		const octokit = await installationOctokit(context.installationId)
 
 		try {
-			let existing:
-				| {
-						sha: string
-						content: string
-						htmlUrl: string
-				  }
-				| undefined
-			try {
-				const response = await octokit.rest.repos.getContent({
-					owner: context.repository.ownerLogin,
-					repo: context.repository.name,
-					path: generated.path,
-					ref: context.repository.defaultBranch,
-				})
-				if (
-					!Array.isArray(response.data) &&
-					response.data.type === 'file' &&
-					response.data.content
-				) {
-					existing = {
-						sha: response.data.sha,
-						content: Buffer.from(
-							response.data.content,
-							'base64',
-						).toString('utf8'),
-						htmlUrl:
-							response.data.html_url ??
-							context.repository.htmlUrl,
-					}
-				}
-			} catch (error) {
-				if (!isGitHubStatus(error, 404)) {
-					throw error
-				}
-			}
-
-			if (existing?.content === generated.content) {
+			const existing = await blobShaAt(
+				octokit,
+				repository,
+				generated.path,
+				repository.defaultBranch,
+			)
+			const existingContent = existing?.content
+				? Buffer.from(existing.content, 'base64').toString('utf8')
+				: undefined
+			if (existing && existingContent === generated.content) {
 				let commitSha = context.draft.workflowCommitSha
 				if (!commitSha) {
 					const commits = await octokit.rest.repos.listCommits({
-						owner: context.repository.ownerLogin,
-						repo: context.repository.name,
-						sha: context.repository.defaultBranch,
+						owner: repository.ownerLogin,
+						repo: repository.name,
+						sha: repository.defaultBranch,
 						path: generated.path,
 						per_page: 1,
 					})
@@ -429,26 +342,26 @@ export const installWorkflow = action({
 					{
 						tokenIdentifier,
 						draftId: args.draftId,
-						branch: context.repository.defaultBranch,
+						branch: repository.defaultBranch,
 						commitSha,
 						workflowBlobSha: existing.sha,
 						templateKey,
-						templateVersion,
+						templateVersion: template.version,
 					},
 				)
 				return {
 					commitSha,
-					url: existing.htmlUrl,
+					url: `${repository.htmlUrl}/blob/${encodeURIComponent(repository.defaultBranch)}/${generated.path}`,
 					updated: false,
-					templateVersion,
+					templateVersion: template.version,
 				}
 			}
 
 			const commit = await octokit.rest.repos.createOrUpdateFileContents({
-				owner: context.repository.ownerLogin,
-				repo: context.repository.name,
+				owner: repository.ownerLogin,
+				repo: repository.name,
 				path: generated.path,
-				branch: context.repository.defaultBranch,
+				branch: repository.defaultBranch,
 				message: existing
 					? 'ci: update BedrockNexus publishing workflow'
 					: 'ci: install BedrockNexus publishing workflow',
@@ -465,25 +378,24 @@ export const installWorkflow = action({
 				})
 			}
 			await ctx.runMutation(
-				internal.functions.plugins.publishing.model
-					.recordWorkflowCommit,
+				internal.functions.plugins.publishing.model.recordWorkflowCommit,
 				{
 					tokenIdentifier,
 					draftId: args.draftId,
-					branch: context.repository.defaultBranch,
+					branch: repository.defaultBranch,
 					commitSha,
 					workflowBlobSha,
 					templateKey,
-					templateVersion,
+					templateVersion: template.version,
 				},
 			)
 			return {
 				commitSha,
 				url:
 					commit.data.commit.html_url ??
-					`${context.repository.htmlUrl}/commit/${encodeURIComponent(commitSha)}`,
+					`${repository.htmlUrl}/commit/${encodeURIComponent(commitSha)}`,
 				updated: true,
-				templateVersion,
+				templateVersion: template.version,
 			}
 		} catch (error) {
 			throwGitHubApiError(error)
@@ -491,267 +403,603 @@ export const installWorkflow = action({
 	},
 })
 
-function validPrimaryAsset(adapterId: AdapterId, name: string) {
-	if (adapterId === 'pocketmine-mp') {
-		return /\.phar$/i.test(name)
-	}
-	return (
-		/\.jar$/i.test(name) &&
-		!/(?:^|[-_.])(sources?|javadoc|tests?|plain|original)(?:[-_.]|$)/i.test(
-			name,
-		)
-	)
+// ---------------------------------------------------------------------------
+// Builds
+// ---------------------------------------------------------------------------
+
+function buildStatus(status: string | null) {
+	return status === 'completed'
+		? ('completed' as const)
+		: status === 'in_progress'
+			? ('inProgress' as const)
+			: ('queued' as const)
 }
 
-async function refreshState(
+function buildConclusion(conclusion: string | null) {
+	switch (conclusion) {
+		case null:
+			return undefined
+		case 'success':
+		case 'failure':
+		case 'cancelled':
+		case 'skipped':
+			return conclusion
+		case 'timed_out':
+			return 'timedOut' as const
+		case 'action_required':
+			return 'actionRequired' as const
+		default:
+			return 'failure' as const
+	}
+}
+
+/** Reads the managed workflow's recent runs and records them as builds. */
+async function syncRepositoryBuilds(
 	ctx: ActionCtx,
-	tokenIdentifier: string,
-	draftId: Id<'pluginPublishingDrafts'>,
-): Promise<PublishingRefreshResult> {
-	const context: PublishingActionContext = await ctx.runQuery(
-		internal.functions.plugins.publishing.model.getActionContext,
-		{
-			tokenIdentifier,
-			draftId,
-		},
+	repositoryId: Id<'githubRepositories'>,
+) {
+	const context = await ctx.runQuery(
+		internal.functions.plugins.publishing.model.getBuildSyncContext,
+		{ repositoryId },
 	)
-	const app = createGitHubApp(getConfig())
-	const octokit = await app.getInstallationOctokit(context.installationId)
+	if (!context) {
+		return 0
+	}
+	const { repository } = context
+	const octokit = await installationOctokit(context.installationId)
 	try {
-		let pullRequestState: 'open' | 'closed' | 'merged' | undefined
-		if (context.draft.workflowPullRequestNumber) {
-			const pull = await octokit.rest.pulls.get({
-				owner: context.repository.ownerLogin,
-				repo: context.repository.name,
-				pull_number: context.draft.workflowPullRequestNumber,
-			})
-			pullRequestState = pull.data.merged ? 'merged' : pull.data.state
-		}
-
-		let workflowInstalled = false
+		let runs: Awaited<
+			ReturnType<Octokit['rest']['actions']['listWorkflowRuns']>
+		>['data']['workflow_runs']
 		try {
-			const workflowFile = await octokit.rest.repos.getContent({
-				owner: context.repository.ownerLogin,
-				repo: context.repository.name,
-				path: workflowPath,
-				ref: context.repository.defaultBranch,
+			const response = await octokit.rest.actions.listWorkflowRuns({
+				owner: repository.ownerLogin,
+				repo: repository.name,
+				workflow_id: WORKFLOW_FILE_NAME,
+				per_page: RUNS_PER_SYNC,
 			})
-			workflowInstalled =
-				!Array.isArray(workflowFile.data) &&
-				workflowFile.data.type === 'file'
+			runs = response.data.workflow_runs
 		} catch (error) {
-			if (!isGitHubStatus(error, 404)) {
-				throw error
+			// The workflow has not run yet, or the file was removed.
+			if (isGitHubStatus(error, 404)) {
+				return 0
 			}
+			throw error
 		}
 
-		let workflowRuns:
-			| Awaited<
-					ReturnType<typeof octokit.rest.actions.listWorkflowRuns>
-			  >['data']['workflow_runs']
-			| undefined
-		if (workflowInstalled) {
-			const runs = await octokit.rest.actions.listWorkflowRuns({
-				owner: context.repository.ownerLogin,
-				repo: context.repository.name,
-				workflow_id: workflowPath,
-				per_page: 20,
-			})
-			workflowRuns = runs.data.workflow_runs
-		}
-
-		const workflowBlobShaByCommit = new Map<string, string | undefined>()
-		const workflowBlobShaAt = async (ref: string) => {
-			if (workflowBlobShaByCommit.has(ref)) {
-				return workflowBlobShaByCommit.get(ref)
-			}
-			let blobSha: string | undefined
-			try {
-				const file = await octokit.rest.repos.getContent({
-					owner: context.repository.ownerLogin,
-					repo: context.repository.name,
-					path: workflowPath,
-					ref,
-				})
-				blobSha =
-					!Array.isArray(file.data) && file.data.type === 'file'
-						? file.data.sha
-						: undefined
-			} catch (error) {
-				if (!isGitHubStatus(error, 404)) {
-					throw error
-				}
-			}
-			workflowBlobShaByCommit.set(ref, blobSha)
-			return blobSha
-		}
-
-		const detectedReleases: Array<{
-			id: number
-			url: string
-			tag: string
-			commitSha: string
-			version: string
-			publishedAt?: number
-			asset: {
-				id: number
-				name: string
-				url: string
-				size: number
-				contentType?: string
-				digest?: string
-			}
-			provenance: {
-				releaseAuthor?: string
-				assetUploader?: string
-				assetCreatedAt?: number
-				workflowBlobShaAtCommit?: string
-			}
-		}> = []
-		const githubReleases = await octokit.rest.repos.listReleases({
-			owner: context.repository.ownerLogin,
-			repo: context.repository.name,
-			per_page: 20,
-		})
-		for (const candidate of githubReleases.data) {
-			const asset = candidate.assets.find(
-				(item) =>
-					item.size > 0 &&
-					validPrimaryAsset(context.draft.adapterId, item.name),
-			)
+		const known = new Map(
+			(
+				await ctx.runQuery(
+					internal.functions.plugins.publishing.model.listKnownBuilds,
+					{ workflowRunIds: runs.map((run) => run.id) },
+				)
+			).map((build) => [build.workflowRunId, build]),
+		)
+		const builds = []
+		for (const run of runs) {
+			const status = buildStatus(run.status)
+			const previous = known.get(run.id)
+			// A finished build with its artifact and workflow checked is final.
 			if (
-				candidate.draft ||
-				!/^v[^/]+$/.test(candidate.tag_name) ||
-				!asset
+				previous?.status === 'completed' &&
+				previous.workflowBlobSha !== undefined
 			) {
 				continue
 			}
-			const commit = await octokit.rest.repos.getCommit({
-				owner: context.repository.ownerLogin,
-				repo: context.repository.name,
-				ref: candidate.tag_name,
-			})
-			const assetDigest =
-				(asset as { digest?: string | null }).digest ?? undefined
-			const assetCreatedAt = parseTimestamp(asset.created_at)
-			const workflowBlobShaAtCommit = await workflowBlobShaAt(
-				commit.data.sha,
-			)
-			detectedReleases.push({
-				id: candidate.id,
-				url: candidate.html_url,
-				tag: candidate.tag_name,
-				commitSha: commit.data.sha,
-				version: candidate.tag_name.slice(1),
-				...(parseTimestamp(candidate.published_at)
-					? { publishedAt: parseTimestamp(candidate.published_at) }
-					: {}),
-				asset: {
-					id: asset.id,
-					name: asset.name,
-					url: asset.browser_download_url,
-					size: asset.size,
-					...(asset.content_type
-						? { contentType: asset.content_type }
-						: {}),
-					...(assetDigest ? { digest: assetDigest } : {}),
-				},
-				provenance: {
-					...(candidate.author?.login
-						? { releaseAuthor: candidate.author.login }
-						: {}),
-					...(asset.uploader?.login
-						? { assetUploader: asset.uploader.login }
-						: {}),
-					...(assetCreatedAt ? { assetCreatedAt } : {}),
-					...(workflowBlobShaAtCommit
-						? { workflowBlobShaAtCommit }
-						: {}),
-				},
-			})
-		}
-
-		const recordRelease = async (
-			release: (typeof detectedReleases)[number] | undefined,
-		): Promise<PublishingRefreshResult> => {
-			const selectedRun =
-				(release
-					? workflowRuns?.find(
-							(candidate) =>
-								candidate.head_branch === release.tag &&
-								candidate.head_sha === release.commitSha,
-						)
-					: undefined) ?? workflowRuns?.[0]
-			const run = selectedRun
-				? {
-						id: selectedRun.id,
-						url: selectedRun.html_url,
-						status: selectedRun.status ?? 'queued',
-						...(selectedRun.conclusion
-							? { conclusion: selectedRun.conclusion }
-							: {}),
-						commitSha: selectedRun.head_sha,
-						...(selectedRun.head_branch?.startsWith('v')
-							? { tag: selectedRun.head_branch }
-							: {}),
-						createdAt:
-							parseTimestamp(selectedRun.created_at) ??
-							Date.now(),
-						...(parseTimestamp(selectedRun.run_started_at)
-							? {
-									startedAt: parseTimestamp(
-										selectedRun.run_started_at,
-									),
-								}
-							: {}),
-						...(parseTimestamp(selectedRun.updated_at)
-							? {
-									completedAt: parseTimestamp(
-										selectedRun.updated_at,
-									),
-								}
-							: {}),
+			let artifact:
+				| { id: number; size: number; expiresAt?: number }
+				| undefined
+			let workflowBlobSha: string | undefined
+			if (status === 'completed') {
+				const artifacts =
+					await octokit.rest.actions.listWorkflowRunArtifacts({
+						owner: repository.ownerLogin,
+						repo: repository.name,
+						run_id: run.id,
+						name: ARTIFACT_NAME,
+					})
+				const match = artifacts.data.artifacts.find(
+					(item) => item.name === ARTIFACT_NAME && !item.expired,
+				)
+				if (match) {
+					artifact = {
+						id: match.id,
+						size: match.size_in_bytes,
+						expiresAt: parseTimestamp(match.expires_at),
 					}
-				: undefined
-			return await ctx.runMutation(
-				internal.functions.plugins.publishing.model.recordGitHubState,
-				{
-					tokenIdentifier,
-					draftId,
-					...(pullRequestState ? { pullRequestState } : {}),
-					workflowInstalled,
-					...(run ? { run } : {}),
-					...(release ? { release } : {}),
-				},
-			)
+				}
+				workflowBlobSha =
+					(await blobShaAt(octokit, repository, WORKFLOW_PATH, run.head_sha))
+						?.sha ?? ''
+			}
+			const commitMessage = run.head_commit?.message
+				?.split('\n')[0]
+				?.slice(0, 200)
+			builds.push({
+				workflowRunId: run.id,
+				workflowName: run.name ?? 'BedrockNexus Publish',
+				event: run.event,
+				commitSha: run.head_sha,
+				...(commitMessage ? { commitMessage } : {}),
+				...(run.head_branch ? { branch: run.head_branch } : {}),
+				status,
+				...(buildConclusion(run.conclusion)
+					? { conclusion: buildConclusion(run.conclusion) }
+					: {}),
+				logsUrl: run.html_url,
+				...(artifact
+					? {
+							artifactId: artifact.id,
+							artifactSize: artifact.size,
+							...(artifact.expiresAt
+								? { artifactExpiresAt: artifact.expiresAt }
+								: {}),
+						}
+					: {}),
+				// An empty string records that the file was missing at that commit.
+				...(workflowBlobSha !== undefined ? { workflowBlobSha } : {}),
+				createdAt: parseTimestamp(run.created_at) ?? Date.now(),
+				...(status === 'completed' && parseTimestamp(run.updated_at)
+					? { completedAt: parseTimestamp(run.updated_at) }
+					: {}),
+			})
 		}
-
-		if (detectedReleases.length === 0) {
-			return await recordRelease(undefined)
-		}
-		let result: PublishingRefreshResult = {
-			verifiedBuild: false,
-			readyToPublish: false,
-		}
-		for (const release of [...detectedReleases].reverse()) {
-			result = await recordRelease(release)
-		}
-		return result
+		await ctx.runMutation(
+			internal.functions.plugins.publishing.model.upsertBuilds,
+			{ draftId: context.draftId, builds },
+		)
+		return builds.length
 	} catch (error) {
 		throwGitHubApiError(error)
 	}
 }
 
-export const refreshPublishingState = action({
+export const syncBuilds = action({
 	args: { draftId: v.id('pluginPublishingDrafts') },
-	returns: v.object({
-		verifiedBuild: v.boolean(),
-		readyToPublish: v.boolean(),
-	}),
-	handler: async (ctx, args): Promise<PublishingRefreshResult> => {
-		const identity = await ctx.auth.getUserIdentity()
-		const tokenIdentifier = requireTokenIdentifier(identity)
+	returns: v.number(),
+	handler: async (ctx, args): Promise<number> => {
+		const tokenIdentifier = await requireTokenIdentifier(ctx)
 		await enforceRateLimit(ctx, 'githubRead', tokenIdentifier)
-		return await refreshState(ctx, tokenIdentifier, args.draftId)
+		const context: PublishingActionContext = await ctx.runQuery(
+			internal.functions.plugins.publishing.model.getActionContext,
+			{ tokenIdentifier, draftId: args.draftId },
+		)
+		return await syncRepositoryBuilds(ctx, context.repository._id)
+	},
+})
+
+/** Called for workflow_run webhooks, so builds show up without a refresh. */
+export const syncBuildsFromWebhook = internalAction({
+	args: { repositoryId: v.id('githubRepositories') },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		await syncRepositoryBuilds(ctx, args.repositoryId)
+		return null
+	},
+})
+
+// ---------------------------------------------------------------------------
+// Releases
+// ---------------------------------------------------------------------------
+
+async function getReleaseContext(
+	ctx: ActionCtx,
+	releaseId: Id<'pluginReleases'>,
+): Promise<ReleaseActionContext | null> {
+	return await ctx.runQuery(
+		internal.functions.plugins.publishing.model.getReleaseActionContext,
+		{ releaseId },
+	)
+}
+
+/**
+ * Copies the build of a release sent to review from GitHub into private
+ * storage. GitHub artifacts need a token to download and expire, and
+ * moderators must review the exact file that gets published.
+ */
+export const prepareRelease = internalAction({
+	args: { releaseId: v.id('pluginReleases') },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const context = await getReleaseContext(ctx, args.releaseId)
+		if (context?.release.status !== 'preparing') {
+			return null
+		}
+		const fail = async (reason: string) => {
+			await ctx.runMutation(
+				internal.functions.plugins.publishing.model.failPreparation,
+				{ releaseId: args.releaseId, reason },
+			)
+		}
+		if (!context.installationId || !context.artifactId) {
+			await fail('The build’s files are no longer available on GitHub.')
+			return null
+		}
+		if (!context.fileExtension) {
+			await fail('This server software does not accept plugins right now.')
+			return null
+		}
+		if ((context.artifactSize ?? 0) > MAX_PLUGIN_FILE_BYTES) {
+			await fail('The build is larger than 50 MB.')
+			return null
+		}
+		let uploadKey: string | undefined
+		try {
+			const octokit = await installationOctokit(context.installationId)
+			const archive = await octokit.rest.actions.downloadArtifact({
+				owner: context.repository.ownerLogin,
+				repo: context.repository.name,
+				artifact_id: context.artifactId,
+				archive_format: 'zip',
+			})
+			const extracted = extractPluginFile(
+				new Uint8Array(archive.data as ArrayBuffer),
+				context.fileExtension,
+			)
+			const file = {
+				fileName: sanitizeR2FileName(extracted.fileName),
+				data: extracted.data,
+			}
+			const sha256 = createHash('sha256').update(file.data).digest('hex')
+			uploadKey = buildPluginReviewR2ObjectKey({
+				projectId: context.projectId,
+				releaseId: args.releaseId,
+				fileName: file.fileName,
+			})
+			await r2S3.send(
+				new PutObjectCommand({
+					Bucket: uploadsR2.config.bucket,
+					Key: uploadKey,
+					Body: file.data,
+					ContentType: 'application/octet-stream',
+				}),
+			)
+			const accepted = await ctx.runMutation(
+				internal.functions.plugins.publishing.model.finishPreparation,
+				{
+					releaseId: args.releaseId,
+					fileName: file.fileName,
+					size: file.data.byteLength,
+					sha256,
+					uploadKey,
+				},
+			)
+			if (!accepted) {
+				await r2S3.send(
+					new DeleteObjectCommand({
+						Bucket: uploadsR2.config.bucket,
+						Key: uploadKey,
+					}),
+				)
+			}
+		} catch (error) {
+			console.error('Preparing plugin release failed', error)
+			await fail(
+				error instanceof ArtifactError
+					? error.message
+					: 'The build could not be copied from GitHub. Try sending it again.',
+			)
+		}
+		return null
+	},
+})
+
+/** A short-lived link to the file of a version in review, for moderators. */
+export const getReviewDownloadUrl = action({
+	args: { releaseId: v.id('pluginReleases') },
+	returns: v.string(),
+	handler: async (ctx, args): Promise<string> => {
+		const tokenIdentifier = await requireTokenIdentifier(ctx)
+		const file: { uploadKey: string; fileName: string } | null =
+			await ctx.runQuery(
+				internal.functions.plugins.publishing.model.getReviewFile,
+				{ tokenIdentifier, releaseId: args.releaseId },
+			)
+		if (!file) {
+			throw new ConvexError({
+				code: 'REVIEW_FILE_MISSING',
+				message: 'This version has no file to review.',
+			})
+		}
+		return await uploadsR2.getUrl(file.uploadKey, {
+			expiresIn: REVIEW_LINK_SECONDS,
+		})
+	},
+})
+
+function attachmentDisposition(fileName: string) {
+	const fallback = fileName.replace(/[^a-zA-Z0-9._-]/g, '_') || 'download'
+	return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
+}
+
+/** Moves an approved version's file to the public CDN, then makes it live. */
+export const publishRelease = internalAction({
+	args: { releaseId: v.id('pluginReleases') },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const context = await getReleaseContext(ctx, args.releaseId)
+		const release = context?.release
+		if (!context || release?.status !== 'publishing') {
+			return null
+		}
+		try {
+			if (!release.uploadKey || !release.fileName) {
+				throw new Error('The reviewed file is missing.')
+			}
+			const cdnKey = buildPluginDownloadR2ObjectKey({
+				projectId: context.projectId,
+				version: release.version,
+				fileName: release.fileName,
+			})
+			await r2S3.send(
+				new HeadObjectCommand({
+					Bucket: uploadsR2.config.bucket,
+					Key: release.uploadKey,
+				}),
+			)
+			await r2S3.send(
+				new CopyObjectCommand({
+					Bucket: cdnR2.config.bucket,
+					Key: cdnKey,
+					CopySource: `${uploadsR2.config.bucket}/${release.uploadKey
+						.split('/')
+						.map(encodeURIComponent)
+						.join('/')}`,
+					MetadataDirective: 'REPLACE',
+					ContentType: 'application/octet-stream',
+					ContentDisposition: attachmentDisposition(release.fileName),
+					CacheControl: 'public, max-age=31536000, immutable',
+				}),
+			)
+			const published = await ctx.runMutation(
+				internal.functions.plugins.publishing.model.finishPublishing,
+				{ releaseId: release._id, cdnKey },
+			)
+			if (published) {
+				await deleteReviewCopy(ctx, release._id, release.uploadKey)
+			}
+		} catch (error) {
+			console.error('Publishing plugin release failed', error)
+			await ctx.runMutation(
+				internal.functions.plugins.publishing.model
+					.recordPublishingError,
+				{
+					releaseId: release._id,
+					reason: `The file could not be published: ${errorText(error)}`,
+				},
+			)
+		}
+		return null
+	},
+})
+
+async function deleteReviewCopy(
+	ctx: ActionCtx,
+	releaseId: Id<'pluginReleases'>,
+	uploadKey: string,
+) {
+	await r2S3.send(
+		new DeleteObjectCommand({
+			Bucket: uploadsR2.config.bucket,
+			Key: uploadKey,
+		}),
+	)
+	await ctx.runMutation(
+		internal.functions.plugins.publishing.model.clearUploadKey,
+		{ releaseId, uploadKey },
+	)
+}
+
+/** Removes the private copy of a version that will not be published. */
+export const deleteReviewFile = internalAction({
+	args: { releaseId: v.id('pluginReleases'), uploadKey: v.string() },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		await deleteReviewCopy(ctx, args.releaseId, args.uploadKey)
+		return null
+	},
+})
+
+/** Deletes the stored files of a deleted plugin's releases. */
+export const deleteStoredFiles = internalAction({
+	args: {
+		files: v.array(
+			v.object({
+				bucket: v.union(v.literal('uploads'), v.literal('cdn')),
+				key: v.string(),
+			}),
+		),
+	},
+	returns: v.null(),
+	handler: async (_ctx, args) => {
+		const results = await Promise.allSettled(
+			args.files.map((file) =>
+				r2S3.send(
+					new DeleteObjectCommand({
+						Bucket:
+							file.bucket === 'cdn'
+								? cdnR2.config.bucket
+								: uploadsR2.config.bucket,
+						Key: file.key,
+					}),
+				),
+			),
+		)
+		for (const [index, result] of results.entries()) {
+			if (result.status === 'rejected') {
+				console.error(
+					`Could not delete plugin file ${args.files[index]?.key}`,
+					result.reason,
+				)
+			}
+		}
+		return null
+	},
+})
+
+/** The commit a tag points at, following annotated tags. */
+async function tagCommitSha(
+	octokit: Octokit,
+	repository: { ownerLogin: string; name: string },
+	tag: string,
+) {
+	try {
+		const ref = await octokit.rest.git.getRef({
+			owner: repository.ownerLogin,
+			repo: repository.name,
+			ref: `tags/${tag}`,
+		})
+		if (ref.data.object.type !== 'tag') {
+			return ref.data.object.sha
+		}
+		const annotated = await octokit.rest.git.getTag({
+			owner: repository.ownerLogin,
+			repo: repository.name,
+			tag_sha: ref.data.object.sha,
+		})
+		return annotated.data.object.sha
+	} catch (error) {
+		if (isGitHubStatus(error, 404)) {
+			return undefined
+		}
+		throw error
+	}
+}
+
+/**
+ * Creates the GitHub release of a published version: tag `v{version}` on the
+ * build's commit, the changelog as notes, and the published file attached.
+ * It is a copy for people browsing GitHub; downloads are served from the CDN.
+ * An existing tag on another commit is never moved.
+ */
+export const createGitHubRelease = internalAction({
+	args: { releaseId: v.id('pluginReleases') },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const context = await getReleaseContext(ctx, args.releaseId)
+		const release = context?.release
+		if (!context || release?.status !== 'published') {
+			return null
+		}
+		const record = async (
+			result:
+				| { status: 'created'; githubReleaseId: number; url: string }
+				| { status: 'failed'; error: string; githubReleaseId?: number },
+		) => {
+			await ctx.runMutation(
+				internal.functions.plugins.publishing.model.recordGitHubRelease,
+				{ releaseId: release._id, ...result },
+			)
+		}
+		if (!context.installationId) {
+			await record({
+				status: 'failed',
+				error: 'The GitHub App no longer has access to this repository.',
+			})
+			return null
+		}
+		const { repository } = context
+		const tag = releaseTagFor(release.version)
+		let githubReleaseId = release.githubReleaseId
+		try {
+			if (!release.cdnKey || !release.fileName) {
+				throw new Error('The published file is missing.')
+			}
+			const octokit = await installationOctokit(context.installationId)
+			const taggedCommit = await tagCommitSha(octokit, repository, tag)
+			if (taggedCommit && taggedCommit !== release.commitSha) {
+				await record({
+					status: 'failed',
+					error: `The tag ${tag} already exists on another commit, so no GitHub release was created. BedrockNexus never moves existing tags.`,
+				})
+				return null
+			}
+
+			let githubRelease:
+				| { id: number; html_url: string; assets: Array<{ name: string }> }
+				| undefined
+			try {
+				const existing = await octokit.rest.repos.getReleaseByTag({
+					owner: repository.ownerLogin,
+					repo: repository.name,
+					tag,
+				})
+				if (existing.data.id !== githubReleaseId) {
+					await record({
+						status: 'failed',
+						error: `A GitHub release for ${tag} already exists, so BedrockNexus did not create another.`,
+					})
+					return null
+				}
+				githubRelease = existing.data
+			} catch (error) {
+				if (!isGitHubStatus(error, 404)) {
+					throw error
+				}
+			}
+
+			if (!githubRelease) {
+				const siteUrl = (process.env.SITE_URL ?? '').replace(/\/$/, '')
+				const created = await octokit.rest.repos.createRelease({
+					owner: repository.ownerLogin,
+					repo: repository.name,
+					tag_name: tag,
+					target_commitish: release.commitSha,
+					name: `${context.projectName} ${release.version}`,
+					body: [
+						release.changelog,
+						'---',
+						...(siteUrl
+							? [
+									`Published on BedrockNexus: ${siteUrl}/plugins/${context.projectSlug}`,
+								]
+							: []),
+						`SHA-256 of ${release.fileName}: \`${release.sha256 ?? 'unknown'}\``,
+					].join('\n\n'),
+				})
+				githubRelease = created.data
+				githubReleaseId = created.data.id
+			}
+
+			if (!githubRelease.assets.some((asset) => asset.name === release.fileName)) {
+				const object = await r2S3.send(
+					new GetObjectCommand({
+						Bucket: cdnR2.config.bucket,
+						Key: release.cdnKey,
+					}),
+				)
+				const data = Buffer.from(
+					(await object.Body?.transformToByteArray()) ?? [],
+				)
+				if (data.byteLength === 0) {
+					throw new Error('The published file could not be read.')
+				}
+				await octokit.rest.repos.uploadReleaseAsset({
+					owner: repository.ownerLogin,
+					repo: repository.name,
+					release_id: githubRelease.id,
+					name: release.fileName,
+					// Octokit types the body as a string; it sends Buffers as-is.
+					data: data as unknown as string,
+					headers: {
+						'content-type': 'application/octet-stream',
+						'content-length': data.byteLength,
+					},
+				})
+			}
+			await record({
+				status: 'created',
+				githubReleaseId: githubRelease.id,
+				url: githubRelease.html_url,
+			})
+		} catch (error) {
+			console.error('Creating GitHub release failed', error)
+			await record({
+				status: 'failed',
+				error: `GitHub did not accept the release: ${errorText(error)}`,
+				...(githubReleaseId ? { githubReleaseId } : {}),
+			})
+		}
+		return null
 	},
 })

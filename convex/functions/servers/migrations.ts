@@ -140,7 +140,7 @@ const DEFAULT_SERVER_SOFTWARE = [
 			'Server software for Minecraft: Bedrock Edition written in PHP, with a large plugin ecosystem.',
 		websiteUrl: 'https://pmmp.io/',
 		repositoryUrl: 'https://github.com/pmmp/PocketMine-MP',
-		adapterId: 'pocketmine-mp',
+		pluginFileExtension: 'phar',
 	},
 	{
 		slug: 'powernukkitx',
@@ -149,7 +149,7 @@ const DEFAULT_SERVER_SOFTWARE = [
 			'A Java server software for Minecraft: Bedrock Edition with broad plugin support.',
 		websiteUrl: 'https://powernukkitx.org/',
 		repositoryUrl: 'https://github.com/PowerNukkitX/PowerNukkitX',
-		adapterId: 'powernukkitx',
+		pluginFileExtension: 'jar',
 	},
 	{
 		slug: 'nukkit',
@@ -190,28 +190,31 @@ const DEFAULT_SERVER_SOFTWARE = [
 /**
  * Adds the default server software that is not there yet, matched by slug.
  * Admin edits survive a re-run: an existing entry is only given its plugin
- * adapter when it has none.
+ * file type when it has none.
  *
  * Run: npx convex run functions/servers/migrations:seedDefaultServerSoftware
  */
 export const seedDefaultServerSoftware = internalMutation({
 	args: {},
-	returns: v.object({ created: v.number(), adaptersSet: v.number() }),
+	returns: v.object({ created: v.number(), fileTypesSet: v.number() }),
 	handler: async (ctx) => {
 		const now = Date.now()
 		let created = 0
-		let adaptersSet = 0
+		let fileTypesSet = 0
 		for (const [index, software] of DEFAULT_SERVER_SOFTWARE.entries()) {
 			const existing = await ctx.db
 				.query('serverSoftware')
 				.withIndex('by_slug', (q) => q.eq('slug', software.slug))
 				.unique()
 			if (existing) {
-				if (software.adapterId && !existing.adapterId) {
+				if (
+					software.pluginFileExtension &&
+					!existing.pluginFileExtension
+				) {
 					await ctx.db.patch(existing._id, {
-						adapterId: software.adapterId,
+						pluginFileExtension: software.pluginFileExtension,
 					})
-					adaptersSet += 1
+					fileTypesSet += 1
 				}
 				continue
 			}
@@ -225,7 +228,7 @@ export const seedDefaultServerSoftware = internalMutation({
 			})
 			created += 1
 		}
-		return { created, adaptersSet }
+		return { created, fileTypesSet }
 	},
 })
 

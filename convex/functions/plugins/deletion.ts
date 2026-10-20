@@ -39,9 +39,9 @@ const purgeStageValidator = v.union(
  * and site admins. The caller must type the project slug to confirm. The
  * project disappears from the catalog and download redirects immediately;
  * versions, releases, download records, and other rows are removed in the
- * background by `purgeProjectData`. Plugin files live in the creator's GitHub
- * repository and are not touched. A deletion by an admin is recorded in the
- * audit log.
+ * background by `purgeProjectData`, which also deletes the plugin's files from
+ * storage. GitHub releases BedrockNexus created stay in the creator's
+ * repository. A deletion by an admin is recorded in the audit log.
  */
 export const deleteProject = authedMutation({
 	args: {
@@ -206,17 +206,21 @@ async function purgeStage(
 				.query('pluginReleases')
 				.withIndex('by_project_id', (q) => q.eq('projectId', projectId))
 				.take(PURGE_BATCH_SIZE)
-			for (const row of rows) {
-				const assets = await ctx.db
-					.query('pluginReleaseAssets')
-					.withIndex('by_release_id', (q) =>
-						q.eq('releaseId', row._id),
-					)
-					.take(50)
-				for (const asset of assets)
-					await ctx.db.delete('pluginReleaseAssets', asset._id)
-				await ctx.db.delete('pluginReleases', row._id)
+			const files = rows.flatMap((row) => [
+				...(row.uploadKey
+					? [{ bucket: 'uploads' as const, key: row.uploadKey }]
+					: []),
+				...(row.cdnKey ? [{ bucket: 'cdn' as const, key: row.cdnKey }] : []),
+			])
+			if (files.length > 0) {
+				await ctx.scheduler.runAfter(
+					0,
+					internal.functions.plugins.publishing.actions
+						.deleteStoredFiles,
+					{ files },
+				)
 			}
+			for (const row of rows) await ctx.db.delete('pluginReleases', row._id)
 			return rows.length
 		}
 		case 'downloads': {

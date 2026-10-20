@@ -70,6 +70,7 @@ interface SoftwareDraft {
 	description: string
 	websiteUrl: string
 	repositoryUrl: string
+	pluginFileExtension: string
 }
 
 const EMPTY_DRAFT: SoftwareDraft = {
@@ -78,6 +79,7 @@ const EMPTY_DRAFT: SoftwareDraft = {
 	description: '',
 	websiteUrl: '',
 	repositoryUrl: '',
+	pluginFileExtension: '',
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -99,6 +101,7 @@ function draftFor(editing: Software | null): SoftwareDraft {
 				description: editing.description,
 				websiteUrl: editing.websiteUrl ?? '',
 				repositoryUrl: editing.repositoryUrl ?? '',
+				pluginFileExtension: editing.pluginFileExtension ?? '',
 			}
 		: EMPTY_DRAFT
 }
@@ -201,6 +204,24 @@ function SoftwareForm({
 					value={draft.repositoryUrl}
 				/>
 			</div>
+			<div className="flex flex-col gap-2">
+				<Label htmlFor="software-plugin-file-type">
+					Plugin file type
+				</Label>
+				<Input
+					id="software-plugin-file-type"
+					onChange={(event) =>
+						set('pluginFileExtension', event.target.value)
+					}
+					placeholder="phar"
+					value={draft.pluginFileExtension}
+				/>
+				<p className="text-muted-foreground text-xs">
+					Set it (phar, jar, …) to accept plugins for this software,
+					then add a publishing workflow for it. Leave it empty if
+					plugins are not published here.
+				</p>
+			</div>
 			<DialogFooter>
 				<Button onClick={onClose} type="button" variant="outline">
 					Cancel
@@ -256,6 +277,7 @@ export function ServerSoftwareManager() {
 				description: draft.description,
 				websiteUrl: draft.websiteUrl || undefined,
 				repositoryUrl: draft.repositoryUrl || undefined,
+				pluginFileExtension: draft.pluginFileExtension || undefined,
 			}
 			if (editing) {
 				await updateSoftware({
@@ -294,6 +316,7 @@ export function ServerSoftwareManager() {
 				description: item.description,
 				websiteUrl: item.websiteUrl,
 				repositoryUrl: item.repositoryUrl,
+				pluginFileExtension: item.pluginFileExtension,
 				enabled: !item.enabled,
 				sortOrder: item.sortOrder,
 			})
@@ -363,6 +386,7 @@ export function ServerSoftwareManager() {
 							<TableHead className="text-right">
 								Servers
 							</TableHead>
+							<TableHead>Plugins</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead className="text-right">
 								Actions
@@ -385,6 +409,11 @@ export function ServerSoftwareManager() {
 								</TableCell>
 								<TableCell className="text-right tabular-nums">
 									{item.serverCount}
+								</TableCell>
+								<TableCell className="font-mono text-xs">
+									{item.pluginFileExtension
+										? `.${item.pluginFileExtension}`
+										: '—'}
 								</TableCell>
 								<TableCell>
 									<Badge

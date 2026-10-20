@@ -21,9 +21,9 @@ export default async function ProjectWorkflowPage({
 	const resolvedDraftId = await resolveProjectDraftId(draftId)
 	return (
 		<DashboardPageShell
-			description="Install or update the admin-managed GitHub Actions workflow on the repository."
+			description="Pick the build workflow for your plugin’s server software and commit it to the repository."
 			eyebrow="Projects"
-			title="Publishing workflow"
+			title="Build workflow"
 		>
 			<ProjectManageNav draftId={draftId} />
 			<ProjectWorkflowManager draftId={resolvedDraftId} />

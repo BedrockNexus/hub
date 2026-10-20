@@ -9,6 +9,7 @@ import {
 	ViewIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import type { FunctionReturnType } from 'convex/server'
 import type { Metadata, Route } from 'next'
 import Link from 'next/link'
 import {
@@ -56,17 +57,19 @@ const statusMessages = {
 
 type ProjectTableStatus =
 	| Doc<'plugins'>['status']
-	| Doc<'pluginPublishingDrafts'>['status']
+	| FunctionReturnType<
+			typeof api.functions.plugins.publishing.model.listMine
+	  >[number]['stage']
 
 const projectTableStatusLabels = {
-	detected: 'Detected',
-	metadataReady: 'Metadata ready',
-	workflowInstalled: 'Workflow installed',
-	releaseDetected: 'Release detected',
-	readyToPublish: 'Ready to publish',
+	setup: 'Setting up',
+	building: 'Ready for builds',
+	preparing: 'Copying build',
+	preparationFailed: 'Copy failed',
 	inReview: 'In review',
 	changesRequested: 'Changes requested',
 	rejected: 'Rejected',
+	publishing: 'Publishing',
 	published: 'Published',
 	draft: 'Draft',
 	review: 'Review',
@@ -99,6 +102,8 @@ export default async function ProjectsPage({
 				key: project.projectId as string,
 				project,
 				draft: draftEntry?.draft,
+				stage: draftEntry?.stage,
+				latestDraftVersion: draftEntry?.latestVersion,
 				repository: draftEntry?.repository,
 			}
 		}),
@@ -110,10 +115,12 @@ export default async function ProjectsPage({
 						projectIds.has(draft.projectId as string)
 					),
 			)
-			.map(({ draft, repository }) => ({
+			.map(({ draft, repository, stage, latestVersion }) => ({
 				key: draft._id as string,
 				project: null,
 				draft,
+				stage,
+				latestDraftVersion: latestVersion,
 				repository,
 			})),
 	].sort(
@@ -148,7 +155,7 @@ export default async function ProjectsPage({
 					Add project
 				</Link>
 			}
-			description="Connect repositories, edit plugin metadata, verify GitHub releases, and submit them for moderator review from one workspace."
+			description="Connect repositories, build on every push, and send the builds you choose to moderator review."
 			eyebrow="GitHub-native publishing"
 			title="Projects"
 		>
@@ -224,8 +231,7 @@ export default async function ProjectsPage({
 						<p className="mt-2 max-w-md text-muted-foreground text-sm leading-6">
 							Choose a repository already granted to the GitHub
 							App, or install the App during setup. Nothing
-							becomes public until a moderator approves the
-							verified release.
+							becomes public until a moderator approves a version.
 						</p>
 						<Link
 							className={cn(buttonVariants(), 'mt-5')}
@@ -267,10 +273,8 @@ export default async function ProjectsPage({
 											htmlUrl: row.repository.htmlUrl,
 										}
 									: (row.project?.repository ?? null)
-								const statusValue =
-									row.draft?.status ??
-									row.project?.status ??
-									'draft'
+								const statusValue: ProjectTableStatus =
+									row.stage ?? row.project?.status ?? 'draft'
 								const projectKey = row.repository
 									? createProjectDashboardId(
 											row.repository.githubRepositoryId,
@@ -321,10 +325,10 @@ export default async function ProjectsPage({
 											</div>
 										</TableCell>
 										<TableCell className="text-muted-foreground">
-											{row.draft?.latestTag ??
-												(row.project?.latestVersion
-													? `v${row.project.latestVersion.version}`
-													: 'No release')}
+											{row.project?.latestVersion
+												?.version ??
+												row.latestDraftVersion ??
+												'No version'}
 										</TableCell>
 										<TableCell>
 											<Badge

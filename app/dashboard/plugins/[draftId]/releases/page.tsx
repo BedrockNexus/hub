@@ -8,7 +8,7 @@ import {
 import { resolveProjectDraftId } from '@/lib/plugins/resolve-project-draft'
 
 export const metadata: Metadata = {
-	title: 'Project releases',
+	title: 'Builds and versions',
 	robots: { index: false, follow: false },
 }
 
@@ -21,9 +21,9 @@ export default async function ProjectReleasesPage({
 	const resolvedDraftId = await resolveProjectDraftId(draftId)
 	return (
 		<DashboardPageShell
-			description="Detect verified GitHub releases, choose one, and submit it for moderator review."
+			description="Every push builds your plugin. Pick a build, give it a version, and send it to moderator review."
 			eyebrow="Projects"
-			title="Releases and review"
+			title="Builds and versions"
 		>
 			<ProjectManageNav draftId={draftId} />
 			<ProjectReleaseManager draftId={resolvedDraftId} />

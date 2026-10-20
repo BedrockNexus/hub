@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 export default function NewProjectPage() {
 	return (
 		<DashboardPageShell
-			description="Choose or connect a public GitHub repository, verify its plugin metadata, and prepare its first release for review."
+			description="Pick a public GitHub repository and confirm the details it fills in."
 			eyebrow="Projects"
-			title="Add a project"
+			title="Add a plugin"
 		>
 			<AddProjectFlow />
 		</DashboardPageShell>
