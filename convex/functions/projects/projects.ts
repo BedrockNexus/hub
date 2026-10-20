@@ -45,10 +45,6 @@ import { removePicksFor } from '../site/picks'
 // TYPES
 // =============================================================================
 
-// Max items to scan per query — prevents unbounded full-table reads.
-// Sorting by downloads/rating requires a full pre-filter scan; denormalizing
-// those fields into the projects table would enable proper cursor pagination.
-const MAX_SCAN = 1000
 const R2_IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
 
 // =============================================================================
@@ -451,74 +447,6 @@ async function getUserOrganizationIds(
 // =============================================================================
 // QUERIES
 // =============================================================================
-
-/**
- * List all published projects
- */
-export const list = query({
-	args: {
-		type: v.optional(projectType),
-		categoryId: v.optional(v.id('projectCategories')),
-		limit: v.optional(v.number()),
-	},
-	handler: async (ctx, args) => {
-		const limit = args.limit ?? 20
-		const typeFilter = args.type
-
-		let items: Doc<'projects'>[]
-
-		if (typeFilter) {
-			items = await ctx.db
-				.query('projects')
-				.withIndex('by_type_status', (q) =>
-					q.eq('type', typeFilter).eq('status', 'published'),
-				)
-				.take(MAX_SCAN)
-		} else {
-			items = await ctx.db
-				.query('projects')
-				.withIndex('by_status', (q) => q.eq('status', 'published'))
-				.take(MAX_SCAN)
-		}
-
-		const categoryId = args.categoryId
-		if (categoryId !== undefined) {
-			items = items.filter((a) => a.categoryIds.includes(categoryId))
-		}
-		items = items.filter(isPublicProject)
-
-		const enriched = await Promise.all(
-			items.slice(0, limit).map(async (item) => {
-				const categories = await Promise.all(
-					item.categoryIds.map((id) => ctx.db.get(id)),
-				)
-
-				const stats = await ctx.db
-					.query('projectStats')
-					.withIndex('by_project', (q) =>
-						q.eq('projectId', item._id),
-					)
-					.first()
-
-				const iconUrl = await resolveProjectIconUrl(item)
-
-				return {
-					...item,
-					iconUrl,
-					categories: categories.filter(Boolean),
-					averageRating: stats?.averageRating ?? 0,
-					reviewCount: stats?.reviewCount ?? 0,
-					totalDownloads: stats?.totalDownloads ?? 0,
-				}
-			}),
-		)
-
-		return {
-			items: enriched,
-			hasMore: items.length > limit,
-		}
-	},
-})
 
 export const getPublishedBySlug = query({
 	args: { slug: v.string() },

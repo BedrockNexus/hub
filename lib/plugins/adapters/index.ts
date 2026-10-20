@@ -19,12 +19,10 @@ export type {
 	AdapterMetadataResult,
 	AdapterResolution,
 	AdapterValidation,
-	BuildCommandOverride,
 	BuildSystem,
 	DetectionSignal,
 	GeneratedWorkflow,
 	PluginAdapter,
 	RepositoryFile,
 	RepositorySnapshot,
-	WorkflowGenerationInput,
 } from './types'

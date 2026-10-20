@@ -2,7 +2,6 @@ import type { PluginAdapter } from '../types'
 import { detectPocketMine } from './detection'
 import { extractPocketMineMetadata } from './metadata'
 import { validatePocketMine } from './validation'
-import { generatePocketMineWorkflow } from './workflow'
 
 export const pocketMineAdapter: PluginAdapter = {
 	id: 'pocketmine-mp',
@@ -11,5 +10,4 @@ export const pocketMineAdapter: PluginAdapter = {
 	detect: detectPocketMine,
 	extractMetadata: extractPocketMineMetadata,
 	validate: validatePocketMine,
-	generateWorkflow: generatePocketMineWorkflow,
 }

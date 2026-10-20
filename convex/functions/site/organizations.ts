@@ -297,54 +297,6 @@ export const confirmLogoUpload = action({
 	},
 })
 
-export const listPublicForSitemap = query({
-	args: {},
-	handler: async (ctx) => {
-		const organizations = getAdapterPage<BetterAuthOrganization>(
-			await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'organization',
-				paginationOpts: { cursor: null, numItems: 1000 },
-			}),
-		)
-		const [profiles, servers, projects] = await Promise.all([
-			ctx.db.query('organizationProfiles').collect(),
-			ctx.db
-				.query('servers')
-				.withIndex('by_status', (q) => q.eq('status', 'published'))
-				.collect(),
-			ctx.db
-				.query('projects')
-				.withIndex('by_status', (q) => q.eq('status', 'published'))
-				.collect(),
-		])
-		const publicOrganizationIds = new Set<string>()
-		for (const profile of profiles) {
-			if (profile.about) {
-				publicOrganizationIds.add(profile.organizationId)
-			}
-		}
-		for (const server of servers) {
-			if (server.ownerType === 'organization') {
-				publicOrganizationIds.add(server.ownerId)
-			}
-		}
-		for (const project of projects) {
-			if (project.ownerType === 'organization' && isPublicProject(project)) {
-				publicOrganizationIds.add(project.ownerId)
-			}
-		}
-
-		return organizations
-			.filter((organization) =>
-				publicOrganizationIds.has(organization._id),
-			)
-			.map((organization) => ({
-				slug: organization.slug,
-				updatedAt: organization.createdAt,
-			}))
-	},
-})
-
 type AdapterResult<T> = {
 	page?: T[]
 	isDone?: boolean

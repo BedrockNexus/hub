@@ -5,7 +5,6 @@ import { validateWorkflowTemplate } from '../../../lib/plugins/adapters/workflow
 import { internalQuery } from '../../_generated/server'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import {
-	isDefaultWorkflowTemplateKey,
 	listResolvedWorkflowTemplates,
 	resolveWorkflowTemplate,
 } from '../../lib/plugins/workflowTemplates'
@@ -27,11 +26,6 @@ const workflowTemplateResultValidator = v.object({
 	buildSystem: buildSystemValidator,
 	label: v.string(),
 	content: v.string(),
-	source: v.union(
-		v.literal('default'),
-		v.literal('override'),
-		v.literal('custom'),
-	),
 	version: v.number(),
 	updatedAt: v.optional(v.number()),
 })
@@ -61,7 +55,7 @@ function validatedLabel(label: string) {
 	return normalized
 }
 
-function customWorkflowKey(
+function workflowKey(
 	label: string,
 	adapterId: 'pocketmine-mp' | 'powernukkitx',
 	buildSystem: 'composer' | 'gradle' | 'maven',
@@ -77,7 +71,7 @@ function customWorkflowKey(
 			message: 'The workflow name must contain letters or numbers.',
 		})
 	}
-	return `custom:${adapterId}:${buildSystem}:${slug}`
+	return `${adapterId}:${buildSystem}:${slug}`
 }
 
 function assertCompatibleBuildSystem(
@@ -117,12 +111,12 @@ export const create = adminMutation({
 		assertCompatibleBuildSystem(args.adapterId, args.buildSystem)
 		const label = validatedLabel(args.label)
 		const content = validatedContent(args.content)
-		const key = customWorkflowKey(label, args.adapterId, args.buildSystem)
+		const key = workflowKey(label, args.adapterId, args.buildSystem)
 		const existing = await ctx.db
 			.query('pluginWorkflowTemplates')
 			.withIndex('by_key', (query) => query.eq('key', key))
 			.unique()
-		if (existing || isDefaultWorkflowTemplateKey(key)) {
+		if (existing) {
 			throw new ConvexError({
 				code: 'WORKFLOW_TEMPLATE_EXISTS',
 				message:
@@ -162,86 +156,36 @@ export const save = adminMutation({
 		version: v.number(),
 	}),
 	handler: async (ctx, args) => {
-		const resolved = await resolveWorkflowTemplate(ctx, args.key)
-		if (!resolved) {
+		const existing = await ctx.db
+			.query('pluginWorkflowTemplates')
+			.withIndex('by_key', (query) => query.eq('key', args.key))
+			.unique()
+		if (!existing) {
 			throw new ConvexError({
 				code: 'WORKFLOW_TEMPLATE_NOT_FOUND',
 				message: 'The workflow template was not found.',
 			})
 		}
 		const content = validatedContent(args.content)
-		const existing = await ctx.db
-			.query('pluginWorkflowTemplates')
-			.withIndex('by_key', (query) => query.eq('key', args.key))
-			.unique()
-		const now = Date.now()
-		const version = existing ? existing.version + 1 : 1
-		if (existing) {
-			await ctx.db.patch('pluginWorkflowTemplates', existing._id, {
-				content,
-				version,
-				updatedBy: ctx.admin._id,
-				updatedAt: now,
-			})
-		} else {
-			await ctx.db.insert('pluginWorkflowTemplates', {
-				key: resolved.key,
-				adapterId: resolved.adapterId,
-				buildSystem: resolved.buildSystem,
-				content,
-				version,
-				updatedBy: ctx.admin._id,
-				createdAt: now,
-				updatedAt: now,
-			})
-		}
+		const version = existing.version + 1
+		await ctx.db.patch('pluginWorkflowTemplates', existing._id, {
+			content,
+			version,
+			updatedBy: ctx.admin._id,
+			updatedAt: Date.now(),
+		})
+		const label = existing.label ?? existing.key
 		await recordAdminAction(ctx, ctx.admin._id, {
 			action: 'pluginWorkflowTemplate.save',
 			targetType: 'pluginWorkflowTemplate',
 			targetId: args.key,
 			changes: {
-				previousState: existing
-					? `version:${existing.version}`
-					: 'default',
+				previousState: `version:${existing.version}`,
 				resultingState: `version:${version}`,
 			},
-			reason: `Saved ${resolved.label} workflow template version ${version}.`,
+			reason: `Saved ${label} workflow template version ${version}.`,
 		})
-		return { key: resolved.key, version }
-	},
-})
-
-export const reset = adminMutation({
-	args: { key: workflowTemplateKeyValidator },
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		if (!isDefaultWorkflowTemplateKey(args.key)) {
-			throw new ConvexError({
-				code: 'WORKFLOW_TEMPLATE_NOT_DEFAULT',
-				message:
-					'Custom workflows can be deleted, but they cannot be restored to a default.',
-			})
-		}
-		const resolved = await resolveWorkflowTemplate(ctx, args.key)
-		const existing = await ctx.db
-			.query('pluginWorkflowTemplates')
-			.withIndex('by_key', (query) => query.eq('key', args.key))
-			.unique()
-		if (!existing) {
-			return null
-		}
-		await ctx.db.delete('pluginWorkflowTemplates', existing._id)
-		await recordAdminAction(ctx, ctx.admin._id, {
-			action: 'pluginWorkflowTemplate.reset',
-			targetType: 'pluginWorkflowTemplate',
-			targetId: args.key,
-			changes: {
-				previousState: `version:${existing.version}`,
-				resultingState: 'default',
-			},
-			reason: `Reset ${resolved?.label ?? args.key} to its code-defined default.`,
-		})
-		return null
+		return { key: existing.key, version }
 	},
 })
 
@@ -249,12 +193,6 @@ export const remove = adminMutation({
 	args: { key: workflowTemplateKeyValidator },
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		if (isDefaultWorkflowTemplateKey(args.key)) {
-			throw new ConvexError({
-				code: 'WORKFLOW_TEMPLATE_PROTECTED',
-				message: 'Code-defined workflows cannot be deleted.',
-			})
-		}
 		const existing = await ctx.db
 			.query('pluginWorkflowTemplates')
 			.withIndex('by_key', (query) => query.eq('key', args.key))

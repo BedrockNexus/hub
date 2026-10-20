@@ -2,7 +2,6 @@ import type { PluginAdapter } from '../types'
 import { detectPowerNukkitX } from './detection'
 import { extractPowerNukkitXMetadata } from './metadata'
 import { validatePowerNukkitX } from './validation'
-import { generatePowerNukkitXWorkflow } from './workflow'
 
 export const powerNukkitXAdapter: PluginAdapter = {
 	id: 'powernukkitx',
@@ -11,5 +10,4 @@ export const powerNukkitXAdapter: PluginAdapter = {
 	detect: detectPowerNukkitX,
 	extractMetadata: extractPowerNukkitXMetadata,
 	validate: validatePowerNukkitX,
-	generateWorkflow: generatePowerNukkitXWorkflow,
 }

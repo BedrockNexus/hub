@@ -88,17 +88,6 @@ export interface AdapterValidation {
 	issues: readonly AdapterIssue[]
 }
 
-export interface BuildCommandOverride {
-	command: string
-	userConfirmed: boolean
-}
-
-export interface WorkflowGenerationInput {
-	metadata: AdapterMetadata
-	defaultBranch: string
-	buildCommandOverride?: BuildCommandOverride
-}
-
 export interface GeneratedWorkflow {
 	path: '.github/workflows/bedrocknexus-publish.yml'
 	content: string
@@ -113,5 +102,4 @@ export interface PluginAdapter {
 	detect(snapshot: RepositorySnapshot): AdapterDetection
 	extractMetadata(snapshot: RepositorySnapshot): AdapterMetadataResult
 	validate(snapshot: RepositorySnapshot): AdapterValidation
-	generateWorkflow(input: WorkflowGenerationInput): GeneratedWorkflow
 }

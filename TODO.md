@@ -39,12 +39,6 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
   one avatar and one logo; production: two avatars). Until it has run, those
   accounts keep their inline picture and show none in creator search.
 
-- [ ] Once the web app whose sitemap reads the `sitemapEntries` queries is
-  live, delete the four queries only the previous sitemap called:
-  `projects/projects:list`, `servers/servers:list` (and `MAX_SCAN` in both
-  files), `site/users:listPublicProfilesForSitemap` and
-  `site/organizations:listPublicForSitemap`.
-
 ## P1 - Public Catalog API
 
 - [ ] Expand the API service into a versioned, read-only public catalog API for

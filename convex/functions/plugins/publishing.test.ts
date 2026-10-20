@@ -3,10 +3,39 @@ import { describe, expect, it, vi } from 'vitest'
 import { createTest } from '../../test.setup'
 import { api, components, internal } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
+import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/adapters/fixtures'
 
 type TestClient = ReturnType<typeof createTest>
 
 const FIXTURE_WORKFLOW_BLOB_SHA = 'fixture-workflow-blob'
+
+/** The workflows these tests select, as an admin would have added them. */
+async function seedWorkflowTemplates(t: TestClient) {
+	await t.run(async (ctx) => {
+		const templates = [
+			['pocketmine-mp:composer', 'pocketmine-mp', 'composer'],
+			['powernukkitx:gradle', 'powernukkitx', 'gradle'],
+		] as const
+		for (const [key, adapterId, buildSystem] of templates) {
+			const existing = await ctx.db
+				.query('pluginWorkflowTemplates')
+				.withIndex('by_key', (q) => q.eq('key', key))
+				.unique()
+			if (existing) continue
+			await ctx.db.insert('pluginWorkflowTemplates', {
+				key,
+				adapterId,
+				buildSystem,
+				label: key,
+				content: TEST_WORKFLOW_TEMPLATE,
+				version: 1,
+				updatedBy: 'admin',
+				createdAt: 1,
+				updatedAt: 1,
+			})
+		}
+	})
+}
 
 /** Evidence that the managed workflow run created the release and asset. */
 function workflowProvenance(assetCreatedAt: number) {
@@ -136,6 +165,7 @@ async function createPublishingFoundation(
 		adapterId,
 		projectType: 'plugin',
 	})
+	await seedWorkflowTemplates(t)
 	await client.mutation(
 		api.functions.plugins.publishing.model.selectWorkflow,
 		{

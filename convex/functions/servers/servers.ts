@@ -48,8 +48,6 @@ type ServerOwnerRef = {
 	registeredBy?: string
 }
 
-// Max items to scan per query — prevents unbounded full-table reads.
-const MAX_SCAN = 1000
 const R2_IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
 
 const serverOwnerStatus = v.union(
@@ -482,67 +480,6 @@ export const getRegions = query({
 	args: {},
 	handler: async (ctx) => {
 		return (await readHomeAggregates(ctx)).regions
-	},
-})
-
-/**
- * List all active servers with optional filtering
- */
-export const list = query({
-	args: {
-		categoryId: v.optional(v.id('serverCategories')),
-		limit: v.optional(v.number()),
-		cursor: v.optional(v.string()),
-	},
-	handler: async (ctx, args) => {
-		const limit = args.limit ?? 20
-
-		const serversQuery = ctx.db
-			.query('servers')
-			.withIndex('by_status', (q) => q.eq('status', 'published'))
-
-		// Categories are not indexed, so a category filter has to scan before
-		// it can limit.
-		const categoryId = args.categoryId
-		const servers = await serversQuery.take(
-			categoryId === undefined ? limit + 1 : MAX_SCAN,
-		)
-		const filteredServers =
-			categoryId === undefined
-				? servers
-				: servers.filter((s) => s.categoryIds.includes(categoryId))
-
-		// Get categories and stats for each server
-		const serversWithCategories = await Promise.all(
-			filteredServers.slice(0, limit).map(async (server) => {
-				const categories = await Promise.all(
-					server.categoryIds.map((id) => ctx.db.get(id)),
-				)
-
-				// Get serverStats
-				const stats = await ctx.db
-					.query('serverStats')
-					.withIndex('by_server', (q) => q.eq('serverId', server._id))
-					.first()
-
-				const logoUrl = await resolveServerLogoUrl(server)
-				const bannerUrl = await resolveServerBannerUrl(server)
-
-				return {
-					...server,
-					logoUrl,
-					bannerUrl,
-					categories: categories.filter(Boolean),
-					averageRating: stats?.averageRating ?? 0,
-					reviewCount: stats?.reviewCount ?? 0,
-				}
-			}),
-		)
-
-		return {
-			servers: serversWithCategories,
-			hasMore: filteredServers.length > limit,
-		}
 	},
 })
 

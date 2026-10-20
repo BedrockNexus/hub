@@ -586,6 +586,13 @@ export function ProjectWorkflowManager({
 				<CardContent className="space-y-5">
 					<div className="space-y-3">
 						<Label>Publishing workflow</Label>
+						{workflows.length === 0 ? (
+							<p className="rounded-md border border-dashed p-4 text-muted-foreground text-sm">
+								No publishing workflow is available for this
+								server software yet. Bedrock Nexus admins add
+								them; check back soon.
+							</p>
+						) : null}
 						<div className="grid gap-3 sm:grid-cols-2">
 							{workflows.map((workflow) => {
 								const isSelected =
@@ -625,8 +632,7 @@ export function ProjectWorkflowManager({
 													: 'mt-1 block text-muted-foreground text-xs'
 											}
 										>
-											{workflow.buildSystem} ·{' '}
-											{workflow.source} · v
+											{workflow.buildSystem} · v
 											{workflow.version}
 										</span>
 									</button>

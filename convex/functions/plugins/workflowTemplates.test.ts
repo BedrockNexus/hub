@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createTest } from '../../test.setup'
-import { getDefaultWorkflowTemplate } from '../../../lib/plugins/adapters/workflow-templates'
+import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/adapters/fixtures'
 import { api, components } from '../../_generated/api'
 
 async function insertUser(
@@ -36,144 +36,137 @@ async function insertUser(
 			},
 		},
 	})
-	return { subject, sessionId: session._id as string }
+	return t.withIdentity({
+		subject,
+		sessionId: session._id as string,
+		tokenIdentifier: `https://convex.test|${subject}`,
+	})
+}
+
+async function workflowAudit(
+	t: ReturnType<typeof createTest>,
+	key: string,
+) {
+	return await t.run((ctx) =>
+		ctx.db
+			.query('adminActions')
+			.withIndex('by_targetType_and_targetId', (query) =>
+				query
+					.eq('targetType', 'pluginWorkflowTemplate')
+					.eq('targetId', key),
+			)
+			.take(10),
+	)
 }
 
 describe('admin-managed workflow templates', () => {
-	it('allows only admins to save validated templates and records the audit action', async () => {
+	it('starts empty: no workflow ships with the code', async () => {
+		const t = createTest()
+		const admin = await insertUser(t, 'empty-admin', 'admin')
+
+		expect(
+			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
+		).toEqual([])
+	})
+
+	it('lets only admins add, edit and delete workflows, and audits each change', async () => {
 		const t = createTest()
 		const developer = await insertUser(t, 'workflow-developer', 'user')
-		const adminUser = await insertUser(t, 'workflow-admin', 'admin')
-		const developerSubject = developer.subject
-		const adminSubject = adminUser.subject
-		const developerToken = `https://convex.test|${developerSubject}`
-		const adminToken = `https://convex.test|${adminSubject}`
-		const developerClient = t.withIdentity({
-			subject: developerSubject,
-			sessionId: developer.sessionId,
-			tokenIdentifier: developerToken,
-		})
-		const admin = t.withIdentity({
-			subject: adminSubject,
-			sessionId: adminUser.sessionId,
-			tokenIdentifier: adminToken,
-		})
-		const content = `${getDefaultWorkflowTemplate('pocketmine-mp:composer')}\n# Admin revision\n`
+		const admin = await insertUser(t, 'workflow-admin', 'admin')
+		const create = {
+			label: 'PocketMine-MP Composer',
+			adapterId: 'pocketmine-mp' as const,
+			buildSystem: 'composer' as const,
+			content: TEST_WORKFLOW_TEMPLATE,
+		}
 
 		await expect(
-			developerClient.mutation(
-				api.functions.plugins.workflowTemplates.save,
-				{
-					key: 'pocketmine-mp:composer',
-					content,
-				},
+			developer.mutation(
+				api.functions.plugins.workflowTemplates.create,
+				create,
 			),
 		).rejects.toThrow('Admin role required')
 
-		await expect(
-			admin.mutation(api.functions.plugins.workflowTemplates.save, {
-				key: 'pocketmine-mp:composer',
-				content,
-			}),
-		).resolves.toEqual({ key: 'pocketmine-mp:composer', version: 1 })
-
-		const templates = await admin.query(
-			api.functions.plugins.workflowTemplates.list,
-			{},
-		)
-		expect(
-			templates.find(
-				(template) => template.key === 'pocketmine-mp:composer',
-			),
-		).toMatchObject({
-			content,
-			source: 'override',
-			version: 1,
-		})
-		const auditActions = await t.run((ctx) =>
-			ctx.db
-				.query('adminActions')
-				.withIndex('by_targetType_and_targetId', (query) =>
-					query
-						.eq('targetType', 'pluginWorkflowTemplate')
-						.eq('targetId', 'pocketmine-mp:composer'),
-				)
-				.take(10),
-		)
-		expect(auditActions).toHaveLength(1)
-		expect(auditActions[0]).toMatchObject({
-			action: 'pluginWorkflowTemplate.save',
-			changes: { previousState: 'default', resultingState: 'version:1' },
-		})
-	})
-
-	it('rejects invalid workflow content before persistence', async () => {
-		const t = createTest()
-		const adminUser = await insertUser(t, 'invalid-workflow-admin', 'admin')
-		const adminSubject = adminUser.subject
-		const adminToken = `https://convex.test|${adminSubject}`
-		const admin = t.withIdentity({
-			subject: adminSubject,
-			sessionId: adminUser.sessionId,
-			tokenIdentifier: adminToken,
-		})
-
-		await expect(
-			admin.mutation(api.functions.plugins.workflowTemplates.save, {
-				key: 'powernukkitx:gradle',
-				content: 'name: unsafe',
-			}),
-		).rejects.toThrow('must include {{package_name}}')
-	})
-
-	it('lets admins add and remove custom publisher-selectable workflows', async () => {
-		const t = createTest()
-		const adminUser = await insertUser(t, 'custom-workflow-admin', 'admin')
-		const adminSubject = adminUser.subject
-		const admin = t.withIdentity({
-			subject: adminSubject,
-			sessionId: adminUser.sessionId,
-			tokenIdentifier: `https://convex.test|${adminSubject}`,
-		})
-		const content = `${getDefaultWorkflowTemplate('powernukkitx:gradle')}\n# Runs tests first\n`
-
 		const created = await admin.mutation(
 			api.functions.plugins.workflowTemplates.create,
-			{
-				label: 'PowerNukkitX Gradle with tests',
-				adapterId: 'powernukkitx',
-				buildSystem: 'gradle',
-				content,
-			},
+			create,
 		)
 		expect(created).toEqual({
-			key: 'custom:powernukkitx:gradle:powernukkitx-gradle-with-tests',
+			key: 'pocketmine-mp:composer:pocketmine-mp-composer',
 			version: 1,
 		})
+		await expect(
+			admin.mutation(api.functions.plugins.workflowTemplates.create, create),
+		).rejects.toThrow('already exists')
 
-		const templates = await admin.query(
-			api.functions.plugins.workflowTemplates.list,
-			{},
-		)
+		const revised = `${TEST_WORKFLOW_TEMPLATE}\n# Admin revision\n`
+		await expect(
+			developer.mutation(api.functions.plugins.workflowTemplates.save, {
+				key: created.key,
+				content: revised,
+			}),
+		).rejects.toThrow('Admin role required')
+		await expect(
+			admin.mutation(api.functions.plugins.workflowTemplates.save, {
+				key: created.key,
+				content: revised,
+			}),
+		).resolves.toEqual({ key: created.key, version: 2 })
+
 		expect(
-			templates.find((template) => template.key === created.key),
-		).toMatchObject({
-			label: 'PowerNukkitX Gradle with tests',
-			adapterId: 'powernukkitx',
-			buildSystem: 'gradle',
-			source: 'custom',
-			content,
-		})
+			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
+		).toMatchObject([
+			{
+				key: created.key,
+				label: 'PocketMine-MP Composer',
+				adapterId: 'pocketmine-mp',
+				buildSystem: 'composer',
+				content: revised,
+				version: 2,
+			},
+		])
 
 		await admin.mutation(api.functions.plugins.workflowTemplates.remove, {
 			key: created.key,
 		})
+		expect(
+			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
+		).toEqual([])
+		expect(
+			(await workflowAudit(t, created.key)).map((entry) => entry.action),
+		).toEqual([
+			'pluginWorkflowTemplate.create',
+			'pluginWorkflowTemplate.save',
+			'pluginWorkflowTemplate.delete',
+		])
+	})
+
+	it('refuses to edit a workflow that does not exist', async () => {
+		const t = createTest()
+		const admin = await insertUser(t, 'missing-workflow-admin', 'admin')
+
 		await expect(
-			admin.query(api.functions.plugins.workflowTemplates.list, {}),
-		).resolves.not.toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ key: created.key }),
-			]),
-		)
+			admin.mutation(api.functions.plugins.workflowTemplates.save, {
+				key: 'pocketmine-mp:composer',
+				content: TEST_WORKFLOW_TEMPLATE,
+			}),
+		).rejects.toThrow('not found')
+	})
+
+	it('rejects invalid workflow content before saving', async () => {
+		const t = createTest()
+		const admin = await insertUser(t, 'invalid-workflow-admin', 'admin')
+
+		await expect(
+			admin.mutation(api.functions.plugins.workflowTemplates.create, {
+				label: 'Unsafe workflow',
+				adapterId: 'powernukkitx',
+				buildSystem: 'gradle',
+				content: 'name: unsafe',
+			}),
+		).rejects.toThrow('must include {{package_name}}')
+		expect(
+			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
+		).toEqual([])
 	})
 })

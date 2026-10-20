@@ -3,7 +3,6 @@
 import {
 	Add01Icon,
 	Delete02Icon,
-	RefreshIcon,
 	WorkflowSquare01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -66,9 +65,6 @@ export function WorkflowTemplateEditor() {
 	const saveTemplate = useMutation(
 		api.functions.plugins.workflowTemplates.save,
 	)
-	const resetTemplate = useMutation(
-		api.functions.plugins.workflowTemplates.reset,
-	)
 	const removeTemplate = useMutation(
 		api.functions.plugins.workflowTemplates.remove,
 	)
@@ -94,7 +90,7 @@ export function WorkflowTemplateEditor() {
 		setContent(selected.content)
 	}, [adding, selected])
 
-	if (auth.isLoading || templates === undefined || !selected) {
+	if (auth.isLoading || templates === undefined) {
 		return (
 			<p className="text-muted-foreground text-sm">
 				Loading workflow templates…
@@ -102,13 +98,14 @@ export function WorkflowTemplateEditor() {
 		)
 	}
 
+	// A new workflow starts as a copy of an existing one for the same software
+	// and build system, when there is one.
 	function starterContent(adapterId: AdapterId, buildSystem: BuildSystem) {
 		return (
 			templates?.find(
 				(template) =>
 					template.adapterId === adapterId &&
-					template.buildSystem === buildSystem &&
-					template.source !== 'custom',
+					template.buildSystem === buildSystem,
 			)?.content ?? ''
 		)
 	}
@@ -143,7 +140,7 @@ export function WorkflowTemplateEditor() {
 		}))
 	}
 
-	const changed = content !== selected.content
+	const changed = selected ? content !== selected.content : false
 	const contentError = getWorkflowTemplateValidationError(content)
 	const newWorkflowError = getWorkflowTemplateValidationError(
 		newWorkflow.content,
@@ -162,7 +159,8 @@ export function WorkflowTemplateEditor() {
 					<CardTitle>Workflow variants</CardTitle>
 					<CardDescription>
 						Publishers choose from these validated workflows for
-						compatible projects.
+						compatible projects. A server software without one
+						cannot be published for.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-2">
@@ -177,7 +175,7 @@ export function WorkflowTemplateEditor() {
 					{templates.map((template) => (
 						<button
 							className={
-								!adding && template.key === selected.key
+								!adding && template.key === selected?.key
 									? 'flex w-full flex-col rounded-md bg-primary p-3 text-left text-primary-foreground'
 									: 'flex w-full flex-col rounded-md border p-3 text-left hover:bg-muted'
 							}
@@ -194,13 +192,13 @@ export function WorkflowTemplateEditor() {
 							</span>
 							<span
 								className={
-									!adding && template.key === selected.key
+									!adding && template.key === selected?.key
 										? 'mt-1 text-primary-foreground/80 text-xs'
 										: 'mt-1 text-muted-foreground text-xs'
 								}
 							>
-								{template.buildSystem} · {template.source} ·
-								version {template.version}
+								{template.buildSystem} · version{' '}
+								{template.version}
 							</span>
 						</button>
 					))}
@@ -340,9 +338,9 @@ export function WorkflowTemplateEditor() {
 								<code className="text-foreground">
 									{'{{package_name}}'}
 								</code>{' '}
-								placeholder and pass the same permission,
-								trigger, secret, and runner checks as the
-								built-in workflows.
+								placeholder and pass the permission, trigger,
+								secret, and runner checks every workflow must
+								pass.
 							</div>
 							<div className="flex justify-end gap-2">
 								<Button
@@ -371,7 +369,7 @@ export function WorkflowTemplateEditor() {
 						</form>
 					</CardContent>
 				</Card>
-			) : (
+			) : selected ? (
 				<Card className="shadow-none">
 					<CardHeader>
 						<div className="flex flex-wrap items-start justify-between gap-3">
@@ -382,14 +380,7 @@ export function WorkflowTemplateEditor() {
 									installs or updates this workflow.
 								</CardDescription>
 							</div>
-							<div className="flex gap-2">
-								<Badge variant="outline">
-									{selected.source}
-								</Badge>
-								<Badge variant="outline">
-									v{selected.version}
-								</Badge>
-							</div>
+							<Badge variant="outline">v{selected.version}</Badge>
 						</div>
 					</CardHeader>
 					<CardContent className="space-y-4">
@@ -414,69 +405,37 @@ export function WorkflowTemplateEditor() {
 							permissions before saving.
 						</div>
 						<div className="flex flex-wrap justify-end gap-2">
-							{selected.source === 'custom' ? (
-								<Button
-									disabled={busy}
-									onClick={async () => {
-										if (
-											!window.confirm(
-												`Delete "${selected.label}"? It will no longer be available to publishers.`,
-											)
-										) {
-											return
-										}
-										setBusy(true)
-										try {
-											await removeTemplate({
-												key: selected.key,
-											})
-											setSelectedKey('')
-											toast.success(
-												'Custom workflow deleted.',
-											)
-										} catch (error) {
-											toast.error(errorMessage(error))
-										} finally {
-											setBusy(false)
-										}
-									}}
-									variant="destructive"
-								>
-									<HugeiconsIcon
-										className="size-4"
-										icon={Delete02Icon}
-									/>
-									Delete workflow
-								</Button>
-							) : (
-								<Button
-									disabled={
-										busy || selected.source === 'default'
+							<Button
+								disabled={busy}
+								onClick={async () => {
+									if (
+										!window.confirm(
+											`Delete "${selected.label}"? It will no longer be available to publishers.`,
+										)
+									) {
+										return
 									}
-									onClick={async () => {
-										setBusy(true)
-										try {
-											await resetTemplate({
-												key: selected.key,
-											})
-											toast.success(
-												'Workflow restored to the code-defined default.',
-											)
-										} catch (error) {
-											toast.error(errorMessage(error))
-										} finally {
-											setBusy(false)
-										}
-									}}
-									variant="outline"
-								>
-									<HugeiconsIcon
-										className="size-4"
-										icon={RefreshIcon}
-									/>
-									Restore default
-								</Button>
-							)}
+									setBusy(true)
+									try {
+										await removeTemplate({
+											key: selected.key,
+										})
+										setSelectedKey('')
+										toast.success('Workflow deleted.')
+									} catch (error) {
+										toast.error(errorMessage(error))
+									} finally {
+										setBusy(false)
+									}
+								}}
+								variant="destructive"
+							>
+								<HugeiconsIcon
+									className="size-4"
+									icon={Delete02Icon}
+								/>
+								Delete workflow
+							</Button>
 							<Button
 								disabled={
 									busy || !changed || contentError !== null
@@ -501,6 +460,26 @@ export function WorkflowTemplateEditor() {
 								Save workflow
 							</Button>
 						</div>
+					</CardContent>
+				</Card>
+			) : (
+				<Card className="shadow-none">
+					<CardHeader>
+						<CardTitle>No publishing workflows yet</CardTitle>
+						<CardDescription>
+							Add one for each server software and build system
+							publishers can use. Until then nobody can publish a
+							plugin for it.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<Button onClick={beginAdding}>
+							<HugeiconsIcon
+								className="size-4"
+								icon={Add01Icon}
+							/>
+							Add workflow
+						</Button>
 					</CardContent>
 				</Card>
 			)}

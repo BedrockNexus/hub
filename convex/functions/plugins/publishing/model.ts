@@ -309,11 +309,6 @@ export const listAvailableWorkflows = authedQuery({
 				v.literal('maven'),
 			),
 			label: v.string(),
-			source: v.union(
-				v.literal('default'),
-				v.literal('override'),
-				v.literal('custom'),
-			),
 			version: v.number(),
 		}),
 	),
@@ -324,12 +319,11 @@ export const listAvailableWorkflows = authedQuery({
 			draft.adapterId,
 		)
 		return templates.map(
-			({ key, adapterId, buildSystem, label, source, version }) => ({
+			({ key, adapterId, buildSystem, label, version }) => ({
 				key,
 				adapterId,
 				buildSystem,
 				label,
-				source,
 				version,
 			}),
 		)

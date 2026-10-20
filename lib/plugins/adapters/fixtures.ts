@@ -157,3 +157,45 @@ export const ambiguousFixture = createRepositorySnapshot(
 	'main',
 	[...pocketMineFixture.files, ...powerNukkitGradleFixture.files],
 )
+
+/**
+ * Tests only. A minimal workflow template that passes every check; the real
+ * publishing workflows are written by admins and stored in the database.
+ */
+export const TEST_WORKFLOW_TEMPLATE = `name: BedrockNexus Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p dist && touch dist/{{package_name}}.phar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-package
+          path: dist/{{package_name}}.phar
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-package
+          path: dist
+      - env:
+          GH_TOKEN: \${{ github.token }}
+        run: gh release create "\${GITHUB_REF_NAME}" dist/{{package_name}}.phar --verify-tag
+`

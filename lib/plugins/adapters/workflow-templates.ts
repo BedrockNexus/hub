@@ -1,108 +1,15 @@
 import { parse } from 'yaml'
 
-import { generatePocketMineWorkflow } from './pocketmine-mp/workflow'
-import { generatePowerNukkitXWorkflow } from './powernukkitx/workflow'
-import type {
-	AdapterId,
-	AdapterMetadata,
-	BuildSystem,
-	GeneratedWorkflow,
-} from './types'
+import type { GeneratedWorkflow } from './types'
 import { assertValidGeneratedWorkflow, WORKFLOW_PATH } from './workflow'
 
-export const WORKFLOW_TEMPLATE_KEYS = [
-	'pocketmine-mp:composer',
-	'powernukkitx:gradle',
-	'powernukkitx:maven',
-] as const
+/**
+ * Publishing workflows are written and versioned by admins in the workflow
+ * editor (/admin/plugins/workflows) and stored in `pluginWorkflowTemplates`.
+ * None ship with the code; this module only renders and checks them.
+ */
 
-export type WorkflowTemplateKey = (typeof WORKFLOW_TEMPLATE_KEYS)[number]
-
-export interface WorkflowTemplateDescriptor {
-	key: WorkflowTemplateKey
-	adapterId: AdapterId
-	adapterName: string
-	buildSystem: BuildSystem
-	label: string
-}
-
-const PACKAGE_SENTINEL = 'BEDROCKNEXUS_PACKAGE_NAME'
 export const PACKAGE_NAME_PLACEHOLDER = '{{package_name}}'
-
-export const WORKFLOW_TEMPLATE_DESCRIPTORS: readonly WorkflowTemplateDescriptor[] =
-	[
-		{
-			key: 'pocketmine-mp:composer',
-			adapterId: 'pocketmine-mp',
-			adapterName: 'PocketMine-MP',
-			buildSystem: 'composer',
-			label: 'PocketMine-MP · Composer',
-		},
-		{
-			key: 'powernukkitx:gradle',
-			adapterId: 'powernukkitx',
-			adapterName: 'PowerNukkitX',
-			buildSystem: 'gradle',
-			label: 'PowerNukkitX · Gradle',
-		},
-		{
-			key: 'powernukkitx:maven',
-			adapterId: 'powernukkitx',
-			adapterName: 'PowerNukkitX',
-			buildSystem: 'maven',
-			label: 'PowerNukkitX · Maven',
-		},
-	]
-
-function metadataFor(buildSystem: BuildSystem): AdapterMetadata {
-	return {
-		name: PACKAGE_SENTINEL,
-		version: '0.0.0',
-		authors: [],
-		apiVersions: [],
-		mainClass: 'BedrockNexus\\WorkflowTemplate',
-		buildSystem,
-	}
-}
-
-export function getWorkflowTemplateDescriptor(key: WorkflowTemplateKey) {
-	const descriptor = WORKFLOW_TEMPLATE_DESCRIPTORS.find(
-		(item) => item.key === key,
-	)
-	if (!descriptor) {
-		throw new Error(`Unknown workflow template: ${key}`)
-	}
-	return descriptor
-}
-
-export function getWorkflowTemplateKey(
-	adapterId: AdapterId,
-	buildSystem: BuildSystem,
-) {
-	const descriptor = WORKFLOW_TEMPLATE_DESCRIPTORS.find(
-		(item) =>
-			item.adapterId === adapterId && item.buildSystem === buildSystem,
-	)
-	if (!descriptor) {
-		throw new Error(
-			`${adapterId} does not support the ${buildSystem} build system.`,
-		)
-	}
-	return descriptor.key
-}
-
-export function getDefaultWorkflowTemplate(key: WorkflowTemplateKey) {
-	const descriptor = getWorkflowTemplateDescriptor(key)
-	const metadata = metadataFor(descriptor.buildSystem)
-	const workflow =
-		descriptor.adapterId === 'pocketmine-mp'
-			? generatePocketMineWorkflow({ metadata, defaultBranch: 'main' })
-			: generatePowerNukkitXWorkflow({ metadata, defaultBranch: 'main' })
-	return workflow.content.replaceAll(
-		PACKAGE_SENTINEL,
-		PACKAGE_NAME_PLACEHOLDER,
-	)
-}
 
 export function renderWorkflowTemplate(
 	content: string,

@@ -1,18 +1,17 @@
-import {
-	getDefaultWorkflowTemplate,
-	getWorkflowTemplateDescriptor,
-	WORKFLOW_TEMPLATE_DESCRIPTORS,
-	WORKFLOW_TEMPLATE_KEYS,
-	type WorkflowTemplateKey,
-} from '../../../lib/plugins/adapters/workflow-templates'
 import type { Doc } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
+
+/**
+ * Publishing workflows live only in `pluginWorkflowTemplates`: admins add,
+ * edit and delete them at /admin/plugins/workflows, and no workflow ships with
+ * the code. A server software has no publishing workflow until an admin adds
+ * one for it.
+ */
 
 type DatabaseCtx = QueryCtx | MutationCtx
 
 export type WorkflowAdapterId = 'pocketmine-mp' | 'powernukkitx'
 export type WorkflowBuildSystem = 'composer' | 'gradle' | 'maven'
-export type WorkflowTemplateSource = 'default' | 'override' | 'custom'
 
 export type ResolvedWorkflowTemplate = {
 	key: string
@@ -20,35 +19,13 @@ export type ResolvedWorkflowTemplate = {
 	buildSystem: WorkflowBuildSystem
 	label: string
 	content: string
-	source: WorkflowTemplateSource
 	version: number
 	updatedAt?: number
 }
 
-export function isDefaultWorkflowTemplateKey(
-	key: string,
-): key is WorkflowTemplateKey {
-	return (WORKFLOW_TEMPLATE_KEYS as readonly string[]).includes(key)
-}
+const TEMPLATE_LIMIT = 200
 
-function resolveDefaultTemplate(
-	key: WorkflowTemplateKey,
-	override?: Doc<'pluginWorkflowTemplates'>,
-): ResolvedWorkflowTemplate {
-	const descriptor = getWorkflowTemplateDescriptor(key)
-	return {
-		key,
-		adapterId: descriptor.adapterId,
-		buildSystem: descriptor.buildSystem,
-		label: descriptor.label,
-		content: override?.content ?? getDefaultWorkflowTemplate(key),
-		source: override ? 'override' : 'default',
-		version: override?.version ?? 1,
-		updatedAt: override?.updatedAt,
-	}
-}
-
-function resolveCustomTemplate(
+function toResolved(
 	template: Doc<'pluginWorkflowTemplates'>,
 ): ResolvedWorkflowTemplate {
 	return {
@@ -57,7 +34,6 @@ function resolveCustomTemplate(
 		buildSystem: template.buildSystem,
 		label: template.label ?? template.key,
 		content: template.content,
-		source: 'custom',
 		version: template.version,
 		updatedAt: template.updatedAt,
 	}
@@ -67,16 +43,11 @@ export async function listResolvedWorkflowTemplates(
 	ctx: DatabaseCtx,
 	adapterId?: WorkflowAdapterId,
 ) {
-	const stored = await ctx.db.query('pluginWorkflowTemplates').take(200)
-	const byKey = new Map(stored.map((template) => [template.key, template]))
-	const defaults = WORKFLOW_TEMPLATE_DESCRIPTORS.map((descriptor) =>
-		resolveDefaultTemplate(descriptor.key, byKey.get(descriptor.key)),
-	)
-	const custom = stored
-		.filter((template) => !isDefaultWorkflowTemplateKey(template.key))
-		.map(resolveCustomTemplate)
-
-	return [...defaults, ...custom]
+	const stored = await ctx.db
+		.query('pluginWorkflowTemplates')
+		.take(TEMPLATE_LIMIT)
+	return stored
+		.map(toResolved)
 		.filter((template) => !adapterId || template.adapterId === adapterId)
 		.sort(
 			(left, right) =>
@@ -91,9 +62,5 @@ export async function resolveWorkflowTemplate(ctx: DatabaseCtx, key: string) {
 		.query('pluginWorkflowTemplates')
 		.withIndex('by_key', (query) => query.eq('key', key))
 		.unique()
-
-	if (isDefaultWorkflowTemplateKey(key)) {
-		return resolveDefaultTemplate(key, stored ?? undefined)
-	}
-	return stored ? resolveCustomTemplate(stored) : null
+	return stored ? toResolved(stored) : null
 }

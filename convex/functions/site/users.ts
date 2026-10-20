@@ -245,58 +245,6 @@ export const getMyProfile = query({
 	},
 })
 
-export const listPublicProfilesForSitemap = query({
-	args: {
-		limit: v.optional(v.number()),
-	},
-	handler: async (ctx, args) => {
-		const limit = Math.min(args.limit ?? 1000, 1000)
-		const users = getAdapterPage<BetterAuthUser>(
-			await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'user',
-				paginationOpts: { cursor: null, numItems: limit },
-				sortBy: { field: 'updatedAt', direction: 'desc' },
-			}),
-		)
-
-		const [publishedServers, publishedProjects] = await Promise.all([
-			ctx.db
-				.query('servers')
-				.withIndex('by_status', (q) => q.eq('status', 'published'))
-				.collect(),
-			ctx.db
-				.query('projects')
-				.withIndex('by_status', (q) => q.eq('status', 'published'))
-				.collect(),
-		])
-
-		const userIdsWithPublicContent = new Set<string>()
-		for (const server of publishedServers) {
-			if (server.ownerType === 'user') {
-				userIdsWithPublicContent.add(server.ownerId)
-			}
-			userIdsWithPublicContent.add(server.registeredBy)
-		}
-		for (const project of publishedProjects) {
-			if (isPublicProject(project) && project.ownerType === 'user') {
-				userIdsWithPublicContent.add(project.ownerId)
-			}
-		}
-
-		return users
-			.filter(
-				(user) =>
-					!!user.username &&
-					!user.banned &&
-					userIdsWithPublicContent.has(user._id),
-			)
-			.map((user) => ({
-				username: user.username as string,
-				updatedAt: user.updatedAt,
-			}))
-	},
-})
-
 /**
  * List users for admin account and support workflows.
  */
