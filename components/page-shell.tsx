@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -6,7 +5,6 @@ interface PageShellProps {
 	actions?: ReactNode
 	/** Content under the title inside the header band, e.g. a search field. */
 	headerContent?: ReactNode
-	breadcrumb?: { href: string; label: string }[]
 	children: ReactNode
 	className?: string
 	description: ReactNode
@@ -19,7 +17,6 @@ interface PageShellProps {
 export function PageShell({
 	actions,
 	headerContent,
-	breadcrumb,
 	children,
 	className,
 	description,
@@ -30,30 +27,6 @@ export function PageShell({
 		<main className="flex flex-1 flex-col">
 			<header className="border-b bg-surface-sunken">
 				<div className="container mx-auto flex flex-col gap-4.5 px-4 pt-10 pb-8 md:px-6">
-					{breadcrumb ? (
-						<nav
-							aria-label="Breadcrumb"
-							className="flex gap-2 text-sm"
-						>
-							{breadcrumb.map((item) => (
-								<span className="flex gap-2" key={item.href}>
-									<Link
-										className="text-muted-foreground hover:text-foreground"
-										href={item.href}
-									>
-										{item.label}
-									</Link>
-									<span
-										aria-hidden
-										className="text-muted-foreground"
-									>
-										/
-									</span>
-								</span>
-							))}
-							<span aria-current="page">{title}</span>
-						</nav>
-					) : null}
 					<div className="flex flex-wrap items-end justify-between gap-4">
 						<div className="flex items-center gap-4">
 							{media}

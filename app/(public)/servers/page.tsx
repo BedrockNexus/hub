@@ -168,7 +168,6 @@ function ServersDirectory() {
 					List your server
 				</Link>
 			}
-			breadcrumb={[{ href: '/', label: 'Home' }]}
 			description={
 				stats
 					? `${stats.servers.toLocaleString()} servers, ${stats.onlinePlayers.toLocaleString()} players online right now.`

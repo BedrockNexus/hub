@@ -64,16 +64,9 @@ export function PluginAvatar({
 	className?: string
 }) {
 	return (
-		<Avatar
-			className={cn(
-				'tile-bevel size-12 rounded-sm bg-stone after:rounded-sm',
-				className,
-			)}
-		>
-			{avatarUrl ? (
-				<AvatarImage alt="" className="rounded-none" src={avatarUrl} />
-			) : null}
-			<AvatarFallback className="rounded-none bg-stone font-bold font-display text-lg text-white">
+		<Avatar className={cn('tile-bevel size-12 bg-stone', className)}>
+			{avatarUrl ? <AvatarImage alt="" src={avatarUrl} /> : null}
+			<AvatarFallback className="bg-stone font-bold font-display text-lg text-white">
 				{name.slice(0, 1).toUpperCase()}
 			</AvatarFallback>
 		</Avatar>

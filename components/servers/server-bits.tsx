@@ -142,7 +142,7 @@ export function LogoTile({
 	return (
 		<div
 			className={cn(
-				'tile-bevel relative grid shrink-0 place-items-center overflow-hidden rounded-sm bg-stone font-bold font-display text-white',
+				'tile-bevel relative grid shrink-0 place-items-center overflow-hidden rounded-md bg-stone font-bold font-display text-white',
 				className,
 			)}
 			style={{ width: size, height: size, fontSize: size / 2 }}

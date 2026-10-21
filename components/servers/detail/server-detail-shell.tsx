@@ -23,10 +23,6 @@ import {
 	SideCard,
 } from '@/components/detail/detail-parts'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
-import {
-	FavouriteButton,
-	ShareButton,
-} from '@/components/detail/public-actions'
 import { OwnerCard } from '@/components/owner/owner-card'
 import { ServerAbout } from '@/components/servers/detail/server-about'
 import { ServerReviews } from '@/components/servers/detail/server-reviews'
@@ -154,12 +150,6 @@ function ServerHero({ server, status, online }: ServerPartProps) {
 						<HugeiconsIcon icon={PlayIcon} />
 						Add to Minecraft
 					</a>
-					<FavouriteButton
-						size="xl"
-						targetId={server._id}
-						targetType="server"
-					/>
-					<ShareButton size="xl" title={server.name} />
 				</div>
 
 				<div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-muted-foreground text-sm">

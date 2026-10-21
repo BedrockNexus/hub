@@ -20,9 +20,8 @@ import type { Doc, Id } from '../../_generated/dataModel'
 /**
  * Plugin icons live in the public R2 bucket under the plugin's draft:
  * generateUploadUrl, a direct PUT from the browser, then confirmUpload checks
- * the file and saves its CDN URL. Like the other details, a published plugin
- * shows a new icon once its next version is approved
- * (publishing/model:finishPublishing); until then only the draft has it.
+ * the file and saves its CDN URL. The icon shows on the plugin page at once,
+ * like project and server icons.
  */
 
 // The browser resizes icons to 256px before uploading; this is generous.
@@ -105,10 +104,7 @@ export const setIcon = internalMutation({
 	},
 })
 
-/**
- * Sets the draft's icon, and the plugin's too while it is unpublished. Deletes
- * the replaced upload unless the published plugin still shows it.
- */
+/** Sets the icon on the draft and the plugin, deleting the replaced upload. */
 async function replaceIcon(
 	ctx: MutationCtx,
 	draft: Doc<'pluginPublishingDrafts'>,
@@ -122,17 +118,17 @@ async function replaceIcon(
 		iconUrl,
 		updatedAt: now,
 	})
-	if (project && project.status !== 'published') {
-		await ctx.db.patch('plugins', project._id, { iconUrl, updatedAt: now })
+	if (project) {
+		await ctx.db.patch('plugins', project._id, { iconUrl })
 		const updated = await ctx.db.get('plugins', project._id)
 		if (updated) {
 			await replaceProjectAggregates(ctx, project, updated)
 		}
 	}
-	const stillShown =
-		project?.status === 'published' && project.iconUrl === draft.iconUrl
-	if (draft.iconUrl && draft.iconUrl !== iconUrl && !stillShown) {
-		await deleteIcon(ctx, draft._id, draft.iconUrl)
+	for (const replaced of new Set([draft.iconUrl, project?.iconUrl])) {
+		if (replaced && replaced !== iconUrl) {
+			await deleteIcon(ctx, draft._id, replaced)
+		}
 	}
 }
 

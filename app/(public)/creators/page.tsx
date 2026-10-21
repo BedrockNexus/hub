@@ -21,7 +21,6 @@ export default async function CreatorsPage() {
 
 	return (
 		<PageShell
-			breadcrumb={[{ href: '/', label: 'Home' }]}
 			description="The people behind the addons, packs and servers on Bedrock Nexus."
 			title="Creators"
 		>

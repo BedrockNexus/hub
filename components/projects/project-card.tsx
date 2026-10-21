@@ -60,7 +60,7 @@ export function ProjectCard({ content: item }: ProjectCardProps) {
 
 	return (
 		<article className="relative flex h-full gap-4 rounded-md border bg-card p-4.5 transition-colors focus-within:border-ember hover:border-ember">
-			<div className="tile-bevel relative grid size-18 shrink-0 place-items-center overflow-hidden rounded-sm bg-stone text-white">
+			<div className="tile-bevel relative grid size-18 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
 				{item.iconUrl ? (
 					<Image
 						alt=""

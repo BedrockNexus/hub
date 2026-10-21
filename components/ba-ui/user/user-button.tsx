@@ -137,7 +137,7 @@ export function UserButton({
           size === "icon" ? (
             <Button
               variant={variant}
-              className={cn("rounded-full", className)}
+              className={cn("rounded-md", className)}
               size="icon"
             >
               <UserAvatar />

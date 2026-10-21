@@ -58,7 +58,7 @@ export function UserAvatar({
   const avatarImageSrc = directImage ?? undefined
 
   if ((isPending || sessionPending) && !user) {
-    return <Skeleton className={cn("size-8 rounded-full", className)} />
+    return <Skeleton className={cn("size-8 rounded-md", className)} />
   }
 
   const initials = (
@@ -72,7 +72,7 @@ export function UserAvatar({
   return (
     <Avatar
       className={cn(
-        "size-8 bg-muted text-foreground text-sm rounded-full",
+        "size-8 bg-muted text-foreground text-sm rounded-md",
         className
       )}
     >

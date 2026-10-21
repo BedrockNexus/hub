@@ -16,7 +16,6 @@ export default async function PicksPage() {
 
 	return (
 		<PageShell
-			breadcrumb={[{ href: '/', label: 'Home' }]}
 			description="Servers and projects the team recommends, each with a note on why."
 			title="Bedrock Nexus Picks"
 		>

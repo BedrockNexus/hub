@@ -253,7 +253,6 @@ function ProjectsDirectory() {
 					Publish a project
 				</Link>
 			}
-			breadcrumb={[{ href: '/', label: 'Home' }]}
 			description="Community addons and resource packs. Every release is checked and reviewed before it goes live."
 			title="Addons & resource packs"
 		>

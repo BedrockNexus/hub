@@ -46,7 +46,7 @@ export function OrganizationLogo({
   if (isPending && !organization) {
     return (
       <Skeleton
-        className={cn("rounded-full", sizeClasses[size], className)}
+        className={cn("rounded-md", sizeClasses[size], className)}
         style={skeletonStyle}
       />
     )
@@ -57,7 +57,7 @@ export function OrganizationLogo({
 
   return (
     <Avatar
-      className={cn("rounded-full", sizeClasses[size], className)}
+      className={cn("rounded-md", sizeClasses[size], className)}
       style={style}
       {...props}
     >

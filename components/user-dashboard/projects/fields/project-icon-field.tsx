@@ -47,7 +47,6 @@ export function ProjectIconField({
 				onUploadComplete={onIconUploadComplete}
 				onUploadRemoved={onIconUploadRemoved}
 				resourceType="projects"
-				rounded="lg"
 				sizeLabel="2MB"
 			/>
 		</Field>

@@ -3,11 +3,12 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { UserAvatarImage } from '@/components/auth/user-avatar-image'
+import { SideCard } from '@/components/detail/detail-parts'
 import { PluginList } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { buttonVariants } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
 import { siteConfig } from '@/lib/site'
@@ -193,43 +194,53 @@ export default async function OrganizationPage({
 							</section>
 						) : null}
 					</div>
-					<aside className="space-y-3">
-						<h2 className="font-semibold text-lg">Members</h2>
-						{organization.members.map((member) => (
-							<Card key={`${member.name}-${member.role}`}>
-								<CardContent className="flex items-center gap-3 p-3">
-									<div className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-muted font-medium">
-										{member.image ? (
-											<Image
-												alt={member.name}
-												height={36}
-												src={member.image}
-												width={36}
+					<aside className="flex flex-col gap-4">
+						<SideCard
+							title={`Members (${organization.members.length})`}
+						>
+							<ul className="flex flex-col gap-1">
+								{organization.members.map((member) => {
+									const row = (
+										<>
+											<UserAvatarImage
+												avatarClassName="size-9"
+												image={member.image}
+												size={36}
+												username={member.name}
 											/>
-										) : (
-											member.name.charAt(0)
-										)}
-									</div>
-									<div className="min-w-0">
-										<p className="truncate font-medium text-sm">
+											<span className="min-w-0 flex-1">
+												<span className="block truncate font-medium text-sm">
+													{member.name}
+												</span>
+												<span className="block text-muted-foreground text-xs capitalize">
+													{member.role
+														.split(',')
+														.join(', ')}
+												</span>
+											</span>
+										</>
+									)
+									return (
+										<li
+											key={`${member.name}-${member.role}`}
+										>
 											{member.username ? (
 												<Link
-													className="hover:underline"
+													className="flex items-center gap-3 rounded-md p-1.5 transition-colors hover:bg-muted"
 													href={`/user/${member.username}`}
 												>
-													{member.name}
+													{row}
 												</Link>
 											) : (
-												member.name
+												<div className="flex items-center gap-3 p-1.5">
+													{row}
+												</div>
 											)}
-										</p>
-										<p className="text-muted-foreground text-xs capitalize">
-											{member.role.split(',').join(', ')}
-										</p>
-									</div>
-								</CardContent>
-							</Card>
-						))}
+										</li>
+									)
+								})}
+							</ul>
+						</SideCard>
 					</aside>
 				</div>
 			</div>

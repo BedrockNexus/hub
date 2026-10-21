@@ -109,6 +109,13 @@ const draftFields = {
 	license: v.optional(v.string()),
 	// CDN URL of the plugin's icon (functions/plugins/icons.ts).
 	iconUrl: v.optional(v.string()),
+	// Links shown on the plugin page (functions/plugins/publishing/model:saveLinks).
+	// Source code is always the repository; issues default to its issue tracker.
+	websiteUrl: v.optional(v.string()),
+	wikiUrl: v.optional(v.string()),
+	discordUrl: v.optional(v.string()),
+	issuesUrl: v.optional(v.string()),
+	donationUrl: v.optional(v.string()),
 	workflowPath: v.string(),
 	workflowBranch: v.optional(v.string()),
 	workflowCommitSha: v.optional(v.string()),
@@ -230,6 +237,13 @@ export const projectValidator = v.object({
 	searchText: v.string(),
 	license: v.optional(v.string()),
 	iconUrl: v.optional(v.string()),
+	// Links shown on the plugin page (functions/plugins/publishing/model:saveLinks).
+	// Source code is always the repository; issues default to its issue tracker.
+	websiteUrl: v.optional(v.string()),
+	wikiUrl: v.optional(v.string()),
+	discordUrl: v.optional(v.string()),
+	issuesUrl: v.optional(v.string()),
+	donationUrl: v.optional(v.string()),
 	visibility: projectVisibilityValidator,
 	status: projectStatusValidator,
 	latestVersionId: v.optional(v.id('pluginVersions')),
@@ -353,6 +367,13 @@ export const tables = {
 		searchText: v.string(),
 		license: v.optional(v.string()),
 		iconUrl: v.optional(v.string()),
+		// Links shown on the plugin page (functions/plugins/publishing/model:saveLinks).
+		// Source code is always the repository; issues default to its issue tracker.
+		websiteUrl: v.optional(v.string()),
+		wikiUrl: v.optional(v.string()),
+		discordUrl: v.optional(v.string()),
+		issuesUrl: v.optional(v.string()),
+		donationUrl: v.optional(v.string()),
 		visibility: projectVisibilityValidator,
 		status: projectStatusValidator,
 		latestVersionId: v.optional(v.id('pluginVersions')),

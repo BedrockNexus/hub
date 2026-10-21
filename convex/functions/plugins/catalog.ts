@@ -449,6 +449,13 @@ export const getProject = query({
 				htmlUrl: v.string(),
 				defaultBranch: v.string(),
 			}),
+			links: v.object({
+				website: v.optional(v.string()),
+				wiki: v.optional(v.string()),
+				discord: v.optional(v.string()),
+				issues: v.optional(v.string()),
+				donation: v.optional(v.string()),
+			}),
 			versions: v.array(publicVersionValidator),
 		}),
 		v.null(),
@@ -543,6 +550,13 @@ export const getProject = query({
 				fullName: repository.fullName,
 				htmlUrl: repository.htmlUrl,
 				defaultBranch: repository.defaultBranch,
+			},
+			links: {
+				website: project.websiteUrl,
+				wiki: project.wikiUrl,
+				discord: project.discordUrl,
+				issues: project.issuesUrl,
+				donation: project.donationUrl,
 			},
 			versions: publicVersions,
 		}

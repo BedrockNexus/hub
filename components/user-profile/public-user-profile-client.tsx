@@ -20,7 +20,6 @@ import { useParams } from 'next/navigation'
 import { RoleBadgeList } from '@/components/auth/role-badge'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import { ensureHttpUrl, SideCard } from '@/components/detail/detail-parts'
-import { ShareButton } from '@/components/detail/public-actions'
 import { PluginList } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
@@ -176,7 +175,7 @@ export default function PublicUserProfilePage() {
 					<div className="flex flex-wrap items-start gap-x-6 gap-y-3">
 						<div className="extrude -mt-16 shrink-0 rounded-md border-[3px] border-edge bg-stone">
 							<UserAvatarImage
-								avatarClassName="size-32 rounded-sm"
+								avatarClassName="size-32"
 								image={profile.image}
 								size={128}
 								username={displayName}
@@ -251,9 +250,6 @@ export default function PublicUserProfilePage() {
 									</a>
 								))}
 							</div>
-						</div>
-						<div className="pt-4">
-							<ShareButton size="xl" title={displayName} />
 						</div>
 					</div>
 					<div className="flex flex-wrap gap-3">
@@ -334,7 +330,7 @@ export default function PublicUserProfilePage() {
 										href={`/organizations/${organization.slug}`}
 										key={organization.slug}
 									>
-										<span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-sm border-2 border-edge bg-primary text-primary-foreground">
+										<span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-md border-2 border-edge bg-primary text-primary-foreground">
 											{organization.logo ? (
 												<Image
 													alt=""

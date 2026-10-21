@@ -22,6 +22,7 @@ mutation functions/plugins/publishing/model:rejectReview
 mutation functions/plugins/publishing/model:requestReviewChanges
 mutation functions/plugins/publishing/model:retryGitHubRelease
 mutation functions/plugins/publishing/model:retryPublishing
+mutation functions/plugins/publishing/model:saveLinks
 mutation functions/plugins/publishing/model:saveMetadata
 mutation functions/plugins/publishing/model:selectWorkflow
 mutation functions/plugins/publishing/model:submitRelease

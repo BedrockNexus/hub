@@ -33,7 +33,6 @@ export default async function TrendingPage() {
 
 	return (
 		<PageShell
-			breadcrumb={[{ href: '/', label: 'Home' }]}
 			description="What the community is playing and downloading this week."
 			title="Trending"
 		>

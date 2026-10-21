@@ -32,7 +32,6 @@ export default async function SoftwarePage() {
 
 	return (
 		<PageShell
-			breadcrumb={[{ href: '/', label: 'Home' }]}
 			description="The software Bedrock servers run, as declared by their owners."
 			title="Server software"
 		>
@@ -45,7 +44,7 @@ export default async function SoftwarePage() {
 					>
 						<Card className="h-full transition-[transform,border-color] group-hover:-translate-y-1 group-hover:border-primary">
 							<CardHeader className="grid-cols-[auto_1fr_auto] items-center gap-x-4">
-								<span className="extrude row-span-3 grid size-12 place-items-center overflow-hidden rounded-sm border-2 border-edge bg-primary text-primary-foreground">
+								<span className="extrude row-span-3 grid size-12 place-items-center overflow-hidden rounded-md border-2 border-edge bg-primary text-primary-foreground">
 									{item.logoUrl ? (
 										// biome-ignore lint/performance/noImgElement: CDN logos are already 256px
 										<img

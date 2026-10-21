@@ -1,6 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 
 import { recordAdminAction } from '../../../lib/audit'
+import { assertOptionalHttpUrl } from '../../../lib/contentValidation'
 import { parsePluginDashboardId } from '../../../../lib/plugins/plugin-dashboard-id'
 import {
 	projectMetadataSchema,
@@ -318,6 +319,57 @@ export const saveMetadata = authedMutation({
 	},
 })
 
+const linkArgs = {
+	websiteUrl: v.optional(v.string()),
+	wikiUrl: v.optional(v.string()),
+	discordUrl: v.optional(v.string()),
+	issuesUrl: v.optional(v.string()),
+	donationUrl: v.optional(v.string()),
+}
+
+/**
+ * The links on the plugin page. Unlike the other details they apply at once,
+ * like project and server links.
+ */
+export const saveLinks = authedMutation({
+	args: { draftId: v.id('pluginPublishingDrafts'), ...linkArgs },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		await enforceRateLimit(ctx, 'publishingEdit', ctx.user._id)
+		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
+		const labels = {
+			websiteUrl: 'Website',
+			wikiUrl: 'Wiki',
+			discordUrl: 'Discord',
+			issuesUrl: 'Issue tracker',
+			donationUrl: 'Donation link',
+		} as const
+		const links: Partial<Record<keyof typeof labels, string | undefined>> = {}
+		for (const field of Object.keys(labels) as (keyof typeof labels)[]) {
+			try {
+				assertOptionalHttpUrl(labels[field], args[field])
+			} catch (error) {
+				throw new ConvexError({
+					code: 'INVALID_LINK',
+					message:
+						error instanceof Error
+							? error.message
+							: `${labels[field]} must be a valid URL.`,
+				})
+			}
+			links[field] = args[field]?.trim() || undefined
+		}
+		await ctx.db.patch('pluginPublishingDrafts', draft._id, {
+			...links,
+			updatedAt: Date.now(),
+		})
+		if (draft.projectId) {
+			await ctx.db.patch('plugins', draft.projectId, links)
+		}
+		return null
+	},
+})
+
 const availableWorkflowValidator = v.object({
 	key: workflowTemplateKeyValidator,
 	label: v.string(),
@@ -419,6 +471,12 @@ export const selectWorkflow = authedMutation({
 				...metadata,
 				searchText: searchTextFor(metadata),
 				license: draft.license,
+				iconUrl: draft.iconUrl,
+				websiteUrl: draft.websiteUrl,
+				wikiUrl: draft.wikiUrl,
+				discordUrl: draft.discordUrl,
+				issuesUrl: draft.issuesUrl,
+				donationUrl: draft.donationUrl,
 				visibility: 'draft',
 				status: 'draft',
 				downloadCount: 0,

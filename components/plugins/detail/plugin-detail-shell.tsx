@@ -2,10 +2,14 @@
 
 import {
 	ArrowLeft02Icon,
+	BookOpen01Icon,
+	Bug01Icon,
 	CheckmarkBadge01Icon,
 	Clock01Icon,
+	DiscordIcon,
 	Download01Icon,
-	GithubIcon,
+	FavouriteIcon,
+	GlobeIcon,
 	PlugSocketIcon,
 	SourceCodeIcon,
 } from '@hugeicons/core-free-icons'
@@ -22,7 +26,6 @@ import {
 	KeyValue,
 	SideCard,
 } from '@/components/detail/detail-parts'
-import { ShareButton } from '@/components/detail/public-actions'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { OwnerCard } from '@/components/owner/owner-card'
 import { PluginReviews } from '@/components/plugins/detail/plugin-reviews'
@@ -101,30 +104,6 @@ function PluginHero({
 	return (
 		<section className="border-b bg-surface-sunken">
 			<div className="container mx-auto flex flex-col gap-5 px-4 pt-7 pb-8 md:px-6">
-				<nav aria-label="Breadcrumb" className="flex gap-2 text-sm">
-					<Link
-						className="text-muted-foreground hover:text-foreground"
-						href="/plugins"
-					>
-						Plugins
-					</Link>
-					<span aria-hidden className="text-muted-foreground">
-						/
-					</span>
-					<Link
-						className="text-muted-foreground hover:text-foreground"
-						href={
-							`/plugins?software=${project.software.slug}` as Route
-						}
-					>
-						{project.software.name}
-					</Link>
-					<span aria-hidden className="text-muted-foreground">
-						/
-					</span>
-					<span aria-current="page">{project.name}</span>
-				</nav>
-
 				<div className="flex flex-wrap items-center gap-6">
 					<div className="tile-bevel extrude relative grid size-32 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
 						{project.iconUrl ? (
@@ -234,21 +213,6 @@ function PluginHero({
 								))}
 							</p>
 						) : null}
-						<div className="flex justify-center gap-2.5">
-							<a
-								className={buttonVariants({
-									size: 'xl',
-									variant: 'outline',
-								})}
-								href={detail.repository.htmlUrl}
-								rel="noreferrer"
-								target="_blank"
-							>
-								<HugeiconsIcon icon={GithubIcon} />
-								Source
-							</a>
-							<ShareButton size="xl" title={project.name} />
-						</div>
 					</div>
 				</div>
 			</div>
@@ -364,18 +328,51 @@ function PluginSidebar({
 		<aside className="flex min-w-0 flex-col gap-4">
 			<SideCard title="Links">
 				<div className="flex flex-col gap-2">
-					<ExternalLinkRow
-						href={repository.htmlUrl}
-						icon={SourceCodeIcon}
-						label="Source code"
-					/>
-					{release?.githubReleaseUrl ? (
-						<ExternalLinkRow
-							href={release.githubReleaseUrl}
-							icon={GithubIcon}
-							label="GitHub release"
-						/>
-					) : null}
+					{[
+						{
+							label: 'Report issues',
+							href:
+								detail.links.issues ??
+								`${repository.htmlUrl}/issues`,
+							icon: Bug01Icon,
+						},
+						{
+							label: 'View source',
+							href: repository.htmlUrl,
+							icon: SourceCodeIcon,
+						},
+						{
+							label: 'Visit wiki',
+							href: detail.links.wiki,
+							icon: BookOpen01Icon,
+						},
+						{
+							label: 'Join Discord server',
+							href: detail.links.discord,
+							icon: DiscordIcon,
+						},
+						{
+							label: 'Website',
+							href: detail.links.website,
+							icon: GlobeIcon,
+						},
+						{
+							label: 'Support the creator',
+							href: detail.links.donation,
+							icon: FavouriteIcon,
+						},
+					].flatMap((link) =>
+						link.href ? (
+							<ExternalLinkRow
+								href={link.href}
+								icon={link.icon}
+								key={link.label}
+								label={link.label}
+							/>
+						) : (
+							[]
+						),
+					)}
 				</div>
 			</SideCard>
 
@@ -440,6 +437,18 @@ function PluginSidebar({
 								{release.commitSha.slice(0, 12)}
 							</a>
 						</KeyValue>
+						{release.githubReleaseUrl && downloadable ? (
+							<KeyValue label="GitHub release">
+								<a
+									className="hover:underline"
+									href={release.githubReleaseUrl}
+									rel="noreferrer"
+									target="_blank"
+								>
+									v{downloadable.version}
+								</a>
+							</KeyValue>
+						) : null}
 						{release.asset?.sha256 ? (
 							<KeyValue label="SHA-256" mono>
 								<span title={release.asset.sha256}>

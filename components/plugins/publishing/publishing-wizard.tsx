@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { MarkdownEditor } from '@/components/plugins/editors/markdown-editor'
 import { PluginIconField } from '@/components/plugins/publishing/plugin-icon-field'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -50,7 +51,6 @@ import {
 	releaseSubmissionSchema,
 	releaseTagFor,
 } from '@/lib/plugins/publishing/metadata'
-import { cn } from '@/lib/utils'
 
 type ReleaseStatus = Doc<'pluginReleases'>['status']
 
@@ -119,15 +119,20 @@ function MetadataForm({
 	draft,
 	busy,
 	published = false,
+	fields = 'all',
 	submitLabel,
 	onSave,
 }: {
 	draft: Doc<'pluginPublishingDrafts'>
 	busy: boolean
 	published?: boolean
+	/** The general settings, the description, or both (when adding a plugin). */
+	fields?: 'all' | 'general' | 'description'
 	submitLabel: string
 	onSave: (metadata: ProjectMetadataInput) => Promise<void>
 }) {
+	const showGeneral = fields !== 'description'
+	const showDescription = fields !== 'general'
 	const [metadata, setMetadata] = useState<ProjectMetadataInput>({
 		name: draft.name,
 		slug: draft.slug,
@@ -159,56 +164,68 @@ function MetadataForm({
 				await onSave(result.data)
 			}}
 		>
-			<div className="flex flex-col gap-2 sm:col-span-2">
-				<Label>Icon</Label>
-				<PluginIconField
-					disabled={busy}
-					draftId={draft._id}
-					iconUrl={draft.iconUrl}
-					name={metadata.name || draft.name}
-					published={published}
-				/>
-			</div>
-			<div className="space-y-2">
-				<Label htmlFor="plugin-name">Name</Label>
-				<Input
-					disabled={busy}
-					id="plugin-name"
-					onChange={(event) => update('name', event.target.value)}
-					value={metadata.name}
-				/>
-			</div>
-			<div className="space-y-2">
-				<Label htmlFor="plugin-slug">Slug</Label>
-				<Input
-					disabled={busy}
-					id="plugin-slug"
-					onChange={(event) => update('slug', event.target.value)}
-					value={metadata.slug}
-				/>
-			</div>
-			<div className="space-y-2 sm:col-span-2">
-				<Label htmlFor="plugin-summary">Summary</Label>
-				<Input
-					disabled={busy}
-					id="plugin-summary"
-					onChange={(event) => update('summary', event.target.value)}
-					placeholder="One sentence about what the plugin does"
-					value={metadata.summary}
-				/>
-			</div>
-			<div className="space-y-2 sm:col-span-2">
-				<Label id="plugin-description-label">Description</Label>
-				<MarkdownEditor
-					disabled={busy}
-					labelledBy="plugin-description-label"
-					maximumLength={DESCRIPTION_MAX_LENGTH}
-					onChange={(value) =>
-						update('description', value || undefined)
-					}
-					value={metadata.description ?? ''}
-				/>
-			</div>
+			{showGeneral ? (
+				<>
+					<div className="flex flex-col gap-2 sm:col-span-2">
+						<Label>Icon</Label>
+						<PluginIconField
+							disabled={busy}
+							draftId={draft._id}
+							iconUrl={draft.iconUrl}
+							name={metadata.name || draft.name}
+							published={published}
+						/>
+					</div>
+					<div className="space-y-2">
+						<Label htmlFor="plugin-name">Name</Label>
+						<Input
+							disabled={busy}
+							id="plugin-name"
+							onChange={(event) =>
+								update('name', event.target.value)
+							}
+							value={metadata.name}
+						/>
+					</div>
+					<div className="space-y-2">
+						<Label htmlFor="plugin-slug">Slug</Label>
+						<Input
+							disabled={busy}
+							id="plugin-slug"
+							onChange={(event) =>
+								update('slug', event.target.value)
+							}
+							value={metadata.slug}
+						/>
+					</div>
+					<div className="space-y-2 sm:col-span-2">
+						<Label htmlFor="plugin-summary">Summary</Label>
+						<Input
+							disabled={busy}
+							id="plugin-summary"
+							onChange={(event) =>
+								update('summary', event.target.value)
+							}
+							placeholder="One sentence about what the plugin does"
+							value={metadata.summary}
+						/>
+					</div>
+				</>
+			) : null}
+			{showDescription ? (
+				<div className="space-y-2 sm:col-span-2">
+					<Label id="plugin-description-label">Description</Label>
+					<MarkdownEditor
+						disabled={busy}
+						labelledBy="plugin-description-label"
+						maximumLength={DESCRIPTION_MAX_LENGTH}
+						onChange={(value) =>
+							update('description', value || undefined)
+						}
+						value={metadata.description ?? ''}
+					/>
+				</div>
+			) : null}
 			{validationError ? (
 				<p className="text-destructive text-sm sm:col-span-2">
 					{validationError}
@@ -220,41 +237,6 @@ function MetadataForm({
 				</Button>
 			</div>
 		</form>
-	)
-}
-
-export function PluginManageNav({ draftId }: { draftId: string }) {
-	const pathname = usePathname()
-	const items = [
-		{ href: `/dashboard/plugins/${draftId}`, label: 'Details' },
-		{ href: `/dashboard/plugins/${draftId}/workflow`, label: 'Workflow' },
-		{
-			href: `/dashboard/plugins/${draftId}/releases`,
-			label: 'Builds & versions',
-		},
-	] as const
-
-	return (
-		<div className="flex flex-wrap gap-2 border-b pb-4">
-			{items.map((item) => {
-				const active = pathname === item.href
-				return (
-					<Link
-						className={cn(
-							buttonVariants({
-								variant: active ? 'default' : 'ghost',
-								size: 'sm',
-							}),
-							'rounded-full',
-						)}
-						href={item.href as Route}
-						key={item.href}
-					>
-						{item.label}
-					</Link>
-				)
-			})}
-		</div>
 	)
 }
 
@@ -474,10 +456,24 @@ function StatusRow({
 	)
 }
 
-export function PluginDetailsManager({
+const SECTION_COPY = {
+	general: {
+		title: 'General',
+		description: 'The icon, name and summary people see in listings.',
+	},
+	description: {
+		title: 'Description',
+		description: 'The long description on the plugin page, in markdown.',
+	},
+} as const
+
+/** The General or Description settings page of a plugin. */
+export function PluginSettingsManager({
 	draftId,
+	section,
 }: {
 	draftId: Id<'pluginPublishingDrafts'>
+	section: 'general' | 'description'
 }) {
 	const auth = useConvexAuth()
 	const project = useQuery(
@@ -490,30 +486,42 @@ export function PluginDetailsManager({
 	const { busy, run } = useBusy()
 
 	if (auth.isLoading || project === undefined) {
-		return (
-			<p className="text-muted-foreground text-sm">
-				Loading plugin details…
-			</p>
-		)
+		return <p className="text-muted-foreground text-sm">Loading plugin…</p>
 	}
 
 	const { draft, repository } = project
 	const published = project.project?.status === 'published'
+	const copy = SECTION_COPY[section]
 	return (
-		<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+		<div className="flex flex-col gap-4">
+			{project.locked ? (
+				<Alert>
+					<AlertTitle>Locked while a version is in review</AlertTitle>
+					<AlertDescription>
+						You can edit these settings again once a moderator has
+						decided.
+					</AlertDescription>
+				</Alert>
+			) : published ? (
+				<Alert>
+					<AlertTitle>Reviewed with your next version</AlertTitle>
+					<AlertDescription>
+						Changes to the name, summary and description go live
+						when your next version is approved. The icon and links
+						update right away.
+					</AlertDescription>
+				</Alert>
+			) : null}
 			<Card className="shadow-none">
 				<CardHeader>
-					<CardTitle>Plugin details</CardTitle>
-					<CardDescription>
-						{published
-							? 'Changes go live together with the next approved version, so moderators see them first.'
-							: 'What people see on the plugin page.'}
-					</CardDescription>
+					<CardTitle>{copy.title}</CardTitle>
+					<CardDescription>{copy.description}</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<MetadataForm
 						busy={busy !== null || project.locked}
 						draft={draft}
+						fields={section}
 						key={draft._id}
 						onSave={(metadata) =>
 							run('metadata', async () => {
@@ -521,25 +529,20 @@ export function PluginDetailsManager({
 									draftId: draft._id,
 									...metadata,
 								})
-								toast.success('Details saved.')
+								toast.success('Saved.')
 							})
 						}
 						published={published}
-						submitLabel="Save details"
+						submitLabel="Save changes"
 					/>
 				</CardContent>
 			</Card>
-			<div className="space-y-4">
+			{section === 'general' ? (
 				<Card className="shadow-none">
 					<CardHeader>
 						<CardTitle>Plugin</CardTitle>
 					</CardHeader>
-					<CardContent className="space-y-3 text-sm">
-						<StatusRow label="Status">
-							<Badge variant="outline">
-								{project.project?.status ?? 'setup'}
-							</Badge>
-						</StatusRow>
+					<CardContent className="flex flex-col gap-3 text-sm">
 						<StatusRow label="Server software">
 							{project.softwareName ?? 'Set by the workflow'}
 						</StatusRow>
@@ -558,15 +561,116 @@ export function PluginDetailsManager({
 						</StatusRow>
 					</CardContent>
 				</Card>
-				{project.locked ? (
-					<Card className="border-primary shadow-none">
-						<CardContent className="p-4 text-sm">
-							Details are locked while a version is in review.
-						</CardContent>
-					</Card>
-				) : null}
-			</div>
+			) : null}
 		</div>
+	)
+}
+
+const LINK_FIELDS = [
+	{
+		field: 'issuesUrl',
+		label: 'Issue tracker',
+		placeholder: 'Defaults to the repository’s GitHub issues',
+	},
+	{ field: 'wikiUrl', label: 'Wiki', placeholder: 'https://' },
+	{
+		field: 'discordUrl',
+		label: 'Discord invite',
+		placeholder: 'https://discord.gg/',
+	},
+	{ field: 'websiteUrl', label: 'Website', placeholder: 'https://' },
+	{ field: 'donationUrl', label: 'Donation link', placeholder: 'https://' },
+] as const
+
+type LinkField = (typeof LINK_FIELDS)[number]['field']
+
+/** The links shown on the plugin page. They apply at once. */
+export function PluginLinksManager({
+	draftId,
+}: {
+	draftId: Id<'pluginPublishingDrafts'>
+}) {
+	const auth = useConvexAuth()
+	const project = useQuery(
+		api.functions.plugins.publishing.model.getMine,
+		auth.isAuthenticated ? { draftId } : 'skip',
+	)
+	if (auth.isLoading || project === undefined) {
+		return <p className="text-muted-foreground text-sm">Loading plugin…</p>
+	}
+	return <PluginLinksForm draft={project.draft} key={project.draft._id} />
+}
+
+function PluginLinksForm({ draft }: { draft: Doc<'pluginPublishingDrafts'> }) {
+	const saveLinks = useMutation(
+		api.functions.plugins.publishing.model.saveLinks,
+	)
+	const { busy, run } = useBusy()
+	const [links, setLinks] = useState<Record<LinkField, string>>({
+		issuesUrl: draft.issuesUrl ?? '',
+		wikiUrl: draft.wikiUrl ?? '',
+		discordUrl: draft.discordUrl ?? '',
+		websiteUrl: draft.websiteUrl ?? '',
+		donationUrl: draft.donationUrl ?? '',
+	})
+	return (
+		<Card className="shadow-none">
+			<CardHeader>
+				<CardTitle>Links</CardTitle>
+				<CardDescription>
+					Shown on the plugin page next to the source code. Empty
+					links are hidden.
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				<form
+					className="flex flex-col gap-5"
+					onSubmit={(event) => {
+						event.preventDefault()
+						void run('links', async () => {
+							await saveLinks({
+								draftId: draft._id,
+								...Object.fromEntries(
+									Object.entries(links).map(
+										([field, value]) => [
+											field,
+											value.trim() || undefined,
+										],
+									),
+								),
+							})
+							toast.success('Links saved.')
+						})
+					}}
+				>
+					{LINK_FIELDS.map((link) => (
+						<div className="flex flex-col gap-2" key={link.field}>
+							<Label htmlFor={`plugin-${link.field}`}>
+								{link.label}
+							</Label>
+							<Input
+								disabled={busy !== null}
+								id={`plugin-${link.field}`}
+								onChange={(event) =>
+									setLinks((current) => ({
+										...current,
+										[link.field]: event.target.value,
+									}))
+								}
+								placeholder={link.placeholder}
+								type="url"
+								value={links[link.field]}
+							/>
+						</div>
+					))}
+					<div className="flex justify-end">
+						<Button disabled={busy !== null} type="submit">
+							Save links
+						</Button>
+					</div>
+				</form>
+			</CardContent>
+		</Card>
 	)
 }
 

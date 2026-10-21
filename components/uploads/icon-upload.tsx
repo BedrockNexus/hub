@@ -58,8 +58,6 @@ interface IconUploadProps {
 	maxSize?: number
 	/** Size label shown in the dropzone (e.g. "2MB"). Defaults to "5MB" */
 	sizeLabel?: string
-	/** Avatar border-radius style. 'full' for user avatars, 'lg' for org/server logos */
-	rounded?: 'full' | 'lg'
 	/** URL to show when the image is removed (e.g. vercel avatar fallback) */
 	fallbackUrl?: string
 }
@@ -79,11 +77,9 @@ export function IconUpload({
 	disabled,
 	maxSize = 5 * 1024 * 1024,
 	sizeLabel = '5MB',
-	rounded = 'full',
 	fallbackUrl,
 }: IconUploadProps) {
 	const [files, setFiles] = useState<File[]>([])
-	const roundedClass = rounded === 'lg' ? 'rounded-md' : 'rounded-full'
 	const generateUploadUrl = useMutation(
 		api.functions.storage.generateImageUploadUrl,
 	)
@@ -132,10 +128,10 @@ export function IconUpload({
 			{/* Current image preview */}
 			{(currentImageUrl || fallbackUrl) && files.length === 0 && (
 				<div className="flex items-center gap-4">
-					<Avatar className={`size-20 ${roundedClass}`}>
+					<Avatar className="size-20">
 						<AvatarImage
 							alt={name}
-							className={`${roundedClass} object-cover`}
+							className="object-cover"
 							src={
 								isRemoved
 									? (fallbackUrl ?? undefined)
@@ -144,7 +140,7 @@ export function IconUpload({
 										undefined)
 							}
 						/>
-						<AvatarFallback className={`${roundedClass} text-2xl`}>
+						<AvatarFallback className="text-2xl">
 							{name?.charAt(0)?.toUpperCase() || '?'}
 						</AvatarFallback>
 					</Avatar>

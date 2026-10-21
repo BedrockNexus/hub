@@ -1,10 +1,7 @@
 import type { Metadata } from 'next'
 
 import { DashboardPageShell } from '@/components/plugins/dashboard-page-shell'
-import {
-	PluginBuildsManager,
-	PluginManageNav,
-} from '@/components/plugins/publishing/publishing-wizard'
+import { PluginBuildsManager } from '@/components/plugins/publishing/publishing-wizard'
 import { resolveProjectDraftId } from '@/lib/plugins/resolve-project-draft'
 
 export const metadata: Metadata = {
@@ -25,7 +22,6 @@ export default async function ProjectReleasesPage({
 			eyebrow="Plugins"
 			title="Builds and versions"
 		>
-			<PluginManageNav draftId={draftId} />
 			<PluginBuildsManager draftId={resolvedDraftId} />
 		</DashboardPageShell>
 	)

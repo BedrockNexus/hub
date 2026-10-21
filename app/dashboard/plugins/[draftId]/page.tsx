@@ -1,19 +1,15 @@
 import type { Metadata } from 'next'
 
 import { DashboardPageShell } from '@/components/plugins/dashboard-page-shell'
-import { DeletePluginZone } from '@/components/plugins/publishing/delete-plugin-zone'
-import {
-	PluginDetailsManager,
-	PluginManageNav,
-} from '@/components/plugins/publishing/publishing-wizard'
+import { PluginSettingsManager } from '@/components/plugins/publishing/publishing-wizard'
 import { resolveProjectDraftId } from '@/lib/plugins/resolve-project-draft'
 
 export const metadata: Metadata = {
-	title: 'Manage plugin',
+	title: 'General',
 	robots: { index: false, follow: false },
 }
 
-export default async function ManageProjectPage({
+export default async function PluginGeneralPage({
 	params,
 }: {
 	params: Promise<{ draftId: string }>
@@ -22,13 +18,14 @@ export default async function ManageProjectPage({
 	const resolvedDraftId = await resolveProjectDraftId(draftId)
 	return (
 		<DashboardPageShell
-			description="What people see on the plugin page."
+			description="The icon, name, slug and summary of your plugin."
 			eyebrow="Plugins"
-			title="Plugin details"
+			title="General"
 		>
-			<PluginManageNav draftId={draftId} />
-			<PluginDetailsManager draftId={resolvedDraftId} />
-			<DeletePluginZone draftId={resolvedDraftId} />
+			<PluginSettingsManager
+				draftId={resolvedDraftId}
+				section="general"
+			/>
 		</DashboardPageShell>
 	)
 }

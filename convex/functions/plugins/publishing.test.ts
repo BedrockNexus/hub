@@ -872,8 +872,8 @@ describe('project deletion', () => {
 	})
 })
 
-describe('plugin icons', () => {
-	it('shows a new icon at once before publication and after approval once published', async () => {
+describe('plugin icons and links', () => {
+	it('shows a new icon at once, published or not', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
 		const setIcon = (iconUrl: string) =>
@@ -884,9 +884,11 @@ describe('plugin icons', () => {
 			})
 		const icons = () =>
 			t.run(async (ctx) => ({
-				draft: (await ctx.db.get('pluginPublishingDrafts', foundation.draftId))
+				draft: (
+					await ctx.db.get('pluginPublishingDrafts', foundation.draftId)
+				)?.iconUrl,
+				plugin: (await ctx.db.get('plugins', foundation.projectId))
 					?.iconUrl,
-				plugin: (await ctx.db.get('plugins', foundation.projectId))?.iconUrl,
 			}))
 
 		await setIcon('https://cdn.example.com/first.webp')
@@ -898,21 +900,15 @@ describe('plugin icons', () => {
 		await approveAndPublish(
 			t,
 			foundation,
-			await sendToReview(t, foundation, await recordBuild(t, foundation, 8101), '1.0.0'),
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 8101),
+				'1.0.0',
+			),
 			'1.0.0',
 		)
 		await setIcon('https://cdn.example.com/second.webp')
-		expect(await icons()).toEqual({
-			draft: 'https://cdn.example.com/second.webp',
-			plugin: 'https://cdn.example.com/first.webp',
-		})
-
-		await approveAndPublish(
-			t,
-			foundation,
-			await sendToReview(t, foundation, await recordBuild(t, foundation, 8102), '1.1.0'),
-			'1.1.0',
-		)
 		expect(await icons()).toEqual({
 			draft: 'https://cdn.example.com/second.webp',
 			plugin: 'https://cdn.example.com/second.webp',
@@ -926,7 +922,61 @@ describe('plugin icons', () => {
 			api.functions.plugins.icons.remove,
 			{ draftId: foundation.draftId },
 		)
-		expect((await icons()).draft).toBeUndefined()
+		expect(await icons()).toEqual({ draft: undefined, plugin: undefined })
+	})
+
+	it('copies icons saved before they applied at once', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		await t.run((ctx) =>
+			ctx.db.patch('pluginPublishingDrafts', foundation.draftId, {
+				iconUrl: 'https://cdn.example.com/waiting.webp',
+			}),
+		)
+		const sync = internal.functions.plugins.migrations.syncIconsToPlugins
+		expect(await t.mutation(sync, {})).toBe(1)
+		expect(await t.mutation(sync, {})).toBe(0)
+		expect(
+			(await t.run((ctx) => ctx.db.get('plugins', foundation.projectId)))
+				?.iconUrl,
+		).toBe('https://cdn.example.com/waiting.webp')
+	})
+
+	it('saves links at once and checks them', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 8301),
+				'1.0.0',
+			),
+			'1.0.0',
+		)
+		await expect(
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.saveLinks,
+				{ draftId: foundation.draftId, wikiUrl: 'javascript:alert(1)' },
+			),
+		).rejects.toThrow('Wiki')
+		await foundation.developer.client.mutation(
+			api.functions.plugins.publishing.model.saveLinks,
+			{
+				draftId: foundation.draftId,
+				wikiUrl: ' https://wiki.example.com ',
+				discordUrl: 'https://discord.gg/example',
+			},
+		)
+		const page = await t.query(api.functions.plugins.catalog.getProject, {
+			slug: foundation.slug,
+		})
+		expect(page?.links).toEqual({
+			wiki: 'https://wiki.example.com',
+			discord: 'https://discord.gg/example',
+		})
 	})
 })
 

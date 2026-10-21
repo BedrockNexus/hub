@@ -15,10 +15,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { DetailTabs } from '@/components/detail/detail-parts'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
-import {
-	FavouriteButton,
-	ShareButton,
-} from '@/components/detail/public-actions'
 import { ProjectAbout } from '@/components/projects/detail/project-about'
 import { ProjectReleaseDetails } from '@/components/projects/detail/project-release-details'
 import { ProjectReleases } from '@/components/projects/detail/project-releases'
@@ -107,28 +103,6 @@ function ProjectHero({
 	return (
 		<section className="border-b bg-surface-sunken">
 			<div className="container mx-auto flex flex-col gap-5 px-4 pt-7 pb-8 md:px-6">
-				<nav aria-label="Breadcrumb" className="flex gap-2 text-sm">
-					<Link
-						className="text-muted-foreground hover:text-foreground"
-						href="/projects"
-					>
-						Projects
-					</Link>
-					<span aria-hidden className="text-muted-foreground">
-						/
-					</span>
-					<Link
-						className="text-muted-foreground hover:text-foreground"
-						href={`/projects?type=${typeKey}`}
-					>
-						{typeLabel}
-					</Link>
-					<span aria-hidden className="text-muted-foreground">
-						/
-					</span>
-					<span aria-current="page">{content.name}</span>
-				</nav>
-
 				<div className="flex flex-wrap items-center gap-6">
 					<div className="tile-bevel extrude relative grid size-32 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
 						{content.iconUrl ? (
@@ -238,14 +212,6 @@ function ProjectHero({
 								))}
 							</p>
 						) : null}
-						<div className="flex justify-center gap-2.5">
-							<FavouriteButton
-								size="xl"
-								targetId={content._id}
-								targetType="project"
-							/>
-							<ShareButton size="xl" title={content.name} />
-						</div>
 					</div>
 				</div>
 			</div>

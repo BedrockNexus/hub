@@ -72,7 +72,6 @@ export function ServerBrandingFields({
 					onUploadComplete={onLogoUploadComplete}
 					onUploadRemoved={onLogoUploadRemoved}
 					resourceType="servers"
-					rounded="lg"
 					sizeLabel="2MB"
 				/>
 			</Field>

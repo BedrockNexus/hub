@@ -22,7 +22,6 @@ export default async function OrganizationsPage() {
 
 	return (
 		<PageShell
-			breadcrumb={[{ href: '/', label: 'Home' }]}
 			description="Teams and networks running servers and publishing projects together."
 			title="Organizations"
 		>

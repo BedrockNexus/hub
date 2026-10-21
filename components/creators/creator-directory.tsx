@@ -60,7 +60,7 @@ export function CreatorDirectory({
 							#{index + 1}
 						</span>
 						<UserAvatarImage
-							avatarClassName="size-14 shrink-0 rounded-sm"
+							avatarClassName="size-14 shrink-0"
 							image={item.pictureUrl}
 							size={56}
 							username={item.name}
