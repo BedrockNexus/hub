@@ -1,4 +1,3 @@
-import type { Route } from 'next'
 import { NextResponse } from 'next/server'
 
 import { api } from '@/convex/_generated/api'
@@ -7,14 +6,12 @@ import {
 	fetchAuthQuery,
 	isAuthenticated,
 } from '@/lib/auth-server'
+import { absoluteUrl } from '@/lib/seo'
 
 export async function GET(request: Request) {
 	if (!(await isAuthenticated())) {
 		return NextResponse.redirect(
-			new URL(
-				'/login?redirectTo=/dashboard/plugins/new' as Route,
-				request.url,
-			),
+			new URL(absoluteUrl('/login?redirectTo=/dashboard/plugins/new')),
 		)
 	}
 
@@ -32,8 +29,9 @@ export async function GET(request: Request) {
 		if (organizationSlug && !organizationId) {
 			return NextResponse.redirect(
 				new URL(
-					'/dashboard/organizations?github=organization-not-found',
-					request.url,
+					absoluteUrl(
+						'/dashboard/organizations?github=organization-not-found',
+					),
 				),
 			)
 		}
@@ -47,8 +45,7 @@ export async function GET(request: Request) {
 	} catch {
 		return NextResponse.redirect(
 			new URL(
-				'/dashboard/plugins?github=configuration-error',
-				request.url,
+				absoluteUrl('/dashboard/plugins?github=configuration-error'),
 			),
 		)
 	}

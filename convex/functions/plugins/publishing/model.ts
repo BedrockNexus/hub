@@ -35,6 +35,7 @@ import {
 	replaceProjectAggregates,
 } from '../../../lib/plugins/aggregates'
 import { enforceRateLimit } from '../../../lib/plugins/rateLimits'
+import { deleteIcon } from '../icons'
 import {
 	listResolvedWorkflowTemplates,
 	resolveWorkflowTemplate,
@@ -78,7 +79,7 @@ const REUSABLE_VERSION_STATUSES: ReadonlySet<Doc<'pluginReleases'>['status']> =
 const REUSABLE_BUILD_STATUSES: ReadonlySet<Doc<'pluginReleases'>['status']> =
 	new Set(['preparationFailed', 'changesRequested'])
 
-async function requireOwnedDraft(
+export async function requireOwnedDraft(
 	ctx: QueryCtx | MutationCtx,
 	draftId: Id<'pluginPublishingDrafts'>,
 	user: AppUser,
@@ -1422,9 +1423,14 @@ export const finishPublishing = internalMutation({
 					summary: draft.summary,
 					description: draft.description,
 					license: draft.license,
+					iconUrl: draft.iconUrl,
 					searchText: searchTextFor(draft),
 				}
 			: {}
+		// The icon the approved details replace is no longer shown anywhere.
+		if (draft && project.iconUrl && project.iconUrl !== draft.iconUrl) {
+			await deleteIcon(ctx, draft._id, project.iconUrl)
+		}
 		await patchProject(ctx, project, {
 			...(isNewest ? { latestVersionId: versionId } : {}),
 			...details,

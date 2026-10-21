@@ -11,6 +11,7 @@ import type { Metadata, Route } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
+import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { PluginAvatar, pluginOwner } from '@/components/plugins/plugin-card'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
@@ -21,7 +22,6 @@ import {
 	formatCompactNumber,
 	formatRegistryDate,
 } from '@/lib/plugins/format-registry'
-import { registryTextParagraphs } from '@/lib/plugins/registry-content'
 import { cn } from '@/lib/utils'
 
 interface ProjectPageProps {
@@ -71,7 +71,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 	}
 
 	const { project, repository, versions } = result
-	const description = registryTextParagraphs(result.description)
+	// README-style markdown: relative images and links point into the repo.
+	const relativeUrlBase = {
+		images: `https://raw.githubusercontent.com/${repository.fullName}/${encodeURIComponent(repository.defaultBranch)}/`,
+		links: `https://github.com/${repository.fullName}/blob/${encodeURIComponent(repository.defaultBranch)}/`,
+	}
 	const downloadable = versions.find((version) => version.release?.asset)
 	const repositoryUrl = `https://github.com/${repository.fullName
 		.split('/')
@@ -125,7 +129,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 					<div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
 						<div className="flex min-w-0 gap-4 sm:gap-5">
 							<PluginAvatar
-								avatarUrl={owner.avatarUrl}
+								avatarUrl={project.iconUrl ?? owner.avatarUrl}
 								className="extrude size-20 sm:size-28"
 								name={project.name}
 							/>
@@ -226,15 +230,17 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 						>
 							About
 						</h2>
-						<div className="space-y-4 text-muted-foreground leading-7">
-							{description?.length ? (
-								description.map((paragraph) => (
-									<p key={paragraph}>{paragraph}</p>
-								))
-							) : (
-								<p>{project.summary}</p>
-							)}
-						</div>
+						{result.description?.trim() ? (
+							<RichTextViewer
+								content={result.description}
+								relativeUrlBase={relativeUrlBase}
+								skipHtml
+							/>
+						) : (
+							<p className="text-muted-foreground leading-7">
+								{project.summary}
+							</p>
+						)}
 					</section>
 
 					<section aria-labelledby="versions-heading">
@@ -251,9 +257,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 						{versions.length > 0 ? (
 							<div className="divide-y overflow-hidden rounded-md border bg-card">
 								{versions.map((version) => {
-									const changelog = registryTextParagraphs(
-										version.changelog,
-									)
 									const canDownload =
 										version.release?.asset != null
 									return (
@@ -320,23 +323,22 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 													</Link>
 												) : null}
 											</div>
-											{changelog?.length ? (
+											{version.changelog?.trim() ? (
 												<details className="mt-3 text-sm">
 													<summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
 														Changelog
 													</summary>
-													<div className="mt-2 space-y-3 border-primary border-l-2 pl-4 text-muted-foreground leading-6">
-														{changelog.map(
-															(paragraph) => (
-																<p
-																	key={
-																		paragraph
-																	}
-																>
-																	{paragraph}
-																</p>
-															),
-														)}
+													<div className="mt-2 border-primary border-l-2 pl-4">
+														<RichTextViewer
+															className="text-sm"
+															content={
+																version.changelog
+															}
+															relativeUrlBase={
+																relativeUrlBase
+															}
+															skipHtml
+														/>
 													</div>
 												</details>
 											) : null}

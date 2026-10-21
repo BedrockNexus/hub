@@ -1,6 +1,7 @@
 action   functions/plugins/github/actions:completeInstallation
 action   functions/plugins/github/actions:createInstallUrl
 action   functions/plugins/github/actions:refreshInstallation
+action   functions/plugins/icons:confirmUpload
 action   functions/plugins/publishing/actions:getReviewDownloadUrl
 action   functions/plugins/publishing/actions:installWorkflow
 action   functions/plugins/publishing/actions:startFromRepository
@@ -13,6 +14,8 @@ action   functions/site/organizations:confirmLogoUpload
 action   functions/site/users:confirmAvatarUpload
 mutation functions/plugins/deletion:deleteProject
 mutation functions/plugins/downloads:resolveAndRecord
+mutation functions/plugins/icons:generateUploadUrl
+mutation functions/plugins/icons:remove
 mutation functions/plugins/publishing/model:approveReview
 mutation functions/plugins/publishing/model:rejectReview
 mutation functions/plugins/publishing/model:requestReviewChanges

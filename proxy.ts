@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { absoluteUrl } from '@/lib/seo'
 import { fetchSiteFeatures } from '@/lib/site-settings'
 
 function originOf(value: string | undefined): URL | null {
@@ -108,10 +109,9 @@ export async function proxy(request: NextRequest) {
 		return withContentSecurityPolicy(request)
 	}
 
-	const maintenanceUrl = request.nextUrl.clone()
-	maintenanceUrl.pathname = '/maintenance'
-	maintenanceUrl.search = ''
-	return NextResponse.redirect(maintenanceUrl)
+	// The configured site URL, not the request's: behind the reverse proxy the
+	// request URL is the container's own address.
+	return NextResponse.redirect(absoluteUrl('/maintenance'))
 }
 
 export const config = {

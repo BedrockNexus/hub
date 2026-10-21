@@ -18,6 +18,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { MarkdownEditor } from '@/components/plugins/editors/markdown-editor'
+import { PluginIconField } from '@/components/plugins/publishing/plugin-icon-field'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -117,11 +118,13 @@ function useMinute() {
 function MetadataForm({
 	draft,
 	busy,
+	published = false,
 	submitLabel,
 	onSave,
 }: {
 	draft: Doc<'pluginPublishingDrafts'>
 	busy: boolean
+	published?: boolean
 	submitLabel: string
 	onSave: (metadata: ProjectMetadataInput) => Promise<void>
 }) {
@@ -156,6 +159,16 @@ function MetadataForm({
 				await onSave(result.data)
 			}}
 		>
+			<div className="flex flex-col gap-2 sm:col-span-2">
+				<Label>Icon</Label>
+				<PluginIconField
+					disabled={busy}
+					draftId={draft._id}
+					iconUrl={draft.iconUrl}
+					name={metadata.name || draft.name}
+					published={published}
+				/>
+			</div>
 			<div className="space-y-2">
 				<Label htmlFor="plugin-name">Name</Label>
 				<Input
@@ -497,7 +510,7 @@ export function PluginDetailsManager({
 					<MetadataForm
 						busy={busy !== null || project.locked}
 						draft={draft}
-						key={`${draft._id}:${draft.updatedAt}`}
+						key={draft._id}
 						onSave={(metadata) =>
 							run('metadata', async () => {
 								await saveMetadata({
@@ -507,6 +520,7 @@ export function PluginDetailsManager({
 								toast.success('Details saved.')
 							})
 						}
+						published={published}
 						submitLabel="Save details"
 					/>
 				</CardContent>

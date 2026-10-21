@@ -1,6 +1,10 @@
 import type { Root } from 'mdast'
 import type { LeafDirective } from 'mdast-util-directive'
-import ReactMarkdown, { type Components } from 'react-markdown'
+import ReactMarkdown, {
+	type Components,
+	defaultUrlTransform,
+	type UrlTransform,
+} from 'react-markdown'
 import remarkDirective from 'remark-directive'
 import remarkGfm from 'remark-gfm'
 import type { Plugin } from 'unified'
@@ -197,12 +201,51 @@ const markdownComponents: Components = {
 	),
 }
 
+/**
+ * Where relative URLs in the content point, e.g. a GitHub README's
+ * `images/demo.png`: images resolve against `images`, links against `links`.
+ */
+export interface RelativeUrlBase {
+	images: string
+	links: string
+}
+
+// Absolute URLs (any scheme), in-page anchors, and protocol-relative URLs.
+const NOT_RELATIVE_URL = /^([a-z][a-z\d+.-]*:|#|\/\/)/i
+const LEADING_DOT_SLASH = /^\.?\//
+
+function resolveRelativeUrls(base: RelativeUrlBase): UrlTransform {
+	return (url, key) => {
+		if (NOT_RELATIVE_URL.test(url)) {
+			return defaultUrlTransform(url)
+		}
+		try {
+			return defaultUrlTransform(
+				new URL(
+					url.replace(LEADING_DOT_SLASH, ''),
+					key === 'src' ? base.images : base.links,
+				).toString(),
+			)
+		} catch {
+			return defaultUrlTransform(url)
+		}
+	}
+}
+
 interface RichTextViewerProps {
 	content?: string | null
 	className?: string
+	/** Drop raw HTML instead of showing it as text (for imported READMEs). */
+	skipHtml?: boolean
+	relativeUrlBase?: RelativeUrlBase
 }
 
-export function RichTextViewer({ content, className }: RichTextViewerProps) {
+export function RichTextViewer({
+	content,
+	className,
+	skipHtml = false,
+	relativeUrlBase,
+}: RichTextViewerProps) {
 	if (!content?.trim()) {
 		return null
 	}
@@ -219,6 +262,12 @@ export function RichTextViewer({ content, className }: RichTextViewerProps) {
 					remarkDirective,
 					remarkYoutubeDirective,
 				]}
+				skipHtml={skipHtml}
+				urlTransform={
+					relativeUrlBase
+						? resolveRelativeUrls(relativeUrlBase)
+						: defaultUrlTransform
+				}
 			>
 				{markdown}
 			</ReactMarkdown>

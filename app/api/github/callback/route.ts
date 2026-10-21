@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { api } from '@/convex/_generated/api'
 import { logEvent } from '@/convex/lib/redact'
 import { fetchAuthAction, isAuthenticated } from '@/lib/auth-server'
+import { absoluteUrl } from '@/lib/seo'
 
 export async function GET(request: Request) {
 	const url = new URL(request.url)
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 
 	if (!(await isAuthenticated())) {
 		return NextResponse.redirect(
-			new URL('/login?redirectTo=/dashboard/plugins/new', request.url),
+			new URL(absoluteUrl('/login?redirectTo=/dashboard/plugins/new')),
 		)
 	}
 
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
 		installationId <= 0
 	) {
 		return NextResponse.redirect(
-			new URL('/dashboard/plugins?github=invalid-callback', request.url),
+			new URL(absoluteUrl('/dashboard/plugins?github=invalid-callback')),
 		)
 	}
 
@@ -40,14 +41,14 @@ export async function GET(request: Request) {
 				installationId,
 			},
 		)
-		const destination = new URL('/dashboard/plugins', request.url)
+		const destination = new URL(absoluteUrl('/dashboard/plugins'))
 		destination.searchParams.set('github', 'connected')
 		destination.searchParams.set('account', result.accountLogin)
 		return NextResponse.redirect(destination)
 	} catch (error) {
 		logEvent('error', 'github_install_callback_failed', { error })
 		return NextResponse.redirect(
-			new URL('/dashboard/plugins?github=connection-failed', request.url),
+			new URL(absoluteUrl('/dashboard/plugins?github=connection-failed')),
 		)
 	}
 }

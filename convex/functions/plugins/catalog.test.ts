@@ -169,8 +169,11 @@ describe('public registry catalog', () => {
 			software: { slug: 'powernukkitx' },
 			latestVersion: { verifiedBuild: true },
 		})
-		expect(project?.description).toBe('Safe documentation.')
-		expect(project?.versions[0]?.changelog).not.toContain('javascript:')
+		// Markdown is returned as written; the page renders it without raw
+		// HTML or unsafe links (components/editor/rich-text-viewer.test.tsx).
+		expect(project?.description).toBe(
+			"<script>alert('no')</script>\n\nSafe documentation.",
+		)
 		expect(project?.versions[0]?.release).toMatchObject({
 			verifiedBuild: true,
 			asset: { name: 'TrustedPlugin.jar', sha256: 'f'.repeat(64) },

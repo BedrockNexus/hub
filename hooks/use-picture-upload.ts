@@ -3,6 +3,7 @@
 import { useAction, useMutation } from 'convex/react'
 import { useCallback } from 'react'
 import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 import { uploadFileToPresignedUrl } from '@/lib/r2-upload'
 
 /**
@@ -47,6 +48,29 @@ export function useOrganizationLogoUpload() {
 			})
 			await uploadFileToPresignedUrl({ file, url: target.url })
 			return confirmUpload({ organizationId, key: target.key })
+		},
+		[generateUploadUrl, confirmUpload],
+	)
+}
+
+/**
+ * Uploads a plugin icon to R2 and saves it on the plugin's draft
+ * (functions/plugins/icons.ts). Resolves to the icon's URL.
+ */
+export function usePluginIconUpload() {
+	const generateUploadUrl = useMutation(
+		api.functions.plugins.icons.generateUploadUrl,
+	)
+	const confirmUpload = useAction(api.functions.plugins.icons.confirmUpload)
+
+	return useCallback(
+		async (draftId: Id<'pluginPublishingDrafts'>, file: File) => {
+			const target = await generateUploadUrl({
+				draftId,
+				fileName: file.name,
+			})
+			await uploadFileToPresignedUrl({ file, url: target.url })
+			return confirmUpload({ draftId, key: target.key })
 		},
 		[generateUploadUrl, confirmUpload],
 	)

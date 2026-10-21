@@ -4,7 +4,6 @@ import {
 } from 'convex/server'
 import { v } from 'convex/values'
 
-import { sanitizeRegistryText } from '../../../lib/plugins/registry-content'
 import type { Doc } from '../../_generated/dataModel'
 import { components } from '../../_generated/api'
 import { type QueryCtx, query } from '../../_generated/server'
@@ -65,6 +64,7 @@ export const projectCardValidator = v.object({
 	name: v.string(),
 	summary: v.string(),
 	license: v.optional(v.string()),
+	iconUrl: v.optional(v.string()),
 	downloadCount: v.number(),
 	ratingAverage: v.number(),
 	ratingCount: v.number(),
@@ -122,6 +122,7 @@ async function hydrateProjectCard(
 		name: project.name,
 		summary: project.summary,
 		license: project.license,
+		iconUrl: project.iconUrl,
 		downloadCount,
 		ratingAverage: project.ratingAverage,
 		ratingCount: project.ratingCount,
@@ -490,7 +491,8 @@ export const getProject = query({
 				return {
 					version: version.version,
 					normalizedVersion: version.normalizedVersion,
-					changelog: sanitizeRegistryText(version.changelog),
+					// Markdown; the page renders it without raw HTML.
+					changelog: version.changelog,
 					minecraftVersion: version.minecraftVersion,
 					publishedAt: version.publishedAt,
 					release: published
@@ -528,7 +530,7 @@ export const getProject = query({
 
 		return {
 			project: card,
-			description: sanitizeRegistryText(project.description),
+			description: project.description,
 			repository: {
 				fullName: repository.fullName,
 				htmlUrl: repository.htmlUrl,

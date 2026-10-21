@@ -180,6 +180,28 @@ export function buildPluginDownloadR2ObjectKey(args: {
 		.join('/')
 }
 
+/** A plugin icon, keyed by the plugin's draft so it can be set before the
+ * plugin row exists. Outside the managed media patterns, like plugin files. */
+export function buildPluginIconR2ObjectKey(args: {
+	draftId: string
+	assetId: string
+	fileName: string
+}): string {
+	return [
+		'plugins',
+		'icons',
+		args.draftId,
+		`${args.assetId}.${getSafeFileExtension(args.fileName)}`,
+	]
+		.map(sanitizeR2PathSegment)
+		.join('/')
+}
+
+export function isPluginIconR2Key(key: string, draftId: string): boolean {
+	const prefix = ['plugins', 'icons', draftId].map(sanitizeR2PathSegment).join('/')
+	return key.startsWith(`${prefix}/`) && key.split('/').length === 4
+}
+
 /** Legacy public release key builder retained for existing production objects. */
 export function buildProjectVersionR2ObjectKey({
 	projectId,

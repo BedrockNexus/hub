@@ -19,6 +19,7 @@ export interface PublicPluginCard {
 	name: string
 	summary: string
 	license?: string
+	iconUrl?: string
 	downloadCount: number
 	updatedAt?: number
 	software: { slug: string; name: string }
@@ -85,7 +86,10 @@ export function PluginListItem({ project }: { project: PublicPluginCard }) {
 
 	return (
 		<article className="group relative flex gap-4 p-4 transition-colors hover:bg-muted sm:p-5">
-			<PluginAvatar avatarUrl={owner.avatarUrl} name={project.name} />
+			<PluginAvatar
+				avatarUrl={project.iconUrl ?? owner.avatarUrl}
+				name={project.name}
+			/>
 
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">

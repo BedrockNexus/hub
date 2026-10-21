@@ -21,6 +21,7 @@ import {
 	projectsBySoftware,
 } from '../../lib/plugins/aggregates'
 import { enforceRateLimit } from '../../lib/plugins/rateLimits'
+import { deleteIcon } from './icons'
 
 const PURGE_BATCH_SIZE = 100
 
@@ -83,6 +84,12 @@ export const deleteProject = authedMutation({
 				code: 'CONFIRMATION_MISMATCH',
 				message: `Type ${draft.slug} to confirm deletion.`,
 			})
+		}
+
+		for (const iconUrl of new Set([draft.iconUrl, project?.iconUrl])) {
+			if (iconUrl) {
+				await deleteIcon(ctx, draft._id, iconUrl)
+			}
 		}
 
 		if (!project) {
