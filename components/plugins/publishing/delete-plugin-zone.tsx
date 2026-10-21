@@ -30,8 +30,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 
-/** Owner-facing permanent deletion of a project and its catalog data. */
-export function DeleteProjectZone({
+/** Owner-facing permanent deletion of a plugin and its catalog data. */
+export function DeletePluginZone({
 	draftId,
 }: {
 	draftId: Id<'pluginPublishingDrafts'>
@@ -56,13 +56,13 @@ export function DeleteProjectZone({
 		setIsDeleting(true)
 		try {
 			await deleteProject({ draftId, confirmSlug: confirmation })
-			toast.success('Project deleted.')
+			toast.success('Plugin deleted.')
 			router.push('/dashboard/plugins' as Route)
 		} catch (error) {
 			toast.error(
 				error instanceof Error
 					? error.message
-					: 'The project could not be deleted.',
+					: 'The plugin could not be deleted.',
 			)
 			setIsDeleting(false)
 		}
@@ -71,17 +71,17 @@ export function DeleteProjectZone({
 	return (
 		<Card className="mt-10 border-destructive/40 shadow-none">
 			<CardHeader>
-				<CardTitle>Delete project</CardTitle>
+				<CardTitle>Delete plugin</CardTitle>
 				<CardDescription>
-					Permanently removes this project, its releases, and its
-					download history from BedrockNexus. Your GitHub repository,
-					releases, and files are not changed.
+					Permanently removes this plugin, its versions, files, and
+					download history from BedrockNexus. Your GitHub repository
+					and its releases are not changed.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<Button onClick={() => setOpen(true)} variant="destructive">
 					<HugeiconsIcon className="size-4" icon={Delete02Icon} />
-					Delete project
+					Delete plugin
 				</Button>
 			</CardContent>
 
@@ -100,12 +100,12 @@ export function DeleteProjectZone({
 							Delete {project.draft.name}?
 						</AlertDialogTitle>
 						<AlertDialogDescription>
-							This cannot be undone. The project disappears from
+							This cannot be undone. The plugin disappears from
 							the catalog immediately.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<div className="space-y-2">
-						<Label htmlFor="delete-project-confirmation">
+						<Label htmlFor="delete-plugin-confirmation">
 							Type{' '}
 							<span className="font-mono font-semibold">
 								{slug}
@@ -115,7 +115,7 @@ export function DeleteProjectZone({
 						<Input
 							autoComplete="off"
 							disabled={isDeleting}
-							id="delete-project-confirmation"
+							id="delete-plugin-confirmation"
 							onChange={(event) =>
 								setConfirmation(event.target.value)
 							}

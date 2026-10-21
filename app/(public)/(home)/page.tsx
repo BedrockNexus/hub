@@ -4,6 +4,7 @@ import { CreatorsSection } from '@/components/home/creators-section'
 import { GamemodesSection } from '@/components/home/gamemodes-section'
 import { Hero, SiteStatsBand } from '@/components/home/hero'
 import { PicksSection } from '@/components/home/picks-section'
+import { PluginListSection } from '@/components/home/plugin-list-section'
 import { PopularCreatorsSection } from '@/components/home/popular-creators-section'
 import { ProjectListSection } from '@/components/home/project-list-section'
 import { ServerListSection } from '@/components/home/server-list-section'
@@ -49,7 +50,7 @@ export default async function Home() {
 	return (
 		<>
 			<Hero categories={gamemodes.slice(0, 4)} />
-			<SiteStatsBand />
+			<SiteStatsBand pluginsEnabled={features.pluginsEnabled} />
 			<PicksSection />
 			<ServerListSection
 				href="/servers?sort=trending"
@@ -72,6 +73,14 @@ export default async function Home() {
 				sort="updated"
 				title="Recently updated"
 			/>
+			{features.pluginsEnabled ? (
+				<PluginListSection
+					href="/plugins?sort=downloads"
+					linkLabel="All plugins"
+					sort="downloads"
+					title="Popular server plugins"
+				/>
+			) : null}
 			<PopularCreatorsSection />
 			<CreatorsSection pluginsEnabled={features.pluginsEnabled} />
 		</>

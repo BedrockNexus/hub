@@ -12,6 +12,7 @@ export interface HomeAggregates {
 	servers: number
 	onlinePlayers: number
 	projects: number
+	plugins: number
 	regions: string[]
 }
 
@@ -96,6 +97,13 @@ export async function computeAggregates(
 		.withIndex('by_status', (q) => q.eq('status', 'published'))
 		.collect()
 
+	const plugins = await ctx.db
+		.query('plugins')
+		.withIndex('by_visibility_and_status', (q) =>
+			q.eq('visibility', 'public').eq('status', 'published'),
+		)
+		.collect()
+
 	const regions = [
 		...new Set(
 			servers
@@ -109,6 +117,7 @@ export async function computeAggregates(
 			servers: servers.length,
 			onlinePlayers,
 			projects: projects.length,
+			plugins: plugins.length,
 			regions,
 		},
 		software,
@@ -130,6 +139,7 @@ export async function readHomeAggregates(
 		servers: stored.servers,
 		onlinePlayers: stored.onlinePlayers,
 		projects: stored.projects,
+		plugins: stored.plugins ?? 0,
 		regions: stored.regions,
 	}
 }

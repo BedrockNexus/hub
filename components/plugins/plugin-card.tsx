@@ -14,7 +14,7 @@ import {
 } from '@/lib/plugins/format-registry'
 import { cn } from '@/lib/utils'
 
-export interface PublicProjectCard {
+export interface PublicPluginCard {
 	slug: string
 	name: string
 	summary: string
@@ -35,8 +35,8 @@ export interface PublicProjectCard {
 	organization: { slug: string; name: string; avatarUrl?: string } | null
 }
 
-export function projectOwner(
-	project: Pick<PublicProjectCard, 'creator' | 'organization'>,
+export function pluginOwner(
+	project: Pick<PublicPluginCard, 'creator' | 'organization'>,
 ) {
 	if (project.organization) {
 		return {
@@ -53,7 +53,7 @@ export function projectOwner(
 	return { label: 'Independent creator', avatarUrl: undefined }
 }
 
-export function ProjectAvatar({
+export function PluginAvatar({
 	name,
 	avatarUrl,
 	className,
@@ -79,13 +79,13 @@ export function ProjectAvatar({
 	)
 }
 
-export function ProjectListItem({ project }: { project: PublicProjectCard }) {
-	const owner = projectOwner(project)
+export function PluginListItem({ project }: { project: PublicPluginCard }) {
+	const owner = pluginOwner(project)
 	const updated = project.latestVersion?.publishedAt ?? project.updatedAt
 
 	return (
 		<article className="group relative flex gap-4 p-4 transition-colors hover:bg-muted sm:p-5">
-			<ProjectAvatar avatarUrl={owner.avatarUrl} name={project.name} />
+			<PluginAvatar avatarUrl={owner.avatarUrl} name={project.name} />
 
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -157,15 +157,15 @@ export function ProjectListItem({ project }: { project: PublicProjectCard }) {
 	)
 }
 
-export function ProjectList({
-	projects,
+export function PluginList({
+	plugins,
 }: {
-	projects: readonly PublicProjectCard[]
+	plugins: readonly PublicPluginCard[]
 }) {
 	return (
 		<div className="divide-y overflow-hidden rounded-md border bg-card">
-			{projects.map((project) => (
-				<ProjectListItem key={project.slug} project={project} />
+			{plugins.map((plugin) => (
+				<PluginListItem key={plugin.slug} project={plugin} />
 			))}
 		</div>
 	)

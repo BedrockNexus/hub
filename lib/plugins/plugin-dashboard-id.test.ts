@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	createProjectDashboardId,
-	parseProjectDashboardId,
-} from './project-dashboard-id'
+	createPluginDashboardId,
+	parsePluginDashboardId,
+} from './plugin-dashboard-id'
 
 describe('project dashboard IDs', () => {
 	it('round-trips a GitHub repository ID through a compact key', () => {
 		const repositoryId = 987_654_321
-		const dashboardId = createProjectDashboardId(repositoryId)
+		const dashboardId = createPluginDashboardId(repositoryId)
 
 		expect(dashboardId).toBe('p_gc0uy9')
-		expect(parseProjectDashboardId(dashboardId)).toBe(repositoryId)
+		expect(parsePluginDashboardId(dashboardId)).toBe(repositoryId)
 	})
 
 	it.each([
@@ -22,6 +22,6 @@ describe('project dashboard IDs', () => {
 		'p_gc0uy9-extra',
 		'p_01',
 	])('rejects a malformed key: %s', (value) => {
-		expect(parseProjectDashboardId(value)).toBeNull()
+		expect(parsePluginDashboardId(value)).toBeNull()
 	})
 })

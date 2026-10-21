@@ -21,7 +21,7 @@ import { RoleBadgeList } from '@/components/auth/role-badge'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import { ensureHttpUrl, SideCard } from '@/components/detail/detail-parts'
 import { ShareButton } from '@/components/detail/public-actions'
-import { ProjectList } from '@/components/plugins/plugin-card'
+import { PluginList } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -302,7 +302,7 @@ export default function PublicUserProfilePage() {
 					{plugins.projects.length > 0 ? (
 						<section className="flex flex-col gap-4">
 							<h2 className="font-bold text-2xl">Plugins</h2>
-							<ProjectList projects={plugins.projects} />
+							<PluginList plugins={plugins.projects} />
 						</section>
 					) : null}
 					<section className="flex flex-col gap-4">

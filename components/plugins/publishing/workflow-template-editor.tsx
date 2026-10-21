@@ -196,7 +196,7 @@ export function WorkflowTemplateEditor() {
 						<CardTitle>Add workflow</CardTitle>
 						<CardDescription>
 							Create another validated publishing option that
-							project owners can select.
+							plugin developers can select.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>

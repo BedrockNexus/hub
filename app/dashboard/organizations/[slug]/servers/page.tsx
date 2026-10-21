@@ -10,20 +10,7 @@ import {
 	ServerStack03Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import type {
-	Column,
-	ColumnDef,
-	ColumnFiltersState,
-} from '@tanstack/react-table'
-import {
-	getCoreRowModel,
-	getFacetedRowModel,
-	getFacetedUniqueValues,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from '@tanstack/react-table'
+import type { Column, ColumnDef } from '@tanstack/react-table'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -49,7 +36,6 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-
 import { Button } from '@/components/ui/button'
 import {
 	DropdownMenu,
@@ -69,11 +55,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { useDataTable } from '@/hooks/use-data-table'
 import { useFullOrganization } from '@/hooks/use-organization'
 import {
 	getSoftwareClassificationLabel,
 	type ServerSoftwareClassification,
 } from '@/lib/bedrock-api'
+import type { DataTableFeatures } from '@/lib/data-table-features'
 
 // Type for server table display
 interface ServerRow {
@@ -244,7 +232,6 @@ export default function OrganizationServersPage() {
 		serverIds.length > 0 ? { serverIds } : 'skip',
 	)
 
-	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [manualStatuses, setManualStatuses] = useState<
 		Record<
 			string,
@@ -344,7 +331,7 @@ export default function OrganizationServersPage() {
 		[deleteServer],
 	)
 
-	const columns = useMemo<ColumnDef<ServerRow>[]>(
+	const columns = useMemo<ColumnDef<DataTableFeatures, ServerRow>[]>(
 		() => [
 			{
 				id: 'name',
@@ -352,7 +339,7 @@ export default function OrganizationServersPage() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Server" />,
 				cell: ({ row }) => (
 					<Link
@@ -388,7 +375,7 @@ export default function OrganizationServersPage() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => {
 					const status = row.original.status
@@ -460,7 +447,7 @@ export default function OrganizationServersPage() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => (
 					<DataTableColumnHeader column={column} label="IP Address" />
 				),
@@ -476,7 +463,7 @@ export default function OrganizationServersPage() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Players" />,
 				cell: ({ row }) => {
 					const server = row.original
@@ -503,7 +490,7 @@ export default function OrganizationServersPage() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Created" />,
 				cell: ({ row }) => (
 					<div className="text-muted-foreground text-sm">
@@ -536,21 +523,13 @@ export default function OrganizationServersPage() {
 		[handleDeleteServer, handleRefreshStatus],
 	)
 
-	const table = useReactTable({
+	const { table } = useDataTable({
+		mode: 'client',
 		data: servers,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
-		onColumnFiltersChange: setColumnFilters,
-		state: {
-			columnFilters,
-		},
 		initialState: {
 			pagination: {
+				pageIndex: 0,
 				pageSize: 10,
 			},
 		},

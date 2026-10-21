@@ -513,7 +513,7 @@ describe('site aggregates', () => {
 		})
 
 		// Before the first refresh the numbers are computed on the spot.
-		const expected = { servers: 2, onlinePlayers: 42, projects: 1 }
+		const expected = { servers: 2, onlinePlayers: 42, projects: 1, plugins: 0 }
 		expect(await t.query(api.functions.site.settings.getStats, {})).toEqual(expected)
 
 		await t.mutation(internal.functions.site.aggregates.refresh, {})

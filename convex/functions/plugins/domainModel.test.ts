@@ -198,7 +198,7 @@ describe('project ownership and visibility', () => {
 				{ projectId },
 			),
 		).rejects.toThrow(
-			'Project owner or organization manager access is required',
+			'Plugin owner or organization manager access is required',
 		)
 		await expect(
 			t.query(api.functions.plugins.projects.getBySlug, {

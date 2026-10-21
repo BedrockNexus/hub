@@ -223,6 +223,6 @@ export async function requireProjectManager(
 
 	throw new ConvexError({
 		code: 'FORBIDDEN',
-		message: 'Project owner or organization manager access is required.',
+		message: 'Plugin owner or organization manager access is required.',
 	})
 }

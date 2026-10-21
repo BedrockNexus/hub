@@ -12,20 +12,7 @@ import {
 	ViewOffSlashIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import type {
-	Column,
-	ColumnDef,
-	ColumnFiltersState,
-} from '@tanstack/react-table'
-import {
-	getCoreRowModel,
-	getFacetedRowModel,
-	getFacetedUniqueValues,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from '@tanstack/react-table'
+import type { Column, ColumnDef } from '@tanstack/react-table'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -71,10 +58,12 @@ import { DashboardEmptyState } from '@/components/user-dashboard/dashboard-empty
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { useDataTable } from '@/hooks/use-data-table'
 import {
 	getSoftwareClassificationLabel,
 	type ServerSoftwareClassification,
 } from '@/lib/bedrock-api'
+import type { DataTableFeatures } from '@/lib/data-table-features'
 
 // Type for category from Convex
 interface Category {
@@ -414,7 +403,6 @@ export function ServerListTable() {
 		serverIds.length > 0 ? { serverIds } : 'skip',
 	)
 
-	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [manualStatuses, setManualStatuses] = useState<
 		Record<
 			string,
@@ -556,7 +544,7 @@ export function ServerListTable() {
 		[updateServer],
 	)
 
-	const columns = useMemo<ColumnDef<ServerRow>[]>(
+	const columns = useMemo<ColumnDef<DataTableFeatures, ServerRow>[]>(
 		() => [
 			{
 				id: 'icon',
@@ -584,7 +572,7 @@ export function ServerListTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Name" />,
 				cell: ({ row }) => (
 					<Link
@@ -607,7 +595,7 @@ export function ServerListTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => (
 					<LifecycleStatusBadge status={row.original.status} />
@@ -629,7 +617,7 @@ export function ServerListTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Ping" />,
 				cell: ({ row }) => {
 					const server = row.original
@@ -664,7 +652,7 @@ export function ServerListTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => (
 					<DataTableColumnHeader column={column} label="IP Address" />
 				),
@@ -679,7 +667,7 @@ export function ServerListTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => (
 					<DataTableColumnHeader column={column} label="Categories" />
 				),
@@ -735,7 +723,7 @@ export function ServerListTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<ServerRow, unknown>
+					column: Column<DataTableFeatures, ServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Created" />,
 				cell: ({ row }) => (
 					<div className="text-muted-foreground text-sm">
@@ -783,21 +771,13 @@ export function ServerListTable() {
 		],
 	)
 
-	const table = useReactTable({
+	const { table } = useDataTable({
+		mode: 'client',
 		data: servers,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
-		onColumnFiltersChange: setColumnFilters,
-		state: {
-			columnFilters,
-		},
 		initialState: {
 			pagination: {
+				pageIndex: 0,
 				pageSize: 10,
 			},
 		},

@@ -1,8 +1,14 @@
-import { CubeIcon, PulseIcon, UserGroupIcon } from '@hugeicons/core-free-icons'
+import {
+	CubeIcon,
+	PlugSocketIcon,
+	PulseIcon,
+	UserGroupIcon,
+} from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getSiteStats } from '@/lib/site-settings'
+import { cn } from '@/lib/utils'
 
 export interface HeroCategory {
 	name: string
@@ -62,7 +68,11 @@ export function Hero({ categories }: { categories: HeroCategory[] }) {
 }
 
 /** Live totals in a band between the hero and the listings. */
-export async function SiteStatsBand() {
+export async function SiteStatsBand({
+	pluginsEnabled = false,
+}: {
+	pluginsEnabled?: boolean
+}) {
 	const stats = await getSiteStats()
 	const items = [
 		{ value: stats.servers, label: 'Servers listed', icon: PulseIcon },
@@ -72,6 +82,15 @@ export async function SiteStatsBand() {
 			icon: UserGroupIcon,
 		},
 		{ value: stats.projects, label: 'Projects published', icon: CubeIcon },
+		...(pluginsEnabled
+			? [
+					{
+						value: stats.plugins,
+						label: 'Plugins published',
+						icon: PlugSocketIcon,
+					},
+				]
+			: []),
 	]
 
 	return (
@@ -79,7 +98,12 @@ export async function SiteStatsBand() {
 			aria-label="Bedrock Nexus in numbers"
 			className="strata border-ember border-b-[3px]"
 		>
-			<dl className="container mx-auto grid gap-3 px-4 py-5 sm:grid-cols-3 md:px-6">
+			<dl
+				className={cn(
+					'container mx-auto grid gap-3 px-4 py-5 sm:grid-cols-3 md:px-6',
+					items.length === 4 && 'sm:grid-cols-2 lg:grid-cols-4',
+				)}
+			>
 				{items.map((item) => (
 					<div
 						className="flex items-center gap-3.5 rounded-md border border-edge bg-card px-4.5 py-3.5"

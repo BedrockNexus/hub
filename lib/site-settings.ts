@@ -38,6 +38,7 @@ export interface SiteFeatureSettings {
 export interface SiteStats {
 	onlinePlayers: number
 	projects: number
+	plugins: number
 	servers: number
 }
 
@@ -55,6 +56,7 @@ export const DEFAULT_SITE_FEATURES: SiteFeatureSettings = {
 const DEFAULT_SITE_STATS: SiteStats = {
 	onlinePlayers: 0,
 	projects: 0,
+	plugins: 0,
 	servers: 0,
 }
 

@@ -3,6 +3,7 @@ import localFont from 'next/font/local'
 import '@mdxeditor/editor/style.css'
 import './globals.css'
 import { headers } from 'next/headers'
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { NextAuthProvider } from '@/components/ba-ui/provider/next-auth-provider'
 import { ConvexClientProvider } from '@/components/convex-client-provider'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -138,7 +139,10 @@ export default async function RootLayout({
 				>
 					<TooltipProvider>
 						<ConvexClientProvider initialToken={initialToken}>
-							<NextAuthProvider>{children}</NextAuthProvider>
+							<NextAuthProvider>
+								{/* Listing filters and data tables keep their state in the URL. */}
+								<NuqsAdapter>{children}</NuqsAdapter>
+							</NextAuthProvider>
 							<Toaster closeButton richColors />
 						</ConvexClientProvider>
 					</TooltipProvider>

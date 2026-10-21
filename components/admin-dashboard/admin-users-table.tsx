@@ -10,20 +10,7 @@ import {
 	ViewIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import type {
-	Column,
-	ColumnDef,
-	ColumnFiltersState,
-} from '@tanstack/react-table'
-import {
-	getCoreRowModel,
-	getFacetedRowModel,
-	getFacetedUniqueValues,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from '@tanstack/react-table'
+import type { Column, ColumnDef } from '@tanstack/react-table'
 import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
 import Link from 'next/link'
 import { useCallback, useMemo, useState } from 'react'
@@ -66,6 +53,8 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
 import { api } from '@/convex/_generated/api'
+import { useDataTable } from '@/hooks/use-data-table'
+import type { DataTableFeatures } from '@/lib/data-table-features'
 
 type UserRole = 'user' | 'admin' | string
 type AccountStatus = 'banned' | 'verified' | 'unverified'
@@ -399,7 +388,6 @@ export function AdminUsersTable() {
 	)
 	const stats = useQuery(api.functions.site.users.getAdminUserStats, {})
 	const updateUser = useMutation(api.functions.site.users.updateAdminUser)
-	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
 	const users = useMemo(() => results as AdminUserRow[], [results])
 
@@ -419,7 +407,7 @@ export function AdminUsersTable() {
 		[updateUser],
 	)
 
-	const columns = useMemo<ColumnDef<AdminUserRow>[]>(
+	const columns = useMemo<ColumnDef<DataTableFeatures, AdminUserRow>[]>(
 		() => [
 			{
 				id: 'user',
@@ -428,7 +416,7 @@ export function AdminUsersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminUserRow, unknown>
+					column: Column<DataTableFeatures, AdminUserRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="User" />,
 				cell: ({ row }) => (
 					<div className="flex min-w-64 items-center gap-3">
@@ -458,7 +446,7 @@ export function AdminUsersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminUserRow, unknown>
+					column: Column<DataTableFeatures, AdminUserRow, unknown>
 				}) => (
 					<DataTableColumnHeader column={column} label="Username" />
 				),
@@ -477,7 +465,7 @@ export function AdminUsersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminUserRow, unknown>
+					column: Column<DataTableFeatures, AdminUserRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Role" />,
 				cell: ({ row }) => <RoleBadge role={row.original.role} />,
 				meta: {
@@ -496,7 +484,7 @@ export function AdminUsersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminUserRow, unknown>
+					column: Column<DataTableFeatures, AdminUserRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => <AccountStatusBadge user={row.original} />,
 				meta: {
@@ -530,7 +518,7 @@ export function AdminUsersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminUserRow, unknown>
+					column: Column<DataTableFeatures, AdminUserRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Joined" />,
 				cell: ({ row }) => (
 					<div className="text-muted-foreground text-sm">
@@ -552,18 +540,11 @@ export function AdminUsersTable() {
 		[handlePatch],
 	)
 
-	const table = useReactTable({
+	const { table } = useDataTable({
+		mode: 'client',
 		data: users,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
-		onColumnFiltersChange: setColumnFilters,
-		state: { columnFilters },
-		initialState: { pagination: { pageSize: 10 } },
+		initialState: { pagination: { pageIndex: 0, pageSize: 10 } },
 	})
 
 	if (status === 'LoadingFirstPage' && !search) {

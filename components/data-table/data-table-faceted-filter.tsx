@@ -1,179 +1,158 @@
 "use client";
 
-import type { Column } from "@tanstack/react-table";
-import { Check, PlusCircle, XCircle } from "@/components/ui/icons";
-import * as React from "react";
+import type * as React from "react";
 
-import { Badge } from "@/components/ui/badge";
+import { type Column, type RowData, Subscribe } from "@tanstack/react-table";
+
+import type { DataTableFeatures } from "@/lib/data-table-features";
+import type { FilterOption } from "@/lib/data-table-types";
+
 import { Button } from "@/components/ui/button";
+import { useDirection } from "@/components/ui/direction";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Faceted,
+  FacetedBadge,
+  FacetedBadgeList,
+  FacetedClear,
+  FacetedContent,
+  FacetedEmpty,
+  FacetedGroup,
+  FacetedInput,
+  FacetedItem,
+  FacetedItemIndicator,
+  FacetedList,
+  FacetedTrigger,
+  FacetedValue,
+} from "@/components/ui/faceted";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import type { Option } from "@/types/data-table";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Cancel01Icon, PlusSignCircleIcon } from "@hugeicons/core-free-icons";
 
-interface DataTableFacetedFilterProps<TData, TValue> {
-  column?: Column<TData, TValue>;
+interface DataTableFacetedFilterProps<TData extends RowData, TValue> {
+  column?: Column<DataTableFeatures, TData, TValue>;
   title?: string;
-  options: Option[];
+  options: FilterOption[];
   multiple?: boolean;
 }
 
-export function DataTableFacetedFilter<TData, TValue>({
+export function DataTableFacetedFilter<TData extends RowData, TValue>({
   column,
-  title,
-  options,
-  multiple,
+  ...props
 }: DataTableFacetedFilterProps<TData, TValue>) {
-  const [open, setOpen] = React.useState(false);
-
-  const columnFilterValue = column?.getFilterValue();
-  const selectedValues = new Set(
-    Array.isArray(columnFilterValue) ? columnFilterValue : [],
-  );
-
-  const onItemSelect = React.useCallback(
-    (option: Option, isSelected: boolean) => {
-      if (!column) return;
-
-      if (multiple) {
-        const newSelectedValues = new Set(selectedValues);
-        if (isSelected) {
-          newSelectedValues.delete(option.value);
-        } else {
-          newSelectedValues.add(option.value);
-        }
-        const filterValues = Array.from(newSelectedValues);
-        column.setFilterValue(filterValues.length ? filterValues : undefined);
-      } else {
-        column.setFilterValue(isSelected ? undefined : [option.value]);
-        setOpen(false);
-      }
-    },
-    [column, multiple, selectedValues],
-  );
-
-  const onReset = React.useCallback(
-    (event?: React.MouseEvent) => {
-      event?.stopPropagation();
-      column?.setFilterValue(undefined);
-    },
-    [column],
-  );
+  if (!column) {
+    return <DataTableFacetedFilterContent column={column} {...props} />;
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant="outline" size="sm" className="border-dashed font-normal" />}>{selectedValues?.size > 0 ? (
-                      <div
-                        role="button"
-                        aria-label={`Clear ${title} filter`}
-                        tabIndex={0}
-                        className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        onClick={onReset}
-                      >
-                        <XCircle />
-                      </div>
-                    ) : (
-                      <PlusCircle />
-                    )}{title}{selectedValues?.size > 0 && (
-                      <>
-                        <Separator
-                          orientation="vertical"
-                          className="mx-0.5 data-[orientation=vertical]:h-4"
-                        />
-                        <Badge
-                          variant="secondary"
-                          className="rounded-sm px-1 font-normal lg:hidden"
-                        >
-                          {selectedValues.size}
-                        </Badge>
-                        <div className="hidden items-center gap-1 lg:flex">
-                          {selectedValues.size > 2 ? (
-                            <Badge
-                              variant="secondary"
-                              className="rounded-sm px-1 font-normal"
-                            >
-                              {selectedValues.size} selected
-                            </Badge>
-                          ) : (
-                            options
-                              .filter((option) => selectedValues.has(option.value))
-                              .map((option) => (
-                                <Badge
-                                  variant="secondary"
-                                  key={option.value}
-                                  className="rounded-sm px-1 font-normal"
-                                >
-                                  {option.label}
-                                </Badge>
-                              ))
-                          )}
-                        </div>
-                      </>
-                    )}</PopoverTrigger>
-      <PopoverContent className="w-50 p-0" align="start">
-        <Command>
-          <CommandInput placeholder={title} />
-          <CommandList className="max-h-full">
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup className="max-h-75 scroll-py-1 overflow-y-auto overflow-x-hidden">
-              {options.map((option) => {
-                const isSelected = selectedValues.has(option.value);
+    <Subscribe
+      source={column.table.atoms.columnFilters}
+      selector={() => column.getFilterValue()}
+    >
+      {(filterValue) => (
+        <DataTableFacetedFilterContent
+          column={column}
+          columnFilterValue={filterValue}
+          {...props}
+        />
+      )}
+    </Subscribe>
+  );
+}
 
-                return (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => onItemSelect(option, isSelected)}
-                  >
-                    <div
-                      className={cn(
-                        "flex size-4 items-center justify-center rounded-sm border border-primary",
-                        isSelected
-                          ? "bg-primary"
-                          : "opacity-50 [&_svg]:invisible",
-                      )}
-                    >
-                      <Check />
-                    </div>
-                    {option.icon && <option.icon />}
-                    <span className="truncate">{option.label}</span>
-                    {option.count && (
-                      <span className="ml-auto font-mono text-xs">
-                        {option.count}
-                      </span>
-                    )}
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-            {selectedValues.size > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem
-                    onSelect={() => onReset()}
-                    className="justify-center text-center"
-                  >
-                    Clear filters
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+interface DataTableFacetedFilterContentProps<
+  TData extends RowData,
+  TValue,
+> extends DataTableFacetedFilterProps<TData, TValue> {
+  columnFilterValue?: unknown;
+}
+
+function DataTableFacetedFilterContent<TData extends RowData, TValue>({
+  column,
+  title = column?.columnDef.meta?.label ?? column?.id,
+  options,
+  multiple = false,
+  columnFilterValue,
+}: DataTableFacetedFilterContentProps<TData, TValue>) {
+  const dir = useDirection();
+  const selectedValues = Array.isArray(columnFilterValue)
+    ? columnFilterValue.filter(
+        (value): value is string => typeof value === "string",
+      )
+    : [];
+  const hasSelection = selectedValues.length > 0;
+
+  function onValueChange(value: string | string[] | undefined) {
+    const values = Array.isArray(value) ? value : value ? [value] : [];
+    column?.setFilterValue(values.length > 0 ? values : undefined);
+  }
+
+  function onReset(event?: React.MouseEvent) {
+    event?.stopPropagation();
+    column?.setFilterValue(undefined);
+  }
+
+  return (
+    <Faceted
+      value={multiple ? selectedValues : selectedValues[0]}
+      onValueChange={onValueChange}
+      items={options}
+      multiple={multiple}
+    >
+      <FacetedTrigger
+        render={<Button variant="outline" className="border-dashed" />}
+      >
+        {hasSelection ? (
+          <span
+            aria-hidden="true"
+            className="rounded-sm opacity-70 transition-opacity hover:opacity-100"
+            onClick={onReset}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+          </span>
+        ) : (
+          <HugeiconsIcon icon={PlusSignCircleIcon} strokeWidth={2} />
+        )}
+        {title}
+        {hasSelection && (
+          <>
+            <Separator
+              orientation="vertical"
+              className="mx-0.5 data-vertical:h-4 data-vertical:self-center"
+            />
+            <FacetedValue>
+              {(selected) => (
+                <FacetedBadgeList>
+                  {selected.length > 2 ? (
+                    <FacetedBadge>{selected.length} selected</FacetedBadge>
+                  ) : (
+                    selected.map((item) => (
+                      <FacetedBadge key={item.value}>
+                        <span className="truncate">{item.label}</span>
+                      </FacetedBadge>
+                    ))
+                  )}
+                </FacetedBadgeList>
+              )}
+            </FacetedValue>
+          </>
+        )}
+      </FacetedTrigger>
+      <FacetedContent aria-label={`${title} filter`} dir={dir} className="w-50">
+        <FacetedInput placeholder={title} />
+        <FacetedList className="max-h-full">
+          <FacetedEmpty>No results found.</FacetedEmpty>
+          <FacetedGroup className="max-h-75 scroll-py-1 overflow-x-hidden overflow-y-auto">
+            {options.map((option) => (
+              <FacetedItem key={option.value} value={option.value}>
+                {option.icon && <option.icon />}
+                <span className="flex-1 truncate">{option.label}</span>
+                <FacetedItemIndicator>{option.count}</FacetedItemIndicator>
+              </FacetedItem>
+            ))}
+          </FacetedGroup>
+          <FacetedClear>Clear filters</FacetedClear>
+        </FacetedList>
+      </FacetedContent>
+    </Faceted>
   );
 }

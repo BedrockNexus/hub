@@ -258,6 +258,9 @@ export const tables = {
 		servers: v.number(),
 		onlinePlayers: v.number(),
 		projects: v.number(),
+		// Public, published plugins. Missing until the first refresh after it
+		// was added.
+		plugins: v.optional(v.number()),
 		regions: v.array(v.string()),
 		updatedAt: v.number(),
 	}).index('by_key', ['key']),

@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 
 import { recordAdminAction } from '../../../lib/audit'
-import { parseProjectDashboardId } from '../../../../lib/plugins/project-dashboard-id'
+import { parsePluginDashboardId } from '../../../../lib/plugins/plugin-dashboard-id'
 import {
 	projectMetadataSchema,
 	releaseSubmissionSchema,
@@ -1763,7 +1763,7 @@ export const resolveMine = authedQuery({
 	args: { reference: v.string() },
 	returns: v.union(v.id('pluginPublishingDrafts'), v.null()),
 	handler: async (ctx, args) => {
-		const githubRepositoryId = parseProjectDashboardId(args.reference)
+		const githubRepositoryId = parsePluginDashboardId(args.reference)
 		let draftId: Id<'pluginPublishingDrafts'> | null = null
 
 		if (githubRepositoryId !== null) {

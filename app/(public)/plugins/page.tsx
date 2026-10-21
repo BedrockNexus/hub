@@ -5,7 +5,7 @@ import type { Metadata, Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { EmptyState } from '@/components/plugins/empty-state'
-import { ProjectList } from '@/components/plugins/plugin-card'
+import { PluginList } from '@/components/plugins/plugin-card'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@/convex/_generated/api'
@@ -301,7 +301,7 @@ export default async function ExplorePage({
 
 					{result.page.length > 0 ? (
 						<>
-							<ProjectList projects={result.page} />
+							<PluginList plugins={result.page} />
 							{cursor || !result.isDone ? (
 								<div className="mt-6 flex justify-center gap-2">
 									{cursor ? (

@@ -1,11 +1,13 @@
 'use client'
 
 import {
-	ArrowUpRight01Icon,
+	ArrowDown01Icon,
 	DashboardBrowsingIcon,
 	OfficeIcon,
 	Package01Icon,
+	PlugSocketIcon,
 	ServerStack01Icon,
+	Settings02Icon,
 	UserIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -19,19 +21,26 @@ import {
 import { BrandMark } from '@/components/brand-mark'
 import { CreateMenu } from '@/components/layout/create-menu'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { api } from '@/convex/_generated/api'
 import {
 	homeNavigation,
 	pluginsNavigation,
 	publicNavigation,
-	siteConfig,
-	trendingNavigation,
+	toolsNavigation,
 } from '@/lib/site'
 import { cn } from '@/lib/utils'
 
-const mobileNavigation = [homeNavigation, ...publicNavigation]
-const desktopNavigation = [...publicNavigation, trendingNavigation]
-const mobileNavigationWithPlugins = [...mobileNavigation, pluginsNavigation]
+const DESKTOP_LINK_CLASS =
+	'border-transparent border-b-2 py-2 font-display font-semibold text-[15px] text-muted-foreground transition-colors hover:text-foreground'
+const MOBILE_LINK_CLASS =
+	'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-muted-foreground'
 
 const userButtonLinks: UserButtonLink[] = [
 	{
@@ -76,6 +85,17 @@ const userButtonLinks: UserButtonLink[] = [
 		visibility: 'authenticated',
 	},
 	{
+		label: 'Plugins',
+		href: '/dashboard/plugins',
+		icon: (
+			<HugeiconsIcon
+				className="text-muted-foreground"
+				icon={PlugSocketIcon}
+			/>
+		),
+		visibility: 'authenticated',
+	},
+	{
 		label: 'Organization',
 		href: '/dashboard/organizations',
 		icon: (
@@ -96,12 +116,111 @@ function isActiveRoute(pathname: string, url: string) {
 	return pathname === url || pathname.startsWith(`${url}/`)
 }
 
-export function Navbar() {
+/** Server Ping and future tools, in one menu. */
+function ToolsMenu({
+	pathname,
+	mobile = false,
+}: {
+	pathname: string
+	mobile?: boolean
+}) {
+	const isActive = toolsNavigation.some((item) =>
+		isActiveRoute(pathname, item.href),
+	)
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				className={cn(
+					mobile
+						? MOBILE_LINK_CLASS
+						: cn(
+								DESKTOP_LINK_CLASS,
+								'inline-flex items-center gap-1',
+							),
+					isActive &&
+						(mobile
+							? 'bg-primary text-primary-foreground'
+							: 'border-primary text-foreground'),
+				)}
+			>
+				{mobile ? (
+					<>
+						<HugeiconsIcon
+							aria-hidden
+							className="size-5"
+							icon={Settings02Icon}
+							strokeWidth={2}
+						/>
+						<span className="truncate font-medium text-[11px]">
+							Tools
+						</span>
+					</>
+				) : (
+					<>
+						Tools
+						<HugeiconsIcon
+							aria-hidden
+							className="size-3.5"
+							icon={ArrowDown01Icon}
+						/>
+					</>
+				)}
+			</DropdownMenuTrigger>
+			<DropdownMenuContent
+				align={mobile ? 'center' : 'start'}
+				className="w-64"
+				side={mobile ? 'top' : 'bottom'}
+				sideOffset={mobile ? 12 : 8}
+			>
+				<DropdownMenuGroup>
+					{toolsNavigation.map((item) => (
+						<DropdownMenuItem
+							className="items-start gap-3 py-2"
+							key={item.href}
+							nativeButton={false}
+							render={(props) => (
+								<Link {...props} href={item.href} />
+							)}
+						>
+							<HugeiconsIcon
+								aria-hidden
+								className="mt-0.5"
+								icon={item.icon}
+							/>
+							<span className="flex flex-col gap-0.5">
+								<span className="font-medium">
+									{item.label}
+								</span>
+								<span className="text-muted-foreground text-xs">
+									{item.description}
+								</span>
+							</span>
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	)
+}
+
+export function Navbar({
+	pluginsEnabled: initialPluginsEnabled,
+}: {
+	/** From the server render, so Plugins shows without a flash. */
+	pluginsEnabled: boolean
+}) {
 	const pathname = usePathname()
-	// Until the registry is switched on here, Plugins links to its old site.
-	const pluginsEnabled =
-		useQuery(api.functions.site.settings.getFeatures, {})
-			?.pluginsEnabled === true
+	const features = useQuery(api.functions.site.settings.getFeatures, {})
+	const pluginsEnabled = features
+		? features.pluginsEnabled === true
+		: initialPluginsEnabled
+	const desktopNavigation = pluginsEnabled
+		? [...publicNavigation, pluginsNavigation]
+		: publicNavigation
+	const mobileNavigation = [homeNavigation, ...desktopNavigation]
+	const accountLinks = pluginsEnabled
+		? userButtonLinks
+		: userButtonLinks.filter((link) => link.href !== '/dashboard/plugins')
 
 	return (
 		<>
@@ -120,7 +239,7 @@ export function Navbar() {
 								<Link
 									aria-current={isActive ? 'page' : undefined}
 									className={cn(
-										'border-transparent border-b-2 py-2 font-display font-semibold text-[15px] text-muted-foreground transition-colors hover:text-foreground',
+										DESKTOP_LINK_CLASS,
 										isActive &&
 											'border-primary text-foreground',
 									)}
@@ -131,48 +250,13 @@ export function Navbar() {
 								</Link>
 							)
 						})}
-						{pluginsEnabled ? (
-							<Link
-								aria-current={
-									isActiveRoute(
-										pathname,
-										pluginsNavigation.href,
-									)
-										? 'page'
-										: undefined
-								}
-								className={cn(
-									'border-transparent border-b-2 py-2 font-display font-semibold text-[15px] text-muted-foreground transition-colors hover:text-foreground',
-									isActiveRoute(
-										pathname,
-										pluginsNavigation.href,
-									) && 'border-primary text-foreground',
-								)}
-								href={pluginsNavigation.href}
-							>
-								{pluginsNavigation.label}
-							</Link>
-						) : (
-							<a
-								className="inline-flex items-center gap-1.5 py-2 font-display font-semibold text-[15px] text-ember-text transition-colors hover:text-foreground"
-								href={siteConfig.pluginsUrl}
-								rel="noopener"
-								target="_blank"
-							>
-								Plugins
-								<HugeiconsIcon
-									aria-hidden
-									className="size-3.5"
-									icon={ArrowUpRight01Icon}
-								/>
-							</a>
-						)}
+						<ToolsMenu pathname={pathname} />
 					</div>
 
 					<div className="ml-auto flex items-center gap-2.5">
 						<ThemeToggle />
 						<CreateMenu />
-						<UserButton links={userButtonLinks} size="icon" />
+						<UserButton links={accountLinks} size="icon" />
 					</div>
 				</nav>
 			</header>
@@ -187,17 +271,14 @@ export function Navbar() {
 				className="fixed inset-x-0 bottom-0 z-50 border-t bg-card/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
 			>
 				<div className="mx-auto flex max-w-md items-stretch">
-					{(pluginsEnabled
-						? mobileNavigationWithPlugins
-						: mobileNavigation
-					).map((item) => {
+					{mobileNavigation.map((item) => {
 						const isActive = isActiveRoute(pathname, item.href)
 
 						return (
 							<Link
 								aria-current={isActive ? 'page' : undefined}
 								className={cn(
-									'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-muted-foreground',
+									MOBILE_LINK_CLASS,
 									isActive &&
 										'bg-primary text-primary-foreground',
 								)}
@@ -211,18 +292,17 @@ export function Navbar() {
 									strokeWidth={2}
 								/>
 								<span className="truncate font-medium text-[11px]">
-									{'mobileLabel' in item
-										? item.mobileLabel
-										: item.label}
+									{item.label}
 								</span>
 							</Link>
 						)
 					})}
+					<ToolsMenu mobile pathname={pathname} />
 					<div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 text-muted-foreground">
 						<UserButton
 							align="center"
 							className="size-5"
-							links={userButtonLinks}
+							links={accountLinks}
 							sideOffset={12}
 							size="icon"
 							variant="ghost"

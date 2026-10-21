@@ -9,20 +9,7 @@ import {
 	StarIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import type {
-	Column,
-	ColumnDef,
-	ColumnFiltersState,
-} from '@tanstack/react-table'
-import {
-	getCoreRowModel,
-	getFacetedRowModel,
-	getFacetedUniqueValues,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from '@tanstack/react-table'
+import type { Column, ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -62,6 +49,8 @@ import { DashboardEmptyState } from '@/components/user-dashboard/dashboard-empty
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { useDataTable } from '@/hooks/use-data-table'
+import type { DataTableFeatures } from '@/lib/data-table-features'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
@@ -318,7 +307,6 @@ export function ProjectListTable({
 	const categories = useQuery(api.functions.projects.categories.list, {})
 	const deleteContent = useMutation(api.functions.projects.projects.remove)
 
-	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const projects = organizationId ? organizationContent : personalContent
 
 	const contentItems: ProjectRow[] = useMemo(() => {
@@ -357,7 +345,7 @@ export function ProjectListTable({
 		[deleteContent],
 	)
 
-	const columns = useMemo<ColumnDef<ProjectRow>[]>(
+	const columns = useMemo<ColumnDef<DataTableFeatures, ProjectRow>[]>(
 		() => [
 			{
 				id: 'icon',
@@ -385,7 +373,7 @@ export function ProjectListTable({
 				header: ({
 					column,
 				}: {
-					column: Column<ProjectRow, unknown>
+					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Name" />,
 				cell: ({ row }) => (
 					<Link
@@ -408,7 +396,7 @@ export function ProjectListTable({
 				header: ({
 					column,
 				}: {
-					column: Column<ProjectRow, unknown>
+					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => (
 					<ProjectStatusBadge status={row.original.status} />
@@ -430,7 +418,7 @@ export function ProjectListTable({
 				header: ({
 					column,
 				}: {
-					column: Column<ProjectRow, unknown>
+					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Type" />,
 				cell: ({ row }) => (
 					<Badge className="text-xs" variant="secondary">
@@ -457,7 +445,7 @@ export function ProjectListTable({
 				header: ({
 					column,
 				}: {
-					column: Column<ProjectRow, unknown>
+					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => (
 					<DataTableColumnHeader column={column} label="Downloads" />
 				),
@@ -476,7 +464,7 @@ export function ProjectListTable({
 				header: ({
 					column,
 				}: {
-					column: Column<ProjectRow, unknown>
+					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Rating" />,
 				cell: ({ row }) => {
 					const rating = row.original.averageRating
@@ -512,7 +500,7 @@ export function ProjectListTable({
 				header: ({
 					column,
 				}: {
-					column: Column<ProjectRow, unknown>
+					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Version" />,
 				cell: ({ row }) => {
 					const v = row.original.latestVersionString
@@ -539,7 +527,7 @@ export function ProjectListTable({
 				header: ({
 					column,
 				}: {
-					column: Column<ProjectRow, unknown>
+					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => (
 					<DataTableColumnHeader column={column} label="Categories" />
 				),
@@ -589,7 +577,7 @@ export function ProjectListTable({
 				header: ({
 					column,
 				}: {
-					column: Column<ProjectRow, unknown>
+					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Created" />,
 				cell: ({ row }) => (
 					<div className="text-muted-foreground text-sm">
@@ -621,21 +609,13 @@ export function ProjectListTable({
 		[availableCategories, handleDelete],
 	)
 
-	const table = useReactTable({
+	const { table } = useDataTable({
+		mode: 'client',
 		data: contentItems,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
-		onColumnFiltersChange: setColumnFilters,
-		state: {
-			columnFilters,
-		},
 		initialState: {
 			pagination: {
+				pageIndex: 0,
 				pageSize: 10,
 			},
 		},

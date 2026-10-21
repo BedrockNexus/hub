@@ -55,7 +55,7 @@ export const deleteProject = authedMutation({
 		if (!draft) {
 			throw new ConvexError({
 				code: 'NOT_FOUND',
-				message: 'Project not found.',
+				message: 'Plugin not found.',
 			})
 		}
 		const project = draft.projectId
@@ -71,7 +71,7 @@ export const deleteProject = authedMutation({
 			} else if (draft.ownerId !== ctx.user._id) {
 				throw new ConvexError({
 					code: 'NOT_FOUND',
-					message: 'Project not found.',
+					message: 'Plugin not found.',
 				})
 			}
 		}

@@ -7,24 +7,11 @@ import {
 	ViewIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import type {
-	Column,
-	ColumnDef,
-	ColumnFiltersState,
-} from '@tanstack/react-table'
-import {
-	getCoreRowModel,
-	getFacetedRowModel,
-	getFacetedUniqueValues,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from '@tanstack/react-table'
+import type { Column, ColumnDef } from '@tanstack/react-table'
 import { useQuery } from 'convex/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { toast } from 'sonner'
 import {
 	LifecycleStatusBadge,
@@ -58,6 +45,8 @@ import {
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { useDataTable } from '@/hooks/use-data-table'
+import type { DataTableFeatures } from '@/lib/data-table-features'
 
 interface AdminServerCategory {
 	_id: Id<'serverCategories'>
@@ -193,14 +182,13 @@ export function AdminServersTable() {
 	const adminServers = useQuery(api.functions.servers.servers.listAdmin, {
 		limit: 250,
 	})
-	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
 	const servers = useMemo(
 		() => (adminServers ?? []) as AdminServerRow[],
 		[adminServers],
 	)
 
-	const columns = useMemo<ColumnDef<AdminServerRow>[]>(
+	const columns = useMemo<ColumnDef<DataTableFeatures, AdminServerRow>[]>(
 		() => [
 			{
 				id: 'icon',
@@ -228,7 +216,7 @@ export function AdminServersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminServerRow, unknown>
+					column: Column<DataTableFeatures, AdminServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Server" />,
 				cell: ({ row }) => (
 					<div className="min-w-48">
@@ -256,7 +244,7 @@ export function AdminServersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminServerRow, unknown>
+					column: Column<DataTableFeatures, AdminServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Owner" />,
 				cell: ({ row }) => (
 					<div className="min-w-36 text-sm">
@@ -274,7 +262,7 @@ export function AdminServersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminServerRow, unknown>
+					column: Column<DataTableFeatures, AdminServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => (
 					<LifecycleStatusBadge status={row.original.status} />
@@ -287,7 +275,7 @@ export function AdminServersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminServerRow, unknown>
+					column: Column<DataTableFeatures, AdminServerRow, unknown>
 				}) => (
 					<DataTableColumnHeader column={column} label="Moderation" />
 				),
@@ -304,7 +292,7 @@ export function AdminServersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminServerRow, unknown>
+					column: Column<DataTableFeatures, AdminServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Ping" />,
 				cell: ({ row }) => <ServerOnlineBadge server={row.original} />,
 				enableColumnFilter: false,
@@ -315,7 +303,7 @@ export function AdminServersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminServerRow, unknown>
+					column: Column<DataTableFeatures, AdminServerRow, unknown>
 				}) => (
 					<DataTableColumnHeader column={column} label="Categories" />
 				),
@@ -345,7 +333,7 @@ export function AdminServersTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminServerRow, unknown>
+					column: Column<DataTableFeatures, AdminServerRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Created" />,
 				cell: ({ row }) => (
 					<div className="text-muted-foreground text-sm">
@@ -364,21 +352,13 @@ export function AdminServersTable() {
 		[],
 	)
 
-	const table = useReactTable({
+	const { table } = useDataTable({
+		mode: 'client',
 		data: servers,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
-		onColumnFiltersChange: setColumnFilters,
-		state: {
-			columnFilters,
-		},
 		initialState: {
 			pagination: {
+				pageIndex: 0,
 				pageSize: 10,
 			},
 		},

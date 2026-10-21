@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ProjectList } from '@/components/plugins/plugin-card'
+import { PluginList } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { buttonVariants } from '@/components/ui/button'
@@ -189,7 +189,7 @@ export default async function OrganizationPage({
 								<h2 className="font-semibold text-xl">
 									Plugins
 								</h2>
-								<ProjectList projects={plugins} />
+								<PluginList plugins={plugins} />
 							</section>
 						) : null}
 					</div>

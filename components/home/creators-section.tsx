@@ -1,13 +1,11 @@
 import {
 	ArrowRight02Icon,
-	ArrowUpRight01Icon,
 	CubeIcon,
 	PlugSocketIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
-import { pluginsNavigation, siteConfig } from '@/lib/site'
 
 const LINK_CLASS =
 	'inline-flex min-h-11 items-center gap-1.5 font-semibold text-ember-text hover:text-foreground'
@@ -30,7 +28,7 @@ const LISTING_STEPS = [
 export function CreatorsSection({
 	pluginsEnabled = false,
 }: {
-	/** Until the registry is switched on here, plugins link to their old site. */
+	/** The plugins card shows only while the Plugins feature is on. */
 	pluginsEnabled?: boolean
 }) {
 	return (
@@ -105,47 +103,35 @@ export function CreatorsSection({
 					</div>
 				</div>
 
-				<div className="flex gap-4 rounded-md border bg-card p-5">
-					<HugeiconsIcon
-						aria-hidden
-						className="mt-1 size-6 shrink-0 text-ember-text"
-						icon={PlugSocketIcon}
-					/>
-					<div className="flex flex-col gap-1.5">
-						<h3 className="font-bold text-lg">Server plugins</h3>
-						<p className="text-muted-foreground text-sm">
-							Open-source PHP plugins with traceable GitHub
-							builds.
-						</p>
-						{pluginsEnabled ? (
+				{pluginsEnabled ? (
+					<div className="flex gap-4 rounded-md border bg-card p-5">
+						<HugeiconsIcon
+							aria-hidden
+							className="mt-1 size-6 shrink-0 text-ember-text"
+							icon={PlugSocketIcon}
+						/>
+						<div className="flex flex-col gap-1.5">
+							<h3 className="font-bold text-lg">
+								Server plugins
+							</h3>
+							<p className="text-muted-foreground text-sm">
+								Plugins for PocketMine-MP, PowerNukkitX and
+								more, built from public GitHub repositories.
+							</p>
 							<Link
 								className={LINK_CLASS}
-								href={pluginsNavigation.href}
+								href="/dashboard/plugins/new"
 							>
-								Browse plugins
+								Publish a plugin
 								<HugeiconsIcon
 									aria-hidden
 									className="size-4"
 									icon={ArrowRight02Icon}
 								/>
 							</Link>
-						) : (
-							<a
-								className={LINK_CLASS}
-								href={siteConfig.pluginsUrl}
-								rel="noopener"
-								target="_blank"
-							>
-								Browse plugins
-								<HugeiconsIcon
-									aria-hidden
-									className="size-4"
-									icon={ArrowUpRight01Icon}
-								/>
-							</a>
-						)}
+						</div>
 					</div>
-				</div>
+				) : null}
 			</div>
 		</section>
 	)

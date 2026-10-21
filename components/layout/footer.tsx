@@ -43,13 +43,9 @@ function footerColumns(
 				{ href: '/organizations', label: 'Organizations' },
 				{ href: '/software', label: 'Server software' },
 				{ href: '/tools/server-ping', label: 'Server Ping' },
-				pluginsEnabled
-					? { href: pluginsNavigation.href, label: 'Plugins' }
-					: {
-							href: siteConfig.pluginsUrl,
-							label: 'Plugins',
-							external: true,
-						},
+				...(pluginsEnabled
+					? [{ href: pluginsNavigation.href, label: 'Plugins' }]
+					: []),
 			],
 		},
 		{

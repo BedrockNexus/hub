@@ -7,20 +7,7 @@ import {
 	OfficeIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import type {
-	Column,
-	ColumnDef,
-	ColumnFiltersState,
-} from '@tanstack/react-table'
-import {
-	getCoreRowModel,
-	getFacetedRowModel,
-	getFacetedUniqueValues,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from '@tanstack/react-table'
+import type { Column, ColumnDef } from '@tanstack/react-table'
 import { usePaginatedQuery, useQuery } from 'convex/react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -51,6 +38,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
 import { api } from '@/convex/_generated/api'
+import { useDataTable } from '@/hooks/use-data-table'
+import type { DataTableFeatures } from '@/lib/data-table-features'
 
 type OrganizationRiskStatus =
 	| 'healthy'
@@ -220,13 +209,14 @@ export function AdminOrganizationsTable() {
 		api.functions.site.organizations.getAdminOrganizationStats,
 		{},
 	)
-	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const organizations = useMemo(
 		() => results as AdminOrganizationRow[],
 		[results],
 	)
 
-	const columns = useMemo<ColumnDef<AdminOrganizationRow>[]>(
+	const columns = useMemo<
+		ColumnDef<DataTableFeatures, AdminOrganizationRow>[]
+	>(
 		() => [
 			{
 				id: 'organization',
@@ -234,7 +224,11 @@ export function AdminOrganizationsTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminOrganizationRow, unknown>
+					column: Column<
+						DataTableFeatures,
+						AdminOrganizationRow,
+						unknown
+					>
 				}) => (
 					<DataTableColumnHeader
 						column={column}
@@ -269,7 +263,11 @@ export function AdminOrganizationsTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminOrganizationRow, unknown>
+					column: Column<
+						DataTableFeatures,
+						AdminOrganizationRow,
+						unknown
+					>
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => (
 					<RiskStatusBadge status={row.original.riskStatus} />
@@ -292,7 +290,11 @@ export function AdminOrganizationsTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminOrganizationRow, unknown>
+					column: Column<
+						DataTableFeatures,
+						AdminOrganizationRow,
+						unknown
+					>
 				}) => <DataTableColumnHeader column={column} label="Owner" />,
 				cell: ({ row }) => (
 					<div className="min-w-40 text-sm">
@@ -309,7 +311,11 @@ export function AdminOrganizationsTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminOrganizationRow, unknown>
+					column: Column<
+						DataTableFeatures,
+						AdminOrganizationRow,
+						unknown
+					>
 				}) => <DataTableColumnHeader column={column} label="Members" />,
 				cell: ({ row }) => (
 					<div className="flex flex-wrap gap-1">
@@ -354,7 +360,11 @@ export function AdminOrganizationsTable() {
 				header: ({
 					column,
 				}: {
-					column: Column<AdminOrganizationRow, unknown>
+					column: Column<
+						DataTableFeatures,
+						AdminOrganizationRow,
+						unknown
+					>
 				}) => <DataTableColumnHeader column={column} label="Created" />,
 				cell: ({ row }) => (
 					<div className="text-muted-foreground text-sm">
@@ -373,18 +383,11 @@ export function AdminOrganizationsTable() {
 		[],
 	)
 
-	const table = useReactTable({
+	const { table } = useDataTable({
+		mode: 'client',
 		data: organizations,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
-		onColumnFiltersChange: setColumnFilters,
-		state: { columnFilters },
-		initialState: { pagination: { pageSize: 10 } },
+		initialState: { pagination: { pageIndex: 0, pageSize: 10 } },
 	})
 
 	if (status === 'LoadingFirstPage' && !search) {

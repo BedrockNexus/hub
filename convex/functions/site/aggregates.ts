@@ -66,6 +66,7 @@ export const refresh = internalMutation({
 			stored.servers === next.servers &&
 			stored.onlinePlayers === next.onlinePlayers &&
 			stored.projects === next.projects &&
+			stored.plugins === next.plugins &&
 			stored.regions.join('\n') === next.regions.join('\n')
 		if (!unchanged) {
 			await ctx.db.patch(stored._id, { ...next, updatedAt: Date.now() })

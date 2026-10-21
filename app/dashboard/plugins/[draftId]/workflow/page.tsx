@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 
 import { DashboardPageShell } from '@/components/plugins/dashboard-page-shell'
 import {
-	ProjectManageNav,
-	ProjectWorkflowManager,
+	PluginManageNav,
+	PluginWorkflowManager,
 } from '@/components/plugins/publishing/publishing-wizard'
 import { resolveProjectDraftId } from '@/lib/plugins/resolve-project-draft'
 
@@ -22,11 +22,11 @@ export default async function ProjectWorkflowPage({
 	return (
 		<DashboardPageShell
 			description="Pick the build workflow for your plugin’s server software and commit it to the repository."
-			eyebrow="Projects"
+			eyebrow="Plugins"
 			title="Build workflow"
 		>
-			<ProjectManageNav draftId={draftId} />
-			<ProjectWorkflowManager draftId={resolvedDraftId} />
+			<PluginManageNav draftId={draftId} />
+			<PluginWorkflowManager draftId={resolvedDraftId} />
 		</DashboardPageShell>
 	)
 }

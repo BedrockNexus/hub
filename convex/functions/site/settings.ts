@@ -475,12 +475,14 @@ export const getFeatures = query({
 })
 
 /**
- * Get homepage stats: active server count, total online players, published project count
+ * Get homepage stats: active server count, total online players, published
+ * project and plugin counts
  */
 export const getStats = query({
 	args: {},
 	handler: async (ctx) => {
-		const { servers, onlinePlayers, projects } = await readHomeAggregates(ctx)
-		return { servers, onlinePlayers, projects }
+		const { servers, onlinePlayers, projects, plugins } =
+			await readHomeAggregates(ctx)
+		return { servers, onlinePlayers, projects, plugins }
 	},
 })

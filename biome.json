@@ -13,6 +13,8 @@
       "!components/dice-ui",
       "!components/ba-ui",
       "!components/data-table",
+      "!lib/data-table-*.ts",
+      "!hooks/use-data-table.ts",
       "!convex",
       "!.agents",
       "!.claude",

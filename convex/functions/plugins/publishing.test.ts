@@ -843,7 +843,7 @@ describe('project deletion', () => {
 				draftId: foundation.draftId,
 				confirmSlug: foundation.slug,
 			}),
-		).rejects.toThrow('Project owner or organization manager access is required')
+		).rejects.toThrow('Plugin owner or organization manager access is required')
 		expect(
 			await t.run((ctx) => ctx.db.get('plugins', foundation.projectId)),
 		).not.toBeNull()

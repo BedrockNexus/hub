@@ -40,7 +40,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import type { Doc, Id } from '@/convex/_generated/dataModel'
 import { formatBytes, formatRegistryDate } from '@/lib/plugins/format-registry'
-import { createProjectDashboardId } from '@/lib/plugins/project-dashboard-id'
+import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 import {
 	CHANGELOG_MAX_LENGTH,
 	DESCRIPTION_MAX_LENGTH,
@@ -157,38 +157,38 @@ function MetadataForm({
 			}}
 		>
 			<div className="space-y-2">
-				<Label htmlFor="project-name">Name</Label>
+				<Label htmlFor="plugin-name">Name</Label>
 				<Input
 					disabled={busy}
-					id="project-name"
+					id="plugin-name"
 					onChange={(event) => update('name', event.target.value)}
 					value={metadata.name}
 				/>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="project-slug">Slug</Label>
+				<Label htmlFor="plugin-slug">Slug</Label>
 				<Input
 					disabled={busy}
-					id="project-slug"
+					id="plugin-slug"
 					onChange={(event) => update('slug', event.target.value)}
 					value={metadata.slug}
 				/>
 			</div>
 			<div className="space-y-2 sm:col-span-2">
-				<Label htmlFor="project-summary">Summary</Label>
+				<Label htmlFor="plugin-summary">Summary</Label>
 				<Input
 					disabled={busy}
-					id="project-summary"
+					id="plugin-summary"
 					onChange={(event) => update('summary', event.target.value)}
 					placeholder="One sentence about what the plugin does"
 					value={metadata.summary}
 				/>
 			</div>
 			<div className="space-y-2 sm:col-span-2">
-				<Label id="project-description-label">Description</Label>
+				<Label id="plugin-description-label">Description</Label>
 				<MarkdownEditor
 					disabled={busy}
-					labelledBy="project-description-label"
+					labelledBy="plugin-description-label"
 					maximumLength={DESCRIPTION_MAX_LENGTH}
 					onChange={(value) =>
 						update('description', value || undefined)
@@ -210,7 +210,7 @@ function MetadataForm({
 	)
 }
 
-export function ProjectManageNav({ draftId }: { draftId: string }) {
+export function PluginManageNav({ draftId }: { draftId: string }) {
 	const pathname = usePathname()
 	const items = [
 		{ href: `/dashboard/plugins/${draftId}`, label: 'Details' },
@@ -246,7 +246,7 @@ export function ProjectManageNav({ draftId }: { draftId: string }) {
 }
 
 /** Step 1 and 2: pick a repository, then confirm the prefilled details. */
-export function AddProjectFlow() {
+export function AddPluginFlow() {
 	const auth = useConvexAuth()
 	const router = useRouter()
 	const installations = useQuery(
@@ -411,7 +411,7 @@ export function AddProjectFlow() {
 										'Details saved. Now pick a workflow.',
 									)
 									router.push(
-										`/dashboard/plugins/${createProjectDashboardId(repository.githubRepositoryId)}/workflow` as Route,
+										`/dashboard/plugins/${createPluginDashboardId(repository.githubRepositoryId)}/workflow` as Route,
 									)
 								})
 							}
@@ -457,7 +457,7 @@ function StatusRow({
 	)
 }
 
-export function ProjectMetadataManager({
+export function PluginDetailsManager({
 	draftId,
 }: {
 	draftId: Id<'pluginPublishingDrafts'>
@@ -552,7 +552,7 @@ export function ProjectMetadataManager({
 	)
 }
 
-export function ProjectWorkflowManager({
+export function PluginWorkflowManager({
 	draftId,
 }: {
 	draftId: Id<'pluginPublishingDrafts'>
@@ -852,7 +852,7 @@ function SubmitBuildForm({
 	)
 }
 
-export function ProjectReleaseManager({
+export function PluginBuildsManager({
 	draftId,
 }: {
 	draftId: Id<'pluginPublishingDrafts'>

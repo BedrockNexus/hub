@@ -11,7 +11,7 @@ import type { Metadata, Route } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { ProjectAvatar, projectOwner } from '@/components/plugins/plugin-card'
+import { PluginAvatar, pluginOwner } from '@/components/plugins/plugin-card'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -77,7 +77,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 		.split('/')
 		.map(encodeURIComponent)
 		.join('/')}`
-	const owner = projectOwner(project)
+	const owner = pluginOwner(project)
 	const ownerHref = project.organization
 		? (`/organizations/${project.organization.slug}` as Route)
 		: project.creator
@@ -124,7 +124,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
 					<div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
 						<div className="flex min-w-0 gap-4 sm:gap-5">
-							<ProjectAvatar
+							<PluginAvatar
 								avatarUrl={owner.avatarUrl}
 								className="extrude size-20 sm:size-28"
 								name={project.name}
@@ -491,7 +491,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 							href={ownerHref}
 						>
 							<span className="flex min-w-0 items-center gap-3">
-								<ProjectAvatar
+								<PluginAvatar
 									avatarUrl={owner.avatarUrl}
 									className="size-8"
 									name={owner.label}

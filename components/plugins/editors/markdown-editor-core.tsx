@@ -40,7 +40,7 @@ export function MarkdownEditorCore({
 	value,
 	onChange,
 	labelledBy,
-	placeholder = 'Write a detailed project description…',
+	placeholder = 'Write a detailed plugin description…',
 	disabled = false,
 	className,
 	maximumLength,

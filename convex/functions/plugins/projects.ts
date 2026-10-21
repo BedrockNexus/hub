@@ -155,7 +155,7 @@ export const getManagementAccess = authedQuery({
 		if (!project) {
 			throw new ConvexError({
 				code: 'NOT_FOUND',
-				message: 'Project not found.',
+				message: 'Plugin not found.',
 			})
 		}
 
