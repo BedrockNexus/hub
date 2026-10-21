@@ -132,6 +132,10 @@ export function InviteMemberDialog({
               </Label>
 
               <Select
+                items={Object.entries(roles).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
                 value={role}
                 onValueChange={(value) => value !== null && setRole(value)}
                 disabled={isInviting}

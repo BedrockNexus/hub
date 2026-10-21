@@ -6,8 +6,7 @@ import type { MutationCtx, QueryCtx } from '../../_generated/server'
  * edit and delete them at /admin/plugins/workflows, and no workflow ships with
  * the code. Each belongs to one server software, and picking one is how a
  * developer says which software their plugin is for. A software accepts
- * plugins when it has a plugin file type (/admin/server-software) and at least
- * one workflow.
+ * plugins once it has at least one workflow.
  */
 
 type DatabaseCtx = QueryCtx | MutationCtx
@@ -17,9 +16,6 @@ export type ResolvedWorkflowTemplate = {
 	softwareId: Id<'serverSoftware'>
 	softwareName: string
 	softwareSlug: string
-	// The plugin file type of the software, e.g. "phar". Undefined while the
-	// software does not accept plugins.
-	fileExtension?: string
 	label: string
 	content: string
 	version: number
@@ -41,7 +37,6 @@ async function toResolved(
 		softwareId: software._id,
 		softwareName: software.name,
 		softwareSlug: software.slug,
-		fileExtension: software.pluginFileExtension,
 		label: template.label ?? template.key,
 		content: template.content,
 		version: template.version,
@@ -74,4 +69,14 @@ export async function resolveWorkflowTemplate(ctx: DatabaseCtx, key: string) {
 		.withIndex('by_key', (query) => query.eq('key', key))
 		.unique()
 	return stored ? await toResolved(ctx, stored) : null
+}
+
+/** Software that has at least one workflow, so plugins can be published for it. */
+export async function softwareIdsWithWorkflows(
+	ctx: DatabaseCtx,
+): Promise<ReadonlySet<string>> {
+	const templates = await ctx.db
+		.query('pluginWorkflowTemplates')
+		.take(TEMPLATE_LIMIT)
+	return new Set(templates.map((template) => template.softwareId))
 }

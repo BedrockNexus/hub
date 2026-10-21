@@ -8,6 +8,7 @@ import type { Doc } from '../../_generated/dataModel'
 import { components } from '../../_generated/api'
 import { type QueryCtx, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { softwareIdsWithWorkflows } from '../../lib/plugins/workflowTemplates'
 import {
 	getOrganizationById,
 	getOrganizationBySlug,
@@ -317,7 +318,8 @@ const softwareDirectoryItemValidator = v.object({
 	slug: v.string(),
 	name: v.string(),
 	description: v.string(),
-	// Whether plugins can be published for this software.
+	logoUrl: v.optional(v.string()),
+	// Whether plugins can be published for this software (it has a workflow).
 	supportsPlugins: v.boolean(),
 	websiteUrl: v.optional(v.string()),
 	repositoryUrl: v.optional(v.string()),
@@ -335,15 +337,19 @@ export const listSoftware = query({
 			)
 			.take(50)
 
-		const projectCounts = await countPublishedProjectsForSoftwareBatch(
-			ctx,
-			software.map((item) => item._id),
-		)
+		const [projectCounts, withWorkflows] = await Promise.all([
+			countPublishedProjectsForSoftwareBatch(
+				ctx,
+				software.map((item) => item._id),
+			),
+			softwareIdsWithWorkflows(ctx),
+		])
 		return software.map((item, index) => ({
 			slug: item.slug,
 			name: item.name,
 			description: item.description,
-			supportsPlugins: item.pluginFileExtension !== undefined,
+			logoUrl: item.logoUrl,
+			supportsPlugins: withWorkflows.has(item._id),
 			websiteUrl: item.websiteUrl,
 			repositoryUrl: item.repositoryUrl,
 			projectCount: projectCounts[index] ?? 0,
@@ -368,7 +374,7 @@ export const getSoftware = query({
 		if (!software?.enabled) {
 			return null
 		}
-		const [projects, projectCount] = await Promise.all([
+		const [projects, projectCount, withWorkflows] = await Promise.all([
 			ctx.db
 				.query('plugins')
 				.withIndex(
@@ -382,13 +388,15 @@ export const getSoftware = query({
 				.order('desc')
 				.take(24),
 			countPublishedProjectsForSoftware(ctx, software._id),
+			softwareIdsWithWorkflows(ctx),
 		])
 		return {
 			software: {
 				slug: software.slug,
 				name: software.name,
 				description: software.description,
-				supportsPlugins: software.pluginFileExtension !== undefined,
+				logoUrl: software.logoUrl,
+				supportsPlugins: withWorkflows.has(software._id),
 				websiteUrl: software.websiteUrl,
 				repositoryUrl: software.repositoryUrl,
 				projectCount,

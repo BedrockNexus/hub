@@ -78,7 +78,6 @@ type ReleaseActionContext = {
 	projectSlug: string
 	artifactId?: number
 	artifactSize?: number
-	fileExtension?: string
 	repository: Doc<'githubRepositories'>
 	installationId: number | null
 }
@@ -615,10 +614,6 @@ export const prepareRelease = internalAction({
 			await fail('The build’s files are no longer available on GitHub.')
 			return null
 		}
-		if (!context.fileExtension) {
-			await fail('This server software does not accept plugins right now.')
-			return null
-		}
 		if ((context.artifactSize ?? 0) > MAX_PLUGIN_FILE_BYTES) {
 			await fail('The build is larger than 50 MB.')
 			return null
@@ -634,7 +629,6 @@ export const prepareRelease = internalAction({
 			})
 			const extracted = extractPluginFile(
 				new Uint8Array(archive.data as ArrayBuffer),
-				context.fileExtension,
 			)
 			const file = {
 				fileName: sanitizeR2FileName(extracted.fileName),

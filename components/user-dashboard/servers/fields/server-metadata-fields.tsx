@@ -65,6 +65,16 @@ export function ServerMetadataFields({
 							Where this server is primarily hosted or operated
 						</FieldDescription>
 						<Select
+							items={[
+								{
+									value: EMPTY_REGION_VALUE,
+									label: 'No region selected',
+								},
+								...SERVER_REGION_OPTIONS.map((region) => ({
+									value: region,
+									label: region,
+								})),
+							]}
 							onValueChange={(value) =>
 								field.onChange(
 									value === EMPTY_REGION_VALUE ? '' : value,

@@ -75,3 +75,22 @@ export function usePluginIconUpload() {
 		[generateUploadUrl, confirmUpload],
 	)
 }
+
+/** Uploads a server software logo to R2 and saves it (admins only). */
+export function useSoftwareLogoUpload() {
+	const generateUploadUrl = useMutation(
+		api.functions.servers.software.generateLogoUploadUrl,
+	)
+	const confirmUpload = useAction(
+		api.functions.servers.software.confirmLogoUpload,
+	)
+
+	return useCallback(
+		async (id: Id<'serverSoftware'>, file: File) => {
+			const target = await generateUploadUrl({ id, fileName: file.name })
+			await uploadFileToPresignedUrl({ file, url: target.url })
+			return confirmUpload({ id, key: target.key })
+		},
+		[generateUploadUrl, confirmUpload],
+	)
+}

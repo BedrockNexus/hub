@@ -3,6 +3,7 @@
 import {
 	Add01Icon,
 	Delete02Icon,
+	ImageUpload01Icon,
 	PencilEdit02Icon,
 	ServerStack03Icon,
 } from '@hugeicons/core-free-icons'
@@ -11,6 +12,7 @@ import { useMutation, useQuery } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
+import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -23,7 +25,7 @@ import {
 	AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
 	Card,
 	CardContent,
@@ -59,6 +61,9 @@ import {
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
+import { useSoftwareLogoUpload } from '@/hooks/use-picture-upload'
+import { resizeSquareImage } from '@/lib/resize-image'
 
 type Software = FunctionReturnType<
 	typeof api.functions.servers.software.listAdmin
@@ -70,7 +75,9 @@ interface SoftwareDraft {
 	description: string
 	websiteUrl: string
 	repositoryUrl: string
-	pluginFileExtension: string
+	/** A new logo picked in the form, uploaded when the entry is saved. */
+	logoFile: File | null
+	removeLogo: boolean
 }
 
 const EMPTY_DRAFT: SoftwareDraft = {
@@ -79,7 +86,8 @@ const EMPTY_DRAFT: SoftwareDraft = {
 	description: '',
 	websiteUrl: '',
 	repositoryUrl: '',
-	pluginFileExtension: '',
+	logoFile: null,
+	removeLogo: false,
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -101,7 +109,8 @@ function draftFor(editing: Software | null): SoftwareDraft {
 				description: editing.description,
 				websiteUrl: editing.websiteUrl ?? '',
 				repositoryUrl: editing.repositoryUrl ?? '',
-				pluginFileExtension: editing.pluginFileExtension ?? '',
+				logoFile: null,
+				removeLogo: false,
 			}
 		: EMPTY_DRAFT
 }
@@ -121,18 +130,23 @@ function SoftwareForm({
 }: SoftwareFormProps) {
 	const [draft, setDraft] = useState<SoftwareDraft>(() => draftFor(editing))
 
-	const set = (field: keyof SoftwareDraft, value: string) =>
-		setDraft((current) => ({ ...current, [field]: value }))
+	const [logoPreview, setLogoPreview] = useState<string | null>(null)
+
+	const set = (
+		field: Exclude<keyof SoftwareDraft, 'logoFile' | 'removeLogo'>,
+		value: string,
+	) => setDraft((current) => ({ ...current, [field]: value }))
 
 	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
 		onSave({
 			...draft,
-			slug: editing
-				? editing.slug
-				: draft.slug || slugFromName(draft.name),
+			slug: draft.slug.trim() || slugFromName(draft.name),
 		})
 	}
+
+	const shownLogo =
+		logoPreview ?? (draft.removeLogo ? null : (editing?.logoUrl ?? null))
 
 	return (
 		<form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -141,10 +155,69 @@ function SoftwareForm({
 					{editing ? `Edit ${editing.name}` : 'Add server software'}
 				</DialogTitle>
 				<DialogDescription>
-					Server owners choose from this list. It is declared by the
-					owner, not detected.
+					Server owners choose from this list, and plugins can be
+					published for it once it has a publishing workflow.
 				</DialogDescription>
 			</DialogHeader>
+			<div className="flex flex-col gap-2">
+				<Label>Logo</Label>
+				<div className="flex items-center gap-3">
+					<UserAvatarImage
+						avatarClassName="size-12"
+						image={shownLogo}
+						size={48}
+						username={draft.name || '?'}
+					/>
+					<label
+						className={buttonVariants({
+							variant: 'outline',
+							size: 'sm',
+						})}
+					>
+						<HugeiconsIcon
+							data-icon="inline-start"
+							icon={ImageUpload01Icon}
+						/>
+						{shownLogo ? 'Change logo' : 'Upload logo'}
+						<input
+							accept="image/png,image/jpeg,image/webp,image/gif"
+							className="sr-only"
+							onChange={async (event) => {
+								const file = event.target.files?.[0]
+								event.target.value = ''
+								if (!file) {
+									return
+								}
+								const resized = await resizeSquareImage(file)
+								setLogoPreview(URL.createObjectURL(resized))
+								setDraft((current) => ({
+									...current,
+									logoFile: resized,
+									removeLogo: false,
+								}))
+							}}
+							type="file"
+						/>
+					</label>
+					{shownLogo ? (
+						<Button
+							onClick={() => {
+								setLogoPreview(null)
+								setDraft((current) => ({
+									...current,
+									logoFile: null,
+									removeLogo: true,
+								}))
+							}}
+							size="sm"
+							type="button"
+							variant="ghost"
+						>
+							Remove
+						</Button>
+					) : null}
+				</div>
+			</div>
 			<div className="flex flex-col gap-2">
 				<Label htmlFor="software-name">Name</Label>
 				<Input
@@ -159,7 +232,6 @@ function SoftwareForm({
 			<div className="flex flex-col gap-2">
 				<Label htmlFor="software-slug">Slug</Label>
 				<Input
-					disabled={Boolean(editing)}
 					id="software-slug"
 					maxLength={40}
 					onChange={(event) => set('slug', event.target.value)}
@@ -167,9 +239,11 @@ function SoftwareForm({
 					value={draft.slug}
 				/>
 				<p className="text-muted-foreground text-xs">
+					Used in the public URL (/software/slug). Leave empty to
+					derive it from the name.
 					{editing
-						? 'The slug is the public URL and cannot be changed.'
-						: 'Used in the public URL. Leave empty to derive it from the name.'}
+						? ' Changing it changes that URL; servers and plugins keep their software.'
+						: ''}
 				</p>
 			</div>
 			<div className="flex flex-col gap-2">
@@ -193,7 +267,7 @@ function SoftwareForm({
 				/>
 			</div>
 			<div className="flex flex-col gap-2">
-				<Label htmlFor="software-repository">Repository</Label>
+				<Label htmlFor="software-repository">Source code</Label>
 				<Input
 					id="software-repository"
 					onChange={(event) =>
@@ -203,24 +277,6 @@ function SoftwareForm({
 					type="url"
 					value={draft.repositoryUrl}
 				/>
-			</div>
-			<div className="flex flex-col gap-2">
-				<Label htmlFor="software-plugin-file-type">
-					Plugin file type
-				</Label>
-				<Input
-					id="software-plugin-file-type"
-					onChange={(event) =>
-						set('pluginFileExtension', event.target.value)
-					}
-					placeholder="phar"
-					value={draft.pluginFileExtension}
-				/>
-				<p className="text-muted-foreground text-xs">
-					Set it (phar, jar, …) to accept plugins for this software,
-					then add a publishing workflow for it. Leave it empty if
-					plugins are not published here.
-				</p>
 			</div>
 			<DialogFooter>
 				<Button onClick={onClose} type="button" variant="outline">
@@ -260,6 +316,8 @@ export function ServerSoftwareManager() {
 	const createSoftware = useMutation(api.functions.servers.software.create)
 	const updateSoftware = useMutation(api.functions.servers.software.update)
 	const removeSoftware = useMutation(api.functions.servers.software.remove)
+	const removeLogo = useMutation(api.functions.servers.software.removeLogo)
+	const uploadLogo = useSoftwareLogoUpload()
 	const [dialogOpen, setDialogOpen] = useState(false)
 	const [editing, setEditing] = useState<Software | null>(null)
 	const [pendingAction, setPendingAction] = useState<string | null>(null)
@@ -274,22 +332,22 @@ export function ServerSoftwareManager() {
 		try {
 			const fields = {
 				name: draft.name,
+				slug: draft.slug,
 				description: draft.description,
 				websiteUrl: draft.websiteUrl || undefined,
 				repositoryUrl: draft.repositoryUrl || undefined,
-				pluginFileExtension: draft.pluginFileExtension || undefined,
 			}
+			let id: Id<'serverSoftware'>
 			if (editing) {
-				await updateSoftware({
+				id = await updateSoftware({
 					id: editing._id,
 					...fields,
 					enabled: editing.enabled,
 					sortOrder: editing.sortOrder,
 				})
 			} else {
-				await createSoftware({
+				id = await createSoftware({
 					...fields,
-					slug: draft.slug,
 					enabled: true,
 					sortOrder:
 						Math.max(
@@ -297,6 +355,11 @@ export function ServerSoftwareManager() {
 							...(software ?? []).map((s) => s.sortOrder),
 						) + 1,
 				})
+			}
+			if (draft.logoFile) {
+				await uploadLogo(id, draft.logoFile)
+			} else if (draft.removeLogo) {
+				await removeLogo({ id })
 			}
 			toast.success(`Saved ${draft.name}`)
 			setDialogOpen(false)
@@ -313,10 +376,10 @@ export function ServerSoftwareManager() {
 			await updateSoftware({
 				id: item._id,
 				name: item.name,
+				slug: item.slug,
 				description: item.description,
 				websiteUrl: item.websiteUrl,
 				repositoryUrl: item.repositoryUrl,
-				pluginFileExtension: item.pluginFileExtension,
 				enabled: !item.enabled,
 				sortOrder: item.sortOrder,
 			})
@@ -386,7 +449,6 @@ export function ServerSoftwareManager() {
 							<TableHead className="text-right">
 								Servers
 							</TableHead>
-							<TableHead>Plugins</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead className="text-right">
 								Actions
@@ -397,11 +459,22 @@ export function ServerSoftwareManager() {
 						{software.map((item) => (
 							<TableRow key={item._id}>
 								<TableCell>
-									<div className="font-medium">
-										{item.name}
-									</div>
-									<div className="max-w-md truncate text-muted-foreground text-xs">
-										{item.description || 'No description'}
+									<div className="flex items-center gap-3">
+										<UserAvatarImage
+											avatarClassName="size-9"
+											image={item.logoUrl}
+											size={36}
+											username={item.name}
+										/>
+										<div className="min-w-0">
+											<div className="font-medium">
+												{item.name}
+											</div>
+											<div className="max-w-md truncate text-muted-foreground text-xs">
+												{item.description ||
+													'No description'}
+											</div>
+										</div>
 									</div>
 								</TableCell>
 								<TableCell className="font-mono text-xs">
@@ -409,11 +482,6 @@ export function ServerSoftwareManager() {
 								</TableCell>
 								<TableCell className="text-right tabular-nums">
 									{item.serverCount}
-								</TableCell>
-								<TableCell className="font-mono text-xs">
-									{item.pluginFileExtension
-										? `.${item.pluginFileExtension}`
-										: '—'}
 								</TableCell>
 								<TableCell>
 									<Badge
@@ -520,9 +588,10 @@ export function ServerSoftwareManager() {
 							Server Software
 						</CardTitle>
 						<CardDescription>
-							The software server owners can declare for their
-							listing. Disabled entries stay on servers that
-							already use them but cannot be newly selected.
+							The software server owners declare for their listing
+							and plugins are published for. Disabled entries stay
+							on servers and plugins that already use them but
+							cannot be newly selected.
 						</CardDescription>
 					</div>
 					<Button onClick={() => openDialog(null)}>

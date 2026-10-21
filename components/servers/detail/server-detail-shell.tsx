@@ -27,10 +27,9 @@ import {
 	FavouriteButton,
 	ShareButton,
 } from '@/components/detail/public-actions'
-import { OrganizationOwnerCard } from '@/components/servers/detail/organization-owner-card'
+import { OwnerCard } from '@/components/owner/owner-card'
 import { ServerAbout } from '@/components/servers/detail/server-about'
 import { ServerReviews } from '@/components/servers/detail/server-reviews'
-import { UserOwnerCard } from '@/components/servers/detail/user-owner-card'
 import { ServerAddress } from '@/components/servers/server-address'
 import {
 	LogoTile,
@@ -387,12 +386,7 @@ export function ServerDetailShell({
 						</SideCard>
 					) : null}
 
-					{server.owner?.type === 'user' ? (
-						<UserOwnerCard owner={server.owner} />
-					) : null}
-					{server.owner?.type === 'organization' ? (
-						<OrganizationOwnerCard owner={server.owner} />
-					) : null}
+					<OwnerCard owner={server.owner} />
 				</aside>
 			</div>
 		</main>

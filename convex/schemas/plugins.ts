@@ -527,6 +527,21 @@ export const tables = {
 		.index('by_version_id', ['versionId'])
 		.index('by_build_id', ['buildId']),
 
+	// One per user and plugin (functions/plugins/reviews.ts). Deleting a review
+	// deactivates it; plugins.ratingAverage/ratingCount follow the active ones.
+	pluginReviews: defineTable({
+		pluginId: v.id('plugins'),
+		userId: v.string(),
+		rating: v.number(),
+		content: v.optional(v.string()),
+		isEdited: v.optional(v.boolean()),
+		isActive: v.boolean(),
+		createdAt: v.number(),
+		updatedAt: v.optional(v.number()),
+	})
+		.index('by_plugin_id_and_is_active', ['pluginId', 'isActive'])
+		.index('by_plugin_id_and_user_id', ['pluginId', 'userId']),
+
 	pluginDownloads: defineTable({
 		projectId: v.id('plugins'),
 		versionId: v.id('pluginVersions'),

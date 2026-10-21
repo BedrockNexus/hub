@@ -7,9 +7,11 @@ export class ArtifactError extends Error {}
 
 /**
  * The single plugin file inside a `plugin-package` artifact zip. GitHub
- * always zips artifacts, so the workflow's one file comes back wrapped.
+ * always zips artifacts, so the workflow's one file comes back wrapped. The
+ * workflow decides the file type (a .phar, a .jar, ...); the artifact must
+ * hold just that one file.
  */
-export function extractPluginFile(archive: Uint8Array, extension: string) {
+export function extractPluginFile(archive: Uint8Array) {
 	let entries: Record<string, Uint8Array>
 	try {
 		entries = unzipSync(archive, {
@@ -18,18 +20,15 @@ export function extractPluginFile(archive: Uint8Array, extension: string) {
 	} catch {
 		throw new ArtifactError('The build artifact is not a valid zip file.')
 	}
-	const suffix = `.${extension.toLowerCase()}`
-	const matches = Object.entries(entries).filter(([name]) =>
-		name.toLowerCase().endsWith(suffix),
-	)
-	if (matches.length !== 1) {
+	const files = Object.entries(entries)
+	if (files.length !== 1) {
 		throw new ArtifactError(
-			`The build must contain exactly one ${suffix} file; it has ${matches.length}.`,
+			`The build must contain exactly one file, the plugin; it has ${files.length}.`,
 		)
 	}
-	const [path, data] = matches[0] as [string, Uint8Array]
+	const [path, data] = files[0] as [string, Uint8Array]
 	if (data.byteLength === 0) {
-		throw new ArtifactError(`The ${suffix} file in the build is empty.`)
+		throw new ArtifactError('The plugin file in the build is empty.')
 	}
 	if (data.byteLength > MAX_PLUGIN_FILE_BYTES) {
 		throw new ArtifactError('The plugin file is larger than 50 MB.')

@@ -56,9 +56,7 @@ export function WorkflowTemplateEditor() {
 		api.functions.servers.software.listAdmin,
 		auth.isAuthenticated ? {} : 'skip',
 	)
-	// Only software with a plugin file type accepts plugins.
-	const pluginSoftware =
-		software?.filter((item) => item.pluginFileExtension) ?? []
+	const pluginSoftware = software ?? []
 	const createTemplate = useMutation(
 		api.functions.plugins.workflowTemplates.create,
 	)
@@ -143,9 +141,8 @@ export function WorkflowTemplateEditor() {
 					<CardTitle>Workflow variants</CardTitle>
 					<CardDescription>
 						Publishers pick one of these when adding a plugin, and
-						it sets the plugin's server software. A software needs a
-						plugin file type (in Server software) and at least one
-						workflow before plugins can be published for it.
+						it sets the plugin's server software. Plugins can be
+						published for a software once it has a workflow here.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-2">
@@ -248,12 +245,15 @@ export function WorkflowTemplateEditor() {
 								</Label>
 								{pluginSoftware.length === 0 ? (
 									<p className="rounded-md border border-dashed p-3 text-muted-foreground text-sm">
-										No server software accepts plugins yet.
-										Set a plugin file type (like phar or
-										jar) on one in Server software first.
+										No server software yet. Add one in
+										Server software first.
 									</p>
 								) : (
 									<Select
+										items={pluginSoftware.map((item) => ({
+											value: item._id,
+											label: item.name,
+										}))}
 										onValueChange={(value) =>
 											updateNewWorkflowSoftware(
 												value as Id<'serverSoftware'>,
@@ -273,8 +273,7 @@ export function WorkflowTemplateEditor() {
 													key={item._id}
 													value={item._id}
 												>
-													{item.name} (.
-													{item.pluginFileExtension})
+													{item.name}
 												</SelectItem>
 											))}
 										</SelectContent>

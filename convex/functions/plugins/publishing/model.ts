@@ -324,7 +324,6 @@ const availableWorkflowValidator = v.object({
 	version: v.number(),
 	softwareId: v.id('serverSoftware'),
 	softwareName: v.string(),
-	fileExtension: v.string(),
 })
 
 export const listAvailableWorkflows = authedQuery({
@@ -344,7 +343,6 @@ export const listAvailableWorkflows = authedQuery({
 			)
 			if (
 				!software?.enabled ||
-				!template.fileExtension ||
 				// A published plugin cannot move to another server software.
 				(project?.status === 'published' &&
 					project.softwareId !== template.softwareId)
@@ -357,7 +355,6 @@ export const listAvailableWorkflows = authedQuery({
 				version: template.version,
 				softwareId: template.softwareId,
 				softwareName: template.softwareName,
-				fileExtension: template.fileExtension,
 			})
 		}
 		return available
@@ -382,7 +379,7 @@ export const selectWorkflow = authedMutation({
 		const software = template
 			? await ctx.db.get('serverSoftware', template.softwareId)
 			: null
-		if (!template || !software?.enabled || !template.fileExtension) {
+		if (!template || !software?.enabled) {
 			throw new ConvexError({
 				code: 'WORKFLOW_TEMPLATE_UNAVAILABLE',
 				message: 'That workflow is not available.',
@@ -945,7 +942,6 @@ const releaseActionContextValidator = v.object({
 	projectSlug: v.string(),
 	artifactId: v.optional(v.number()),
 	artifactSize: v.optional(v.number()),
-	fileExtension: v.optional(v.string()),
 	repository: repositoryValidator,
 	installationId: v.union(v.number(), v.null()),
 })
@@ -967,10 +963,10 @@ export const getReleaseActionContext = internalQuery({
 		if (!project || !repository) {
 			return null
 		}
-		const [software, installation] = await Promise.all([
-			ctx.db.get('serverSoftware', project.softwareId),
-			ctx.db.get('githubInstallations', repository.installationId),
-		])
+		const installation = await ctx.db.get(
+			'githubInstallations',
+			repository.installationId,
+		)
 		return {
 			release: {
 				_id: release._id,
@@ -989,7 +985,6 @@ export const getReleaseActionContext = internalQuery({
 			projectSlug: project.slug,
 			artifactId: build?.artifactId,
 			artifactSize: build?.artifactSize,
-			fileExtension: software?.pluginFileExtension,
 			repository,
 			installationId:
 				installation?.status === 'active'

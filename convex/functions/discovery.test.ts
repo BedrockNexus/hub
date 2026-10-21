@@ -369,31 +369,42 @@ describe('daily activity and trending', () => {
 })
 
 describe('server software', () => {
-	it('seeds the defaults once and never overwrites edits', async () => {
+	it('lets admins rename a slug, refusing one that is taken', async () => {
 		const t = createTest()
-		const seed = internal.functions.servers.migrations.seedDefaultServerSoftware
-
-		expect(await t.mutation(seed, {})).toEqual({ created: 7, fileTypesSet: 0 })
-		await t.run(async (ctx) => {
-			const pmmp = await ctx.db
-				.query('serverSoftware')
-				.withIndex('by_slug', (q) => q.eq('slug', 'pocketmine-mp'))
-				.unique()
-			if (pmmp) await ctx.db.patch(pmmp._id, { name: 'PMMP' })
+		const admin = await signIn(t, 'boss', 'admin')
+		const fields = {
+			name: 'PocketMine-MP',
+			description: 'PHP server software',
+			enabled: true,
+			sortOrder: 0,
+		}
+		const softwareId = await admin.mutation(
+			api.functions.servers.software.create,
+			{ ...fields, slug: 'pmmp' },
+		)
+		await admin.mutation(api.functions.servers.software.create, {
+			...fields,
+			name: 'Nukkit',
+			slug: 'nukkit',
 		})
-		expect(await t.mutation(seed, {})).toEqual({ created: 0, fileTypesSet: 0 })
 
-		const enabled = await t.query(api.functions.servers.software.listEnabled, {})
-		expect(enabled.map((software) => software.slug)).toEqual([
-			'pocketmine-mp',
-			'powernukkitx',
-			'nukkit',
-			'endstone',
-			'bds',
-			'dragonfly',
-			'axolotl',
-		])
-		expect(enabled[0].name).toBe('PMMP')
+		await admin.mutation(api.functions.servers.software.update, {
+			id: softwareId,
+			...fields,
+			slug: 'pocketmine-mp',
+		})
+		expect(
+			(await t.query(api.functions.servers.software.listEnabled, {})).map(
+				(software) => software.slug,
+			),
+		).toContain('pocketmine-mp')
+		await expect(
+			admin.mutation(api.functions.servers.software.update, {
+				id: softwareId,
+				...fields,
+				slug: 'nukkit',
+			}),
+		).rejects.toThrow('already exists')
 	})
 
 	it('lets an owner declare enabled software, which becomes searchable', async () => {
@@ -458,6 +469,7 @@ describe('server software', () => {
 		await admin.mutation(api.functions.servers.software.update, {
 			id: softwareId,
 			...fields,
+			slug: 'nukkit',
 			enabled: false,
 		})
 		const other = await insertServer(t, { slug: 'other', ownerId: owner.userId })

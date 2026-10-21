@@ -113,7 +113,6 @@ async function insertProjectFoundation(t: TestClient, ownerUserId: string) {
 			slug: 'powernukkitx',
 			name: 'PowerNukkitX',
 			description: 'Test software',
-			pluginFileExtension: 'jar',
 			websiteUrl: 'https://powernukkitx.org/',
 			enabled: true,
 			sortOrder: 20,

@@ -45,12 +45,23 @@ export default async function SoftwarePage() {
 					>
 						<Card className="h-full transition-[transform,border-color] group-hover:-translate-y-1 group-hover:border-primary">
 							<CardHeader className="grid-cols-[auto_1fr_auto] items-center gap-x-4">
-								<span className="extrude row-span-3 grid size-12 place-items-center rounded-sm border-2 border-edge bg-primary text-primary-foreground">
-									<HugeiconsIcon
-										aria-hidden="true"
-										className="size-5"
-										icon={Package01Icon}
-									/>
+								<span className="extrude row-span-3 grid size-12 place-items-center overflow-hidden rounded-sm border-2 border-edge bg-primary text-primary-foreground">
+									{item.logoUrl ? (
+										// biome-ignore lint/performance/noImgElement: CDN logos are already 256px
+										<img
+											alt=""
+											className="size-full object-cover"
+											height={48}
+											src={item.logoUrl}
+											width={48}
+										/>
+									) : (
+										<HugeiconsIcon
+											aria-hidden="true"
+											className="size-5"
+											icon={Package01Icon}
+										/>
+									)}
 								</span>
 								<CardTitle className="col-start-2 text-lg">
 									{item.name}

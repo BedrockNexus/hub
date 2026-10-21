@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 export const metadata: Metadata = {
 	title: 'Minecraft Bedrock Server Plugins',
 	description:
-		'Find Minecraft Bedrock server plugins for PocketMine-MP, PowerNukkitX and more, built from public source and reviewed before release.',
+		'Find Minecraft Bedrock server plugins for every supported server software, built from public source and reviewed before release.',
 	alternates: { canonical: '/plugins' },
 }
 

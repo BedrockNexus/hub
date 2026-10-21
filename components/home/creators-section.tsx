@@ -115,8 +115,8 @@ export function CreatorsSection({
 								Server plugins
 							</h3>
 							<p className="text-muted-foreground text-sm">
-								Plugins for PocketMine-MP, PowerNukkitX and
-								more, built from public GitHub repositories.
+								Plugins for Bedrock server software, built from
+								public GitHub repositories.
 							</p>
 							<Link
 								className={LINK_CLASS}

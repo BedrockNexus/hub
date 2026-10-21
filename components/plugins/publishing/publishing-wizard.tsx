@@ -330,6 +330,10 @@ export function AddPluginFlow() {
 						<>
 							<Select
 								disabled={Boolean(draft)}
+								items={repositories.map((item) => ({
+									value: item._id,
+									label: item.fullName,
+								}))}
 								onValueChange={(value) =>
 									setRepositoryId(
 										value as Id<'githubRepositories'> | null,
@@ -678,9 +682,7 @@ export function PluginWorkflowManager({
 															: 'mt-1 block text-muted-foreground text-xs'
 													}
 												>
-													Builds a .
-													{workflow.fileExtension} ·
-													version {workflow.version}
+													Version {workflow.version}
 												</span>
 											</button>
 										)

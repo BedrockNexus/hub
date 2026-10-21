@@ -111,6 +111,18 @@ export default async function SoftwareDetailPage({
 				{ href: '/software', label: 'Server software' },
 			]}
 			description={entry.description}
+			media={
+				entry.logoUrl ? (
+					// biome-ignore lint/performance/noImgElement: CDN logos are already 256px
+					<img
+						alt=""
+						className="extrude size-16 shrink-0 rounded-sm border-2 border-edge object-cover sm:size-20"
+						height={80}
+						src={entry.logoUrl}
+						width={80}
+					/>
+				) : undefined
+			}
 			title={entry.name}
 		>
 			<div className="flex flex-col gap-12">

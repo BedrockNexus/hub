@@ -15,9 +15,8 @@ import {
 	KeyValue,
 	SideCard,
 } from '@/components/detail/detail-parts'
-import { ProjectOrganizationOwnerCard } from '@/components/projects/detail/project-organization-owner-card'
+import { OwnerCard } from '@/components/owner/owner-card'
 import { ProjectTypeDetailsCard } from '@/components/projects/detail/project-type-details-card'
-import { ProjectUserOwnerCard } from '@/components/projects/detail/project-user-owner-card'
 import { TagChip } from '@/components/servers/server-bits'
 import type { Doc } from '@/convex/_generated/dataModel'
 import type { ProjectMetadata } from '@/lib/project-metadata'
@@ -152,12 +151,7 @@ export function ProjectSidebar(props: {
 				</dl>
 			</SideCard>
 
-			{props.owner?.type === 'user' ? (
-				<ProjectUserOwnerCard owner={props.owner} />
-			) : null}
-			{props.owner?.type === 'organization' ? (
-				<ProjectOrganizationOwnerCard owner={props.owner} />
-			) : null}
+			<OwnerCard owner={props.owner} />
 		</aside>
 	)
 }

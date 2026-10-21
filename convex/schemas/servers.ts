@@ -55,8 +55,11 @@ export const tables = {
 		description: v.string(),
 		websiteUrl: v.optional(v.string()),
 		repositoryUrl: v.optional(v.string()),
-		// Set when plugins can be published for this software: the file type
-		// its plugins are built as, without the dot ("phar", "jar").
+		// CDN URL of the logo (functions/servers/software:confirmLogoUpload).
+		logoUrl: v.optional(v.string()),
+		// Deprecated: a software accepts plugins once it has a publishing
+		// workflow. Cleared by functions/servers/migrations:clearPluginFileTypes;
+		// delete after it has run everywhere.
 		pluginFileExtension: v.optional(v.string()),
 		enabled: v.boolean(),
 		sortOrder: v.number(),

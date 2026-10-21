@@ -15,7 +15,6 @@ const workflowTemplateResultValidator = v.object({
 	softwareId: v.id('serverSoftware'),
 	softwareName: v.string(),
 	softwareSlug: v.string(),
-	fileExtension: v.optional(v.string()),
 	label: v.string(),
 	content: v.string(),
 	version: v.number(),

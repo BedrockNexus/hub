@@ -104,7 +104,6 @@ async function createFoundation(
 			slug: software.slug,
 			name: software.name,
 			description: 'Publishing fixture software',
-			pluginFileExtension: software.extension,
 			enabled: true,
 			sortOrder: 1,
 			createdAt: now,
@@ -654,23 +653,23 @@ describe('review decisions', () => {
 })
 
 describe('workflow selection', () => {
-	it('offers only workflows of software that accepts plugins', async () => {
+	it('offers only workflows of enabled software', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
 		await t.run(async (ctx) => {
 			const softwareId = await ctx.db.insert('serverSoftware', {
-				slug: 'bds',
-				name: 'Bedrock Dedicated Server',
-				description: 'No plugin file type',
-				enabled: true,
+				slug: 'retired',
+				name: 'Retired software',
+				description: 'Disabled by an admin',
+				enabled: false,
 				sortOrder: 2,
 				createdAt: 1,
 				updatedAt: 1,
 			})
 			await ctx.db.insert('pluginWorkflowTemplates', {
-				key: 'bds:default',
+				key: 'retired:default',
 				softwareId,
-				label: 'BDS build',
+				label: 'Retired build',
 				content: TEST_WORKFLOW_TEMPLATE,
 				version: 1,
 				updatedBy: 'admin',
@@ -688,7 +687,7 @@ describe('workflow selection', () => {
 		await expect(
 			foundation.developer.client.mutation(
 				api.functions.plugins.publishing.model.selectWorkflow,
-				{ draftId: foundation.draftId, key: 'bds:default' },
+				{ draftId: foundation.draftId, key: 'retired:default' },
 			),
 		).rejects.toThrow('not available')
 	})
@@ -712,7 +711,6 @@ describe('workflow selection', () => {
 				slug: 'powernukkitx',
 				name: 'PowerNukkitX',
 				description: 'Java plugins',
-				pluginFileExtension: 'jar',
 				enabled: true,
 				sortOrder: 2,
 				createdAt: 1,
@@ -929,5 +927,80 @@ describe('plugin icons', () => {
 			{ draftId: foundation.draftId },
 		)
 		expect((await icons()).draft).toBeUndefined()
+	})
+})
+
+describe('plugin reviews', () => {
+	it('lets other users review a published plugin and keeps its rating', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const pluginId = foundation.projectId
+		const reader = await insertUser(t, 'reader', 'user')
+		const second = await insertUser(t, 'second-reader', 'user')
+
+		await expect(
+			reader.client.mutation(api.functions.plugins.reviews.upsert, {
+				pluginId,
+				rating: 5,
+			}),
+		).rejects.toThrow('not available for reviews')
+
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 8201),
+				'1.0.0',
+			),
+			'1.0.0',
+		)
+		await expect(
+			foundation.developer.client.mutation(
+				api.functions.plugins.reviews.upsert,
+				{ pluginId, rating: 5 },
+			),
+		).rejects.toThrow('cannot review your own plugin')
+
+		await reader.client.mutation(api.functions.plugins.reviews.upsert, {
+			pluginId,
+			rating: 5,
+			content: 'Works great.',
+		})
+		const reviewId = await second.client.mutation(
+			api.functions.plugins.reviews.upsert,
+			{ pluginId, rating: 2 },
+		)
+		const rating = () =>
+			t.run(async (ctx) => {
+				const plugin = await ctx.db.get('plugins', pluginId)
+				return [plugin?.ratingAverage, plugin?.ratingCount]
+			})
+		expect(await rating()).toEqual([3.5, 2])
+		expect(
+			await t.query(api.functions.plugins.reviews.getStats, { pluginId }),
+		).toMatchObject({ totalReviews: 2, distribution: { 5: 1, 2: 1 } })
+		expect(
+			(
+				await t.query(api.functions.plugins.reviews.list, { pluginId })
+			).map((review) => review.rating),
+		).toEqual([2, 5])
+
+		await expect(
+			reader.client.mutation(api.functions.plugins.reviews.remove, {
+				id: reviewId,
+			}),
+		).rejects.toThrow('only delete your own')
+		await second.client.mutation(api.functions.plugins.reviews.remove, {
+			id: reviewId,
+		})
+		expect(await rating()).toEqual([5, 1])
+		expect(
+			await second.client.query(
+				api.functions.plugins.reviews.getUserReview,
+				{ pluginId },
+			),
+		).toBeNull()
 	})
 })

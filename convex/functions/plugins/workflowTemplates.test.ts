@@ -43,17 +43,12 @@ async function insertUser(
 	})
 }
 
-async function insertSoftware(
-	t: ReturnType<typeof createTest>,
-	slug: string,
-	pluginFileExtension?: string,
-) {
+async function insertSoftware(t: ReturnType<typeof createTest>, slug: string) {
 	return await t.run((ctx) =>
 		ctx.db.insert('serverSoftware', {
 			slug,
 			name: slug,
 			description: 'Workflow fixture software',
-			...(pluginFileExtension ? { pluginFileExtension } : {}),
 			enabled: true,
 			sortOrder: 1,
 			createdAt: 1,
@@ -92,7 +87,7 @@ describe('admin-managed workflow templates', () => {
 		const t = createTest()
 		const developer = await insertUser(t, 'workflow-developer', 'user')
 		const admin = await insertUser(t, 'workflow-admin', 'admin')
-		const softwareId = await insertSoftware(t, 'pocketmine-mp', 'phar')
+		const softwareId = await insertSoftware(t, 'pocketmine-mp')
 		const create = {
 			label: 'PocketMine-MP Composer',
 			softwareId,
@@ -140,7 +135,6 @@ describe('admin-managed workflow templates', () => {
 				label: 'PocketMine-MP Composer',
 				softwareId,
 				softwareName: 'pocketmine-mp',
-				fileExtension: 'phar',
 				content: revised,
 				version: 2,
 			},
@@ -176,7 +170,7 @@ describe('admin-managed workflow templates', () => {
 	it('rejects invalid workflow content before saving', async () => {
 		const t = createTest()
 		const admin = await insertUser(t, 'invalid-workflow-admin', 'admin')
-		const softwareId = await insertSoftware(t, 'powernukkitx', 'jar')
+		const softwareId = await insertSoftware(t, 'powernukkitx')
 
 		await expect(
 			admin.mutation(api.functions.plugins.workflowTemplates.create, {

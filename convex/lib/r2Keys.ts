@@ -202,6 +202,26 @@ export function isPluginIconR2Key(key: string, draftId: string): boolean {
 	return key.startsWith(`${prefix}/`) && key.split('/').length === 4
 }
 
+/** A server software logo. Outside the managed media patterns, like plugin icons. */
+export function buildSoftwareLogoR2ObjectKey(args: {
+	softwareId: string
+	assetId: string
+	fileName: string
+}): string {
+	return [
+		'software',
+		args.softwareId,
+		`${args.assetId}.${getSafeFileExtension(args.fileName)}`,
+	]
+		.map(sanitizeR2PathSegment)
+		.join('/')
+}
+
+export function isSoftwareLogoR2Key(key: string, softwareId: string): boolean {
+	const prefix = ['software', softwareId].map(sanitizeR2PathSegment).join('/')
+	return key.startsWith(`${prefix}/`) && key.split('/').length === 3
+}
+
 /** Legacy public release key builder retained for existing production objects. */
 export function buildProjectVersionR2ObjectKey({
 	projectId,

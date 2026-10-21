@@ -10,6 +10,8 @@ interface PageShellProps {
 	children: ReactNode
 	className?: string
 	description: ReactNode
+	/** Shown beside the title, e.g. a logo. */
+	media?: ReactNode
 	title: string
 }
 
@@ -21,6 +23,7 @@ export function PageShell({
 	children,
 	className,
 	description,
+	media,
 	title,
 }: PageShellProps) {
 	return (
@@ -52,13 +55,16 @@ export function PageShell({
 						</nav>
 					) : null}
 					<div className="flex flex-wrap items-end justify-between gap-4">
-						<div className="flex flex-col gap-2">
-							<h1 className="text-balance font-bold text-[clamp(2rem,4vw,3rem)] leading-none">
-								{title}
-							</h1>
-							<p className="max-w-2xl text-[17px] text-muted-foreground">
-								{description}
-							</p>
+						<div className="flex items-center gap-4">
+							{media}
+							<div className="flex flex-col gap-2">
+								<h1 className="text-balance font-bold text-[clamp(2rem,4vw,3rem)] leading-none">
+									{title}
+								</h1>
+								<p className="max-w-2xl text-[17px] text-muted-foreground">
+									{description}
+								</p>
+							</div>
 						</div>
 						{actions}
 					</div>

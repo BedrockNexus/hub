@@ -132,103 +132,27 @@ export const backfillCategoryCounts = internalMutation({
 	},
 })
 
-const DEFAULT_SERVER_SOFTWARE = [
-	{
-		slug: 'pocketmine-mp',
-		name: 'PocketMine-MP',
-		description:
-			'Server software for Minecraft: Bedrock Edition written in PHP, with a large plugin ecosystem.',
-		websiteUrl: 'https://pmmp.io/',
-		repositoryUrl: 'https://github.com/pmmp/PocketMine-MP',
-		pluginFileExtension: 'phar',
-	},
-	{
-		slug: 'powernukkitx',
-		name: 'PowerNukkitX',
-		description:
-			'A Java server software for Minecraft: Bedrock Edition with broad plugin support.',
-		websiteUrl: 'https://powernukkitx.org/',
-		repositoryUrl: 'https://github.com/PowerNukkitX/PowerNukkitX',
-		pluginFileExtension: 'jar',
-	},
-	{
-		slug: 'nukkit',
-		name: 'Nukkit',
-		description:
-			'Java server software for Minecraft: Bedrock Edition, maintained by Cloudburst.',
-		websiteUrl: 'https://cloudburstmc.org/',
-		repositoryUrl: 'https://github.com/CloudburstMC/Nukkit',
-	},
-	{
-		slug: 'endstone',
-		name: 'Endstone',
-		description:
-			'A plugin API for the official Bedrock Dedicated Server, with plugins written in Python or C++.',
-		websiteUrl: 'https://endstone.dev/',
-		repositoryUrl: 'https://github.com/EndstoneMC/endstone',
-	},
-	{
-		slug: 'bds',
-		name: 'Bedrock Dedicated Server',
-		description: 'The official Minecraft: Bedrock Edition server from Mojang.',
-		websiteUrl: 'https://www.minecraft.net/en-us/download/server/bedrock',
-	},
-	{
-		slug: 'dragonfly',
-		name: 'Dragonfly',
-		description:
-			'Server software for Minecraft: Bedrock Edition written in Go.',
-		repositoryUrl: 'https://github.com/df-mc/dragonfly',
-	},
-	{
-		slug: 'axolotl',
-		name: 'Axolotl',
-		description: 'Server software for Minecraft: Bedrock Edition.',
-	},
-]
-
 /**
- * Adds the default server software that is not there yet, matched by slug.
- * Admin edits survive a re-run: an existing entry is only given its plugin
- * file type when it has none.
+ * Plugins no longer need a file type per software: a software accepts plugins
+ * once it has a publishing workflow. Clears the old field so the schema can
+ * drop it. Idempotent.
  *
- * Run: npx convex run functions/servers/migrations:seedDefaultServerSoftware
+ * Run: npx convex run functions/servers/migrations:clearPluginFileTypes
  */
-export const seedDefaultServerSoftware = internalMutation({
+export const clearPluginFileTypes = internalMutation({
 	args: {},
-	returns: v.object({ created: v.number(), fileTypesSet: v.number() }),
+	returns: v.number(),
 	handler: async (ctx) => {
-		const now = Date.now()
-		let created = 0
-		let fileTypesSet = 0
-		for (const [index, software] of DEFAULT_SERVER_SOFTWARE.entries()) {
-			const existing = await ctx.db
-				.query('serverSoftware')
-				.withIndex('by_slug', (q) => q.eq('slug', software.slug))
-				.unique()
-			if (existing) {
-				if (
-					software.pluginFileExtension &&
-					!existing.pluginFileExtension
-				) {
-					await ctx.db.patch(existing._id, {
-						pluginFileExtension: software.pluginFileExtension,
-					})
-					fileTypesSet += 1
-				}
-				continue
+		let cleared = 0
+		for (const software of await ctx.db.query('serverSoftware').take(500)) {
+			if (software.pluginFileExtension !== undefined) {
+				await ctx.db.patch(software._id, {
+					pluginFileExtension: undefined,
+				})
+				cleared++
 			}
-
-			await ctx.db.insert('serverSoftware', {
-				...software,
-				enabled: true,
-				sortOrder: index,
-				createdAt: now,
-				updatedAt: now,
-			})
-			created += 1
 		}
-		return { created, fileTypesSet }
+		return cleared
 	},
 })
 

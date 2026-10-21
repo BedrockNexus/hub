@@ -45,7 +45,6 @@ async function createPublishedFixture(t: TestClient) {
 			slug: 'powernukkitx',
 			name: 'PowerNukkitX',
 			description: 'PowerNukkitX plugins',
-			pluginFileExtension: 'jar',
 			websiteUrl: 'https://powernukkitx.org/',
 			enabled: true,
 			sortOrder: 10,

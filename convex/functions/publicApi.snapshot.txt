@@ -7,6 +7,7 @@ action   functions/plugins/publishing/actions:installWorkflow
 action   functions/plugins/publishing/actions:startFromRepository
 action   functions/plugins/publishing/actions:syncBuilds
 action   functions/projects/artifactDelivery:remove
+action   functions/servers/software:confirmLogoUpload
 action   functions/servers/status:refreshStatus
 action   functions/servers/verification:generateCode
 action   functions/servers/verification:verifyOwnership
@@ -24,6 +25,8 @@ mutation functions/plugins/publishing/model:retryPublishing
 mutation functions/plugins/publishing/model:saveMetadata
 mutation functions/plugins/publishing/model:selectWorkflow
 mutation functions/plugins/publishing/model:submitRelease
+mutation functions/plugins/reviews:remove
+mutation functions/plugins/reviews:upsert
 mutation functions/plugins/workflowTemplates:create
 mutation functions/plugins/workflowTemplates:remove
 mutation functions/plugins/workflowTemplates:save
@@ -63,7 +66,9 @@ mutation functions/servers/servers:remove
 mutation functions/servers/servers:update
 mutation functions/servers/servers:updateAdmin
 mutation functions/servers/software:create
+mutation functions/servers/software:generateLogoUploadUrl
 mutation functions/servers/software:remove
+mutation functions/servers/software:removeLogo
 mutation functions/servers/software:update
 mutation functions/site/favourites:toggleProject
 mutation functions/site/favourites:toggleServer
@@ -117,6 +122,9 @@ query    functions/plugins/publishing/model:listMine
 query    functions/plugins/publishing/model:listReleases
 query    functions/plugins/publishing/model:listReviewQueue
 query    functions/plugins/publishing/model:resolveMine
+query    functions/plugins/reviews:getStats
+query    functions/plugins/reviews:getUserReview
+query    functions/plugins/reviews:list
 query    functions/plugins/workflowTemplates:list
 query    functions/projects/categories:getById
 query    functions/projects/categories:getBySlug
