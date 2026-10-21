@@ -32,9 +32,6 @@ async function toResolved(
 	ctx: DatabaseCtx,
 	template: Doc<'pluginWorkflowTemplates'>,
 ): Promise<ResolvedWorkflowTemplate | null> {
-	if (!template.softwareId) {
-		return null
-	}
 	const software = await ctx.db.get('serverSoftware', template.softwareId)
 	if (!software) {
 		return null

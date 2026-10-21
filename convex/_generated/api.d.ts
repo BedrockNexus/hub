@@ -23,7 +23,6 @@ import type * as functions_plugins_github_webhookHttp from "../functions/plugins
 import type * as functions_plugins_github_webhookPayload from "../functions/plugins/github/webhookPayload.js";
 import type * as functions_plugins_github_webhookSignature from "../functions/plugins/github/webhookSignature.js";
 import type * as functions_plugins_github_webhooks from "../functions/plugins/github/webhooks.js";
-import type * as functions_plugins_migrations from "../functions/plugins/migrations.js";
 import type * as functions_plugins_organizations from "../functions/plugins/organizations.js";
 import type * as functions_plugins_projects from "../functions/plugins/projects.js";
 import type * as functions_plugins_publishing_actions from "../functions/plugins/publishing/actions.js";
@@ -125,7 +124,6 @@ declare const fullApi: ApiFromModules<{
   "functions/plugins/github/webhookPayload": typeof functions_plugins_github_webhookPayload;
   "functions/plugins/github/webhookSignature": typeof functions_plugins_github_webhookSignature;
   "functions/plugins/github/webhooks": typeof functions_plugins_github_webhooks;
-  "functions/plugins/migrations": typeof functions_plugins_migrations;
   "functions/plugins/organizations": typeof functions_plugins_organizations;
   "functions/plugins/projects": typeof functions_plugins_projects;
   "functions/plugins/publishing/actions": typeof functions_plugins_publishing_actions;

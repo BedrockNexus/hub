@@ -89,39 +89,6 @@ export const webhookDeliveryAttemptValidator = v.union(
 export const workflowTemplateKeyValidator = v.string()
 
 /**
- * Fields of the tag-and-detection publishing flow. Optional only until
- * functions/plugins/migrations:moveToCommitPublishing has cleared them on
- * every deployment; then delete them.
- */
-const deprecatedDraftFields = {
-	adapterId: v.optional(v.string()),
-	detectionScore: v.optional(v.number()),
-	detectionSummary: v.optional(v.string()),
-	readmeExcerpt: v.optional(v.string()),
-	workflowPullRequestNumber: v.optional(v.number()),
-	workflowPullRequestUrl: v.optional(v.string()),
-	workflowPullRequestState: v.optional(v.string()),
-	latestWorkflowRunId: v.optional(v.number()),
-	latestWorkflowRunUrl: v.optional(v.string()),
-	latestWorkflowRunStatus: v.optional(v.string()),
-	latestWorkflowRunConclusion: v.optional(v.string()),
-	latestTag: v.optional(v.string()),
-	latestReleaseId: v.optional(v.number()),
-	latestReleaseUrl: v.optional(v.string()),
-	latestReleaseCommitSha: v.optional(v.string()),
-	primaryAssetId: v.optional(v.number()),
-	primaryAssetName: v.optional(v.string()),
-	primaryAssetUrl: v.optional(v.string()),
-	verifiedBuild: v.optional(v.boolean()),
-	moderationReady: v.optional(v.boolean()),
-	status: v.optional(v.string()),
-	submittedAt: v.optional(v.number()),
-	reviewedAt: v.optional(v.number()),
-	reviewedBy: v.optional(v.string()),
-	reviewNotes: v.optional(v.string()),
-}
-
-/**
  * One per repository: the plugin's setup. A draft starts from the repository
  * (name, description, README); the workflow the developer picks decides the
  * server software. The plugin row is created once both are known.
@@ -154,7 +121,6 @@ const draftFields = {
 	rejectedAt: v.optional(v.number()),
 	createdAt: v.number(),
 	updatedAt: v.number(),
-	...deprecatedDraftFields,
 }
 
 export const publishingDraftValidator = v.object({
@@ -340,18 +306,13 @@ export const tables = {
 
 	pluginWorkflowTemplates: defineTable({
 		key: workflowTemplateKeyValidator,
-		// Optional only until functions/plugins/migrations:moveToCommitPublishing
-		// has run everywhere.
-		softwareId: v.optional(v.id('serverSoftware')),
+		softwareId: v.id('serverSoftware'),
 		label: v.optional(v.string()),
 		content: v.string(),
 		version: v.number(),
 		updatedBy: v.string(),
 		createdAt: v.number(),
 		updatedAt: v.number(),
-		// Deprecated; cleared by the same migration.
-		adapterId: v.optional(v.string()),
-		buildSystem: v.optional(v.string()),
 	})
 		.index('by_key', ['key'])
 		.index('by_softwareId', ['softwareId']),
@@ -505,9 +466,6 @@ export const tables = {
 		completedAt: v.optional(v.number()),
 		createdAt: v.number(),
 		updatedAt: v.number(),
-		// Deprecated; cleared by functions/plugins/migrations:moveToCommitPublishing.
-		versionId: v.optional(v.id('pluginVersions')),
-		tag: v.optional(v.string()),
 	})
 		.index('by_workflow_run_id', ['workflowRunId'])
 		.index('by_project_id', ['projectId'])

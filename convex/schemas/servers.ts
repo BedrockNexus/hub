@@ -58,9 +58,6 @@ export const tables = {
 		// Set when plugins can be published for this software: the file type
 		// its plugins are built as, without the dot ("phar", "jar").
 		pluginFileExtension: v.optional(v.string()),
-		// Deprecated; replaced by pluginFileExtension in
-		// functions/plugins/migrations:moveToCommitPublishing.
-		adapterId: v.optional(v.string()),
 		enabled: v.boolean(),
 		sortOrder: v.number(),
 		createdAt: v.number(),
