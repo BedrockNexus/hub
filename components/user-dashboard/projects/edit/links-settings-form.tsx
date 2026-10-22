@@ -51,17 +51,17 @@ const linksSchema = z.object({
 type LinksFormData = z.infer<typeof linksSchema>
 
 interface ProjectLinksSettingsFormProps {
-	slug: string
+	id: string
 }
 
 export function ProjectLinksSettingsForm({
-	slug,
+	id,
 }: ProjectLinksSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const project = useQuery(
-		api.functions.projects.projects.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.projects.projects.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const updateProject = useMutation(api.functions.projects.projects.update)
 

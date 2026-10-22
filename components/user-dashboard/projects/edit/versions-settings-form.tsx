@@ -46,7 +46,6 @@ function formatBytes(bytes: number): string {
 }
 
 interface ProjectVersionsFormProps {
-	slug: string
 	projectId: Id<'projects'>
 }
 
@@ -129,10 +128,7 @@ function RetryValidationButton({
 	)
 }
 
-export function ProjectVersionsForm({
-	slug,
-	projectId,
-}: ProjectVersionsFormProps) {
+export function ProjectVersionsForm({ projectId }: ProjectVersionsFormProps) {
 	const versions = useQuery(api.functions.projects.versions.list, {
 		projectId,
 	})
@@ -358,7 +354,7 @@ export function ProjectVersionsForm({
 					nativeButton={false}
 					render={
 						<Link
-							href={`/dashboard/projects/${slug}/edit/versions/add`}
+							href={`/dashboard/projects/${projectId}/versions/add`}
 						/>
 					}
 				>

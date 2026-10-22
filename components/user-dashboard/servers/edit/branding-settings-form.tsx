@@ -14,12 +14,12 @@ import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 
 interface BrandingSettingsFormProps {
-	slug: string
+	id: string
 	mode?: 'user' | 'admin'
 }
 
 export function BrandingSettingsForm({
-	slug,
+	id,
 	mode = 'user',
 }: BrandingSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
@@ -33,8 +33,8 @@ export function BrandingSettingsForm({
 	const [removeBanner, setRemoveBanner] = useState(false)
 
 	const server = useQuery(
-		api.functions.servers.servers.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.servers.servers.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const updateUserServer = useMutation(api.functions.servers.servers.update)
 	const updateAdminServer = useMutation(

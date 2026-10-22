@@ -7,13 +7,13 @@ import { GalleryManager } from '@/components/user-dashboard/gallery/gallery-mana
 import { api } from '@/convex/_generated/api'
 
 interface GallerySettingsFormProps {
-	slug: string
+	id: string
 }
 
-export function GallerySettingsForm({ slug }: GallerySettingsFormProps) {
+export function GallerySettingsForm({ id }: GallerySettingsFormProps) {
 	const server = useQuery(
-		api.functions.servers.servers.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.servers.servers.getForEdit,
+		id ? { id } : 'skip',
 	)
 
 	if (server === undefined) {

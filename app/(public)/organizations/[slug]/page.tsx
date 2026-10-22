@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import { SideCard } from '@/components/detail/detail-parts'
-import { PluginList } from '@/components/plugins/plugin-card'
+import { PluginGrid } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { buttonVariants } from '@/components/ui/button'
@@ -190,7 +190,7 @@ export default async function OrganizationPage({
 								<h2 className="font-semibold text-xl">
 									Plugins
 								</h2>
-								<PluginList plugins={plugins} />
+								<PluginGrid plugins={plugins} />
 							</section>
 						) : null}
 					</div>

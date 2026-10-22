@@ -22,7 +22,7 @@ import {
 	FacetedList,
 	FacetedTrigger,
 } from '@/components/dice-ui/faceted'
-import { RichTextEditor } from '@/components/editor/rich-text-editor'
+import { MarkdownEditor } from '@/components/editor/markdown-editor'
 import { Button } from '@/components/ui/button'
 import {
 	Field,
@@ -51,13 +51,11 @@ import {
 
 interface AddVersionFormProps {
 	projectId: Id<'projects'>
-	projectSlug: string
 	projectType: StoredProjectType
 }
 
 export function AddVersionForm({
 	projectId,
-	projectSlug,
 	projectType,
 }: AddVersionFormProps) {
 	const router = useRouter()
@@ -109,7 +107,7 @@ export function AddVersionForm({
 			toast.success(
 				`Release ${result.version} uploaded and queued for validation`,
 			)
-			router.push(`/dashboard/projects/${projectSlug}/edit/versions`)
+			router.push(`/dashboard/projects/${projectId}/versions`)
 		} catch (err) {
 			toast.error(
 				err instanceof Error ? err.message : 'Failed to upload release',
@@ -216,7 +214,7 @@ export function AddVersionForm({
 									<Faceted
 										multiple
 										onValueChange={field.onChange}
-										value={field.value}
+										value={field.value ?? ''}
 									>
 										<FacetedTrigger
 											render={
@@ -286,11 +284,12 @@ export function AddVersionForm({
 									text.
 								</FieldDescription>
 								<div id="changelog">
-									<RichTextEditor
+									<MarkdownEditor
+										allowImageUpload
 										disabled={isSubmitting}
 										onChange={field.onChange}
 										placeholder="Describe what changed in this release..."
-										value={field.value}
+										value={field.value ?? ''}
 									/>
 								</div>
 								{fieldState.error && (

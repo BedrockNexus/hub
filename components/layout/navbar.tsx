@@ -1,26 +1,14 @@
 'use client'
 
-import {
-	ArrowDown01Icon,
-	DashboardBrowsingIcon,
-	OfficeIcon,
-	Package01Icon,
-	PlugSocketIcon,
-	ServerStack01Icon,
-	Settings02Icon,
-	UserIcon,
-} from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, Settings02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-	UserButton,
-	type UserButtonLink,
-} from '@/components/ba-ui/user/user-button'
+import { UserButton } from '@/components/ba-ui/user/user-button'
 import { BrandMark } from '@/components/brand-mark'
+import { useAccountLinks } from '@/components/layout/account-links'
 import { CreateMenu } from '@/components/layout/create-menu'
-import { ThemeToggle } from '@/components/layout/theme-toggle'
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -41,72 +29,6 @@ const DESKTOP_LINK_CLASS =
 	'border-transparent border-b-2 py-2 font-display font-semibold text-[15px] text-muted-foreground transition-colors hover:text-foreground'
 const MOBILE_LINK_CLASS =
 	'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-muted-foreground'
-
-const userButtonLinks: UserButtonLink[] = [
-	{
-		label: 'Profile',
-		href: '/dashboard/settings/profile',
-		icon: (
-			<HugeiconsIcon className="text-muted-foreground" icon={UserIcon} />
-		),
-		visibility: 'authenticated',
-	},
-	{
-		label: 'Dashboard',
-		href: '/dashboard',
-		icon: (
-			<HugeiconsIcon
-				className="text-muted-foreground"
-				icon={DashboardBrowsingIcon}
-			/>
-		),
-		visibility: 'authenticated',
-	},
-	{
-		label: 'Servers',
-		href: '/dashboard/servers',
-		icon: (
-			<HugeiconsIcon
-				className="text-muted-foreground"
-				icon={ServerStack01Icon}
-			/>
-		),
-		visibility: 'authenticated',
-	},
-	{
-		label: 'Projects',
-		href: '/dashboard/projects',
-		icon: (
-			<HugeiconsIcon
-				className="text-muted-foreground"
-				icon={Package01Icon}
-			/>
-		),
-		visibility: 'authenticated',
-	},
-	{
-		label: 'Plugins',
-		href: '/dashboard/plugins',
-		icon: (
-			<HugeiconsIcon
-				className="text-muted-foreground"
-				icon={PlugSocketIcon}
-			/>
-		),
-		visibility: 'authenticated',
-	},
-	{
-		label: 'Organization',
-		href: '/dashboard/organizations',
-		icon: (
-			<HugeiconsIcon
-				className="text-muted-foreground"
-				icon={OfficeIcon}
-			/>
-		),
-		visibility: 'authenticated',
-	},
-]
 
 function isActiveRoute(pathname: string, url: string) {
 	if (url === '/') {
@@ -218,9 +140,7 @@ export function Navbar({
 		? [...publicNavigation, pluginsNavigation]
 		: publicNavigation
 	const mobileNavigation = [homeNavigation, ...desktopNavigation]
-	const accountLinks = pluginsEnabled
-		? userButtonLinks
-		: userButtonLinks.filter((link) => link.href !== '/dashboard/plugins')
+	const accountLinks = useAccountLinks(initialPluginsEnabled)
 
 	return (
 		<>
@@ -254,7 +174,6 @@ export function Navbar({
 					</div>
 
 					<div className="ml-auto flex items-center gap-2.5">
-						<ThemeToggle />
 						<CreateMenu />
 						<UserButton links={accountLinks} size="icon" />
 					</div>
@@ -263,7 +182,6 @@ export function Navbar({
 
 			<header className="flex h-16 items-center justify-between gap-3 border-b bg-background px-4 lg:hidden">
 				<BrandMark imageClassName="w-28" priority withIcon />
-				<ThemeToggle />
 			</header>
 
 			<nav

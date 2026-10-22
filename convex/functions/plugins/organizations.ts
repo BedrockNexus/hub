@@ -6,7 +6,6 @@ import {
 	requireOrganizationManager,
 	requireOrganizationMember,
 } from '../../lib/plugins/authorization'
-import { getProjectDownloadCount } from '../../lib/plugins/downloadCounts'
 import {
 	organizationRoleValidator,
 	projectStatusValidator,
@@ -32,7 +31,6 @@ const organizationPluginValidator = v.object({
 	summary: v.string(),
 	visibility: projectVisibilityValidator,
 	status: projectStatusValidator,
-	downloadCount: v.number(),
 })
 
 export const getMembershipAccess = authedQuery({
@@ -103,18 +101,13 @@ export const listPlugins = authedQuery({
 			)
 			.order('desc')
 			.take(250)
-		const downloadCounts = await Promise.all(
-			projects.map((project) => getProjectDownloadCount(ctx, project)),
-		)
-
-		return projects.map((project, index) => ({
+		return projects.map((project) => ({
 			projectId: project._id,
 			slug: project.slug,
 			name: project.name,
 			summary: project.summary,
 			visibility: project.visibility,
 			status: project.status,
-			downloadCount: downloadCounts[index] ?? project.downloadCount,
 		}))
 	},
 })

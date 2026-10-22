@@ -4,7 +4,6 @@ import {
 	ArrowLeft02Icon,
 	BookOpen01Icon,
 	Bug01Icon,
-	CheckmarkBadge01Icon,
 	Clock01Icon,
 	DiscordIcon,
 	Download01Icon,
@@ -26,18 +25,18 @@ import {
 	KeyValue,
 	SideCard,
 } from '@/components/detail/detail-parts'
+import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { OwnerCard } from '@/components/owner/owner-card'
 import { PluginReviews } from '@/components/plugins/detail/plugin-reviews'
-import { RatingLabel } from '@/components/servers/server-bits'
-import { Badge } from '@/components/ui/badge'
+import { RatingLabel, TagChip } from '@/components/servers/server-bits'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import { formatBytes } from '@/lib/plugins/format-registry'
 
-export type PluginDetailTab = 'description' | 'versions' | 'reviews'
+export type PluginDetailTab = 'description' | 'gallery' | 'versions' | 'reviews'
 
 type PluginDetail = NonNullable<
 	FunctionReturnType<typeof api.functions.plugins.catalog.getProject>
@@ -124,9 +123,6 @@ function PluginHero({
 						)}
 					</div>
 					<div className="flex min-w-0 flex-[1_1_24rem] flex-col gap-2.5">
-						<p className="eyebrow">
-							{project.software.name} plugin
-						</p>
 						<h1 className="font-bold text-[clamp(2rem,4vw,3.25rem)] leading-none">
 							{project.name}
 						</h1>
@@ -155,17 +151,6 @@ function PluginHero({
 									</Link>
 								</span>
 							) : null}
-							<span className="inline-flex items-center gap-1.5">
-								<HugeiconsIcon
-									aria-hidden
-									className="size-4"
-									icon={Download01Icon}
-								/>
-								<span className="font-mono text-foreground">
-									{project.downloadCount.toLocaleString()}
-								</span>
-								downloads
-							</span>
 							<RatingLabel
 								averageRating={project.ratingAverage}
 								className="text-sm"
@@ -243,19 +228,9 @@ function PluginVersions({ detail }: { detail: PluginDetail }) {
 					>
 						<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
 							<div className="min-w-0 flex-1">
-								<div className="flex flex-wrap items-center gap-2">
-									<h3 className="font-mono font-semibold">
-										v{version.version}
-									</h3>
-									{version.release?.verifiedBuild ? (
-										<Badge>
-											<HugeiconsIcon
-												icon={CheckmarkBadge01Icon}
-											/>
-											Traceable build
-										</Badge>
-									) : null}
-								</div>
+								<h3 className="font-mono font-semibold">
+									v{version.version}
+								</h3>
 								<p className="mt-1 text-muted-foreground text-sm">
 									{[
 										version.publishedAt
@@ -271,12 +246,26 @@ function PluginVersions({ detail }: { detail: PluginDetail }) {
 													version.release.asset.size,
 												)
 											: null,
-										version.release?.build?.branch
-											? `from ${version.release.build.branch}`
-											: null,
 									]
 										.filter(Boolean)
 										.join(' · ')}
+									{version.release?.build?.branch ? (
+										<>
+											{' · from '}
+											{version.release.build.branch}{' '}
+											<a
+												className="font-mono hover:text-foreground hover:underline"
+												href={`${detail.repository.htmlUrl}/commit/${version.release.commitSha}`}
+												rel="noreferrer"
+												target="_blank"
+											>
+												{version.release.commitSha.slice(
+													0,
+													7,
+												)}
+											</a>
+										</>
+									) : null}
 								</p>
 							</div>
 							{version.release?.asset ? (
@@ -304,7 +293,6 @@ function PluginVersions({ detail }: { detail: PluginDetail }) {
 									relativeUrlBase={relativeUrlBase(
 										detail.repository,
 									)}
-									skipHtml
 								/>
 							</div>
 						) : null}
@@ -315,17 +303,26 @@ function PluginVersions({ detail }: { detail: PluginDetail }) {
 	)
 }
 
-function PluginSidebar({
-	detail,
-	downloadable,
-}: {
-	detail: PluginDetail
-	downloadable: PluginVersion | undefined
-}) {
+function PluginSidebar({ detail }: { detail: PluginDetail }) {
 	const { project, repository } = detail
-	const release = downloadable?.release
 	return (
 		<aside className="flex min-w-0 flex-col gap-4">
+			{project.categories.length > 0 ? (
+				<SideCard title="Categories">
+					<div className="flex flex-wrap gap-1.5">
+						{project.categories.map((category) => (
+							<Link
+								href={
+									`/plugins?category=${category.slug}` as Route
+								}
+								key={category.slug}
+							>
+								<TagChip>{category.name}</TagChip>
+							</Link>
+						))}
+					</div>
+				</SideCard>
+			) : null}
 			<SideCard title="Links">
 				<div className="flex flex-col gap-2">
 					{[
@@ -389,6 +386,11 @@ function PluginSidebar({
 					<KeyValue label="License">
 						{project.license ?? 'Not specified'}
 					</KeyValue>
+					{detail.licenseCustom ? (
+						<p className="whitespace-pre-line py-2 text-muted-foreground text-xs leading-5">
+							{detail.licenseCustom}
+						</p>
+					) : null}
 					{project.publishedAt ? (
 						<KeyValue label="Published">
 							{format(
@@ -408,57 +410,6 @@ function PluginSidebar({
 					</KeyValue>
 				</dl>
 			</SideCard>
-
-			{release?.build ? (
-				<SideCard title="Build">
-					<p className="text-muted-foreground text-xs leading-5">
-						{release.verifiedBuild
-							? 'A traceable build: it ran the unmodified BedrockNexus workflow on this commit, and its file is the one a moderator reviewed. Not a security review of the code.'
-							: 'The file a moderator reviewed for this version.'}
-					</p>
-					<dl>
-						<KeyValue label="Build">
-							<a
-								className="hover:underline"
-								href={release.build.logsUrl}
-								rel="noreferrer"
-								target="_blank"
-							>
-								#{release.build.workflowRunId}
-							</a>
-						</KeyValue>
-						<KeyValue label="Commit" mono>
-							<a
-								className="hover:underline"
-								href={`${repository.htmlUrl}/commit/${release.commitSha}`}
-								rel="noreferrer"
-								target="_blank"
-							>
-								{release.commitSha.slice(0, 12)}
-							</a>
-						</KeyValue>
-						{release.githubReleaseUrl && downloadable ? (
-							<KeyValue label="GitHub release">
-								<a
-									className="hover:underline"
-									href={release.githubReleaseUrl}
-									rel="noreferrer"
-									target="_blank"
-								>
-									v{downloadable.version}
-								</a>
-							</KeyValue>
-						) : null}
-						{release.asset?.sha256 ? (
-							<KeyValue label="SHA-256" mono>
-								<span title={release.asset.sha256}>
-									{release.asset.sha256.slice(0, 12)}…
-								</span>
-							</KeyValue>
-						) : null}
-					</dl>
-				</SideCard>
-			) : null}
 
 			<OwnerCard
 				owner={
@@ -493,6 +444,10 @@ export function PluginDetailShell({
 	slug: string
 }) {
 	const detail = useQuery(api.functions.plugins.catalog.getProject, { slug })
+	const gallery = useQuery(
+		api.functions.plugins.gallery.listPublic,
+		detail ? { pluginId: detail.project.projectId } : 'skip',
+	)
 
 	if (detail === undefined) {
 		return <DetailSkeleton />
@@ -522,6 +477,14 @@ export function PluginDetailShell({
 
 	const tabContent = (() => {
 		switch (activeTab) {
+			case 'gallery':
+				return (
+					<GalleryGrid
+						emptyDescription="The creator has not added screenshots yet."
+						emptyTitle="No gallery images"
+						items={gallery}
+					/>
+				)
 			case 'versions':
 				return <PluginVersions detail={detail} />
 			case 'reviews':
@@ -542,7 +505,6 @@ export function PluginDetailShell({
 									relativeUrlBase={relativeUrlBase(
 										detail.repository,
 									)}
-									skipHtml
 								/>
 							) : (
 								<p className="text-muted-foreground">
@@ -571,6 +533,12 @@ export function PluginDetailShell({
 								href: tabHref(slug, 'description'),
 							},
 							{
+								value: 'gallery',
+								label: 'Gallery',
+								href: tabHref(slug, 'gallery'),
+								count: gallery?.length,
+							},
+							{
 								value: 'versions',
 								label: 'Versions',
 								href: tabHref(slug, 'versions'),
@@ -587,7 +555,7 @@ export function PluginDetailShell({
 					{tabContent}
 				</div>
 
-				<PluginSidebar detail={detail} downloadable={downloadable} />
+				<PluginSidebar detail={detail} />
 			</div>
 		</main>
 	)

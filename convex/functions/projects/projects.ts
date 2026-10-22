@@ -465,19 +465,23 @@ export const getPublishedBySlug = query({
 })
 
 /**
- * Get a single project by slug
+ * A project for its owner's edit pages, by id. A slug still resolves, so
+ * links from before the dashboard used ids can redirect.
  */
-export const getBySlug = query({
-	args: { slug: v.string() },
+export const getForEdit = query({
+	args: { id: v.string() },
 	handler: async (ctx, args) => {
 		const now = Date.now()
 		const dayKey = getUtcDayKey(now)
 		const monthKey = getUtcMonthKey(now)
 
-		const item = await ctx.db
-			.query('projects')
-			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
-			.first()
+		const documentId = ctx.db.normalizeId('projects', args.id)
+		const item = documentId
+			? await ctx.db.get(documentId)
+			: await ctx.db
+					.query('projects')
+					.withIndex('by_slug', (q) => q.eq('slug', args.id))
+					.first()
 
 		if (!item) {
 			return null

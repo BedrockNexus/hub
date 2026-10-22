@@ -32,16 +32,16 @@ const licenseSchema = z.object({
 type LicenseFormData = z.infer<typeof licenseSchema>
 
 interface ProjectLicenseSettingsFormProps {
-	slug: string
+	id: string
 }
 
 export function ProjectLicenseSettingsForm({
-	slug,
+	id,
 }: ProjectLicenseSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const project = useQuery(
-		api.functions.projects.projects.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.projects.projects.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const updateProject = useMutation(api.functions.projects.projects.update)
 

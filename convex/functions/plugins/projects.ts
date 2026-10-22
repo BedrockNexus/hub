@@ -11,7 +11,6 @@ import {
 	listOrganizationMemberships,
 	requireProjectManager,
 } from '../../lib/plugins/authorization'
-import { getProjectDownloadCount } from '../../lib/plugins/downloadCounts'
 import {
 	projectStatusValidator,
 	projectValidator,
@@ -25,7 +24,6 @@ const dashboardProjectValidator = v.object({
 	summary: v.string(),
 	visibility: projectVisibilityValidator,
 	status: projectStatusValidator,
-	downloadCount: v.number(),
 	updatedAt: v.number(),
 	owner: v.union(
 		v.object({
@@ -66,7 +64,7 @@ async function hydrateDashboardProject(
 	project: Doc<'plugins'>,
 	currentUser: AppUser,
 ) {
-	const [organization, repository, software, latestVersion, downloadCount] =
+	const [organization, repository, software, latestVersion] =
 		await Promise.all([
 			project.ownerType === 'organization'
 				? getOrganizationById(ctx, project.ownerId)
@@ -76,7 +74,6 @@ async function hydrateDashboardProject(
 			project.latestVersionId
 				? ctx.db.get('pluginVersions', project.latestVersionId)
 				: null,
-			getProjectDownloadCount(ctx, project),
 		])
 
 	return {
@@ -86,7 +83,6 @@ async function hydrateDashboardProject(
 		summary: project.summary,
 		visibility: project.visibility,
 		status: project.status,
-		downloadCount,
 		updatedAt: project.updatedAt,
 		owner:
 			project.ownerType === 'organization' && organization

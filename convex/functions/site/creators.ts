@@ -207,7 +207,7 @@ export const listPopular = query({
 /** Public activity behind one listing's rank. */
 async function measureActivity(ctx: MutationCtx, listing: Doc<'creatorListings'>) {
 	const { ownerType, ownerId } = listing
-	const [servers, projects, plugins] = await Promise.all([
+	const [servers, projects] = await Promise.all([
 		ownerType === 'user'
 			? ctx.db
 					.query('servers')
@@ -225,18 +225,6 @@ async function measureActivity(ctx: MutationCtx, listing: Doc<'creatorListings'>
 			.query('projects')
 			.withIndex('by_owner', (q) =>
 				q.eq('ownerType', ownerType).eq('ownerId', ownerId),
-			)
-			.take(RANK_ITEM_LIMIT),
-		ctx.db
-			.query('plugins')
-			.withIndex(
-				'by_owner_type_and_owner_id_and_visibility_and_status',
-				(q) =>
-					q
-						.eq('ownerType', ownerType)
-						.eq('ownerId', ownerId)
-						.eq('visibility', 'public')
-						.eq('status', 'published'),
 			)
 			.take(RANK_ITEM_LIMIT),
 	])
@@ -263,9 +251,8 @@ async function measureActivity(ctx: MutationCtx, listing: Doc<'creatorListings'>
 	const sum = (values: Array<number | undefined>) =>
 		values.reduce((total: number, value) => total + (value ?? 0), 0)
 	return {
-		totalDownloads:
-			sum(projectStats.map((stats) => stats?.totalDownloads)) +
-			sum(plugins.map((plugin) => plugin.downloadCount)),
+		// Plugin downloads are not counted until proper analytics exist.
+		totalDownloads: sum(projectStats.map((stats) => stats?.totalDownloads)),
 		avgPlayers7d:
 			Math.round(sum(serverStats.map((stats) => stats?.avgPlayers7d)) * 10) /
 			10,

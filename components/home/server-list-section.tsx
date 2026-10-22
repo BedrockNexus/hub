@@ -8,13 +8,13 @@ import {
 } from '@/components/servers/server-card'
 import { api } from '@/convex/_generated/api'
 
-const SKELETONS = ['a', 'b', 'c', 'd']
+const SKELETONS = ['a', 'b', 'c', 'd', 'e', 'f']
 
-/** A row of server cards on the home page, in one of the listing's orders. */
+/** Server cards on the home page, three to a row, in one of the listing's orders. */
 export function ServerListSection({
 	title,
 	sort,
-	count = 4,
+	count = 6,
 	href,
 	linkLabel,
 }: {
@@ -38,7 +38,7 @@ export function ServerListSection({
 					appear here.
 				</p>
 			) : (
-				<div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-4.5">
+				<div className="grid gap-4.5 sm:grid-cols-2 lg:grid-cols-3">
 					{result === undefined
 						? SKELETONS.slice(0, count).map((key) => (
 								<ServerCardSkeleton key={key} />

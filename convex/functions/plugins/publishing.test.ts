@@ -978,6 +978,187 @@ describe('plugin icons and links', () => {
 			discord: 'https://discord.gg/example',
 		})
 	})
+
+	it('saves categories at once and filters listings by them', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 8401),
+				'1.0.0',
+			),
+			'1.0.0',
+		)
+		const [economy, chat, tools, admin, retired] = await t.run((ctx) =>
+			Promise.all(
+				['Economy', 'Chat', 'Tools', 'Admin', 'Retired'].map((name, index) =>
+					ctx.db.insert('pluginCategories', {
+						name,
+						slug: name.toLowerCase(),
+						sortOrder: index,
+						isActive: name !== 'Retired',
+						createdAt: 0,
+						updatedAt: 0,
+					}),
+				),
+			),
+		)
+		const save = (categoryIds: Id<'pluginCategories'>[]) =>
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.saveCategories,
+				{ draftId: foundation.draftId, categoryIds },
+			)
+		await expect(save([economy, chat, tools, admin])).rejects.toThrow(
+			'at most 3',
+		)
+		await expect(save([retired])).rejects.toThrow('no longer available')
+		await save([economy, chat])
+
+		const explore = (categorySlug: string) =>
+			t.query(api.functions.plugins.catalog.explore, {
+				paginationOpts: { cursor: null, numItems: 10 },
+				categorySlug,
+				sort: 'latest',
+			})
+		const economyPage = await explore('economy')
+		expect(economyPage.page.map((plugin) => plugin.slug)).toEqual([
+			foundation.slug,
+		])
+		expect(economyPage.page[0]?.categories).toEqual([
+			{ slug: 'economy', name: 'Economy' },
+			{ slug: 'chat', name: 'Chat' },
+		])
+		expect((await explore('tools')).page).toEqual([])
+		expect((await explore('retired')).page).toEqual([])
+	})
+})
+
+describe('plugin settings pages', () => {
+	it('saves the license at once and checks its length', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const save = (license?: string, licenseCustom?: string) =>
+			foundation.developer.client.mutation(
+				api.functions.plugins.publishing.model.saveLicense,
+				{ draftId: foundation.draftId, license, licenseCustom },
+			)
+		await expect(save('x'.repeat(81))).rejects.toThrow('at most 80')
+		await save(' MIT ', ' Credit the original author. ')
+		const saved = await t.run(async (ctx) => ({
+			draft: await ctx.db.get('pluginPublishingDrafts', foundation.draftId),
+			plugin: await ctx.db.get('plugins', foundation.projectId),
+		}))
+		for (const row of [saved.draft, saved.plugin]) {
+			expect(row).toMatchObject({
+				license: 'MIT',
+				licenseCustom: 'Credit the original author.',
+			})
+		}
+	})
+
+	it('shows the moderator’s note when a version is sent back', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const getMine = () =>
+			foundation.developer.client.query(
+				api.functions.plugins.publishing.model.getMine,
+				{ draftId: foundation.draftId },
+			)
+		const releaseId = await sendToReview(
+			t,
+			foundation,
+			await recordBuild(t, foundation, 8501),
+			'1.0.0',
+		)
+		expect((await getMine()).moderationNote).toBeUndefined()
+		await foundation.moderator.client.mutation(
+			api.functions.plugins.publishing.model.rejectReview,
+			{ releaseId, reason: 'Not a Minecraft plugin.' },
+		)
+		expect((await getMine()).moderationNote).toBe('Not a Minecraft plugin.')
+	})
+
+	it('keeps the gallery to its owner and in order', async () => {
+		process.env.R2_CDN_PUBLIC_URL = 'https://cdn.example.com'
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const stranger = await insertUser(t, 'gallery-stranger', 'user')
+		const [first, second] = await t.run((ctx) =>
+			Promise.all(
+				['first', 'second'].map((name, index) =>
+					ctx.db.insert('pluginGallery', {
+						pluginId: foundation.projectId,
+						ownerId: foundation.developer.userId,
+						r2Key: `media/plugins/${foundation.projectId}/gallery/${name}.png`,
+						fileName: `${name}.png`,
+						fileSize: 10,
+						mimeType: 'image/png',
+						sortOrder: index,
+						createdAt: 0,
+						updatedAt: 0,
+					}),
+				),
+			),
+		)
+		const gallery = api.functions.plugins.gallery
+		const names = async () =>
+			(
+				await foundation.developer.client.query(gallery.listMine, {
+					draftId: foundation.draftId,
+				})
+			).map((item) => item.fileName)
+
+		expect(await names()).toEqual(['first.png', 'second.png'])
+		await expect(
+			stranger.client.query(gallery.listMine, { draftId: foundation.draftId }),
+		).rejects.toThrow('not found')
+		await expect(
+			stranger.client.mutation(gallery.updateCaption, {
+				id: first,
+				caption: 'Mine now',
+			}),
+		).rejects.toThrow('not found')
+		await expect(
+			foundation.developer.client.mutation(gallery.reorder, {
+				draftId: foundation.draftId,
+				orderedIds: [second],
+			}),
+		).rejects.toThrow('exactly once')
+
+		await foundation.developer.client.mutation(gallery.reorder, {
+			draftId: foundation.draftId,
+			orderedIds: [second, first],
+		})
+		expect(await names()).toEqual(['second.png', 'first.png'])
+
+		// Not public until the plugin is.
+		expect(
+			await t.query(gallery.listPublic, { pluginId: foundation.projectId }),
+		).toEqual([])
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 8601),
+				'1.0.0',
+			),
+			'1.0.0',
+		)
+		expect(
+			(
+				await t.query(gallery.listPublic, { pluginId: foundation.projectId })
+			).map((item) => item.url),
+		).toEqual([
+			`https://cdn.example.com/media/plugins/${foundation.projectId}/gallery/second.png`,
+			`https://cdn.example.com/media/plugins/${foundation.projectId}/gallery/first.png`,
+		])
+	})
 })
 
 describe('plugin reviews', () => {

@@ -5,7 +5,7 @@ import type { Metadata, Route } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { EmptyState } from '@/components/plugins/empty-state'
-import { PluginList } from '@/components/plugins/plugin-card'
+import { PluginGrid } from '@/components/plugins/plugin-card'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@/convex/_generated/api'
@@ -22,14 +22,14 @@ export const metadata: Metadata = {
 type ExploreSearchParams = Promise<
 	Record<string, string | string[] | undefined>
 >
-type RegistrySort = 'relevance' | 'latest' | 'downloads'
+type RegistrySort = 'relevance' | 'latest' | 'rating'
 
 const sortOptions: ReadonlyArray<{
 	value: Exclude<RegistrySort, 'relevance'>
 	label: string
 }> = [
 	{ value: 'latest', label: 'Recently updated' },
-	{ value: 'downloads', label: 'Most downloaded' },
+	{ value: 'rating', label: 'Top rated' },
 ]
 
 function first(value: string | string[] | undefined) {
@@ -39,6 +39,7 @@ function first(value: string | string[] | undefined) {
 function exploreHref(params: {
 	q?: string
 	software?: string
+	category?: string
 	sort?: RegistrySort
 }) {
 	const query = new URLSearchParams()
@@ -47,6 +48,9 @@ function exploreHref(params: {
 	}
 	if (params.software) {
 		query.set('software', params.software)
+	}
+	if (params.category) {
+		query.set('category', params.category)
 	}
 	if (
 		params.sort &&
@@ -124,12 +128,20 @@ export default async function ExplorePage({
 	const params = await searchParams
 	const search = first(params.q)?.trim().slice(0, 100) || undefined
 	const requestedSoftware = first(params.software)
+	const requestedCategory = first(params.category)
 	const requestedSort = first(params.sort)
 	const cursor = first(params.cursor) || null
+	const [allSoftware, categories] = await Promise.all([
+		fetchQuery(api.functions.plugins.catalog.listSoftware, {}),
+		fetchQuery(api.functions.plugins.categories.list, {}),
+	])
 	// Only software that plugins can be published for is a useful filter.
-	const software = (
-		await fetchQuery(api.functions.plugins.catalog.listSoftware, {})
-	).filter((item) => item.supportsPlugins)
+	const software = allSoftware.filter((item) => item.supportsPlugins)
+	const categorySlug = categories.some(
+		(item) => item.slug === requestedCategory,
+	)
+		? requestedCategory
+		: undefined
 	const softwareSlug = software.some(
 		(item) => item.slug === requestedSoftware,
 	)
@@ -137,14 +149,15 @@ export default async function ExplorePage({
 		: undefined
 	const sort: RegistrySort = search
 		? 'relevance'
-		: requestedSort === 'downloads'
-			? 'downloads'
+		: requestedSort === 'rating'
+			? 'rating'
 			: 'latest'
 
 	const queryArgs = {
 		paginationOpts: { numItems: 20, cursor },
 		search,
 		softwareSlug,
+		categorySlug,
 		sort,
 	}
 	const result = await fetchQuery(
@@ -167,7 +180,10 @@ export default async function ExplorePage({
 	if (softwareSlug) {
 		nextParams.set('software', softwareSlug)
 	}
-	if (sort === 'downloads') {
+	if (categorySlug) {
+		nextParams.set('category', categorySlug)
+	}
+	if (sort === 'rating') {
 		nextParams.set('sort', sort)
 	}
 	if (!result.isDone) {
@@ -196,6 +212,13 @@ export default async function ExplorePage({
 									name="software"
 									type="hidden"
 									value={softwareSlug}
+								/>
+							) : null}
+							{categorySlug ? (
+								<input
+									name="category"
+									type="hidden"
+									value={categorySlug}
 								/>
 							) : null}
 							<label
@@ -237,7 +260,11 @@ export default async function ExplorePage({
 						<FilterLink
 							active={!softwareSlug}
 							count={totalCount}
-							href={exploreHref({ q: search, sort })}
+							href={exploreHref({
+								q: search,
+								category: categorySlug,
+								sort,
+							})}
 						>
 							All software
 						</FilterLink>
@@ -248,6 +275,7 @@ export default async function ExplorePage({
 								href={exploreHref({
 									q: search,
 									software: item.slug,
+									category: categorySlug,
 									sort,
 								})}
 								key={item.slug}
@@ -257,6 +285,35 @@ export default async function ExplorePage({
 						))}
 					</FilterGroup>
 
+					{categories.length > 0 ? (
+						<FilterGroup title="Categories">
+							<FilterLink
+								active={!categorySlug}
+								href={exploreHref({
+									q: search,
+									software: softwareSlug,
+									sort,
+								})}
+							>
+								All categories
+							</FilterLink>
+							{categories.map((item) => (
+								<FilterLink
+									active={item.slug === categorySlug}
+									href={exploreHref({
+										q: search,
+										software: softwareSlug,
+										category: item.slug,
+										sort,
+									})}
+									key={item.slug}
+								>
+									{item.name}
+								</FilterLink>
+							))}
+						</FilterGroup>
+					) : null}
+
 					{search ? null : (
 						<FilterGroup title="Sort">
 							{sortOptions.map((option) => (
@@ -264,6 +321,7 @@ export default async function ExplorePage({
 									active={sort === option.value}
 									href={exploreHref({
 										software: softwareSlug,
+										category: categorySlug,
 										sort: option.value,
 									})}
 									key={option.value}
@@ -287,13 +345,14 @@ export default async function ExplorePage({
 									className="underline-offset-4 hover:underline"
 									href={exploreHref({
 										software: softwareSlug,
+										category: categorySlug,
 									})}
 								>
 									Clear search
 								</Link>
 							</>
-						) : sort === 'downloads' ? (
-							'Sorted by downloads'
+						) : sort === 'rating' ? (
+							'Sorted by rating'
 						) : (
 							'Sorted by most recently updated'
 						)}
@@ -301,7 +360,7 @@ export default async function ExplorePage({
 
 					{result.page.length > 0 ? (
 						<>
-							<PluginList plugins={result.page} />
+							<PluginGrid plugins={result.page} />
 							{cursor || !result.isDone ? (
 								<div className="mt-6 flex justify-center gap-2">
 									{cursor ? (
@@ -312,6 +371,7 @@ export default async function ExplorePage({
 											href={exploreHref({
 												q: search,
 												software: softwareSlug,
+												category: categorySlug,
 												sort,
 											})}
 										>

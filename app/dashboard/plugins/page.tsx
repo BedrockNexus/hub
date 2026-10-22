@@ -1,7 +1,6 @@
 import {
 	Add01Icon,
 	CheckmarkCircle02Icon,
-	Download01Icon,
 	GithubIcon,
 	Package01Icon,
 	RepositoryIcon,
@@ -27,7 +26,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { fetchAuthQuery } from '@/lib/auth-server'
-import { formatCompactNumber } from '@/lib/plugins/format-registry'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 import { cn } from '@/lib/utils'
 
@@ -167,10 +165,6 @@ export default async function PluginsDashboardPage({
 	const publishedProjects = projects.filter(
 		(project) => project.status === 'published',
 	)
-	const totalDownloads = projects.reduce(
-		(total, project) => total + project.downloadCount,
-		0,
-	)
 	const status =
 		params.github && params.github in statusMessages
 			? statusMessages[params.github as keyof typeof statusMessages]
@@ -206,7 +200,7 @@ export default async function PluginsDashboardPage({
 				</div>
 			) : null}
 
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			<div className="grid gap-4 sm:grid-cols-3">
 				{[
 					{
 						label: 'Plugins',
@@ -228,13 +222,6 @@ export default async function PluginsDashboardPage({
 						detail: 'Approved in the public catalog',
 						icon: CheckmarkCircle02Icon,
 						color: 'success' as const,
-					},
-					{
-						label: 'Downloads',
-						value: formatCompactNumber(totalDownloads),
-						detail: 'Across published plugins',
-						icon: Download01Icon,
-						color: 'default' as const,
 					},
 				].map((metric) => (
 					<Stat className="shadow-none" key={metric.label}>

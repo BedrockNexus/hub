@@ -205,7 +205,7 @@ export function DashboardOverview() {
 				{servers?.slice(0, 5).map((server) => (
 					<Link
 						className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
-						href={`/dashboard/servers/${server.slug}`}
+						href={`/dashboard/servers/${server._id}`}
 						key={server._id}
 					>
 						<div className="flex min-w-0 flex-1 items-center gap-3">

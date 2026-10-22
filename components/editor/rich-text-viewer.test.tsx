@@ -30,14 +30,13 @@ describe('RichTextViewer imported READMEs', () => {
 		links: 'https://github.com/owner/plugin/blob/main/',
 	}
 
-	test('drops raw HTML and unsafe links', () => {
+	test('drops scripts and unsafe links', () => {
 		const markup = renderToStaticMarkup(
 			<RichTextViewer
 				content={
 					"<script>alert('no')</script>\n\n**Safe** [docs](javascript:alert(1))"
 				}
 				relativeUrlBase={base}
-				skipHtml
 			/>,
 		)
 
@@ -65,5 +64,18 @@ describe('RichTextViewer imported READMEs', () => {
 		)
 		expect(markup).toContain('href="https://example.com"')
 		expect(markup).toContain('href="#install"')
+	})
+
+	test('points relative images in inline HTML into the repository', () => {
+		const markup = renderToStaticMarkup(
+			<RichTextViewer
+				content={'<p align="center"><img src="assets/logo.png"></p>'}
+				relativeUrlBase={base}
+			/>,
+		)
+
+		expect(markup).toContain(
+			'src="https://raw.githubusercontent.com/owner/plugin/main/assets/logo.png"',
+		)
 	})
 })

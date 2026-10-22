@@ -4,8 +4,11 @@ import { useQuery } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import Link from 'next/link'
 import { SectionHeading } from '@/components/home/section-heading'
-import { PluginList } from '@/components/plugins/plugin-card'
-import { Skeleton } from '@/components/ui/skeleton'
+import {
+	PLUGIN_GRID_CLASS,
+	PluginCardSkeleton,
+	PluginGrid,
+} from '@/components/plugins/plugin-card'
 import { api } from '@/convex/_generated/api'
 
 const SKELETONS = ['a', 'b', 'c', 'd', 'e', 'f']
@@ -21,9 +24,9 @@ function PluginListBody({
 }) {
 	if (result === undefined) {
 		return (
-			<div className="flex flex-col gap-2">
+			<div className={PLUGIN_GRID_CLASS}>
 				{SKELETONS.slice(0, count).map((key) => (
-					<Skeleton className="h-20 w-full" key={key} />
+					<PluginCardSkeleton key={key} />
 				))}
 			</div>
 		)
@@ -42,25 +45,23 @@ function PluginListBody({
 			</p>
 		)
 	}
-	return <PluginList plugins={result.page} />
+	return <PluginGrid plugins={result.page} />
 }
 
-/** Server plugins on the home page, most downloaded or most recently updated. */
+/** The newest server plugins on the home page. */
 export function PluginListSection({
 	title,
-	sort,
 	count = 6,
 	href,
 	linkLabel,
 }: {
 	title: string
-	sort: 'downloads' | 'latest'
 	count?: number
 	href: string
 	linkLabel: string
 }) {
 	const result = useQuery(api.functions.plugins.catalog.explore, {
-		sort,
+		sort: 'latest',
 		paginationOpts: { cursor: null, numItems: count },
 	})
 

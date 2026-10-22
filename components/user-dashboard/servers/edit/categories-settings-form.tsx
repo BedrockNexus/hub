@@ -26,19 +26,19 @@ const categoriesSchema = z.object({
 })
 
 interface CategoriesSettingsFormProps {
-	slug: string
+	id: string
 	mode?: 'user' | 'admin'
 }
 
 export function CategoriesSettingsForm({
-	slug,
+	id,
 	mode = 'user',
 }: CategoriesSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const server = useQuery(
-		api.functions.servers.servers.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.servers.servers.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const categories = useQuery(api.functions.servers.categories.list, {})
 	const updateUserServer = useMutation(api.functions.servers.servers.update)

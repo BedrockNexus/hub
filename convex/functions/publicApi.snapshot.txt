@@ -13,8 +13,16 @@ action   functions/servers/verification:generateCode
 action   functions/servers/verification:verifyOwnership
 action   functions/site/organizations:confirmLogoUpload
 action   functions/site/users:confirmAvatarUpload
+mutation functions/plugins/categories:create
+mutation functions/plugins/categories:remove
+mutation functions/plugins/categories:update
 mutation functions/plugins/deletion:deleteProject
 mutation functions/plugins/downloads:resolveAndRecord
+mutation functions/plugins/gallery:add
+mutation functions/plugins/gallery:generateUploadUrl
+mutation functions/plugins/gallery:remove
+mutation functions/plugins/gallery:reorder
+mutation functions/plugins/gallery:updateCaption
 mutation functions/plugins/icons:generateUploadUrl
 mutation functions/plugins/icons:remove
 mutation functions/plugins/publishing/model:approveReview
@@ -22,6 +30,8 @@ mutation functions/plugins/publishing/model:rejectReview
 mutation functions/plugins/publishing/model:requestReviewChanges
 mutation functions/plugins/publishing/model:retryGitHubRelease
 mutation functions/plugins/publishing/model:retryPublishing
+mutation functions/plugins/publishing/model:saveCategories
+mutation functions/plugins/publishing/model:saveLicense
 mutation functions/plugins/publishing/model:saveLinks
 mutation functions/plugins/publishing/model:saveMetadata
 mutation functions/plugins/publishing/model:selectWorkflow
@@ -107,6 +117,10 @@ query    functions/plugins/catalog:listByOrganizationSlug
 query    functions/plugins/catalog:listByUsername
 query    functions/plugins/catalog:listSoftware
 query    functions/plugins/catalog:sitemapEntries
+query    functions/plugins/categories:list
+query    functions/plugins/categories:listAdmin
+query    functions/plugins/gallery:listMine
+query    functions/plugins/gallery:listPublic
 query    functions/plugins/github/installations:listMine
 query    functions/plugins/github/webhooks:listRecent
 query    functions/plugins/organizations:getManagedIdBySlug
@@ -137,7 +151,7 @@ query    functions/projects/gallery:listPublic
 query    functions/projects/listing:browse
 query    functions/projects/listing:sitemapEntries
 query    functions/projects/projects:getAdminReview
-query    functions/projects/projects:getBySlug
+query    functions/projects/projects:getForEdit
 query    functions/projects/projects:getPublishedBySlug
 query    functions/projects/projects:listAdmin
 query    functions/projects/projects:listByOrganization
@@ -165,7 +179,7 @@ query    functions/servers/reviews:getStats
 query    functions/servers/reviews:getUserReview
 query    functions/servers/reviews:list
 query    functions/servers/servers:getAdminReview
-query    functions/servers/servers:getBySlug
+query    functions/servers/servers:getForEdit
 query    functions/servers/servers:getPublishedBySlug
 query    functions/servers/servers:getRegions
 query    functions/servers/servers:listAdmin

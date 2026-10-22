@@ -1,13 +1,6 @@
 import Link from 'next/link'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-	Item,
-	ItemContent,
-	ItemDescription,
-	ItemMedia,
-	ItemTitle,
-} from '@/components/ui/item'
+import { SideCard } from '@/components/detail/detail-parts'
 
 export interface OwnerCardUser {
 	type: 'user'
@@ -47,32 +40,28 @@ export function OwnerCard({
 			: `/organizations/${encodeURIComponent(owner.slug)}`
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Creator</CardTitle>
-			</CardHeader>
-			<CardContent>
-				<Item render={<Link href={href} />} size="xs" variant="outline">
-					<ItemMedia>
-						<UserAvatarImage
-							avatarClassName="size-11"
-							image={
-								owner.type === 'user' ? owner.image : owner.logo
-							}
-							size={44}
-							username={name}
-						/>
-					</ItemMedia>
-					<ItemContent className="min-w-0">
-						<ItemTitle className="max-w-full">{name}</ItemTitle>
-						<ItemDescription>
-							{owner.type === 'user'
-								? `@${owner.username}`
-								: 'Organization'}
-						</ItemDescription>
-					</ItemContent>
-				</Item>
-			</CardContent>
-		</Card>
+		<SideCard title="Creator">
+			<Link
+				className="group -m-1.5 flex min-w-0 items-center gap-3 rounded-md p-1.5 transition-colors hover:bg-muted"
+				href={href}
+			>
+				<UserAvatarImage
+					avatarClassName="size-10"
+					image={owner.type === 'user' ? owner.image : owner.logo}
+					size={40}
+					username={name}
+				/>
+				<span className="flex min-w-0 flex-col">
+					<span className="truncate font-semibold group-hover:underline">
+						{name}
+					</span>
+					<span className="truncate text-muted-foreground text-sm">
+						{owner.type === 'user'
+							? `@${owner.username}`
+							: 'Organization'}
+					</span>
+				</span>
+			</Link>
+		</SideCard>
 	)
 }

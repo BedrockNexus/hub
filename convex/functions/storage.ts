@@ -54,7 +54,7 @@ async function assertCanManageImageEntity(
 }
 
 const MEDIA_KEY_PATTERN =
-	/^media\/(servers|projects|organizations|profiles|site)\/([^/]+)\/([^/]+)\/[^/]+$/
+	/^media\/(servers|projects|plugins|organizations|profiles|site)\/([^/]+)\/([^/]+)\/[^/]+$/
 const RELEASE_KEY_PATTERN =
 	/^(?:artifacts|downloads|uploads)\/projects\/([^/]+)\/releases\/[^/]+\/[^/]+$/
 export const EDITOR_MEDIA_BACKFILL_SETTING = 'editorMediaReferencesBackfilled'
@@ -148,6 +148,15 @@ async function isManagedKeyReferenced(
 		const gallery = await ctx.db
 			.query('projectGallery')
 			.withIndex('by_project', (q) => q.eq('projectId', id))
+			.collect()
+		return gallery.some((item) => item.r2Key === key)
+	}
+	if (entityType === 'plugins') {
+		const id = ctx.db.normalizeId('plugins', entityId)
+		if (!(id && (await ctx.db.get('plugins', id)))) return false
+		const gallery = await ctx.db
+			.query('pluginGallery')
+			.withIndex('by_plugin', (q) => q.eq('pluginId', id))
 			.collect()
 		return gallery.some((item) => item.r2Key === key)
 	}

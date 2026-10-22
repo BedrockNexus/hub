@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { SectionHeading } from '@/components/home/section-heading'
 import { PageShell } from '@/components/page-shell'
-import { PluginList } from '@/components/plugins/plugin-card'
+import { PluginGrid } from '@/components/plugins/plugin-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
@@ -188,7 +188,7 @@ export default async function SoftwareDetailPage({
 							title={`Plugins for ${entry.name}`}
 						/>
 						{plugins.length > 0 ? (
-							<PluginList plugins={plugins} />
+							<PluginGrid plugins={plugins} />
 						) : (
 							<p className="rounded-md border border-dashed px-6 py-12 text-center text-muted-foreground">
 								Plugins appear here after their first reviewed

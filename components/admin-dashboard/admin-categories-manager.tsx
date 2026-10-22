@@ -99,6 +99,46 @@ interface ProjectCategory {
 	publishedProjectCount: number
 }
 
+interface PluginCategory {
+	_id: Id<'pluginCategories'>
+	name: string
+	slug: string
+	description?: string
+	icon?: string
+	color?: string
+	pluginCount: number
+	publishedPluginCount: number
+}
+
+type CategoryKind = 'server' | 'project' | 'plugin'
+type AnyCategory = ServerCategory | ProjectCategory | PluginCategory
+
+const KIND_LABELS: Record<CategoryKind, string> = {
+	server: 'Server',
+	project: 'Project',
+	plugin: 'Plugin',
+}
+
+/** How many listings use a category, and how many of those are published. */
+function categoryUsage(kind: CategoryKind, category: AnyCategory) {
+	if (kind === 'server') {
+		const server = category as ServerCategory
+		return {
+			total: server.serverCount,
+			published: server.publishedServerCount,
+		}
+	}
+	if (kind === 'project') {
+		const project = category as ProjectCategory
+		return {
+			total: project.projectCount,
+			published: project.publishedProjectCount,
+		}
+	}
+	const plugin = category as PluginCategory
+	return { total: plugin.pluginCount, published: plugin.publishedPluginCount }
+}
+
 interface CategoryDraft {
 	name: string
 	description: string
@@ -115,6 +155,11 @@ type EditingState =
 	| {
 			kind: 'project'
 			id: Id<'projectCategories'>
+			draft: CategoryDraft
+	  }
+	| {
+			kind: 'plugin'
+			id: Id<'pluginCategories'>
 			draft: CategoryDraft
 	  }
 
@@ -140,7 +185,7 @@ function formatNumber(value: number) {
 	return new Intl.NumberFormat('en-US').format(value)
 }
 
-function draftFromCategory(category: ServerCategory | ProjectCategory) {
+function draftFromCategory(category: AnyCategory) {
 	return {
 		name: category.name,
 		description: category.description ?? '',
@@ -267,7 +312,7 @@ function CategoryCreateDialog({
 	projectType,
 	onProjectTypeChange,
 }: {
-	kind: 'server' | 'project'
+	kind: CategoryKind
 	draft: CategoryDraft
 	isPending: boolean
 	onOpenChange: (open: boolean) => void
@@ -277,8 +322,7 @@ function CategoryCreateDialog({
 	projectType?: ProjectType
 	onProjectTypeChange?: (projectType: ProjectType) => void
 }) {
-	const title =
-		kind === 'server' ? 'New Server Category' : 'New Project Category'
+	const title = `New ${KIND_LABELS[kind]} Category`
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
@@ -367,17 +411,13 @@ function CategoryActions({
 	onEdit,
 	onRemove,
 }: {
-	kind: 'server' | 'project'
-	category: ServerCategory | ProjectCategory
+	kind: CategoryKind
+	category: AnyCategory
 	isPending: boolean
 	onEdit: () => void
 	onRemove: () => void
 }) {
-	const usageCount =
-		kind === 'server'
-			? (category as ServerCategory).serverCount
-			: (category as ProjectCategory).projectCount
-	const canDeleteCategory = usageCount === 0
+	const canDeleteCategory = categoryUsage(kind, category).total === 0
 	return (
 		<div className="flex justify-end gap-2">
 			<Button
@@ -434,26 +474,17 @@ function CategoryTable({
 	onSaveEdit,
 	onRemove,
 }: {
-	kind: 'server' | 'project'
-	categories: (ServerCategory | ProjectCategory)[]
+	kind: CategoryKind
+	categories: AnyCategory[]
 	editing: EditingState | null
 	pendingAction: string | null
-	onEdit: (
-		kind: 'server' | 'project',
-		category: ServerCategory | ProjectCategory,
-	) => void
+	onEdit: (kind: CategoryKind, category: AnyCategory) => void
 	onEditChange: (draft: CategoryDraft) => void
 	onCancelEdit: () => void
 	onSaveEdit: () => void
-	onRemove: (
-		kind: 'server' | 'project',
-		category: ServerCategory | ProjectCategory,
-	) => void
+	onRemove: (kind: CategoryKind, category: AnyCategory) => void
 }) {
-	const emptyLabel =
-		kind === 'server'
-			? 'No server categories yet.'
-			: 'No project categories yet.'
+	const emptyLabel = `No ${KIND_LABELS[kind].toLowerCase()} categories yet.`
 
 	return (
 		<div className="overflow-hidden rounded-md border">
@@ -480,7 +511,6 @@ function CategoryTable({
 							</TableCell>
 						</TableRow>
 					) : null}
-					{/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: inline row handles admin edit and display states for two category kinds. */}
 					{categories.map((category) => {
 						const editKey = `${kind}:${category._id}`
 						const isEditing =
@@ -488,16 +518,8 @@ function CategoryTable({
 							editing.id === category._id
 						const isPending =
 							pendingAction?.endsWith(`:${category._id}`) ?? false
-						const usageCount =
-							kind === 'server'
-								? (category as ServerCategory).serverCount
-								: (category as ProjectCategory).projectCount
-						const publishedCount =
-							kind === 'server'
-								? (category as ServerCategory)
-										.publishedServerCount
-								: (category as ProjectCategory)
-										.publishedProjectCount
+						const { total: usageCount, published: publishedCount } =
+							categoryUsage(kind, category)
 
 						return (
 							<TableRow key={editKey}>
@@ -624,11 +646,21 @@ function CategoryTable({
 function CategoriesStats({
 	serverCategories,
 	projectCategories,
+	pluginCategories,
 }: {
 	serverCategories: ServerCategory[]
 	projectCategories: ProjectCategory[]
+	pluginCategories: PluginCategory[]
 }) {
-	const allCategories = [...serverCategories, ...projectCategories]
+	const allCategories = [
+		...serverCategories,
+		...projectCategories,
+		...pluginCategories,
+	]
+	const pluginUsage = pluginCategories.reduce(
+		(sum, category) => sum + category.pluginCount,
+		0,
+	)
 	const serverUsage = serverCategories.reduce(
 		(sum, category) => sum + category.serverCount,
 		0,
@@ -660,9 +692,11 @@ function CategoriesStats({
 				</StatDescription>
 			</Stat>
 			<Stat>
-				<StatLabel>Project Types</StatLabel>
-				<StatValue>{PROJECT_TYPES.length}</StatValue>
-				<StatDescription>Addons and resource packs</StatDescription>
+				<StatLabel>Plugin Categories</StatLabel>
+				<StatValue>{formatNumber(pluginCategories.length)}</StatValue>
+				<StatDescription>
+					{formatNumber(pluginUsage)} total plugin assignments
+				</StatDescription>
 			</Stat>
 		</div>
 	)
@@ -695,6 +729,28 @@ export function AdminCategoriesManager() {
 	const removeProjectCategory = useMutation(
 		api.functions.projects.categories.remove,
 	)
+	const pluginCategoriesResult = useQuery(
+		api.functions.plugins.categories.listAdmin,
+		{},
+	)
+	const createPluginCategory = useMutation(
+		api.functions.plugins.categories.create,
+	)
+	const updatePluginCategory = useMutation(
+		api.functions.plugins.categories.update,
+	)
+	const removePluginCategory = useMutation(
+		api.functions.plugins.categories.remove,
+	)
+	const [pluginDraft, setPluginDraft] = useState<CategoryDraft>(EMPTY_DRAFT)
+	const [isPluginCreateOpen, setIsPluginCreateOpen] = useState(false)
+	const pluginCategories = useMemo(
+		() =>
+			[...(pluginCategoriesResult ?? [])].sort((a, b) =>
+				a.name.localeCompare(b.name),
+			),
+		[pluginCategoriesResult],
+	)
 
 	const [serverDraft, setServerDraft] = useState<CategoryDraft>(EMPTY_DRAFT)
 	const [projectDraft, setProjectDraft] = useState<CategoryDraft>(EMPTY_DRAFT)
@@ -721,7 +777,8 @@ export function AdminCategoriesManager() {
 
 	const isLoading =
 		serverCategoriesResult === undefined ||
-		projectCategoriesResult === undefined
+		projectCategoriesResult === undefined ||
+		pluginCategoriesResult === undefined
 
 	const handleServerCreateOpenChange = (open: boolean) => {
 		if (pendingAction === 'create:server') {
@@ -806,23 +863,67 @@ export function AdminCategoriesManager() {
 		}
 	}
 
-	const handleEdit = (
-		kind: 'server' | 'project',
-		category: ServerCategory | ProjectCategory,
-	) => {
-		setEditing(
-			kind === 'server'
-				? {
-						kind,
-						id: category._id as Id<'serverCategories'>,
-						draft: draftFromCategory(category),
-					}
-				: {
-						kind,
-						id: category._id as Id<'projectCategories'>,
-						draft: draftFromCategory(category),
-					},
-		)
+	const handlePluginCreateOpenChange = (open: boolean) => {
+		if (pendingAction === 'create:plugin') {
+			return
+		}
+
+		setIsPluginCreateOpen(open)
+		if (!open) {
+			setPluginDraft(EMPTY_DRAFT)
+		}
+	}
+
+	const handleCreatePlugin = async (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault()
+		const name = pluginDraft.name.trim()
+		if (!name) {
+			return
+		}
+
+		setPendingAction('create:plugin')
+		try {
+			await createPluginCategory({
+				name,
+				description: optionalString(pluginDraft.description),
+				icon: optionalString(pluginDraft.icon),
+				color: optionalString(pluginDraft.color),
+			})
+			setPluginDraft(EMPTY_DRAFT)
+			setIsPluginCreateOpen(false)
+			toast.success(`Created ${name}`)
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: 'Could not create category',
+			)
+		} finally {
+			setPendingAction(null)
+		}
+	}
+
+	const handleEdit = (kind: CategoryKind, category: AnyCategory) => {
+		const draft = draftFromCategory(category)
+		if (kind === 'server') {
+			setEditing({
+				kind,
+				id: category._id as Id<'serverCategories'>,
+				draft,
+			})
+		} else if (kind === 'project') {
+			setEditing({
+				kind,
+				id: category._id as Id<'projectCategories'>,
+				draft,
+			})
+		} else {
+			setEditing({
+				kind,
+				id: category._id as Id<'pluginCategories'>,
+				draft,
+			})
+		}
 	}
 
 	const handleSaveEdit = async () => {
@@ -846,8 +947,10 @@ export function AdminCategoriesManager() {
 
 			if (editing.kind === 'server') {
 				await updateServerCategory({ id: editing.id, ...patch })
-			} else {
+			} else if (editing.kind === 'project') {
 				await updateProjectCategory({ id: editing.id, ...patch })
+			} else {
+				await updatePluginCategory({ id: editing.id, ...patch })
 			}
 
 			setEditing(null)
@@ -863,19 +966,20 @@ export function AdminCategoriesManager() {
 		}
 	}
 
-	const handleRemove = async (
-		kind: 'server' | 'project',
-		category: ServerCategory | ProjectCategory,
-	) => {
+	const handleRemove = async (kind: CategoryKind, category: AnyCategory) => {
 		setPendingAction(`remove:${category._id}`)
 		try {
 			if (kind === 'server') {
 				await removeServerCategory({
 					id: category._id as Id<'serverCategories'>,
 				})
-			} else {
+			} else if (kind === 'project') {
 				await removeProjectCategory({
 					id: category._id as Id<'projectCategories'>,
+				})
+			} else {
+				await removePluginCategory({
+					id: category._id as Id<'pluginCategories'>,
 				})
 			}
 			toast.success(`Deleted ${category.name}`)
@@ -897,11 +1001,12 @@ export function AdminCategoriesManager() {
 	return (
 		<div className="min-w-0 space-y-6">
 			<AdminPageHeader
-				description="Manage server and project taxonomies from one admin surface."
+				description="Manage server, project and plugin categories in one place."
 				title="Categories"
 			/>
 
 			<CategoriesStats
+				pluginCategories={pluginCategories}
 				projectCategories={projectCategories}
 				serverCategories={serverCategories}
 			/>
@@ -972,6 +1077,46 @@ export function AdminCategoriesManager() {
 						categories={projectCategories}
 						editing={editing}
 						kind="project"
+						onCancelEdit={() => setEditing(null)}
+						onEdit={handleEdit}
+						onEditChange={(draft) =>
+							setEditing((current) =>
+								current ? { ...current, draft } : current,
+							)
+						}
+						onRemove={handleRemove}
+						onSaveEdit={() => {
+							handleSaveEdit()
+						}}
+						pendingAction={pendingAction}
+					/>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div className="space-y-1.5">
+						<CardTitle>Plugin Categories</CardTitle>
+						<CardDescription>
+							Plugin categories can be deleted only when they are
+							unused.
+						</CardDescription>
+					</div>
+					<CategoryCreateDialog
+						draft={pluginDraft}
+						isPending={pendingAction === 'create:plugin'}
+						kind="plugin"
+						onChange={setPluginDraft}
+						onOpenChange={handlePluginCreateOpenChange}
+						onSubmit={handleCreatePlugin}
+						open={isPluginCreateOpen}
+					/>
+				</CardHeader>
+				<CardContent>
+					<CategoryTable
+						categories={pluginCategories}
+						editing={editing}
+						kind="plugin"
 						onCancelEdit={() => setEditing(null)}
 						onEdit={handleEdit}
 						onEditChange={(draft) =>

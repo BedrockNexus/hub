@@ -223,7 +223,7 @@ export function AddProjectForm() {
 			})
 
 			toast.success('Project draft created')
-			router.push(`/dashboard/projects/${project.slug}/edit`)
+			router.push(`/dashboard/projects/${project.id}`)
 		} catch (error) {
 			toast.error(
 				error instanceof Error

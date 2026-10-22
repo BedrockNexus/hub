@@ -20,7 +20,7 @@ import { useParams } from 'next/navigation'
 import { RoleBadgeList } from '@/components/auth/role-badge'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import { ensureHttpUrl, SideCard } from '@/components/detail/detail-parts'
-import { PluginList } from '@/components/plugins/plugin-card'
+import { PluginGrid } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -103,7 +103,7 @@ function ProfileSkeleton() {
 	)
 }
 
-const NO_PLUGINS = { projects: [], totalDownloads: 0 }
+const NO_PLUGINS = { projects: [] }
 
 /** A creator's published plugins, empty while the Plugins feature is switched off. */
 function useCreatorPlugins(username: string) {
@@ -182,16 +182,18 @@ export default function PublicUserProfilePage() {
 							/>
 						</div>
 						<div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-2 pt-4">
-							<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-								<h1 className="font-bold text-[clamp(2rem,4vw,2.875rem)] leading-none">
-									{displayName}
-								</h1>
+							<div className="flex flex-col gap-1.5">
+								<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+									<h1 className="font-bold text-[clamp(2rem,4vw,2.875rem)] leading-none">
+										{displayName}
+									</h1>
+									<RoleBadgeList role={profile.role} />
+								</div>
 								{profile.username ? (
 									<span className="font-mono text-muted-foreground">
 										@{profile.username}
 									</span>
 								) : null}
-								<RoleBadgeList role={profile.role} />
 							</div>
 							{profile.bio ? (
 								<p className="max-w-2xl text-muted-foreground">
@@ -263,10 +265,7 @@ export default function PublicUserProfilePage() {
 						) : null}
 						<Stat
 							label="Total downloads"
-							value={
-								profile.stats.totalDownloads +
-								plugins.totalDownloads
-							}
+							value={profile.stats.totalDownloads}
 						/>
 						<Stat
 							label="Reviews written"
@@ -298,7 +297,7 @@ export default function PublicUserProfilePage() {
 					{plugins.projects.length > 0 ? (
 						<section className="flex flex-col gap-4">
 							<h2 className="font-bold text-2xl">Plugins</h2>
-							<PluginList plugins={plugins.projects} />
+							<PluginGrid plugins={plugins.projects} />
 						</section>
 					) : null}
 					<section className="flex flex-col gap-4">

@@ -202,7 +202,7 @@ function ServerRowActionsCell({
 						render={(props) => (
 							<Link
 								{...props}
-								href={`/dashboard/servers/${server.slug}/edit`}
+								href={`/dashboard/servers/${server._id}`}
 							>
 								<HugeiconsIcon
 									className="size-4"
@@ -577,7 +577,7 @@ export function ServerListTable() {
 				cell: ({ row }) => (
 					<Link
 						className="font-medium hover:underline"
-						href={`/dashboard/servers/${row.original.slug}/edit`}
+						href={`/dashboard/servers/${row.original._id}`}
 					>
 						{row.original.name}
 					</Link>

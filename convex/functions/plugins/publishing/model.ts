@@ -370,6 +370,92 @@ export const saveLinks = authedMutation({
 	},
 })
 
+const LICENSE_MAX = 80
+const LICENSE_CUSTOM_MAX = 2000
+
+/**
+ * The license shown on the plugin page. It starts as the repository's license
+ * on GitHub; owners can change it, and it applies at once like links.
+ */
+export const saveLicense = authedMutation({
+	args: {
+		draftId: v.id('pluginPublishingDrafts'),
+		license: v.optional(v.string()),
+		licenseCustom: v.optional(v.string()),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		await enforceRateLimit(ctx, 'publishingEdit', ctx.user._id)
+		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
+		const license = args.license?.trim() || undefined
+		const licenseCustom = args.licenseCustom?.trim() || undefined
+		if (license && license.length > LICENSE_MAX) {
+			throw new ConvexError({
+				code: 'INVALID_LICENSE',
+				message: `The license must be at most ${LICENSE_MAX} characters.`,
+			})
+		}
+		if (licenseCustom && licenseCustom.length > LICENSE_CUSTOM_MAX) {
+			throw new ConvexError({
+				code: 'INVALID_LICENSE',
+				message: `License notes must be at most ${LICENSE_CUSTOM_MAX} characters.`,
+			})
+		}
+		await ctx.db.patch('pluginPublishingDrafts', draft._id, {
+			license,
+			licenseCustom,
+			updatedAt: Date.now(),
+		})
+		if (draft.projectId) {
+			await ctx.db.patch('plugins', draft.projectId, {
+				license,
+				licenseCustom,
+			})
+		}
+		return null
+	},
+})
+
+// Like Modrinth: a few categories, so each one means something.
+const MAX_CATEGORIES = 3
+
+/** The plugin's categories. They apply at once, like project categories. */
+export const saveCategories = authedMutation({
+	args: {
+		draftId: v.id('pluginPublishingDrafts'),
+		categoryIds: v.array(v.id('pluginCategories')),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		await enforceRateLimit(ctx, 'publishingEdit', ctx.user._id)
+		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
+		const categoryIds = [...new Set(args.categoryIds)]
+		if (categoryIds.length > MAX_CATEGORIES) {
+			throw new ConvexError({
+				code: 'TOO_MANY_CATEGORIES',
+				message: `Pick at most ${MAX_CATEGORIES} categories.`,
+			})
+		}
+		for (const categoryId of categoryIds) {
+			const category = await ctx.db.get('pluginCategories', categoryId)
+			if (!category?.isActive) {
+				throw new ConvexError({
+					code: 'CATEGORY_UNAVAILABLE',
+					message: 'One of the categories is no longer available.',
+				})
+			}
+		}
+		await ctx.db.patch('pluginPublishingDrafts', draft._id, {
+			categoryIds,
+			updatedAt: Date.now(),
+		})
+		if (draft.projectId) {
+			await ctx.db.patch('plugins', draft.projectId, { categoryIds })
+		}
+		return null
+	},
+})
+
 const availableWorkflowValidator = v.object({
 	key: workflowTemplateKeyValidator,
 	label: v.string(),
@@ -472,6 +558,7 @@ export const selectWorkflow = authedMutation({
 				searchText: searchTextFor(metadata),
 				license: draft.license,
 				iconUrl: draft.iconUrl,
+				categoryIds: draft.categoryIds,
 				websiteUrl: draft.websiteUrl,
 				wikiUrl: draft.wikiUrl,
 				discordUrl: draft.discordUrl,
@@ -1476,6 +1563,7 @@ export const finishPublishing = internalMutation({
 					summary: draft.summary,
 					description: draft.description,
 					license: draft.license,
+					licenseCustom: draft.licenseCustom,
 					iconUrl: draft.iconUrl,
 					searchText: searchTextFor(draft),
 				}
@@ -1783,6 +1871,8 @@ export const getMine = authedQuery({
 		),
 		softwareName: v.optional(v.string()),
 		locked: v.boolean(),
+		// The moderator's note when the latest version was sent back.
+		moderationNote: v.optional(v.string()),
 	}),
 	handler: async (ctx, args) => {
 		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
@@ -1802,6 +1892,15 @@ export const getMine = authedQuery({
 		const software = draft.softwareId
 			? await ctx.db.get('serverSoftware', draft.softwareId)
 			: null
+		const latestRelease = project
+			? await ctx.db
+					.query('pluginReleases')
+					.withIndex('by_project_id', (query) =>
+						query.eq('projectId', project._id),
+					)
+					.order('desc')
+					.first()
+			: null
 		return {
 			draft,
 			repository,
@@ -1814,6 +1913,11 @@ export const getMine = authedQuery({
 				: null,
 			softwareName: software?.name,
 			locked: project ? Boolean(await activeReleaseFor(ctx, project._id)) : false,
+			moderationNote:
+				latestRelease?.status === 'changesRequested' ||
+				latestRelease?.status === 'rejected'
+					? latestRelease.reviewNotes
+					: undefined,
 		}
 	},
 })

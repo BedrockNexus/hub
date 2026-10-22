@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createTest as createBackend } from '../../test.setup'
 import { api } from '../../_generated/api'
-import { ownerDownloadCounts } from '../../lib/plugins/downloadCounts'
-import {
-	insertProjectAggregates,
-	projectOwnerKey,
-} from '../../lib/plugins/aggregates'
+import { insertProjectAggregates } from '../../lib/plugins/aggregates'
 
 const redirectSecret = 'test-download-redirect-secret'
 
@@ -202,7 +198,7 @@ describe('download redirects', () => {
 		).rejects.toThrow('Download not found')
 	})
 
-	it('serves the published file from the CDN and counts rapid duplicates once', async () => {
+	it('serves the published file without counting the download', async () => {
 		const t = createTest()
 		const fixture = await createPublishedFixture(t)
 		const args = {
@@ -217,33 +213,13 @@ describe('download redirects', () => {
 			t.mutation(api.functions.plugins.downloads.resolveAndRecord, args),
 		).resolves.toEqual({
 			url: `${cdnUrl}/plugins/${fixture.projectId}/versions/1.0.0/TrustedPlugin.jar`,
-			counted: true,
-		})
-		await expect(
-			t.mutation(api.functions.plugins.downloads.resolveAndRecord, args),
-		).resolves.toMatchObject({
 			counted: false,
 		})
 
-		const state = await t.run(async (ctx) => ({
-			project: await ctx.db.get(fixture.projectId),
-			downloads: await ctx.db.query('pluginDownloads').take(10),
-			ownerDownloads: await ownerDownloadCounts.count(
-				ctx,
-				projectOwnerKey('user', 'auth-catalog'),
-			),
-		}))
-		const publicProject = await t.query(
-			api.functions.plugins.catalog.getProject,
-			{
-				slug: 'trusted-plugin',
-			},
+		const downloads = await t.run(
+			async (ctx) => await ctx.db.query('pluginDownloads').take(10),
 		)
-		expect(state.project?.downloadCount).toBe(0)
-		expect(publicProject?.project.downloadCount).toBe(1)
-		expect(state.downloads).toHaveLength(1)
-		expect(state.downloads[0]?.ownerCountedAt).toEqual(expect.any(Number))
-		expect(state.ownerDownloads).toBe(1)
+		expect(downloads).toHaveLength(0)
 	})
 
 	it('does not serve a version whose release is not published', async () => {

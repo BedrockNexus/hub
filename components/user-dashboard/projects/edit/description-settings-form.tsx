@@ -5,7 +5,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { RichTextEditor } from '@/components/editor/rich-text-editor'
+import { MarkdownEditor } from '@/components/editor/markdown-editor'
 import { Button } from '@/components/ui/button'
 import {
 	Field,
@@ -28,16 +28,16 @@ interface DescriptionFormData {
 }
 
 interface ProjectDescriptionSettingsFormProps {
-	slug: string
+	id: string
 }
 
 export function ProjectDescriptionSettingsForm({
-	slug,
+	id,
 }: ProjectDescriptionSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const project = useQuery(
-		api.functions.projects.projects.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.projects.projects.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const updateProject = useMutation(api.functions.projects.projects.update)
 
@@ -129,10 +129,11 @@ export function ProjectDescriptionSettingsForm({
 								setup, and usage
 							</FieldDescription>
 							<div id="description">
-								<RichTextEditor
+								<MarkdownEditor
+									allowImageUpload
 									onChange={field.onChange}
 									placeholder="Describe your project in detail..."
-									value={field.value}
+									value={field.value ?? ''}
 								/>
 							</div>
 							{fieldState.error && (

@@ -1,7 +1,7 @@
 'use client'
 
 import { type Control, Controller } from 'react-hook-form'
-import { RichTextEditor } from '@/components/editor/rich-text-editor'
+import { MarkdownEditor } from '@/components/editor/markdown-editor'
 import {
 	Field,
 	FieldDescription,
@@ -44,7 +44,7 @@ export function ProjectBasicFields({
 						</FieldDescription>
 						<OrgSelector
 							onChange={field.onChange}
-							value={field.value}
+							value={field.value ?? ''}
 						/>
 					</Field>
 				)}
@@ -61,7 +61,7 @@ export function ProjectBasicFields({
 						</FieldDescription>
 						<Select
 							onValueChange={field.onChange}
-							value={field.value}
+							value={field.value ?? ''}
 						>
 							<SelectTrigger id="type">
 								<SelectValue>
@@ -142,10 +142,11 @@ export function ProjectBasicFields({
 								characters)
 							</FieldDescription>
 							<div id="description">
-								<RichTextEditor
+								<MarkdownEditor
+									allowImageUpload
 									onChange={field.onChange}
 									placeholder="Describe your project in detail..."
-									value={field.value}
+									value={field.value ?? ''}
 								/>
 							</div>
 							{fieldState.error && (

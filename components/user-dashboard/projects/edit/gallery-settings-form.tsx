@@ -7,15 +7,15 @@ import { GalleryManager } from '@/components/user-dashboard/gallery/gallery-mana
 import { api } from '@/convex/_generated/api'
 
 interface ProjectGallerySettingsFormProps {
-	slug: string
+	id: string
 }
 
 export function ProjectGallerySettingsForm({
-	slug,
+	id,
 }: ProjectGallerySettingsFormProps) {
 	const project = useQuery(
-		api.functions.projects.projects.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.projects.projects.getForEdit,
+		id ? { id } : 'skip',
 	)
 
 	if (project === undefined) {

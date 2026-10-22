@@ -35,19 +35,19 @@ const generalSchema = z.object({
 })
 
 interface GeneralSettingsFormProps {
-	slug: string
+	id: string
 	mode?: 'user' | 'admin'
 }
 
 export function GeneralSettingsForm({
-	slug,
+	id,
 	mode = 'user',
 }: GeneralSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const server = useQuery(
-		api.functions.servers.servers.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.servers.servers.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const updateUserServer = useMutation(api.functions.servers.servers.update)
 	const updateAdminServer = useMutation(

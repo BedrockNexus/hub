@@ -14,7 +14,7 @@ export async function validateEntityImageUpload(
 	ctx: MutationCtx,
 	args: {
 		key: string
-		resourceType: 'projects' | 'servers'
+		resourceType: 'plugins' | 'projects' | 'servers'
 		entityId: string
 		imageKind: 'banner' | 'gallery' | 'icon' | 'logo'
 	},

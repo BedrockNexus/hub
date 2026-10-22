@@ -5,7 +5,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { useEffect, useState } from 'react'
 import { Controller, type Resolver, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { RichTextEditor } from '@/components/editor/rich-text-editor'
+import { MarkdownEditor } from '@/components/editor/markdown-editor'
 import { Button } from '@/components/ui/button'
 import {
 	Field,
@@ -28,19 +28,19 @@ import {
 const descriptionSchema = serverFormSchema.pick({ description: true })
 
 interface ServerDescriptionSettingsFormProps {
-	slug: string
+	id: string
 	mode?: 'user' | 'admin'
 }
 
 export function ServerDescriptionSettingsForm({
-	slug,
+	id,
 	mode = 'user',
 }: ServerDescriptionSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const server = useQuery(
-		api.functions.servers.servers.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.servers.servers.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const updateUserServer = useMutation(api.functions.servers.servers.update)
 	const updateAdminServer = useMutation(
@@ -141,10 +141,11 @@ export function ServerDescriptionSettingsForm({
 								rules, and community
 							</FieldDescription>
 							<div id="description">
-								<RichTextEditor
+								<MarkdownEditor
+									allowImageUpload
 									onChange={field.onChange}
 									placeholder="Describe your server in detail..."
-									value={field.value}
+									value={field.value ?? ''}
 								/>
 							</div>
 							{fieldState.error && (

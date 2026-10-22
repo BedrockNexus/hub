@@ -75,10 +75,9 @@ export default async function Home() {
 			/>
 			{features.pluginsEnabled ? (
 				<PluginListSection
-					href="/plugins?sort=downloads"
+					href="/plugins?sort=latest"
 					linkLabel="All plugins"
-					sort="downloads"
-					title="Popular server plugins"
+					title="New server plugins"
 				/>
 			) : null}
 			<PopularCreatorsSection />

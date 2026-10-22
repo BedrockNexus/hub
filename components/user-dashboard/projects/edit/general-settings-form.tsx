@@ -38,11 +38,11 @@ const generalSchema = projectFormSchema.pick({
 })
 
 interface ProjectGeneralSettingsFormProps {
-	slug: string
+	id: string
 }
 
 export function ProjectGeneralSettingsForm({
-	slug,
+	id,
 }: ProjectGeneralSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [pendingIconR2Key, setPendingIconR2Key] = useState<
@@ -51,8 +51,8 @@ export function ProjectGeneralSettingsForm({
 	const [removeIcon, setRemoveIcon] = useState(false)
 
 	const project = useQuery(
-		api.functions.projects.projects.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.projects.projects.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const updateProject = useMutation(api.functions.projects.projects.update)
 

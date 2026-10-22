@@ -107,8 +107,11 @@ const draftFields = {
 	summary: v.string(),
 	description: v.optional(v.string()),
 	license: v.optional(v.string()),
+	licenseCustom: v.optional(v.string()),
 	// CDN URL of the plugin's icon (functions/plugins/icons.ts).
 	iconUrl: v.optional(v.string()),
+	// Chosen in the dashboard (publishing/model:saveCategories); apply at once.
+	categoryIds: v.optional(v.array(v.id('pluginCategories'))),
 	// Links shown on the plugin page (functions/plugins/publishing/model:saveLinks).
 	// Source code is always the repository; issues default to its issue tracker.
 	websiteUrl: v.optional(v.string()),
@@ -236,7 +239,9 @@ export const projectValidator = v.object({
 	description: v.optional(v.string()),
 	searchText: v.string(),
 	license: v.optional(v.string()),
+	licenseCustom: v.optional(v.string()),
 	iconUrl: v.optional(v.string()),
+	categoryIds: v.optional(v.array(v.id('pluginCategories'))),
 	// Links shown on the plugin page (functions/plugins/publishing/model:saveLinks).
 	// Source code is always the repository; issues default to its issue tracker.
 	websiteUrl: v.optional(v.string()),
@@ -321,6 +326,22 @@ export const tables = {
 		.index('by_project_id', ['projectId'])
 		.index('by_workflow_template_key', ['workflowTemplateKey']),
 
+	// Admin-managed, like server and project categories (functions/plugins/categories.ts).
+	pluginCategories: defineTable({
+		name: v.string(),
+		slug: v.string(),
+		description: v.optional(v.string()),
+		icon: v.optional(v.string()),
+		color: v.optional(v.string()),
+		sortOrder: v.number(),
+		isActive: v.boolean(),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index('by_slug', ['slug'])
+		.index('by_is_active_and_sort_order', ['isActive', 'sortOrder'])
+		.index('by_sort_order', ['sortOrder']),
+
 	pluginWorkflowTemplates: defineTable({
 		key: workflowTemplateKeyValidator,
 		softwareId: v.id('serverSoftware'),
@@ -366,7 +387,9 @@ export const tables = {
 		description: v.optional(v.string()),
 		searchText: v.string(),
 		license: v.optional(v.string()),
+		licenseCustom: v.optional(v.string()),
 		iconUrl: v.optional(v.string()),
+		categoryIds: v.optional(v.array(v.id('pluginCategories'))),
 		// Links shown on the plugin page (functions/plugins/publishing/model:saveLinks).
 		// Source code is always the repository; issues default to its issue tracker.
 		websiteUrl: v.optional(v.string()),
@@ -550,6 +573,23 @@ export const tables = {
 
 	// One per user and plugin (functions/plugins/reviews.ts). Deleting a review
 	// deactivates it; plugins.ratingAverage/ratingCount follow the active ones.
+	// Screenshots on the plugin page (functions/plugins/gallery.ts), managed
+	// from the dashboard and shown at once, like project galleries.
+	pluginGallery: defineTable({
+		pluginId: v.id('plugins'),
+		ownerId: v.string(),
+		r2Key: v.string(),
+		fileName: v.string(),
+		fileSize: v.number(),
+		mimeType: v.string(),
+		caption: v.optional(v.string()),
+		sortOrder: v.number(),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index('by_plugin', ['pluginId'])
+		.index('by_plugin_sort', ['pluginId', 'sortOrder']),
+
 	pluginReviews: defineTable({
 		pluginId: v.id('plugins'),
 		userId: v.string(),

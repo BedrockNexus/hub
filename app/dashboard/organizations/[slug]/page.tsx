@@ -243,7 +243,7 @@ export default function OrganizationOverviewPage() {
 							}) => (
 								<Link
 									className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
-									href={`/dashboard/servers/${server.slug}`}
+									href={`/dashboard/servers/${server._id}`}
 									key={server._id}
 								>
 									<div className="flex min-w-0 flex-1 items-center gap-3">
@@ -318,7 +318,7 @@ export default function OrganizationOverviewPage() {
 							}) => (
 								<Link
 									className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
-									href={`/dashboard/projects/${project.slug}/edit`}
+									href={`/dashboard/projects/${project._id}`}
 									key={project._id}
 								>
 									<div className="flex min-w-0 flex-1 items-center gap-3">

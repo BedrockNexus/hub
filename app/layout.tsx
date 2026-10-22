@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import localFont from 'next/font/local'
-import '@mdxeditor/editor/style.css'
 import './globals.css'
 import { headers } from 'next/headers'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'

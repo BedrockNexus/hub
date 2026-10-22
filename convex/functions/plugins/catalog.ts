@@ -14,10 +14,6 @@ import {
 	getOrganizationBySlug,
 } from '../../lib/plugins/authorization'
 import {
-	getOwnerDownloadCount,
-	getProjectDownloadCount,
-} from '../../lib/plugins/downloadCounts'
-import {
 	countPublishedProjectsForSoftware,
 	countPublishedProjectsForSoftwareBatch,
 } from '../../lib/plugins/aggregates'
@@ -66,7 +62,7 @@ export const projectCardValidator = v.object({
 	summary: v.string(),
 	license: v.optional(v.string()),
 	iconUrl: v.optional(v.string()),
-	downloadCount: v.number(),
+	categories: v.array(v.object({ slug: v.string(), name: v.string() })),
 	ratingAverage: v.number(),
 	ratingCount: v.number(),
 	publishedAt: v.optional(v.number()),
@@ -83,7 +79,7 @@ async function hydrateProjectCard(
 	ctx: QueryCtx,
 	project: Doc<'plugins'>,
 ): Promise<ProjectCard | null> {
-	const [software, creator, organization, latestVersion, downloadCount] =
+	const [software, creator, organization, latestVersion, categories] =
 		await Promise.all([
 			ctx.db.get('serverSoftware', project.softwareId),
 			project.ownerType === 'user'
@@ -95,7 +91,11 @@ async function hydrateProjectCard(
 			project.latestVersionId
 				? ctx.db.get('pluginVersions', project.latestVersionId)
 				: null,
-			getProjectDownloadCount(ctx, project),
+			Promise.all(
+				(project.categoryIds ?? []).map((id) =>
+					ctx.db.get('pluginCategories', id),
+				),
+			),
 		])
 
 	if (!software) {
@@ -124,7 +124,11 @@ async function hydrateProjectCard(
 		summary: project.summary,
 		license: project.license,
 		iconUrl: project.iconUrl,
-		downloadCount,
+		categories: categories.flatMap((category) =>
+			category?.isActive
+				? [{ slug: category.slug, name: category.name }]
+				: [],
+		),
 		ratingAverage: project.ratingAverage,
 		ratingCount: project.ratingCount,
 		publishedAt: project.publishedAt,
@@ -152,10 +156,11 @@ async function hydrateProjectPage(
 	return cards.filter((card): card is ProjectCard => card !== null)
 }
 
+const CATEGORY_SCAN_LIMIT = 500
+
 const sortValidator = v.union(
 	v.literal('relevance'),
 	v.literal('latest'),
-	v.literal('downloads'),
 	v.literal('rating'),
 )
 
@@ -164,10 +169,54 @@ export const explore = query({
 		paginationOpts: paginationOptsValidator,
 		search: v.optional(v.string()),
 		softwareSlug: v.optional(v.string()),
+		categorySlug: v.optional(v.string()),
 		sort: sortValidator,
 	},
 	returns: paginationResultValidator(projectCardValidator),
 	handler: async (ctx, args) => {
+		// A category narrows the newest published plugins in memory: plugins
+		// are few, and array membership cannot be indexed.
+		if (args.categorySlug) {
+			const category = await ctx.db
+				.query('pluginCategories')
+				.withIndex('by_slug', (q) =>
+					q.eq('slug', args.categorySlug as string),
+				)
+				.unique()
+			if (!category?.isActive) {
+				return { page: [], isDone: true, continueCursor: '' }
+			}
+			const term = args.search?.trim().toLowerCase()
+			const softwareFilter = args.softwareSlug
+				? await ctx.db
+						.query('serverSoftware')
+						.withIndex('by_slug', (q) =>
+							q.eq('slug', args.softwareSlug as string),
+						)
+						.unique()
+				: null
+			const plugins = await ctx.db
+				.query('plugins')
+				.withIndex('by_visibility_and_status_and_updated_at', (index) =>
+					index.eq('visibility', 'public').eq('status', 'published'),
+				)
+				.order('desc')
+				.take(CATEGORY_SCAN_LIMIT)
+			const matching = plugins.filter(
+				(plugin) =>
+					plugin.categoryIds?.includes(category._id) &&
+					(!softwareFilter || plugin.softwareId === softwareFilter._id) &&
+					(!term || plugin.searchText.toLowerCase().includes(term)),
+			)
+			return {
+				page: await hydrateProjectPage(
+					ctx,
+					matching.slice(0, args.paginationOpts.numItems),
+				),
+				isDone: true,
+				continueCursor: '',
+			}
+		}
 		const search = args.search?.trim().slice(0, 100)
 		const software = args.softwareSlug
 			? await ctx.db
@@ -215,24 +264,6 @@ export const explore = query({
 		}
 
 		if (software) {
-			if (args.sort === 'downloads') {
-				const result = await ctx.db
-					.query('plugins')
-					.withIndex(
-						'by_visibility_and_status_and_software_id_and_download_count',
-						(index) =>
-							index
-								.eq('visibility', 'public')
-								.eq('status', 'published')
-								.eq('softwareId', software._id),
-					)
-					.order('desc')
-					.paginate(args.paginationOpts)
-				return {
-					...result,
-					page: await hydrateProjectPage(ctx, result.page),
-				}
-			}
 			if (args.sort === 'rating') {
 				const result = await ctx.db
 					.query('plugins')
@@ -269,23 +300,6 @@ export const explore = query({
 			}
 		}
 
-		if (args.sort === 'downloads') {
-			const result = await ctx.db
-				.query('plugins')
-				.withIndex(
-					'by_visibility_and_status_and_download_count',
-					(index) =>
-						index
-							.eq('visibility', 'public')
-							.eq('status', 'published'),
-				)
-				.order('desc')
-				.paginate(args.paginationOpts)
-			return {
-				...result,
-				page: await hydrateProjectPage(ctx, result.page),
-			}
-		}
 		if (args.sort === 'rating') {
 			const result = await ctx.db
 				.query('plugins')
@@ -444,6 +458,7 @@ export const getProject = query({
 		v.object({
 			project: projectCardValidator,
 			description: v.optional(v.string()),
+			licenseCustom: v.optional(v.string()),
 			repository: v.object({
 				fullName: v.string(),
 				htmlUrl: v.string(),
@@ -546,6 +561,7 @@ export const getProject = query({
 		return {
 			project: card,
 			description: project.description,
+			licenseCustom: project.licenseCustom,
 			repository: {
 				fullName: repository.fullName,
 				htmlUrl: repository.htmlUrl,
@@ -566,7 +582,6 @@ export const getProject = query({
 const ownerPluginsValidator = v.union(
 	v.object({
 		projects: v.array(projectCardValidator),
-		totalDownloads: v.number(),
 	}),
 	v.null(),
 )
@@ -576,23 +591,20 @@ async function listOwnerPlugins(
 	ownerType: 'user' | 'organization',
 	ownerId: string,
 ) {
-	const [projects, totalDownloads] = await Promise.all([
-		ctx.db
-			.query('plugins')
-			.withIndex(
-				'by_owner_type_and_owner_id_and_visibility_and_status',
-				(index) =>
-					index
-						.eq('ownerType', ownerType)
-						.eq('ownerId', ownerId)
-						.eq('visibility', 'public')
-						.eq('status', 'published'),
-			)
-			.order('desc')
-			.take(100),
-		getOwnerDownloadCount(ctx, ownerType, ownerId),
-	])
-	return { projects: await hydrateProjectPage(ctx, projects), totalDownloads }
+	const projects = await ctx.db
+		.query('plugins')
+		.withIndex(
+			'by_owner_type_and_owner_id_and_visibility_and_status',
+			(index) =>
+				index
+					.eq('ownerType', ownerType)
+					.eq('ownerId', ownerId)
+					.eq('visibility', 'public')
+					.eq('status', 'published'),
+		)
+		.order('desc')
+		.take(100)
+	return { projects: await hydrateProjectPage(ctx, projects) }
 }
 
 /** Public plugins a user published personally, for their profile page. */
@@ -633,7 +645,7 @@ export const featured = query({
 	handler: async (ctx, args) => {
 		const projects = await ctx.db
 			.query('plugins')
-			.withIndex('by_visibility_and_status_and_download_count', (index) =>
+			.withIndex('by_visibility_and_status_and_updated_at', (index) =>
 				index.eq('visibility', 'public').eq('status', 'published'),
 			)
 			.order('desc')

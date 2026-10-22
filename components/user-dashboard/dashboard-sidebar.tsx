@@ -9,13 +9,13 @@ import { PluginEditSidebar } from '@/components/user-dashboard/plugins/plugin-ed
 import { ProjectEditSidebar } from '@/components/user-dashboard/projects/project-edit-sidebar'
 import { ServerEditSidebar } from '@/components/user-dashboard/servers/server-edit-sidebar'
 
-const SERVER_EDIT_PATTERN = /^\/dashboard\/servers\/([^/]+)\/edit/
-const PROJECT_EDIT_PATTERN = /^\/dashboard\/projects\/([^/]+)\/edit/
-const ORG_PATTERN = /^\/dashboard\/organizations\/([^/]+)/
-// A plugin's settings: /dashboard/plugins/<id>, but not the add or
-// repositories pages.
+// An item's settings live at /dashboard/<type>/<id>/…, apart from the add
+// pages (and the GitHub repositories page for plugins).
+const SERVER_EDIT_PATTERN = /^\/dashboard\/servers\/(?!add(?:\/|$))([^/]+)/
+const PROJECT_EDIT_PATTERN = /^\/dashboard\/projects\/(?!add(?:\/|$))([^/]+)/
 const PLUGIN_EDIT_PATTERN =
 	/^\/dashboard\/plugins\/(?!new(?:\/|$)|repositories(?:\/|$))([^/]+)/
+const ORG_PATTERN = /^\/dashboard\/organizations\/([^/]+)/
 
 interface DashboardSidebarProps extends React.ComponentProps<typeof Sidebar> {
 	socials?: {
@@ -35,15 +35,15 @@ export function DashboardSidebar({ socials, ...props }: DashboardSidebarProps) {
 	const pluginEditMatch = pathname.match(PLUGIN_EDIT_PATTERN)
 
 	if (editMatch) {
-		return <ServerEditSidebar slug={editMatch[1]} {...props} />
+		return <ServerEditSidebar id={editMatch[1]} {...props} />
 	}
 
 	if (projectEditMatch) {
-		return <ProjectEditSidebar slug={projectEditMatch[1]} {...props} />
+		return <ProjectEditSidebar id={projectEditMatch[1]} {...props} />
 	}
 
 	if (pluginEditMatch) {
-		return <PluginEditSidebar reference={pluginEditMatch[1]} {...props} />
+		return <PluginEditSidebar id={pluginEditMatch[1]} {...props} />
 	}
 
 	if (orgMatch) {

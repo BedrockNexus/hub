@@ -21,6 +21,7 @@ import {
 	projectsBySoftware,
 } from '../../lib/plugins/aggregates'
 import { enforceRateLimit } from '../../lib/plugins/rateLimits'
+import { r2 } from '../../lib/r2'
 import { deleteIcon } from './icons'
 
 const PURGE_BATCH_SIZE = 100
@@ -31,6 +32,7 @@ const PURGE_STAGES = [
 	'releases',
 	'downloads',
 	'reviews',
+	'gallery',
 ] as const
 
 type PurgeStage = (typeof PURGE_STAGES)[number]
@@ -45,7 +47,7 @@ const purgeStageValidator = v.union(
  * Allowed for the owning user, an owner or admin of the owning organization,
  * and site admins. The caller must type the project slug to confirm. The
  * project disappears from the catalog and download redirects immediately;
- * versions, releases, reviews, download records, and other rows are removed in the
+ * versions, releases, reviews, gallery images, download records, and other rows are removed in the
  * background by `purgeProjectData`, which also deletes the plugin's files from
  * storage. GitHub releases BedrockNexus created stay in the creator's
  * repository. A deletion by an admin is recorded in the audit log.
@@ -244,6 +246,17 @@ async function purgeStage(
 				)
 				.take(PURGE_BATCH_SIZE)
 			for (const row of rows) await ctx.db.delete('pluginReviews', row._id)
+			return rows.length
+		}
+		case 'gallery': {
+			const rows = await ctx.db
+				.query('pluginGallery')
+				.withIndex('by_plugin', (q) => q.eq('pluginId', projectId))
+				.take(PURGE_BATCH_SIZE)
+			for (const row of rows) {
+				await r2.deleteObject(ctx, row.r2Key)
+				await ctx.db.delete('pluginGallery', row._id)
+			}
 			return rows.length
 		}
 		case 'downloads': {

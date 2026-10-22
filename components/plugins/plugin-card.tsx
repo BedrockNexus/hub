@@ -1,57 +1,24 @@
-import {
-	CheckmarkBadge01Icon,
-	Download01Icon,
-} from '@hugeicons/core-free-icons'
+import { PlugSocketIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { Route } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 
+import { RatingLabel, TagChip } from '@/components/servers/server-bits'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import {
-	formatCompactNumber,
-	formatRegistryDate,
-} from '@/lib/plugins/format-registry'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 export interface PublicPluginCard {
 	slug: string
 	name: string
 	summary: string
-	license?: string
 	iconUrl?: string
-	downloadCount: number
-	updatedAt?: number
+	categories: { slug: string; name: string }[]
+	ratingAverage: number
+	ratingCount: number
 	software: { slug: string; name: string }
-	latestVersion: {
-		version: string
-		verifiedBuild: boolean
-		publishedAt?: number
-	} | null
-	creator: {
-		username: string
-		displayName: string
-		avatarUrl?: string
-	} | null
-	organization: { slug: string; name: string; avatarUrl?: string } | null
-}
-
-export function pluginOwner(
-	project: Pick<PublicPluginCard, 'creator' | 'organization'>,
-) {
-	if (project.organization) {
-		return {
-			label: project.organization.name,
-			avatarUrl: project.organization.avatarUrl,
-		}
-	}
-	if (project.creator) {
-		return {
-			label: `@${project.creator.username}`,
-			avatarUrl: project.creator.avatarUrl,
-		}
-	}
-	return { label: 'Independent creator', avatarUrl: undefined }
+	latestVersion: { version: string } | null
 }
 
 export function PluginAvatar({
@@ -73,96 +40,95 @@ export function PluginAvatar({
 	)
 }
 
-export function PluginListItem({ project }: { project: PublicPluginCard }) {
-	const owner = pluginOwner(project)
-	const updated = project.latestVersion?.publishedAt ?? project.updatedAt
+/** A plugin in a listing grid, laid out like project and server cards. */
+export function PluginCard({ plugin }: { plugin: PublicPluginCard }) {
+	const categories = plugin.categories.map((category) => category.name)
 
 	return (
-		<article className="group relative flex gap-4 p-4 transition-colors hover:bg-muted sm:p-5">
-			<PluginAvatar
-				avatarUrl={project.iconUrl ?? owner.avatarUrl}
-				name={project.name}
-			/>
-
-			<div className="min-w-0 flex-1">
-				<div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-					<h3 className="font-bold text-lg leading-6">
-						<Link
-							className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:underline group-hover:underline"
-							href={`/plugins/${project.slug}` as Route}
-						>
-							{project.name}
-						</Link>
-					</h3>
-					<span className="truncate text-muted-foreground text-sm">
-						by {owner.label}
-					</span>
-				</div>
-				<p className="mt-1 line-clamp-2 text-muted-foreground text-sm leading-6">
-					{project.summary}
-				</p>
-				<div className="mt-3 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-					<Badge variant="outline">{project.software.name}</Badge>
-					{project.latestVersion?.verifiedBuild ? (
-						<Badge variant="default">
-							<HugeiconsIcon
-								className="size-3.5"
-								icon={CheckmarkBadge01Icon}
-							/>
-							Traceable build
-						</Badge>
+		<article className="relative flex h-full gap-4 rounded-md border bg-card p-4.5 transition-colors focus-within:border-ember hover:border-ember">
+			<div className="tile-bevel relative grid size-18 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
+				{plugin.iconUrl ? (
+					<Image
+						alt=""
+						className="object-cover"
+						fill
+						sizes="72px"
+						src={plugin.iconUrl}
+					/>
+				) : (
+					<HugeiconsIcon
+						aria-hidden
+						className="size-8"
+						icon={PlugSocketIcon}
+					/>
+				)}
+			</div>
+			<div className="flex min-w-0 flex-1 flex-col gap-1.5">
+				<span className="eyebrow text-[11px]">
+					{plugin.software.name}
+				</span>
+				<h3 className="truncate font-bold text-lg leading-tight">
+					<Link
+						className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+						href={`/plugins/${plugin.slug}` as Route}
+					>
+						{plugin.name}
+					</Link>
+				</h3>
+				{plugin.summary ? (
+					<p className="line-clamp-2 text-muted-foreground text-sm">
+						{plugin.summary}
+					</p>
+				) : null}
+				{categories.length > 0 ? (
+					<div className="flex flex-wrap gap-1.5">
+						{categories.map((tag) => (
+							<TagChip key={tag}>{tag}</TagChip>
+						))}
+					</div>
+				) : null}
+				<div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-[13px] text-muted-foreground">
+					<RatingLabel
+						averageRating={plugin.ratingAverage}
+						reviewCount={plugin.ratingCount}
+					/>
+					{plugin.latestVersion ? (
+						<span className="font-mono">
+							v{plugin.latestVersion.version}
+						</span>
 					) : null}
-					{project.license ? <span>{project.license}</span> : null}
-					<span className="flex items-center gap-1 sm:hidden">
-						<HugeiconsIcon
-							className="size-3.5"
-							icon={Download01Icon}
-						/>
-						{formatCompactNumber(project.downloadCount)}
-					</span>
 				</div>
 			</div>
-
-			<dl className="hidden w-32 shrink-0 flex-col items-end gap-1 text-right text-muted-foreground text-xs sm:flex">
-				<div className="flex items-center gap-1.5">
-					<dt className="sr-only">Downloads</dt>
-					<HugeiconsIcon
-						aria-hidden="true"
-						className="size-3.5"
-						icon={Download01Icon}
-					/>
-					<dd className="font-semibold text-foreground text-sm">
-						{formatCompactNumber(project.downloadCount)}
-					</dd>
-				</div>
-				{project.latestVersion ? (
-					<div>
-						<dt className="sr-only">Latest version</dt>
-						<dd className="font-mono">
-							v{project.latestVersion.version}
-						</dd>
-					</div>
-				) : null}
-				{updated ? (
-					<div>
-						<dt className="sr-only">Updated</dt>
-						<dd>{formatRegistryDate(updated)}</dd>
-					</div>
-				) : null}
-			</dl>
 		</article>
 	)
 }
 
-export function PluginList({
+export function PluginCardSkeleton() {
+	return (
+		<div className="flex gap-4 rounded-md border bg-card p-4.5">
+			<Skeleton className="size-18 shrink-0" />
+			<div className="flex flex-1 flex-col gap-2">
+				<Skeleton className="h-3 w-16" />
+				<Skeleton className="h-5 w-2/3" />
+				<Skeleton className="h-4 w-full" />
+				<Skeleton className="h-4 w-1/2" />
+			</div>
+		</div>
+	)
+}
+
+export const PLUGIN_GRID_CLASS =
+	'grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4'
+
+export function PluginGrid({
 	plugins,
 }: {
 	plugins: readonly PublicPluginCard[]
 }) {
 	return (
-		<div className="divide-y overflow-hidden rounded-md border bg-card">
+		<div className={PLUGIN_GRID_CLASS}>
 			{plugins.map((plugin) => (
-				<PluginListItem key={plugin.slug} project={plugin} />
+				<PluginCard key={plugin.slug} plugin={plugin} />
 			))}
 		</div>
 	)

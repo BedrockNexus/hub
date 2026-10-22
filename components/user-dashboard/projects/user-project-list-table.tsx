@@ -149,7 +149,7 @@ function ProjectRowActionsCell({
 						render={(props) => (
 							<Link
 								{...props}
-								href={`/dashboard/projects/${content.slug}/edit`}
+								href={`/dashboard/projects/${content._id}`}
 							>
 								<HugeiconsIcon
 									className="size-4"
@@ -378,7 +378,7 @@ export function ProjectListTable({
 				cell: ({ row }) => (
 					<Link
 						className="font-medium hover:underline"
-						href={`/dashboard/projects/${row.original.slug}/edit`}
+						href={`/dashboard/projects/${row.original._id}`}
 					>
 						{row.original.name}
 					</Link>

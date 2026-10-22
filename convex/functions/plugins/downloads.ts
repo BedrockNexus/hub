@@ -1,12 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 
-import { internal } from '../../_generated/api'
 import { internalMutation, mutation } from '../../_generated/server'
-import {
-	ownerDownloadCounts,
-	projectDownloadCounts,
-} from '../../lib/plugins/downloadCounts'
-import { projectOwnerKey } from '../../lib/plugins/aggregates'
+import { projectDownloadCounts } from '../../lib/plugins/downloadCounts'
 import { getCdnObjectUrl } from '../../lib/r2'
 import { rateLimiter } from '../../lib/plugins/rateLimits'
 
@@ -16,8 +11,7 @@ const notFound = () =>
 		message: 'Download not found.',
 	})
 
-const MATERIALIZED_COUNT_REFRESH_DELAY_MS = 60_000
-
+/** Still scheduled by downloads counted before counting stopped. */
 export const refreshMaterializedCount = internalMutation({
 	args: {
 		projectId: v.id('plugins'),
@@ -118,63 +112,8 @@ export const resolveAndRecord = mutation({
 			})
 		}
 
-		const duplicateWindowStart = Date.now() - 10_000
-		const recentDownloads = await ctx.db
-			.query('pluginDownloads')
-			.withIndex('by_anonymous_id_hash_and_created_at', (index) =>
-				index
-					.eq('anonymousIdHash', args.anonymousIdHash)
-					.gte('createdAt', duplicateWindowStart),
-			)
-			.order('desc')
-			.take(10)
-		const isDuplicate = recentDownloads.some(
-			(download) => download.releaseId === release._id,
-		)
-		if (isDuplicate) {
-			return { url, counted: false }
-		}
-
-		const now = Date.now()
-		await ctx.db.insert('pluginDownloads', {
-			projectId: project._id,
-			versionId: version._id,
-			releaseId: release._id,
-			anonymousIdHash: args.anonymousIdHash,
-			userAgentHash: args.userAgentHash,
-			ownerCountedAt: now,
-			createdAt: now,
-		})
-		await projectDownloadCounts.inc(ctx, project._id)
-		await ownerDownloadCounts.inc(
-			ctx,
-			projectOwnerKey(project.ownerType, project.ownerId),
-		)
-
-		if (project.downloadCounterReadyAt) {
-			if (
-				project.downloadCountRefreshScheduledAt === undefined ||
-				project.downloadCountRefreshScheduledAt <= now
-			) {
-				const refreshAt = now + MATERIALIZED_COUNT_REFRESH_DELAY_MS
-				await ctx.db.patch('plugins', project._id, {
-					downloadCountRefreshScheduledAt: refreshAt,
-				})
-				await ctx.scheduler.runAt(
-					refreshAt,
-					internal.functions.plugins.downloads
-						.refreshMaterializedCount,
-					{
-						projectId: project._id,
-					},
-				)
-			}
-		} else {
-			await ctx.db.patch('plugins', project._id, {
-				downloadCount: project.downloadCount + 1,
-			})
-		}
-
-		return { url, counted: true }
+		// Downloads are not counted here any more; a proper analytics tool will
+		// record them. Earlier counts stay in pluginDownloads untouched.
+		return { url, counted: false }
 	},
 })

@@ -43,17 +43,17 @@ const categoriesSchema = z.object({
 type CategoriesFormData = z.infer<typeof categoriesSchema>
 
 interface ProjectCategoriesSettingsFormProps {
-	slug: string
+	id: string
 }
 
 export function ProjectCategoriesSettingsForm({
-	slug,
+	id,
 }: ProjectCategoriesSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const project = useQuery(
-		api.functions.projects.projects.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.projects.projects.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const categories = useQuery(
 		api.functions.projects.categories.list,

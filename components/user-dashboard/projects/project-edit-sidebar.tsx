@@ -1,308 +1,140 @@
 'use client'
 
 import {
-	ArrowLeft02Icon,
 	CheckmarkCircle01Icon,
-	Delete02Icon,
-	Flag01Icon,
 	GridIcon,
 	Image02Icon,
 	InformationCircleIcon,
+	LicenseIcon,
 	Link04Icon,
 	Package01Icon,
+	TextIcon,
 } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery } from 'convex/react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import type * as React from 'react'
-import { useState } from 'react'
 import { toast } from 'sonner'
+import type { Sidebar } from '@/components/ui/sidebar'
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarGroup,
-	SidebarGroupContent,
-	SidebarGroupLabel,
-	SidebarHeader,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	SidebarSeparator,
-} from '@/components/ui/sidebar'
-import { Spinner } from '@/components/ui/spinner'
-import { ProjectSwitcher } from '@/components/user-dashboard/projects/project-switcher'
+	type EditSection,
+	type ListingAction,
+	ListingEditSidebar,
+} from '@/components/user-dashboard/edit-sidebar/listing-edit-sidebar'
+import { ListingSwitcher } from '@/components/user-dashboard/edit-sidebar/listing-switcher'
 import { api } from '@/convex/_generated/api'
 
-const NAV_SECTIONS = [
+const BASE_PATH = '/dashboard/projects'
+
+const SECTIONS: readonly EditSection[] = [
 	{ id: '', title: 'General', icon: InformationCircleIcon, exactMatch: true },
-	{ id: '/description', title: 'Description', icon: InformationCircleIcon },
+	{ id: '/description', title: 'Description', icon: TextIcon },
 	{ id: '/categories', title: 'Categories', icon: GridIcon },
 	{ id: '/links', title: 'Links', icon: Link04Icon },
-	{ id: '/license', title: 'License', icon: Flag01Icon },
+	{ id: '/license', title: 'License', icon: LicenseIcon },
 	{ id: '/gallery', title: 'Gallery', icon: Image02Icon },
-	{ id: '/versions', title: 'Releases', icon: Package01Icon },
-] as const
-
-interface ProjectEditSidebarProps extends React.ComponentProps<typeof Sidebar> {
-	slug: string
-	basePath?: string
-}
+	{ id: '/versions', title: 'Versions', icon: Package01Icon },
+]
 
 export function ProjectEditSidebar({
-	slug,
-	basePath = '/dashboard',
+	id,
 	...props
-}: ProjectEditSidebarProps) {
-	const pathname = usePathname()
+}: React.ComponentProps<typeof Sidebar> & { id: string }) {
 	const router = useRouter()
-	const editPath = `${basePath}/projects/${slug}/edit`
-	const [isDeleting, setIsDeleting] = useState(false)
-	const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
-
-	const project = useQuery(
-		api.functions.projects.projects.getBySlug,
-		slug ? { slug } : 'skip',
-	)
+	const project = useQuery(api.functions.projects.projects.getForEdit, { id })
+	const projects = useQuery(api.functions.projects.projects.listMyContent)
 	const deleteProject = useMutation(api.functions.projects.projects.remove)
 	const updateProject = useMutation(api.functions.projects.projects.update)
-	const hasPublishedVersion =
+	const hasVersion =
 		!!project?.latestVersion || (project?.versionCount ?? 0) > 0
 
-	const isActive = (sectionPath: string, exactMatch?: boolean) => {
-		const fullPath = `${editPath}${sectionPath}`
-		if (exactMatch) {
-			return pathname === fullPath
-		}
-		return pathname === fullPath || pathname.startsWith(`${fullPath}/`)
-	}
-
-	const handleSubmitForReview = async () => {
-		if (!project) {
-			return
-		}
-
-		setIsUpdatingStatus(true)
-		try {
-			await updateProject({ id: project._id, status: 'under_review' })
-			toast.success(`${project.name} submitted for review`)
-		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to submit project for review'
-			toast.error(message)
-		} finally {
-			setIsUpdatingStatus(false)
-		}
-	}
-
-	const handleDelete = async () => {
-		if (!project) {
-			return
-		}
-
-		setIsDeleting(true)
-		try {
-			await deleteProject({ id: project._id })
-			toast.success('Project deleted successfully')
-			router.push(`${basePath}/projects`)
-		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to delete project'
-			toast.error(message)
-		} finally {
-			setIsDeleting(false)
-		}
+	let action: ListingAction | undefined
+	if (project?.status === 'draft') {
+		action = hasVersion
+			? {
+					label: 'Submit for review',
+					icon: CheckmarkCircle01Icon,
+					onRun: async () => {
+						try {
+							await updateProject({
+								id: project._id,
+								status: 'under_review',
+							})
+							toast.success(
+								`${project.name} submitted for review`,
+							)
+						} catch (error) {
+							toast.error(
+								error instanceof Error
+									? error.message
+									: 'Failed to submit project for review',
+							)
+						}
+					},
+				}
+			: {
+					label: 'Add a version first',
+					icon: Package01Icon,
+					href: `${BASE_PATH}/${id}/versions/add`,
+				}
 	}
 
 	return (
-		<Sidebar collapsible="icon" variant="floating" {...props}>
-			<SidebarHeader>
-				<ProjectSwitcher basePath={basePath} currentSlug={slug} />
-			</SidebarHeader>
-
-			<SidebarContent>
-				<SidebarGroup>
-					<SidebarGroupContent>
-						<SidebarMenu>
-							<SidebarMenuItem>
-								<SidebarMenuButton
-									render={
-										<Link href={`${basePath}/projects`} />
-									}
-									tooltip="Back to Projects"
-								>
-									<HugeiconsIcon
-										icon={ArrowLeft02Icon}
-										size={16}
-									/>
-									<span>Back to Projects</span>
-								</SidebarMenuButton>
-							</SidebarMenuItem>
-						</SidebarMenu>
-					</SidebarGroupContent>
-				</SidebarGroup>
-
-				<SidebarSeparator />
-
-				{project?.moderationReason ? (
-					<div className="mx-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs group-data-[collapsible=icon]:hidden">
-						<p className="font-medium">Moderation note</p>
-						<p className="mt-1 text-muted-foreground">
-							{project.moderationReason}
-						</p>
-					</div>
-				) : null}
-
-				<SidebarGroup>
-					<SidebarGroupLabel>Settings</SidebarGroupLabel>
-					<SidebarGroupContent>
-						<SidebarMenu>
-							{NAV_SECTIONS.map((section) => (
-								<SidebarMenuItem key={section.id}>
-									<SidebarMenuButton
-										isActive={isActive(
-											section.id,
-											'exactMatch' in section &&
-												section.exactMatch,
-										)}
-										render={
-											<Link
-												href={`${editPath}${section.id}`}
-											/>
-										}
-										tooltip={section.title}
-									>
-										<HugeiconsIcon
-											icon={section.icon}
-											size={16}
-										/>
-										<span>{section.title}</span>
-									</SidebarMenuButton>
-								</SidebarMenuItem>
-							))}
-						</SidebarMenu>
-					</SidebarGroupContent>
-				</SidebarGroup>
-			</SidebarContent>
-
-			<SidebarFooter>
-				<SidebarMenu>
-					{project?.status === 'draft' && !hasPublishedVersion ? (
-						<SidebarMenuItem>
-							<SidebarMenuButton
-								render={
-									<Link href={`${editPath}/versions/add`} />
+		<ListingEditSidebar
+			action={action}
+			backLabel="Back to Projects"
+			basePath={BASE_PATH}
+			deletion={
+				project
+					? {
+							name: project.name,
+							confirmText: project.slug,
+							description:
+								'This permanently deletes the project, its versions, files, reviews and gallery.',
+							onDelete: async () => {
+								await deleteProject({ id: project._id })
+								router.push(BASE_PATH)
+							},
+						}
+					: undefined
+			}
+			header={
+				<ListingSwitcher
+					addHref={`${BASE_PATH}/add`}
+					addLabel="Add Project"
+					basePath={BASE_PATH}
+					current={
+						project
+							? {
+									name: project.name,
+									imageUrl: project.iconUrl ?? undefined,
+									subtitle: project.summary,
 								}
-								tooltip="Add a release before review"
-							>
-								<HugeiconsIcon icon={Package01Icon} size={16} />
-								<span>Add Release First</span>
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-					) : null}
-					{project?.status === 'draft' && hasPublishedVersion ? (
-						<SidebarMenuItem>
-							<SidebarMenuButton
-								disabled={isUpdatingStatus}
-								onClick={handleSubmitForReview}
-								tooltip="Submit for Review"
-							>
-								{isUpdatingStatus ? (
-									<Spinner className="size-4" />
-								) : (
-									<HugeiconsIcon
-										icon={CheckmarkCircle01Icon}
-										size={16}
-									/>
-								)}
-								<span>Submit for Review</span>
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-					) : null}
-					{project?.status === 'under_review' ? (
-						<SidebarMenuItem>
-							<SidebarMenuButton disabled tooltip="Under Review">
-								<HugeiconsIcon icon={Flag01Icon} size={16} />
-								<span>Under Review</span>
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-					) : null}
-					{project?.status === 'published' ? (
-						<SidebarMenuItem>
-							<SidebarMenuButton disabled tooltip="Published">
-								<HugeiconsIcon
-									icon={CheckmarkCircle01Icon}
-									size={16}
-								/>
-								<span>Published</span>
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-					) : null}
-					<SidebarMenuItem>
-						<AlertDialog>
-							<AlertDialogTrigger
-								render={
-									<SidebarMenuButton
-										className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-										tooltip="Delete Project"
-									/>
-								}
-							>
-								<HugeiconsIcon icon={Delete02Icon} size={16} />
-								<span>Delete Project</span>
-							</AlertDialogTrigger>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>
-										Are you sure?
-									</AlertDialogTitle>
-									<AlertDialogDescription>
-										This will permanently delete{' '}
-										<strong>{project?.name ?? slug}</strong>{' '}
-										and all associated data. This action
-										cannot be undone.
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<AlertDialogFooter>
-									<AlertDialogCancel>
-										Cancel
-									</AlertDialogCancel>
-									<AlertDialogAction
-										className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-										disabled={isDeleting}
-										onClick={handleDelete}
-									>
-										{isDeleting ? (
-											<>
-												<Spinner className="size-4" />
-												Deleting...
-											</>
-										) : (
-											'Delete'
-										)}
-									</AlertDialogAction>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
-					</SidebarMenuItem>
-				</SidebarMenu>
-			</SidebarFooter>
-		</Sidebar>
+							: undefined
+					}
+					currentId={id}
+					items={projects?.map((item) => ({
+						id: item._id,
+						name: item.name,
+						imageUrl: item.iconUrl ?? undefined,
+						subtitle: item.summary,
+					}))}
+				/>
+			}
+			id={id}
+			moderationNote={project?.moderationReason}
+			publicHref={
+				project?.status === 'published' &&
+				project.moderationStatus === 'approved'
+					? `/projects/${project.slug}`
+					: undefined
+			}
+			sections={SECTIONS}
+			status={
+				project?.status === 'under_review'
+					? 'in_review'
+					: (project?.status ?? undefined)
+			}
+			{...props}
+		/>
 	)
 }

@@ -37,12 +37,12 @@ const connectionSchema = z.object({
 })
 
 interface ConnectionSettingsFormProps {
-	slug: string
+	id: string
 	mode?: 'user' | 'admin'
 }
 
 export function ConnectionSettingsForm({
-	slug,
+	id,
 	mode = 'user',
 }: ConnectionSettingsFormProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
@@ -51,8 +51,8 @@ export function ConnectionSettingsForm({
 	const [isVerificationBusy, setIsVerificationBusy] = useState(false)
 
 	const server = useQuery(
-		api.functions.servers.servers.getBySlug,
-		slug ? { slug } : 'skip',
+		api.functions.servers.servers.getForEdit,
+		id ? { id } : 'skip',
 	)
 	const updateUserServer = useMutation(api.functions.servers.servers.update)
 	const updateAdminServer = useMutation(

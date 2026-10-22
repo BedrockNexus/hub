@@ -148,7 +148,7 @@ function ServerRowActionsCell({
 						render={(props) => (
 							<Link
 								{...props}
-								href={`/dashboard/servers/${server.slug}/edit`}
+								href={`/dashboard/servers/${server._id}`}
 							>
 								<HugeiconsIcon
 									className="size-4"

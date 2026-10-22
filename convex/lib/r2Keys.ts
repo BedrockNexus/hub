@@ -1,5 +1,5 @@
 type BuildEntityImageR2ObjectKeyArgs = {
-	resourceType: 'projects' | 'servers'
+	resourceType: 'plugins' | 'projects' | 'servers'
 	entityId: string
 	imageKind: 'banner' | 'gallery' | 'icon' | 'logo'
 	fileName: string
@@ -20,6 +20,7 @@ export type ProfileMediaKind = 'avatar' | 'banner' | `editor-${EditorMediaKind}`
 export type OrganizationMediaKind = 'banner' | 'logo'
 export type MediaEntityType =
 	| 'organizations'
+	| 'plugins'
 	| 'profiles'
 	| 'projects'
 	| 'servers'
@@ -288,7 +289,7 @@ export function isEditorMediaR2Key(key: string, userId?: string): boolean {
 
 export function isEntityImageR2Key(args: {
 	key: string
-	resourceType: 'projects' | 'servers'
+	resourceType: 'plugins' | 'projects' | 'servers'
 	entityId: string
 	imageKind: 'banner' | 'gallery' | 'icon' | 'logo'
 }): boolean {

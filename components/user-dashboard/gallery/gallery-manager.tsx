@@ -40,7 +40,8 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { uploadFileToPresignedUrl } from '@/lib/r2-upload'
 
-type GalleryKind = 'project' | 'server'
+// Plugins are addressed by their publishing draft, which carries ownership.
+type GalleryKind = 'plugin' | 'project' | 'server'
 
 const MAX_GALLERY_IMAGES = 12
 const MAX_GALLERY_IMAGE_SIZE_BYTES = 8 * 1024 * 1024
@@ -49,11 +50,11 @@ const GALLERY_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 
 interface GalleryManagerProps {
 	kind: GalleryKind
-	entityId: Id<'projects'> | Id<'servers'>
+	entityId: Id<'projects'> | Id<'servers'> | Id<'pluginPublishingDrafts'>
 }
 
 interface GalleryItem {
-	_id: Id<'projectGallery'> | Id<'serverGallery'>
+	_id: Id<'projectGallery'> | Id<'serverGallery'> | Id<'pluginGallery'>
 	caption?: string
 	fileName: string
 	fileSize: number
@@ -83,9 +84,17 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 		api.functions.projects.gallery.listMine,
 		kind === 'project' ? { projectId: entityId as Id<'projects'> } : 'skip',
 	)
-	const items = (kind === 'server' ? serverItems : projectItems) as
-		| GalleryItem[]
-		| undefined
+	const pluginItems = useQuery(
+		api.functions.plugins.gallery.listMine,
+		kind === 'plugin'
+			? { draftId: entityId as Id<'pluginPublishingDrafts'> }
+			: 'skip',
+	)
+	const items = {
+		server: serverItems,
+		project: projectItems,
+		plugin: pluginItems,
+	}[kind] as GalleryItem[] | undefined
 	const imageCount = items?.length ?? 0
 	const isAtLimit = imageCount >= MAX_GALLERY_IMAGES
 
@@ -113,6 +122,18 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 	const removeProjectImage = useMutation(
 		api.functions.projects.gallery.remove,
 	)
+	const generatePluginUploadUrl = useMutation(
+		api.functions.plugins.gallery.generateUploadUrl,
+	)
+	const addPluginImage = useMutation(api.functions.plugins.gallery.add)
+	const updatePluginCaption = useMutation(
+		api.functions.plugins.gallery.updateCaption,
+	)
+	const reorderPluginGallery = useMutation(
+		api.functions.plugins.gallery.reorder,
+	)
+	const removePluginImage = useMutation(api.functions.plugins.gallery.remove)
+	const pluginDraftId = entityId as Id<'pluginPublishingDrafts'>
 	const syncMetadata = useMutation(api.lib.r2.syncMetadata)
 
 	const onUpload: NonNullable<FileUploadProps['onUpload']> = async (
@@ -127,16 +148,23 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 		setPendingAction('upload')
 		setUploadError(null)
 		try {
-			const uploadTarget =
-				kind === 'server'
-					? await generateServerUploadUrl({
-							serverId: entityId as Id<'servers'>,
-							fileName: file.name,
-						})
-					: await generateProjectUploadUrl({
-							projectId: entityId as Id<'projects'>,
-							fileName: file.name,
-						})
+			let uploadTarget: { key: string; url: string }
+			if (kind === 'server') {
+				uploadTarget = await generateServerUploadUrl({
+					serverId: entityId as Id<'servers'>,
+					fileName: file.name,
+				})
+			} else if (kind === 'project') {
+				uploadTarget = await generateProjectUploadUrl({
+					projectId: entityId as Id<'projects'>,
+					fileName: file.name,
+				})
+			} else {
+				uploadTarget = await generatePluginUploadUrl({
+					draftId: pluginDraftId,
+					fileName: file.name,
+				})
+			}
 
 			await uploadFileToPresignedUrl({
 				file,
@@ -151,9 +179,15 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 					r2Key: uploadTarget.key,
 					fileName: file.name,
 				})
-			} else {
+			} else if (kind === 'project') {
 				await addProjectImage({
 					projectId: entityId as Id<'projects'>,
+					r2Key: uploadTarget.key,
+					fileName: file.name,
+				})
+			} else {
+				await addPluginImage({
+					draftId: pluginDraftId,
 					r2Key: uploadTarget.key,
 					fileName: file.name,
 				})
@@ -181,9 +215,14 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 					id: item._id as Id<'serverGallery'>,
 					caption,
 				})
-			} else {
+			} else if (kind === 'project') {
 				await updateProjectCaption({
 					id: item._id as Id<'projectGallery'>,
+					caption,
+				})
+			} else {
+				await updatePluginCaption({
+					id: item._id as Id<'pluginGallery'>,
 					caption,
 				})
 			}
@@ -212,11 +251,18 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 						(item) => item._id as Id<'serverGallery'>,
 					),
 				})
-			} else {
+			} else if (kind === 'project') {
 				await reorderProjectGallery({
 					projectId: entityId as Id<'projects'>,
 					orderedIds: ordered.map(
 						(item) => item._id as Id<'projectGallery'>,
+					),
+				})
+			} else {
+				await reorderPluginGallery({
+					draftId: pluginDraftId,
+					orderedIds: ordered.map(
+						(item) => item._id as Id<'pluginGallery'>,
 					),
 				})
 			}
@@ -232,10 +278,12 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 		try {
 			if (kind === 'server') {
 				await removeServerImage({ id: item._id as Id<'serverGallery'> })
-			} else {
+			} else if (kind === 'project') {
 				await removeProjectImage({
 					id: item._id as Id<'projectGallery'>,
 				})
+			} else {
+				await removePluginImage({ id: item._id as Id<'pluginGallery'> })
 			}
 			toast.success('Gallery image deleted')
 		} catch (error) {
