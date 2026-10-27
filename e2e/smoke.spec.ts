@@ -2,13 +2,14 @@
 import { expect, test } from '@playwright/test'
 
 const env = process.env
+const CONTENT_SECTIONS_PATTERN = /Addon sections|Resource Pack sections/
 
 const ADD_NEW_SERVER_HEADING_PATTERN = /add new server/i
-const CREATE_NEW_PROJECT_HEADING_PATTERN = /create new project/i
+const CREATE_NEW_PROJECT_HEADING_PATTERN = /create new addon/i
 const DRAG_DROP_PATTERN = /drag & drop/i
 const GALLERY_TAB_PATTERN = /gallery/i
 const GALLERY_URL_PATTERN = /\/gallery$/
-const PUBLISH_NEW_VERSION_HEADING_PATTERN = /publish new version/i
+const PUBLISH_NEW_VERSION_HEADING_PATTERN = /publish new release/i
 const REVIEWS_TAB_PATTERN = /reviews/i
 const REVIEWS_URL_PATTERN = /\/reviews$/
 const VERSIONS_TAB_PATTERN = /versions/i
@@ -22,7 +23,8 @@ test.describe('public smoke', () => {
 	for (const path of [
 		'/',
 		'/servers',
-		'/projects',
+		'/addons',
+		'/resource-packs',
 		'/blog',
 		'/privacy',
 		'/terms',
@@ -71,7 +73,7 @@ test.describe('public smoke', () => {
 		await page.goto(`/projects/${env.E2E_PROJECT_SLUG}`)
 		await expectPageReady(page)
 		const sections = page.getByRole('navigation', {
-			name: 'Project sections',
+			name: CONTENT_SECTIONS_PATTERN,
 		})
 		for (const tab of [
 			GALLERY_TAB_PATTERN,
@@ -127,7 +129,7 @@ test.describe('authenticated smoke', () => {
 			page.getByRole('heading', { name: ADD_NEW_SERVER_HEADING_PATTERN }),
 		).toBeVisible()
 
-		await page.goto('/dashboard/projects/add')
+		await page.goto('/dashboard/addons/add')
 		await expect(
 			page.getByRole('heading', {
 				name: CREATE_NEW_PROJECT_HEADING_PATTERN,

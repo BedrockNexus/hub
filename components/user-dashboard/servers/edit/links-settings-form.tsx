@@ -54,7 +54,9 @@ export function LinksSettingsForm({
 		defaultValues: SERVER_FORM_DEFAULTS,
 		mode: 'onChange',
 	})
-	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
+	// Subscribe before conditional rendering or short-circuiting the save state.
+	const { isDirty, isValid } = form.formState
+	useUnsavedChangesWarning(isDirty && !isSubmitting)
 
 	useEffect(() => {
 		if (server) {
@@ -120,8 +122,7 @@ export function LinksSettingsForm({
 		)
 	}
 
-	const isSaveDisabled =
-		isSubmitting || !form.formState.isDirty || !form.formState.isValid
+	const isSaveDisabled = isSubmitting || !isDirty || !isValid
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>

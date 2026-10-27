@@ -5,6 +5,7 @@ import {
 	DashboardBrowsingIcon,
 	DiscordIcon,
 	InstagramIcon,
+	PaintBrush01Icon,
 	PuzzleIcon,
 	ServerStack03Icon,
 	Settings01Icon,
@@ -36,9 +37,14 @@ function getOrgNav(slug: string) {
 				icon: ServerStack03Icon,
 			},
 			{
-				title: 'Projects',
-				url: `${base}/projects`,
+				title: 'Addons',
+				url: `${base}/addons`,
 				icon: PuzzleIcon,
+			},
+			{
+				title: 'Resource Packs',
+				url: `${base}/resource-packs`,
+				icon: PaintBrush01Icon,
 			},
 			{
 				title: 'Members',

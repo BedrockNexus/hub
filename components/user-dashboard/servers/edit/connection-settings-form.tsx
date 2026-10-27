@@ -67,7 +67,9 @@ export function ConnectionSettingsForm({
 		defaultValues: SERVER_FORM_DEFAULTS,
 		mode: 'onChange',
 	})
-	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
+	// Subscribe before conditional rendering or short-circuiting the save state.
+	const { isDirty, isValid } = form.formState
+	useUnsavedChangesWarning(isDirty && !isSubmitting)
 
 	useEffect(() => {
 		if (server) {
@@ -137,8 +139,7 @@ export function ConnectionSettingsForm({
 		watchedIpAddress.trim().toLowerCase() !==
 			server.ipAddress.toLowerCase() || watchedPort !== server.port
 	// Owners must re-verify a new address; admins are recorded as a manual check.
-	const needsVerification =
-		mode === 'user' && addressChanged && form.formState.isValid
+	const needsVerification = mode === 'user' && addressChanged && isValid
 	const isVerified =
 		!!verifiedTarget &&
 		verifiedTarget.ipAddress === watchedIpAddress &&
@@ -147,8 +148,8 @@ export function ConnectionSettingsForm({
 	const isSaveDisabled =
 		isSubmitting ||
 		isVerificationBusy ||
-		!form.formState.isDirty ||
-		!form.formState.isValid ||
+		!isDirty ||
+		!isValid ||
 		(needsVerification && !isVerified)
 
 	return (

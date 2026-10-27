@@ -12,7 +12,12 @@ import { ServerEditSidebar } from '@/components/user-dashboard/servers/server-ed
 // An item's settings live at /dashboard/<type>/<id>/…, apart from the add
 // pages (and the GitHub repositories page for plugins).
 const SERVER_EDIT_PATTERN = /^\/dashboard\/servers\/(?!add(?:\/|$))([^/]+)/
-const PROJECT_EDIT_PATTERN = /^\/dashboard\/projects\/(?!add(?:\/|$))([^/]+)/
+const CONTENT_TYPE_BY_ROUTE = {
+	addons: 'addon',
+	'resource-packs': 'resource_pack',
+} as const
+const PROJECT_EDIT_PATTERN =
+	/^\/dashboard\/(addons|resource-packs)\/(?!add(?:\/|$))([^/]+)/
 const PLUGIN_EDIT_PATTERN =
 	/^\/dashboard\/plugins\/(?!new(?:\/|$)|repositories(?:\/|$))([^/]+)/
 const ORG_PATTERN = /^\/dashboard\/organizations\/([^/]+)/
@@ -39,7 +44,17 @@ export function DashboardSidebar({ socials, ...props }: DashboardSidebarProps) {
 	}
 
 	if (projectEditMatch) {
-		return <ProjectEditSidebar id={projectEditMatch[1]} {...props} />
+		return (
+			<ProjectEditSidebar
+				id={projectEditMatch[2]}
+				type={
+					CONTENT_TYPE_BY_ROUTE[
+						projectEditMatch[1] as keyof typeof CONTENT_TYPE_BY_ROUTE
+					]
+				}
+				{...props}
+			/>
+		)
 	}
 
 	if (pluginEditMatch) {

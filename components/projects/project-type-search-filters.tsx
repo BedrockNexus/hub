@@ -29,7 +29,11 @@ export const EMPTY_PROJECT_TYPE_FILTERS: ProjectTypeFilterValues = {
 }
 
 export function hasProjectTypeFilters(filters: ProjectTypeFilterValues) {
-	return Object.values(filters).some((value) => value !== 'all')
+	return (
+		filters.addonExperiments !== 'all' ||
+		filters.resourcePackResolution !== 'all' ||
+		filters.resourcePackContentType !== 'all'
+	)
 }
 
 function addonExperimentsLabel(

@@ -10,7 +10,7 @@ import {
 	projectType,
 } from '../../schemas/projects'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { canModifyProjectOwner } from '../../lib/contentOwnership'
+import { canModifyProjectOwner, ownerFromOrganization } from '../../lib/contentOwnership'
 import {
 	isPublicProject,
 	requiresModerationReason,
@@ -19,6 +19,7 @@ import { validateEntityImageUpload } from '../../lib/media'
 import {
 	getPublishedReleaseKey,
 	isPublicRelease,
+	isValidatedRelease,
 } from '../../lib/projectReleases'
 import { r2, resolveCdnObjectUrl, uploadsR2 } from '../../lib/r2'
 import {
@@ -209,16 +210,15 @@ async function projectHasVersion(
 	ctx: QueryCtx | MutationCtx,
 	projectId: Id<'projects'>,
 ) {
-	const versions = await ctx.db
+	const versions = ctx.db
 		.query('projectVersions')
 		.withIndex('by_project', (q) => q.eq('projectId', projectId))
-		.collect()
-
-	return versions.some(
-		(version) =>
-			version.validationStatus === undefined ||
-			version.validationStatus === 'valid',
-	)
+	for await (const version of versions) {
+		if (isValidatedRelease(version) && version.reviewStatus !== 'rejected') {
+			return true
+		}
+	}
+	return false
 }
 
 async function assertProjectHasVersion(
@@ -597,6 +597,7 @@ export const getForEdit = query({
 						gameVersions: latestVersion.gameVersions,
 					}
 				: null,
+			hasValidatedRelease: await projectHasVersion(ctx, item._id),
 			owner: ownerData,
 		}
 	},
@@ -930,6 +931,7 @@ export const update = mutation({
 			)
 		}
 		if (status === 'under_review') {
+			validateProjectFields({ ...item, ...updates })
 			await assertProjectHasVersion(ctx, item._id)
 		}
 
@@ -938,21 +940,13 @@ export const update = mutation({
 				? {
 						status,
 						moderationStatus: 'pending' as const,
+						moderationReason: undefined,
 					}
 				: {}
 
 		const shouldUpdateOwner = 'organizationId' in args
-		const ownerUpdates = shouldUpdateOwner
-			? {
-					ownerType: organizationId ? 'organization' as const : 'user' as const,
-					ownerId: organizationId ?? user._id,
-				}
-			: {}
-
-		const nextOwner = {
-			ownerType: organizationId ? ('organization' as const) : ('user' as const),
-			ownerId: organizationId ?? user._id,
-		}
+		const nextOwner = ownerFromOrganization(organizationId, user._id)
+		const ownerUpdates = shouldUpdateOwner ? nextOwner : {}
 		const ownerChanges =
 			shouldUpdateOwner &&
 			(nextOwner.ownerType !== item.ownerType || nextOwner.ownerId !== item.ownerId)
@@ -1087,9 +1081,46 @@ export const remove = mutation({
 	},
 })
 
-/**
- * Admin update - toggle status/moderation (no ownership check)
- */
+/** Return a fixable submission to draft without lifting a final rejection. */
+export const requestChanges = adminMutation({
+	args: { id: v.id('projects'), reason: v.string() },
+	returns: v.id('projects'),
+	handler: async (ctx, args) => {
+		const item = await ctx.db.get(args.id)
+		if (!item) throw new ConvexError('Project not found')
+		if (item.status !== 'under_review' || item.moderationStatus === 'rejected') {
+			throw new ConvexError('Only submissions awaiting review can be returned for changes')
+		}
+		if (await isAffiliatedWithContent(ctx, item, ctx.admin._id)) {
+			throw new ConvexError('Ask another admin to review your own project')
+		}
+		const reason = args.reason.trim()
+		if (!reason || reason.length > 500) {
+			throw new ConvexError('Explain the required changes in 1 to 500 characters')
+		}
+		const now = Date.now()
+		await ctx.db.patch(item._id, {
+			status: 'draft',
+			moderationStatus: 'pending',
+			moderationReason: reason,
+			moderatedAt: now,
+			moderatedBy: ctx.admin._id,
+			updatedAt: now,
+		})
+		await afterProjectWrite(ctx, item, await ctx.db.get(item._id))
+		await recordAdminAction(ctx, ctx.admin._id, {
+			action: 'project.requestChanges',
+			targetType: 'project',
+			targetId: item._id,
+			targetLabel: item.name,
+			changes: { status: 'draft', moderationStatus: 'pending' },
+			reason,
+		})
+		return item._id
+	},
+})
+
+/** Admin update - toggle status/moderation (no ownership check). */
 export const adminUpdate = adminMutation({
 	args: {
 		id: v.id('projects'),
@@ -1171,7 +1202,7 @@ export const adminUpdate = adminMutation({
 				.withIndex('by_project', (q) => q.eq('projectId', item._id))
 				.collect()
 			for (const release of pendingReleases) {
-				if (release.reviewStatus === 'pending') {
+				if (release.reviewStatus === 'pending' && isValidatedRelease(release)) {
 					await ctx.db.patch(release._id, {
 						reviewStatus: 'approved',
 						reviewedAt: now,

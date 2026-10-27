@@ -5,6 +5,11 @@ import { PageShell } from '@/components/page-shell'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { api } from '@/convex/_generated/api'
+import { contentDirectory } from '@/lib/content-routes'
+import {
+	PROJECT_TYPE_PLURAL_LABELS,
+	type ProjectType,
+} from '@/lib/project-artifacts'
 
 export const metadata: Metadata = {
 	title: 'Trending',
@@ -20,12 +25,18 @@ const EMPTY_CLASS =
 	'rounded-md border border-dashed px-6 py-12 text-center text-muted-foreground'
 
 export default async function TrendingPage() {
-	const [servers, projects] = await Promise.all([
+	const [servers, addons, resourcePacks] = await Promise.all([
 		fetchQuery(api.functions.servers.listing.browse, {
 			sort: 'trending',
 			paginationOpts: { cursor: null, numItems: SERVERS_SHOWN },
 		}),
 		fetchQuery(api.functions.projects.listing.browse, {
+			type: 'addon',
+			sort: 'trending',
+			paginationOpts: { cursor: null, numItems: PROJECTS_SHOWN },
+		}),
+		fetchQuery(api.functions.projects.listing.browse, {
+			type: 'resource_pack',
 			sort: 'trending',
 			paginationOpts: { cursor: null, numItems: PROJECTS_SHOWN },
 		}),
@@ -55,28 +66,36 @@ export default async function TrendingPage() {
 						</p>
 					)}
 				</section>
-
-				<section className="flex flex-col gap-6">
-					<SectionHeading
-						href="/projects?sort=trending"
-						linkLabel="All trending projects"
-						title="Addons & resource packs"
-					/>
-					{projects.page.length > 0 ? (
-						<div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
-							{projects.page.map((project) => (
-								<ProjectCard
-									content={project}
-									key={project._id}
-								/>
-							))}
-						</div>
-					) : (
-						<p className={EMPTY_CLASS}>
-							No projects are published yet.
-						</p>
-					)}
-				</section>
+				{(
+					[
+						{ type: 'addon', result: addons },
+						{ type: 'resource_pack', result: resourcePacks },
+					] satisfies { type: ProjectType; result: typeof addons }[]
+				).map(({ type, result }) => (
+					<section className="flex flex-col gap-6" key={type}>
+						<SectionHeading
+							href={`${contentDirectory(type)}?sort=trending`}
+							linkLabel={`All trending ${PROJECT_TYPE_PLURAL_LABELS[type].toLowerCase()}`}
+							title={PROJECT_TYPE_PLURAL_LABELS[type]}
+						/>
+						{result.page.length ? (
+							<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))] gap-4">
+								{result.page.map((item) => (
+									<ProjectCard
+										content={item}
+										key={item._id}
+									/>
+								))}
+							</div>
+						) : (
+							<p className={EMPTY_CLASS}>
+								No{' '}
+								{PROJECT_TYPE_PLURAL_LABELS[type].toLowerCase()}{' '}
+								are published yet.
+							</p>
+						)}
+					</section>
+				))}
 
 				<section
 					aria-labelledby="how-trending-works"
@@ -94,10 +113,10 @@ export default async function TrendingPage() {
 							not trend.
 						</li>
 						<li>
-							Projects are ordered by counted downloads and saves
-							from the last 7 days. Recent days count more, a save
-							counts as three downloads, and a release in the last
-							week gives a small lift.
+							Addons and resource packs are ordered by counted
+							downloads and saves from the last 7 days. Recent
+							days count more, a save counts as three downloads,
+							and a release in the last week gives a small lift.
 						</li>
 						<li>
 							Scores are refreshed every hour. Nobody can pay for

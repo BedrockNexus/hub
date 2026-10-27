@@ -91,7 +91,7 @@ export function CreatorsSection({
 						</p>
 						<Link
 							className={LINK_CLASS}
-							href="/dashboard/projects/add"
+							href="/dashboard/addons/add"
 						>
 							Publish a project
 							<HugeiconsIcon

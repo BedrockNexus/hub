@@ -38,9 +38,9 @@ export function ProjectGallerySettingsForm({
 	if (project === null) {
 		return (
 			<div className="py-12 text-center">
-				<h2 className="font-semibold text-xl">Project not found</h2>
+				<h2 className="font-semibold text-xl">Listing not found</h2>
 				<p className="mt-2 text-muted-foreground">
-					The project you&apos;re looking for doesn&apos;t exist or
+					The listing you&apos;re looking for doesn&apos;t exist or
 					you don&apos;t have access to it.
 				</p>
 			</div>
@@ -54,7 +54,7 @@ export function ProjectGallerySettingsForm({
 					Gallery
 				</h2>
 				<p className="text-muted-foreground text-sm">
-					Add screenshots of your project to showcase it to users
+					Add screenshots of your listing to showcase it to users
 				</p>
 			</div>
 			<Separator />

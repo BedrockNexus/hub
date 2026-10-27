@@ -25,6 +25,8 @@ import { RatingLabel } from '@/components/servers/server-bits'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
+import { contentDirectory, contentHref } from '@/lib/content-routes'
+import type { ProjectType } from '@/lib/project-artifacts'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
@@ -36,10 +38,9 @@ export type ProjectDetailTab =
 	| 'releases'
 	| 'reviews'
 
-function tabHref(slug: string, tab: ProjectDetailTab) {
-	return tab === 'description'
-		? `/projects/${slug}`
-		: `/projects/${slug}/${tab}`
+function tabHref(type: ProjectType, slug: string, tab: ProjectDetailTab) {
+	const base = contentHref(type, slug)
+	return tab === 'description' ? base : `${base}/${tab}`
 }
 
 function formatBytes(bytes: number) {
@@ -220,11 +221,13 @@ function ProjectHero({
 }
 
 export function ProjectDetailShell({
+	expectedType,
 	activeTab,
 	releaseVersion,
 	slug,
 }: {
 	activeTab: ProjectDetailTab
+	expectedType: ProjectType
 	releaseVersion?: string
 	slug: string
 }) {
@@ -234,7 +237,9 @@ export function ProjectDetailShell({
 			slug,
 		},
 	)
-	const isPublic = content?.status === 'published'
+	const isPublic =
+		content?.status === 'published' &&
+		normalizeProjectType(content.type) === expectedType
 	const versions = useQuery(
 		api.functions.projects.versions.listPublic,
 		content && isPublic ? { projectId: content._id } : 'skip',
@@ -251,16 +256,19 @@ export function ProjectDetailShell({
 	if (content === null || !isPublic) {
 		return (
 			<main className="container mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-20 text-center">
-				<h1 className="font-bold text-3xl">Project not found</h1>
+				<h1 className="font-bold text-3xl">
+					{PROJECT_TYPE_LABELS[expectedType]} not found
+				</h1>
 				<p className="text-muted-foreground">
-					This project doesn&apos;t exist or is no longer published.
+					This listing doesn&apos;t exist or is no longer published.
 				</p>
 				<Link
 					className={buttonVariants({ className: 'mt-2' })}
-					href="/projects"
+					href={contentDirectory(expectedType)}
 				>
 					<HugeiconsIcon icon={ArrowLeft02Icon} />
-					Back to projects
+					Browse{' '}
+					{expectedType === 'addon' ? 'addons' : 'resource packs'}
 				</Link>
 			</main>
 		)
@@ -322,29 +330,29 @@ export function ProjectDetailShell({
 				<div className="flex min-w-0 flex-col gap-6">
 					<DetailTabs
 						active={activeTab}
-						label="Project sections"
+						label={`${PROJECT_TYPE_LABELS[expectedType]} sections`}
 						tabs={[
 							{
 								value: 'description',
 								label: 'Description',
-								href: tabHref(slug, 'description'),
+								href: tabHref(projectType, slug, 'description'),
 							},
 							{
 								value: 'gallery',
 								label: 'Gallery',
-								href: tabHref(slug, 'gallery'),
+								href: tabHref(projectType, slug, 'gallery'),
 								count: gallery?.length,
 							},
 							{
 								value: 'releases',
 								label: 'Versions',
-								href: tabHref(slug, 'releases'),
+								href: tabHref(projectType, slug, 'releases'),
 								count: versions?.length,
 							},
 							{
 								value: 'reviews',
 								label: 'Reviews',
-								href: tabHref(slug, 'reviews'),
+								href: tabHref(projectType, slug, 'reviews'),
 								count: content.reviewCount,
 							},
 						]}

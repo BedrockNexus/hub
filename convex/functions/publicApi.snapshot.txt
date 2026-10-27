@@ -53,6 +53,7 @@ mutation functions/projects/projects:adminRemove
 mutation functions/projects/projects:adminUpdate
 mutation functions/projects/projects:create
 mutation functions/projects/projects:remove
+mutation functions/projects/projects:requestChanges
 mutation functions/projects/projects:update
 mutation functions/projects/reviews:remove
 mutation functions/projects/reviews:upsert

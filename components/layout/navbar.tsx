@@ -195,6 +195,7 @@ export function Navbar({
 						return (
 							<Link
 								aria-current={isActive ? 'page' : undefined}
+								aria-label={item.label}
 								className={cn(
 									MOBILE_LINK_CLASS,
 									isActive &&
@@ -209,8 +210,10 @@ export function Navbar({
 									icon={item.icon}
 									strokeWidth={2}
 								/>
-								<span className="truncate font-medium text-[11px]">
-									{item.label}
+								<span className="max-w-full truncate font-medium text-[11px]">
+									{item.href === '/resource-packs'
+										? 'Packs'
+										: item.label}
 								</span>
 							</Link>
 						)

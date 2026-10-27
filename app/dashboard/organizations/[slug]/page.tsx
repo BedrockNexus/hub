@@ -24,6 +24,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import { useFullOrganization } from '@/hooks/use-organization'
+import { contentEditHref } from '@/lib/content-routes'
 
 function formatDate(date: Date) {
 	return new Date(date).toLocaleDateString('en-US', {
@@ -205,7 +206,7 @@ export default function OrganizationOverviewPage() {
 				<OrgStat
 					hint="Owned by this org"
 					icon={PuzzleIcon}
-					label="Projects"
+					label="Addons & Resource Packs"
 					tone="primary"
 					value={orgProjects?.length ?? 0}
 				/>
@@ -234,45 +235,38 @@ export default function OrganizationOverviewPage() {
 				</div>
 				{orgServers && orgServers.length > 0 ? (
 					<div className="divide-y divide-border">
-						{orgServers.map(
-							(server: {
-								_id: string
-								name: string
-								slug: string
-								status?: string
-							}) => (
-								<Link
-									className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
-									href={`/dashboard/servers/${server._id}`}
-									key={server._id}
-								>
-									<div className="flex min-w-0 flex-1 items-center gap-3">
-										<div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground text-sm uppercase">
-											{server.name.charAt(0)}
-										</div>
-										<div className="min-w-0 flex-1">
-											<p className="truncate font-medium text-sm">
-												{server.name}
-											</p>
-											<p className="truncate text-muted-foreground text-xs">
-												/{server.slug}
-											</p>
-										</div>
+						{orgServers.map((server) => (
+							<Link
+								className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
+								href={`/dashboard/servers/${server._id}`}
+								key={server._id}
+							>
+								<div className="flex min-w-0 flex-1 items-center gap-3">
+									<div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground text-sm uppercase">
+										{server.name.charAt(0)}
 									</div>
-									<Badge
-										variant={
-											server.status === 'published'
-												? 'default'
-												: 'secondary'
-										}
-									>
-										{server.status === 'published'
-											? 'Active'
-											: 'Inactive'}
-									</Badge>
-								</Link>
-							),
-						)}
+									<div className="min-w-0 flex-1">
+										<p className="truncate font-medium text-sm">
+											{server.name}
+										</p>
+										<p className="truncate text-muted-foreground text-xs">
+											/{server.slug}
+										</p>
+									</div>
+								</div>
+								<Badge
+									variant={
+										server.status === 'published'
+											? 'default'
+											: 'secondary'
+									}
+								>
+									{server.status === 'published'
+										? 'Active'
+										: 'Inactive'}
+								</Badge>
+							</Link>
+						))}
 					</div>
 				) : (
 					<div className="p-6">
@@ -296,56 +290,63 @@ export default function OrganizationOverviewPage() {
 			<Card>
 				<div className="flex items-center justify-between gap-3 border-b p-5">
 					<div>
-						<h2 className="font-semibold text-base">Projects</h2>
+						<h2 className="font-semibold text-base">
+							Addons & Resource Packs
+						</h2>
 						<p className="text-muted-foreground text-sm">
-							Projects owned by this organization
+							Addons and resource packs owned by this organization
 						</p>
 					</div>
-					<Link href={`/dashboard/organizations/${slug}/projects`}>
-						<Button size="sm" variant="ghost">
-							View all
-						</Button>
-					</Link>
+					<div className="flex flex-wrap gap-2">
+						<Link
+							className="text-sm hover:underline"
+							href={`/dashboard/organizations/${slug}/addons`}
+						>
+							Addons
+						</Link>
+						<Link
+							className="text-sm hover:underline"
+							href={`/dashboard/organizations/${slug}/resource-packs`}
+						>
+							Resource Packs
+						</Link>
+					</div>
 				</div>
 				{orgProjects && orgProjects.length > 0 ? (
 					<div className="divide-y divide-border">
-						{orgProjects.map(
-							(project: {
-								_id: string
-								name: string
-								slug: string
-								status?: string
-							}) => (
-								<Link
-									className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
-									href={`/dashboard/projects/${project._id}`}
-									key={project._id}
-								>
-									<div className="flex min-w-0 flex-1 items-center gap-3">
-										<div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground text-sm uppercase">
-											{project.name.charAt(0)}
-										</div>
-										<div className="min-w-0 flex-1">
-											<p className="truncate font-medium text-sm">
-												{project.name}
-											</p>
-											<p className="truncate text-muted-foreground text-xs">
-												/{project.slug}
-											</p>
-										</div>
+						{orgProjects.map((project) => (
+							<Link
+								className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
+								href={contentEditHref(
+									project.type,
+									project._id,
+								)}
+								key={project._id}
+							>
+								<div className="flex min-w-0 flex-1 items-center gap-3">
+									<div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground text-sm uppercase">
+										{project.name.charAt(0)}
 									</div>
-									<Badge
-										variant={
-											project.status === 'published'
-												? 'default'
-												: 'secondary'
-										}
-									>
-										{getProjectStatusLabel(project.status)}
-									</Badge>
-								</Link>
-							),
-						)}
+									<div className="min-w-0 flex-1">
+										<p className="truncate font-medium text-sm">
+											{project.name}
+										</p>
+										<p className="truncate text-muted-foreground text-xs">
+											/{project.slug}
+										</p>
+									</div>
+								</div>
+								<Badge
+									variant={
+										project.status === 'published'
+											? 'default'
+											: 'secondary'
+									}
+								>
+									{getProjectStatusLabel(project.status)}
+								</Badge>
+							</Link>
+						))}
 					</div>
 				) : (
 					<div className="p-6">

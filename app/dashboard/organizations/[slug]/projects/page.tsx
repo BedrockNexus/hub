@@ -1,40 +1,25 @@
-'use client'
-
-import { useParams } from 'next/navigation'
-import { Skeleton } from '@/components/ui/skeleton'
-import { DashboardPageHeader } from '@/components/user-dashboard/dashboard-page-header'
-import { ProjectListTable } from '@/components/user-dashboard/projects/user-project-list-table'
-import { useFullOrganization } from '@/hooks/use-organization'
-
-export default function OrganizationProjectsPage() {
-	const params = useParams()
-	const slug = params.slug as string
-	const { organization, loading } = useFullOrganization(slug)
-
-	if (loading || !organization) {
-		return (
-			<div className="space-y-6">
-				<Skeleton className="h-16 w-full rounded-md" />
-				<Skeleton className="h-64 w-full rounded-md" />
-			</div>
-		)
-	}
-
-	return (
-		<div className="space-y-6">
-			<DashboardPageHeader
-				createHref="/dashboard/projects/add"
-				createLabel="Create Project"
-				description={`Manage projects owned by ${organization.name}`}
-				title={`${organization.name} Projects`}
-			/>
-			<ProjectListTable
-				createHref="/dashboard/projects/add"
-				createLabel="Create Project"
-				emptyDescription="Create a project and select this organization as the owner to see it here."
-				emptyTitle="No organization projects yet"
-				organizationId={organization.id}
-			/>
-		</div>
+import { permanentRedirect } from 'next/navigation'
+import {
+	type ContentSearchParams,
+	withContentSearch,
+} from '@/lib/content-routes'
+export default async function Page({
+	params,
+	searchParams,
+}: {
+	params: Promise<{ slug: string }>
+	searchParams: Promise<ContentSearchParams>
+}) {
+	const [{ slug }, search] = await Promise.all([params, searchParams])
+	const type =
+		search.type === 'resource_pack' || search.type === 'texture_pack'
+			? 'resource-packs'
+			: 'addons'
+	permanentRedirect(
+		withContentSearch(
+			`/dashboard/organizations/${encodeURIComponent(slug)}/${type}`,
+			search,
+			['type'],
+		),
 	)
 }

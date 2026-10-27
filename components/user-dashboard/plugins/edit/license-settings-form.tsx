@@ -9,8 +9,7 @@ import {
 	FieldGroup,
 	FieldLabel,
 } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { LicenseCombobox } from '@/components/user-dashboard/license-combobox'
 import {
 	errorMessage,
 	type PluginForEdit,
@@ -24,6 +23,7 @@ import {
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import { LICENSE_CATALOG_SOURCE } from '@/lib/licenses'
 
 export function PluginLicenseSettingsForm({
 	draftId,
@@ -43,13 +43,8 @@ function LicenseForm({ plugin }: { plugin: PluginForEdit }) {
 		api.functions.plugins.publishing.model.saveLicense,
 	)
 	const [license, setLicense] = useState(draft.license ?? '')
-	const [licenseCustom, setLicenseCustom] = useState(
-		draft.licenseCustom ?? '',
-	)
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const isDirty =
-		license.trim() !== (draft.license ?? '') ||
-		licenseCustom.trim() !== (draft.licenseCustom ?? '')
+	const isDirty = license.trim() !== (draft.license ?? '')
 	useUnsavedChangesWarning(isDirty && !isSubmitting)
 
 	return (
@@ -68,7 +63,7 @@ function LicenseForm({ plugin }: { plugin: PluginForEdit }) {
 					await saveLicense({
 						draftId: draft._id,
 						license: license.trim() || undefined,
-						licenseCustom: licenseCustom.trim() || undefined,
+						licenseCustom: draft.licenseCustom,
 					})
 					toast.success('License saved!')
 				} catch (error) {
@@ -83,35 +78,23 @@ function LicenseForm({ plugin }: { plugin: PluginForEdit }) {
 				<Field>
 					<FieldLabel htmlFor="plugin-license">License</FieldLabel>
 					<FieldDescription>
-						SPDX identifier or short license name. It starts as the
-						license GitHub found in your repository.
+						Search licenses from{' '}
+						<a
+							className="underline underline-offset-4"
+							href={LICENSE_CATALOG_SOURCE}
+							rel="noreferrer noopener"
+							target="_blank"
+						>
+							Choose a License
+						</a>{' '}
+						by name or SPDX identifier. It starts as the license
+						GitHub found in your repository.
 					</FieldDescription>
-					<Input
+					<LicenseCombobox
 						disabled={isSubmitting}
 						id="plugin-license"
-						maxLength={80}
-						onChange={(event) => setLicense(event.target.value)}
-						placeholder="MIT, GPL-3.0, All Rights Reserved"
+						onChange={setLicense}
 						value={license}
-					/>
-				</Field>
-				<Field>
-					<FieldLabel htmlFor="plugin-license-custom">
-						Custom License Notes
-					</FieldLabel>
-					<FieldDescription>
-						Optional terms or attribution notes for custom licenses
-					</FieldDescription>
-					<Textarea
-						className="min-h-32"
-						disabled={isSubmitting}
-						id="plugin-license-custom"
-						maxLength={2000}
-						onChange={(event) =>
-							setLicenseCustom(event.target.value)
-						}
-						placeholder="Add custom license terms or credits..."
-						value={licenseCustom}
 					/>
 				</Field>
 			</FieldGroup>

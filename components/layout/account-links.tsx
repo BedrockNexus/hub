@@ -4,6 +4,7 @@ import {
 	DashboardBrowsingIcon,
 	OfficeIcon,
 	Package01Icon,
+	PaintBrush01Icon,
 	PlugSocketIcon,
 	ServerStack01Icon,
 	UserIcon,
@@ -37,9 +38,15 @@ const ACCOUNT_LINKS: (UserButtonLink & { pluginsOnly?: boolean })[] = [
 		visibility: 'authenticated',
 	},
 	{
-		label: 'Projects',
-		href: '/dashboard/projects',
+		label: 'Addons',
+		href: '/dashboard/addons',
 		icon: linkIcon(Package01Icon),
+		visibility: 'authenticated',
+	},
+	{
+		label: 'Resource Packs',
+		href: '/dashboard/resource-packs',
+		icon: linkIcon(PaintBrush01Icon),
 		visibility: 'authenticated',
 	},
 	{

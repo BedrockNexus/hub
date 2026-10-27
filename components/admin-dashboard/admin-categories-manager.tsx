@@ -685,7 +685,7 @@ function CategoriesStats({
 				</StatDescription>
 			</Stat>
 			<Stat>
-				<StatLabel>Project Categories</StatLabel>
+				<StatLabel>Addon & Resource Pack Categories</StatLabel>
 				<StatValue>{formatNumber(projectCategories.length)}</StatValue>
 				<StatDescription>
 					{formatNumber(projectUsage)} total project assignments
@@ -1054,7 +1054,7 @@ export function AdminCategoriesManager() {
 			<Card>
 				<CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 					<div className="space-y-1.5">
-						<CardTitle>Project Categories</CardTitle>
+						<CardTitle>Addon & Resource Pack Categories</CardTitle>
 						<CardDescription>
 							Project categories can be deleted only when they are
 							unused.

@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { ownerFromOrganization } from '../../lib/contentOwnership'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
@@ -1035,16 +1036,8 @@ export const update = mutation({
 		)
 
 		const shouldUpdateOwner = 'organizationId' in args
-		const ownerUpdates = shouldUpdateOwner
-			? {
-					ownerType: organizationId ? 'organization' as const : 'user' as const,
-					ownerId: organizationId ?? user._id,
-				}
-			: {}
-		const nextOwner = {
-			ownerType: organizationId ? ('organization' as const) : ('user' as const),
-			ownerId: organizationId ?? user._id,
-		}
+		const nextOwner = ownerFromOrganization(organizationId, user._id)
+		const ownerUpdates = shouldUpdateOwner ? nextOwner : {}
 		const ownerChanges =
 			shouldUpdateOwner &&
 			(nextOwner.ownerType !== server.ownerType ||

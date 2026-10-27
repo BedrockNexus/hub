@@ -5,7 +5,7 @@ import { CheckmarkCircle02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery } from 'convex/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { type Resolver, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import {
@@ -35,6 +35,8 @@ import { ProjectTypeFields } from '@/components/user-dashboard/projects/fields/p
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import { contentEditHref } from '@/lib/content-routes'
+import { PROJECT_TYPE_LABELS, type ProjectType } from '@/lib/project-artifacts'
 import {
 	PROJECT_FORM_DEFAULTS,
 	type ProjectFormData,
@@ -46,12 +48,12 @@ const STEPS = [
 	{
 		value: 'core',
 		title: 'Core Info',
-		description: 'Type, details, and categories',
+		description: 'Details and categories',
 	},
 	{
 		value: 'details',
 		title: 'Links',
-		description: 'Project resources',
+		description: 'Support and source links',
 	},
 ] as const
 
@@ -112,7 +114,8 @@ function StepperNavigation({ isSubmitting }: { isSubmitting: boolean }) {
 	)
 }
 
-export function AddProjectForm() {
+export function AddProjectForm({ type }: { type: ProjectType }) {
+	const label = PROJECT_TYPE_LABELS[type]
 	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -122,25 +125,15 @@ export function AddProjectForm() {
 		resolver: zodResolver(
 			projectFormSchema,
 		) as unknown as Resolver<ProjectFormData>,
-		defaultValues: PROJECT_FORM_DEFAULTS,
+		defaultValues: { ...PROJECT_FORM_DEFAULTS, type },
 		mode: 'onChange',
 	})
-	const selectedType = form.watch('type')
-	const previousType = useRef(selectedType)
+	const selectedType = type
 	const categories = useQuery(api.functions.projects.categories.list, {
 		projectType: selectedType,
 	})
 	const createContent = useMutation(api.functions.projects.projects.create)
 
-	useEffect(() => {
-		if (previousType.current !== selectedType) {
-			form.setValue('categoryIds', [], {
-				shouldDirty: true,
-				shouldValidate: true,
-			})
-			previousType.current = selectedType
-		}
-	}, [form, selectedType])
 	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
 
 	const toggleCategory = createProjectCategoryToggler(
@@ -206,7 +199,7 @@ export function AddProjectForm() {
 			const ownerId = data.organizationId ?? '__self__'
 
 			const project = await createContent({
-				type: data.type,
+				type,
 				name: data.name,
 				summary: data.summary,
 				description: data.description,
@@ -222,13 +215,13 @@ export function AddProjectForm() {
 				ownerId,
 			})
 
-			toast.success('Project draft created')
-			router.push(`/dashboard/projects/${project.id}`)
+			toast.success(`${label} draft created`)
+			router.push(contentEditHref(type, project.id))
 		} catch (error) {
 			toast.error(
 				error instanceof Error
 					? error.message
-					: 'Failed to create project',
+					: `Failed to create ${label.toLowerCase()}`,
 			)
 		} finally {
 			setIsSubmitting(false)
@@ -240,10 +233,11 @@ export function AddProjectForm() {
 			<div className="mb-8 flex items-center gap-4">
 				<div className="flex flex-col gap-1">
 					<h1 className="font-bold text-2xl tracking-tight">
-						Create New Project
+						Create New {label}
 					</h1>
 					<p className="text-muted-foreground text-sm">
-						Share your Minecraft Bedrock project with the community
+						Share your Minecraft Bedrock {label.toLowerCase()} with
+						the community
 					</p>
 				</div>
 			</div>
@@ -282,13 +276,13 @@ export function AddProjectForm() {
 								</h3>
 								<FieldGroup>
 									<ProjectBasicFields
+										contentType={type}
 										control={form.control}
 									/>
 								</FieldGroup>
-								<p className="rounded-md border bg-muted/40 p-4 text-muted-foreground text-sm">
-									Project icons are uploaded after the draft
-									is created so files can be stored under the
-									final project folder.
+								<p className="text-muted-foreground text-sm">
+									After creating your draft, add an icon,
+									screenshots, and your first release.
 								</p>
 							</div>
 
@@ -306,7 +300,7 @@ export function AddProjectForm() {
 
 							<div className="space-y-4">
 								<h3 className="font-semibold text-base">
-									Type Details
+									{label} Details
 								</h3>
 								<ProjectTypeFields form={form} />
 							</div>

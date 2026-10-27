@@ -13,7 +13,6 @@ import {
 import { useMutation, useQuery } from 'convex/react'
 import { useRouter } from 'next/navigation'
 import type * as React from 'react'
-import { toast } from 'sonner'
 import type { Sidebar } from '@/components/ui/sidebar'
 import {
 	type EditSection,
@@ -23,7 +22,13 @@ import {
 import { ListingSwitcher } from '@/components/user-dashboard/edit-sidebar/listing-switcher'
 import { api } from '@/convex/_generated/api'
 
-const BASE_PATH = '/dashboard/projects'
+import { contentDashboard, contentHref } from '@/lib/content-routes'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_LABELS,
+	PROJECT_TYPE_PLURAL_LABELS,
+	type ProjectType,
+} from '@/lib/project-artifacts'
 
 const SECTIONS: readonly EditSection[] = [
 	{ id: '', title: 'General', icon: InformationCircleIcon, exactMatch: true },
@@ -33,55 +38,40 @@ const SECTIONS: readonly EditSection[] = [
 	{ id: '/license', title: 'License', icon: LicenseIcon },
 	{ id: '/gallery', title: 'Gallery', icon: Image02Icon },
 	{ id: '/versions', title: 'Versions', icon: Package01Icon },
+	{
+		id: '/review',
+		title: 'Preview & submission',
+		icon: CheckmarkCircle01Icon,
+	},
 ]
 
 export function ProjectEditSidebar({
 	id,
+	type,
 	...props
-}: React.ComponentProps<typeof Sidebar> & { id: string }) {
+}: React.ComponentProps<typeof Sidebar> & { id: string; type: ProjectType }) {
+	const BASE_PATH = contentDashboard(type)
 	const router = useRouter()
 	const project = useQuery(api.functions.projects.projects.getForEdit, { id })
 	const projects = useQuery(api.functions.projects.projects.listMyContent)
 	const deleteProject = useMutation(api.functions.projects.projects.remove)
-	const updateProject = useMutation(api.functions.projects.projects.update)
-	const hasVersion =
-		!!project?.latestVersion || (project?.versionCount ?? 0) > 0
 
 	let action: ListingAction | undefined
-	if (project?.status === 'draft') {
-		action = hasVersion
-			? {
-					label: 'Submit for review',
-					icon: CheckmarkCircle01Icon,
-					onRun: async () => {
-						try {
-							await updateProject({
-								id: project._id,
-								status: 'under_review',
-							})
-							toast.success(
-								`${project.name} submitted for review`,
-							)
-						} catch (error) {
-							toast.error(
-								error instanceof Error
-									? error.message
-									: 'Failed to submit project for review',
-							)
-						}
-					},
-				}
-			: {
-					label: 'Add a version first',
-					icon: Package01Icon,
-					href: `${BASE_PATH}/${id}/versions/add`,
-				}
+	if (
+		project?.status === 'draft' &&
+		project.moderationStatus !== 'rejected'
+	) {
+		action = {
+			label: 'Review & submit',
+			icon: CheckmarkCircle01Icon,
+			href: `${BASE_PATH}/${id}/review`,
+		}
 	}
 
 	return (
 		<ListingEditSidebar
 			action={action}
-			backLabel="Back to Projects"
+			backLabel={`Back to ${PROJECT_TYPE_PLURAL_LABELS[type]}`}
 			basePath={BASE_PATH}
 			deletion={
 				project
@@ -89,7 +79,7 @@ export function ProjectEditSidebar({
 							name: project.name,
 							confirmText: project.slug,
 							description:
-								'This permanently deletes the project, its versions, files, reviews and gallery.',
+								'This permanently deletes the listing, its versions, files, reviews and gallery.',
 							onDelete: async () => {
 								await deleteProject({ id: project._id })
 								router.push(BASE_PATH)
@@ -100,7 +90,7 @@ export function ProjectEditSidebar({
 			header={
 				<ListingSwitcher
 					addHref={`${BASE_PATH}/add`}
-					addLabel="Add Project"
+					addLabel={`Add ${PROJECT_TYPE_LABELS[type]}`}
 					basePath={BASE_PATH}
 					current={
 						project
@@ -112,12 +102,16 @@ export function ProjectEditSidebar({
 							: undefined
 					}
 					currentId={id}
-					items={projects?.map((item) => ({
-						id: item._id,
-						name: item.name,
-						imageUrl: item.iconUrl ?? undefined,
-						subtitle: item.summary,
-					}))}
+					items={projects
+						?.filter(
+							(item) => normalizeProjectType(item.type) === type,
+						)
+						.map((item) => ({
+							id: item._id,
+							name: item.name,
+							imageUrl: item.iconUrl ?? undefined,
+							subtitle: item.summary,
+						}))}
 				/>
 			}
 			id={id}
@@ -125,7 +119,7 @@ export function ProjectEditSidebar({
 			publicHref={
 				project?.status === 'published' &&
 				project.moderationStatus === 'approved'
-					? `/projects/${project.slug}`
+					? contentHref(project.type, project.slug)
 					: undefined
 			}
 			sections={SECTIONS}

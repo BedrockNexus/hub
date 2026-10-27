@@ -35,7 +35,7 @@ export async function generateMetadata({
 		username
 	const description = truncateDescription(
 		profile.bio ||
-			`${displayName} on Bedrock Nexus: ${profile.servers.length} servers and ${profile.projects.length} projects.`,
+			`${displayName} on Bedrock Nexus: ${profile.servers.length} servers and ${profile.projects.length} addons and resource packs.`,
 	)
 	const socialImage = profile.bannerUrl ?? profile.image ?? seo.ogImageUrl
 	const socialImages = socialImage ? [socialImage] : undefined

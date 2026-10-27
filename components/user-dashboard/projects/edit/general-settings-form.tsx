@@ -63,10 +63,10 @@ export function ProjectGeneralSettingsForm({
 		defaultValues: PROJECT_FORM_DEFAULTS,
 		mode: 'onChange',
 	})
+	// Subscribe before conditional rendering or short-circuiting the save state.
+	const { isDirty, isValid } = form.formState
 	const hasIconChanges = !!pendingIconR2Key || removeIcon
-	useUnsavedChangesWarning(
-		(form.formState.isDirty || hasIconChanges) && !isSubmitting,
-	)
+	useUnsavedChangesWarning((isDirty || hasIconChanges) && !isSubmitting)
 
 	useEffect(() => {
 		if (project) {
@@ -98,8 +98,7 @@ export function ProjectGeneralSettingsForm({
 				: pendingIconR2Key
 			const updateArgs: Parameters<typeof updateProject>[0] = {
 				id: project._id,
-				organizationId: data.organizationId || undefined,
-				type: data.type,
+				organizationId: data.organizationId || '',
 				name: data.name,
 				summary: data.summary,
 				metadata: projectMetadataFromForm(data),
@@ -145,9 +144,9 @@ export function ProjectGeneralSettingsForm({
 	if (project === null) {
 		return (
 			<div className="py-12 text-center">
-				<h2 className="font-semibold text-xl">Project not found</h2>
+				<h2 className="font-semibold text-xl">Listing not found</h2>
 				<p className="mt-2 text-muted-foreground">
-					The project you&apos;re looking for doesn&apos;t exist or
+					The listing you&apos;re looking for doesn&apos;t exist or
 					you don&apos;t have access to it.
 				</p>
 			</div>
@@ -155,9 +154,7 @@ export function ProjectGeneralSettingsForm({
 	}
 
 	const isSaveDisabled =
-		isSubmitting ||
-		!(form.formState.isDirty || hasIconChanges) ||
-		!form.formState.isValid
+		isSubmitting || !(isDirty || hasIconChanges) || !isValid
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
@@ -166,7 +163,7 @@ export function ProjectGeneralSettingsForm({
 					General Settings
 				</h2>
 				<p className="text-muted-foreground text-sm">
-					Basic information about your project
+					Basic information about your listing
 				</p>
 			</div>
 			<Separator />
@@ -183,6 +180,7 @@ export function ProjectGeneralSettingsForm({
 					removeIcon={removeIcon}
 				/>
 				<ProjectBasicFields
+					contentType={normalizeProjectType(project.type)}
 					control={form.control}
 					showDescription={false}
 				/>

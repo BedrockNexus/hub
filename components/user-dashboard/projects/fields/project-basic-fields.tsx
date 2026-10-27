@@ -9,27 +9,23 @@ import {
 	FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { OrgSelector } from '@/components/user-dashboard/org-selector'
-import { PROJECT_TYPE_LABELS, PROJECT_TYPES } from '@/lib/project-artifacts'
+import { PROJECT_TYPE_LABELS, type ProjectType } from '@/lib/project-artifacts'
 import type { ProjectFormData } from '@/lib/schemas/projects'
 
 interface ProjectBasicFieldsProps {
+	contentType: ProjectType
 	control: Control<ProjectFormData>
 	showDescription?: boolean
 }
 
 export function ProjectBasicFields({
+	contentType,
 	control,
 	showDescription = true,
 }: ProjectBasicFieldsProps) {
+	const label = PROJECT_TYPE_LABELS[contentType]
 	return (
 		<>
 			<Controller
@@ -39,8 +35,8 @@ export function ProjectBasicFields({
 					<Field>
 						<FieldLabel htmlFor="organizationId">Owner</FieldLabel>
 						<FieldDescription>
-							Choose whether this project belongs to you
-							personally or to an organization
+							Choose whether this {label.toLowerCase()} belongs to
+							you personally or to an organization
 						</FieldDescription>
 						<OrgSelector
 							onChange={field.onChange}
@@ -52,50 +48,15 @@ export function ProjectBasicFields({
 
 			<Controller
 				control={control}
-				name="type"
-				render={({ field, fieldState }) => (
-					<Field data-invalid={fieldState.invalid}>
-						<FieldLabel htmlFor="type">Project Type *</FieldLabel>
-						<FieldDescription>
-							What type of project is this?
-						</FieldDescription>
-						<Select
-							onValueChange={field.onChange}
-							value={field.value ?? ''}
-						>
-							<SelectTrigger id="type">
-								<SelectValue>
-									{field.value
-										? PROJECT_TYPE_LABELS[field.value]
-										: 'Select a project type'}
-								</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								{PROJECT_TYPES.map((type) => (
-									<SelectItem key={type} value={type}>
-										{PROJECT_TYPE_LABELS[type]}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						{fieldState.error && (
-							<FieldError errors={[fieldState.error]} />
-						)}
-					</Field>
-				)}
-			/>
-
-			<Controller
-				control={control}
 				name="name"
 				render={({ field, fieldState }) => (
 					<Field data-invalid={fieldState.invalid}>
-						<FieldLabel htmlFor="name">Project Name *</FieldLabel>
+						<FieldLabel htmlFor="name">{label} Name *</FieldLabel>
 						<Input
 							{...field}
 							aria-invalid={fieldState.invalid}
 							id="name"
-							placeholder="My Awesome Project"
+							placeholder={`My ${label}`}
 						/>
 						{fieldState.error && (
 							<FieldError errors={[fieldState.error]} />
@@ -111,8 +72,8 @@ export function ProjectBasicFields({
 					<Field data-invalid={fieldState.invalid}>
 						<FieldLabel htmlFor="summary">Summary *</FieldLabel>
 						<FieldDescription>
-							A brief tagline for your project (max 150
-							characters)
+							A brief tagline for your {label.toLowerCase()} (max
+							150 characters)
 						</FieldDescription>
 						<Textarea
 							{...field}
@@ -138,14 +99,14 @@ export function ProjectBasicFields({
 								Full Description *
 							</FieldLabel>
 							<FieldDescription>
-								Detailed description of your project (min 50
-								characters)
+								Detailed description of your{' '}
+								{label.toLowerCase()} (min 50 characters)
 							</FieldDescription>
 							<div id="description">
 								<MarkdownEditor
 									allowImageUpload
 									onChange={field.onChange}
-									placeholder="Describe your project in detail..."
+									placeholder={`Describe your ${label.toLowerCase()} in detail...`}
 									value={field.value ?? ''}
 								/>
 							</div>

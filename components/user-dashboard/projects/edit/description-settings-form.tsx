@@ -46,7 +46,9 @@ export function ProjectDescriptionSettingsForm({
 		defaultValues: { description: '' },
 		mode: 'onChange',
 	})
-	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
+	// Subscribe before conditional rendering or short-circuiting the save state.
+	const { isDirty, isValid } = form.formState
+	useUnsavedChangesWarning(isDirty && !isSubmitting)
 
 	useEffect(() => {
 		if (project) {
@@ -92,17 +94,16 @@ export function ProjectDescriptionSettingsForm({
 	if (project === null) {
 		return (
 			<div className="py-12 text-center">
-				<h2 className="font-semibold text-xl">Project not found</h2>
+				<h2 className="font-semibold text-xl">Listing not found</h2>
 				<p className="mt-2 text-muted-foreground">
-					The project you&apos;re looking for doesn&apos;t exist or
+					The listing you&apos;re looking for doesn&apos;t exist or
 					you don&apos;t have access to it.
 				</p>
 			</div>
 		)
 	}
 
-	const isSaveDisabled =
-		isSubmitting || !form.formState.isDirty || !form.formState.isValid
+	const isSaveDisabled = isSubmitting || !isDirty || !isValid
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
@@ -111,7 +112,7 @@ export function ProjectDescriptionSettingsForm({
 					Description
 				</h2>
 				<p className="text-muted-foreground text-sm">
-					Write the full project description shown on the public page
+					Write the full description shown on the public page
 				</p>
 			</div>
 			<Separator />
@@ -125,14 +126,14 @@ export function ProjectDescriptionSettingsForm({
 								Full Description
 							</FieldLabel>
 							<FieldDescription>
-								Detailed description of your project, features,
+								Detailed description of your listing, features,
 								setup, and usage
 							</FieldDescription>
 							<div id="description">
 								<MarkdownEditor
 									allowImageUpload
 									onChange={field.onChange}
-									placeholder="Describe your project in detail..."
+									placeholder="Describe your listing in detail..."
 									value={field.value ?? ''}
 								/>
 							</div>

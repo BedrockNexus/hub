@@ -11,7 +11,7 @@ import schema from '../../schema'
 import { projectDiscoveryType } from '../../schemas/projects'
 
 /**
- * The public project listing behind /projects.
+ * The shared public listing behind /addons and /resource-packs.
  *
  * Browsing reads `projectStats` in index order (one index per sort, with and
  * without a type), so no sort ever loads and sorts the whole catalogue. The
@@ -290,7 +290,13 @@ const SITEMAP_LIMIT = 2000
 /** Address and last change of every public project, newest first, for the sitemap. */
 export const sitemapEntries = query({
 	args: {},
-	returns: v.array(v.object({ slug: v.string(), updatedAt: v.number() })),
+	returns: v.array(
+        v.object({
+            slug: v.string(),
+            type: projectDiscoveryType,
+            updatedAt: v.number(),
+        }),
+    ),
 	handler: async (ctx) => {
 		const listed = await ctx.db
 			.query('projectStats')
@@ -304,7 +310,11 @@ export const sitemapEntries = query({
 		)
 		return projects.flatMap((project) =>
 			project && isPublicProject(project)
-				? [{ slug: project.slug, updatedAt: project.updatedAt }]
+				? [{
+                    slug: project.slug,
+                    type: normalizeProjectType(project.type),
+                    updatedAt: project.updatedAt,
+                }]
 				: [],
 		)
 	},

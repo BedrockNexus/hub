@@ -99,7 +99,8 @@ export function AdminOverview() {
 	const queues = [
 		{
 			count: pendingProjects.length,
-			description: 'Projects awaiting approval or rejection',
+			description:
+				'Addons and resource packs awaiting approval or rejection',
 			href: '/admin/projects',
 			icon: PuzzleIcon,
 			label: 'Pending projects',
@@ -135,7 +136,7 @@ export function AdminOverview() {
 						nativeButton={false}
 						render={<Link href="/admin/projects" />}
 					>
-						Review Projects
+						Review Addons & Packs
 						<HugeiconsIcon
 							className="size-4"
 							icon={ArrowRight01Icon}

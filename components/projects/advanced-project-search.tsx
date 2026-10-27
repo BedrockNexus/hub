@@ -3,7 +3,6 @@
 import {
 	Cancel01Icon,
 	FilterIcon,
-	Package01Icon,
 	SearchIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -49,7 +48,6 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import {
 	PROJECT_TYPE_PLURAL_LABELS,
-	PROJECT_TYPES,
 	type ProjectType,
 } from '@/lib/project-artifacts'
 import { normalizeTag } from '@/lib/tags'
@@ -98,6 +96,7 @@ export const EMPTY_PROJECT_FILTERS: ProjectSearchFilters = {
 }
 
 interface AdvancedProjectSearchProps {
+	contentType: ProjectType
 	filters: ProjectSearchFilters
 	onFiltersChange: (filters: ProjectSearchFilters) => void
 }
@@ -119,11 +118,6 @@ const updatedOptions: { value: ProjectUpdatedFilter; label: string }[] = [
 	{ value: 'year', label: 'Updated this year' },
 ]
 
-const typeOptions = PROJECT_TYPES.map((value) => ({
-	value,
-	label: PROJECT_TYPE_PLURAL_LABELS[value],
-}))
-
 const ANY_VERSION = 'any'
 
 function newestVersionFirst(a: string, b: string) {
@@ -131,6 +125,7 @@ function newestVersionFirst(a: string, b: string) {
 }
 
 export function AdvancedProjectSearch({
+	contentType,
 	filters,
 	onFiltersChange,
 }: AdvancedProjectSearchProps) {
@@ -145,6 +140,10 @@ export function AdvancedProjectSearch({
 	const [searchInput, setSearchInput] = useState(filters.query)
 	const [tagInput, setTagInput] = useState('')
 	const [categoryOpen, setCategoryOpen] = useState(false)
+
+	useEffect(() => {
+		setSearchInput(filters.query)
+	}, [filters.query])
 
 	// Debounced search
 	useEffect(() => {
@@ -191,13 +190,12 @@ export function AdvancedProjectSearch({
 	const clearFilters = () => {
 		setSearchInput('')
 		setTagInput('')
-		onFiltersChange(EMPTY_PROJECT_FILTERS)
+		onFiltersChange({ ...EMPTY_PROJECT_FILTERS, type: contentType })
 	}
 
 	const hasActiveFilters =
 		filters.query ||
 		filters.categoryIds.length > 0 ||
-		filters.type !== 'all' ||
 		filters.gameVersion ||
 		filters.tags.length > 0 ||
 		filters.updated !== 'any' ||
@@ -220,9 +218,9 @@ export function AdvancedProjectSearch({
 					<HugeiconsIcon icon={SearchIcon} />
 				</InputGroupAddon>
 				<InputGroupInput
-					aria-label="Search projects"
+					aria-label={`Search ${PROJECT_TYPE_PLURAL_LABELS[contentType].toLowerCase()}`}
 					onChange={(e) => setSearchInput(e.target.value)}
-					placeholder="Search projects..."
+					placeholder={`Search ${PROJECT_TYPE_PLURAL_LABELS[contentType].toLowerCase()}...`}
 					value={searchInput}
 				/>
 				{searchInput && (
@@ -242,41 +240,6 @@ export function AdvancedProjectSearch({
 			</InputGroup>
 
 			<div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-				<Select
-					onValueChange={(value) =>
-						onFiltersChange({
-							...filters,
-							categoryIds: [],
-							type: value as ProjectSearchFilters['type'],
-							...EMPTY_PROJECT_TYPE_FILTERS,
-						})
-					}
-					value={filters.type}
-				>
-					<SelectTrigger
-						aria-label="Project type"
-						className="w-full sm:w-auto"
-					>
-						<HugeiconsIcon icon={Package01Icon} />
-						<SelectValue>
-							{filters.type === 'all'
-								? 'All types'
-								: typeOptions.find(
-										(option) =>
-											option.value === filters.type,
-									)?.label}
-						</SelectValue>
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">All types</SelectItem>
-						{typeOptions.map((option) => (
-							<SelectItem key={option.value} value={option.value}>
-								{option.label}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-
 				<ProjectTypeSearchFilters
 					filters={filters}
 					onChange={updateTypeFilter}

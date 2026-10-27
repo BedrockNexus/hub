@@ -21,8 +21,8 @@ export function Hero({ categories }: { categories: HeroCategory[] }) {
 			href: `/servers?category=${encodeURIComponent(category.slug)}`,
 			label: category.name,
 		})),
-		{ href: '/projects?type=addon', label: 'Addons' },
-		{ href: '/projects?type=resource_pack', label: 'Resource packs' },
+		{ href: '/addons', label: 'Addons' },
+		{ href: '/resource-packs', label: 'Resource packs' },
 	]
 
 	return (
@@ -81,7 +81,11 @@ export async function SiteStatsBand({
 			label: 'Players online now',
 			icon: UserGroupIcon,
 		},
-		{ value: stats.projects, label: 'Projects published', icon: CubeIcon },
+		{
+			value: stats.projects,
+			label: 'Addons & resource packs published',
+			icon: CubeIcon,
+		},
 		...(pluginsEnabled
 			? [
 					{

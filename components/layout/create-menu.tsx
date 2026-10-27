@@ -3,6 +3,7 @@
 import {
 	Add01Icon,
 	CubeIcon,
+	PaintBrush01Icon,
 	PlugSocketIcon,
 	ServerStack03Icon,
 } from '@hugeicons/core-free-icons'
@@ -26,10 +27,16 @@ const ITEMS = [
 		icon: ServerStack03Icon,
 	},
 	{
-		href: '/dashboard/projects/add',
-		label: 'Add a project',
-		description: 'Publish an addon or resource pack',
+		href: '/dashboard/addons/add',
+		label: 'Add an addon',
+		description: 'Publish a Minecraft Bedrock addon',
 		icon: CubeIcon,
+	},
+	{
+		href: '/dashboard/resource-packs/add',
+		label: 'Add a resource pack',
+		description: 'Publish a Minecraft Bedrock resource pack',
+		icon: PaintBrush01Icon,
 	},
 ]
 
@@ -55,8 +62,8 @@ export function CreateMenu() {
 					<Button
 						aria-label={
 							pluginsEnabled
-								? 'Add a server, project or plugin'
-								: 'Add a server or project'
+								? 'Add a server, addon, resource pack or plugin'
+								: 'Add a server, addon or resource pack'
 						}
 						size="icon-lg"
 						variant="brand"

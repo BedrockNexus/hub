@@ -1,13 +1,15 @@
 import { fetchQuery } from 'convex/nextjs'
 import type { MetadataRoute } from 'next'
 import { api } from '@/convex/_generated/api'
+import { contentHref } from '@/lib/content-routes'
 import { absoluteUrl } from '@/lib/seo'
 import { getSiteFeatures } from '@/lib/site-settings'
 
 const staticRoutes = [
 	'/',
 	'/servers',
-	'/projects',
+	'/addons',
+	'/resource-packs',
 	'/trending',
 	'/picks',
 	'/creators',
@@ -76,7 +78,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	}))
 
 	const projectEntries: MetadataRoute.Sitemap = projects.map((project) => ({
-		url: absoluteUrl(`/projects/${project.slug}`),
+		url: absoluteUrl(contentHref(project.type, project.slug)),
 		lastModified: new Date(project.updatedAt),
 		changeFrequency: 'daily',
 		priority: 0.8,

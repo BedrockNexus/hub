@@ -50,11 +50,14 @@ import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-ta
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
+import { contentEditHref, contentHref } from '@/lib/content-routes'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
+	PROJECT_TYPE_PLURAL_LABELS,
 	PROJECT_TYPES,
+	type ProjectType,
 	type StoredProjectType,
 } from '@/lib/project-artifacts'
 
@@ -119,9 +122,9 @@ function ProjectRowActionsCell({
 	const handleCopyId = async () => {
 		try {
 			await navigator.clipboard.writeText(content._id)
-			toast.success('Project ID copied')
+			toast.success('Listing ID copied')
 		} catch {
-			toast.error('Failed to copy project ID')
+			toast.error('Failed to copy listing ID')
 		}
 	}
 
@@ -142,14 +145,17 @@ function ProjectRowActionsCell({
 				<DropdownMenuContent align="end" className="w-full">
 					<DropdownMenuItem onClick={handleCopyId}>
 						<HugeiconsIcon className="size-4" icon={Copy01Icon} />
-						Copy Project ID
+						Copy Listing ID
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						nativeButton={false}
 						render={(props) => (
 							<Link
 								{...props}
-								href={`/dashboard/projects/${content._id}`}
+								href={contentEditHref(
+									content.type,
+									content._id,
+								)}
 							>
 								<HugeiconsIcon
 									className="size-4"
@@ -162,7 +168,10 @@ function ProjectRowActionsCell({
 					<DropdownMenuItem
 						nativeButton={false}
 						render={(props) => (
-							<Link {...props} href={`/projects/${content.slug}`}>
+							<Link
+								{...props}
+								href={contentHref(content.type, content.slug)}
+							>
 								<HugeiconsIcon
 									className="size-4"
 									icon={PuzzleIcon}
@@ -240,7 +249,14 @@ function ProjectStatusBadge({ status }: { status?: ProjectLifecycleStatus }) {
 
 // ─── Stats Bar ─────────────────────────────────────────────────────────────
 
-function ProjectStatsBar({ items }: { items: ProjectRow[] }) {
+function ProjectStatsBar({
+	items,
+	type,
+}: {
+	items: ProjectRow[]
+	type?: ProjectType
+}) {
+	const plural = type ? PROJECT_TYPE_PLURAL_LABELS[type] : 'Listings'
 	const totalItems = items.length
 	const publishedItems = items.filter((i) => i.status === 'published').length
 	const totalDownloads = items.reduce((sum, a) => sum + a.totalDownloads, 0)
@@ -254,7 +270,7 @@ function ProjectStatsBar({ items }: { items: ProjectRow[] }) {
 	return (
 		<div className="grid gap-4 sm:grid-cols-3">
 			<Stat>
-				<StatLabel>Total Projects</StatLabel>
+				<StatLabel>Total {plural}</StatLabel>
 				<StatValue>{totalItems}</StatValue>
 				<StatDescription>
 					{publishedItems} published . {totalItems - publishedItems}{' '}
@@ -264,7 +280,9 @@ function ProjectStatsBar({ items }: { items: ProjectRow[] }) {
 			<Stat>
 				<StatLabel>Total Downloads</StatLabel>
 				<StatValue>{totalDownloads.toLocaleString()}</StatValue>
-				<StatDescription>across all projects</StatDescription>
+				<StatDescription>
+					across all {plural.toLowerCase()}
+				</StatDescription>
 			</Stat>
 			<Stat>
 				<StatLabel>Average Rating</StatLabel>
@@ -282,6 +300,7 @@ function ProjectStatsBar({ items }: { items: ProjectRow[] }) {
 }
 
 interface ProjectListTableProps {
+	type?: ProjectType
 	createHref?: string
 	createLabel?: string
 	emptyDescription?: string
@@ -290,6 +309,7 @@ interface ProjectListTableProps {
 }
 
 export function ProjectListTable({
+	type,
 	createHref = '/dashboard/projects/add',
 	createLabel = 'Create Your First Project',
 	emptyDescription = 'Create your first project to share with the Bedrock community.',
@@ -304,7 +324,9 @@ export function ProjectListTable({
 		api.functions.projects.projects.listByOrganization,
 		organizationId ? { organizationId } : 'skip',
 	)
-	const categories = useQuery(api.functions.projects.categories.list, {})
+	const categories = useQuery(api.functions.projects.categories.list, {
+		projectType: type,
+	})
 	const deleteContent = useMutation(api.functions.projects.projects.remove)
 
 	const projects = organizationId ? organizationContent : personalContent
@@ -313,11 +335,13 @@ export function ProjectListTable({
 		if (!projects) {
 			return []
 		}
-		return projects.map((c) => ({
-			...c,
-			categories: c.categories,
-		}))
-	}, [projects])
+		return projects
+			.filter((item) => !type || normalizeProjectType(item.type) === type)
+			.map((c) => ({
+				...c,
+				categories: c.categories,
+			}))
+	}, [projects, type])
 
 	const availableCategories = useMemo(() => {
 		if (!categories) {
@@ -345,8 +369,8 @@ export function ProjectListTable({
 		[deleteContent],
 	)
 
-	const columns = useMemo<ColumnDef<DataTableFeatures, ProjectRow>[]>(
-		() => [
+	const columns = useMemo<ColumnDef<DataTableFeatures, ProjectRow>[]>(() => {
+		const columns: ColumnDef<DataTableFeatures, ProjectRow>[] = [
 			{
 				id: 'icon',
 				header: 'Icon',
@@ -378,14 +402,19 @@ export function ProjectListTable({
 				cell: ({ row }) => (
 					<Link
 						className="font-medium hover:underline"
-						href={`/dashboard/projects/${row.original._id}`}
+						href={contentEditHref(
+							row.original.type,
+							row.original._id,
+						)}
 					>
 						{row.original.name}
 					</Link>
 				),
 				meta: {
 					label: 'Name',
-					placeholder: 'Search projects...',
+					placeholder: type
+						? `Search ${PROJECT_TYPE_PLURAL_LABELS[type].toLowerCase()}...`
+						: 'Search listings...',
 					variant: 'text',
 				},
 				enableColumnFilter: true,
@@ -605,9 +634,9 @@ export function ProjectListTable({
 				},
 				size: 32,
 			},
-		],
-		[availableCategories, handleDelete],
-	)
+		]
+		return columns.filter((column) => !type || column.id !== 'type')
+	}, [availableCategories, handleDelete, type])
 
 	const { table } = useDataTable({
 		mode: 'client',
@@ -642,7 +671,7 @@ export function ProjectListTable({
 	return (
 		<div className="space-y-6">
 			{/* Stats Bar */}
-			<ProjectStatsBar items={contentItems} />
+			<ProjectStatsBar items={contentItems} type={type} />
 
 			<DataTable table={table}>
 				<DataTableToolbar table={table} />

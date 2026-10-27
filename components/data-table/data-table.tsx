@@ -156,6 +156,15 @@ function DataTableHeadCell<TData extends RowData>({
   header,
   pinned,
 }: DataTableHeadCellProps<TData>) {
+  const isActions = header.column.id === "actions";
+  let content: React.ReactNode = null;
+  if (!header.isPlaceholder) {
+    content = isActions ? (
+      <span className="sr-only">Actions</span>
+    ) : (
+      <FlexRender header={header} />
+    );
+  }
   return (
     <Subscribe
       source={header.column.table.atoms.sorting}
@@ -165,10 +174,10 @@ function DataTableHeadCell<TData extends RowData>({
         <TableHead
           aria-sort={ariaSort}
           colSpan={header.colSpan}
-          className={getCellClassName(pinned)}
+          className={getCellClassName(pinned, isActions)}
           style={getColumnPinningStyle(header.column)}
         >
-          {header.isPlaceholder ? null : <FlexRender header={header} />}
+          {content}
         </TableHead>
       )}
     </Subscribe>
@@ -262,10 +271,16 @@ function DataTableCellImpl<TData extends RowData>({
 }: DataTableCellProps<TData>) {
   return (
     <TableCell
-      className={getCellClassName(pinned)}
+      className={getCellClassName(pinned, cell.column.id === "actions")}
       style={getColumnPinningStyle(cell.column)}
     >
-      <FlexRender cell={cell} />
+      {cell.column.id === "actions" ? (
+        <div className="flex items-center justify-center">
+          <FlexRender cell={cell} />
+        </div>
+      ) : (
+        <FlexRender cell={cell} />
+      )}
     </TableCell>
   );
 }
@@ -286,8 +301,11 @@ function DataTableActionBar<TData extends RowData>({
   );
 }
 
-function getCellClassName(pinned: ColumnPinningPosition) {
-  return pinned
-    ? "overflow-hidden bg-background transition-colors group-hover/row:bg-[color-mix(in_srgb,var(--muted)_50%,var(--background))] group-has-aria-expanded/row:bg-[color-mix(in_srgb,var(--muted)_50%,var(--background))] group-data-[state=selected]/row:bg-muted"
-    : "overflow-hidden";
+function getCellClassName(pinned: ColumnPinningPosition, isActions = false) {
+  return cn(
+    pinned
+      ? "overflow-hidden bg-background transition-colors group-hover/row:bg-[color-mix(in_srgb,var(--muted)_50%,var(--background))] group-has-aria-expanded/row:bg-[color-mix(in_srgb,var(--muted)_50%,var(--background))] group-data-[state=selected]/row:bg-muted"
+      : "overflow-hidden",
+    isActions && "border-s text-center",
+  );
 }

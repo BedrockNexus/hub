@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { RatingLabel, TagChip } from '@/components/servers/server-bits'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Doc } from '@/convex/_generated/dataModel'
+import { contentHref } from '@/lib/content-routes'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
@@ -82,7 +83,7 @@ export function ProjectCard({ content: item }: ProjectCardProps) {
 				<h3 className="truncate font-bold text-lg leading-tight">
 					<Link
 						className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
-						href={`/projects/${item.slug}`}
+						href={contentHref(item.type, item.slug)}
 					>
 						{item.name}
 					</Link>

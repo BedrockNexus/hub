@@ -7,6 +7,7 @@ import {
 	FavouriteIcon,
 	InstagramIcon,
 	OfficeIcon,
+	PaintBrush01Icon,
 	PlugSocketIcon,
 	PuzzleIcon,
 	ServerStack03Icon,
@@ -41,9 +42,14 @@ const data = {
 			icon: ServerStack03Icon,
 		},
 		{
-			title: 'Projects',
-			url: '/dashboard/projects',
+			title: 'Addons',
+			url: '/dashboard/addons',
 			icon: PuzzleIcon,
+		},
+		{
+			title: 'Resource Packs',
+			url: '/dashboard/resource-packs',
+			icon: PaintBrush01Icon,
 		},
 		{
 			title: 'Plugins',

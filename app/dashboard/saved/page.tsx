@@ -21,6 +21,11 @@ import {
 } from '@/components/ui/empty'
 import { DashboardPageHeader } from '@/components/user-dashboard/dashboard-page-header'
 import { api } from '@/convex/_generated/api'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_PLURAL_LABELS,
+	PROJECT_TYPES,
+} from '@/lib/project-artifacts'
 
 export default function SavedItemsPage() {
 	const saved = useQuery(api.functions.site.favourites.listMine, {})
@@ -42,8 +47,8 @@ export default function SavedItemsPage() {
 					</EmptyMedia>
 					<EmptyTitle>No saved items yet</EmptyTitle>
 					<EmptyDescription>
-						Use the favourite button on a server or project to keep
-						it here.
+						Use the favourite button on a server, addon, or resource
+						pack to keep it here.
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
@@ -61,19 +66,29 @@ export default function SavedItemsPage() {
 						</div>
 					</section>
 				) : null}
-				{saved.projects.length > 0 ? (
-					<section className="space-y-3">
-						<h2 className="font-semibold text-lg">Projects</h2>
-						<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-							{saved.projects.map((project) => (
-								<ProjectCard
-									content={project}
-									key={project._id}
-								/>
-							))}
-						</div>
-					</section>
-				) : null}
+				{PROJECT_TYPES.map((type) => {
+					const items = saved.projects.filter(
+						(item) => normalizeProjectType(item.type) === type,
+					)
+					if (!items.length) {
+						return null
+					}
+					return (
+						<section className="space-y-3" key={type}>
+							<h2 className="font-semibold text-lg">
+								{PROJECT_TYPE_PLURAL_LABELS[type]}
+							</h2>
+							<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+								{items.map((item) => (
+									<ProjectCard
+										content={item}
+										key={item._id}
+									/>
+								))}
+							</div>
+						</section>
+					)
+				})}
 			</div>
 		)
 	}
@@ -81,7 +96,7 @@ export default function SavedItemsPage() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				description="Servers and projects you want to return to."
+				description="Servers, addons and resource packs you want to return to."
 				title="Saved"
 			/>
 

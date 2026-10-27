@@ -12,7 +12,11 @@ export default defineConfig({
 	},
 	test: {
 		environment: 'edge-runtime',
-		include: ['convex/functions/**/*.test.ts', 'lib/plugins/**/*.test.ts'],
+		include: [
+			'convex/functions/**/*.test.ts',
+			'lib/plugins/**/*.test.ts',
+			'tests/**/*.test.ts',
+		],
 		testTimeout: 20_000,
 	},
 })

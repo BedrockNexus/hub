@@ -25,6 +25,11 @@ import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_PLURAL_LABELS,
+	PROJECT_TYPES,
+} from '@/lib/project-artifacts'
 
 type Profile = NonNullable<
 	FunctionReturnType<
@@ -255,7 +260,10 @@ export default function PublicUserProfilePage() {
 						</div>
 					</div>
 					<div className="flex flex-wrap gap-3">
-						<Stat label="Projects" value={profile.stats.projects} />
+						<Stat
+							label="Addons & Resource Packs"
+							value={profile.stats.projects}
+						/>
 						<Stat label="Servers" value={profile.stats.servers} />
 						{plugins.projects.length > 0 ? (
 							<Stat
@@ -277,23 +285,36 @@ export default function PublicUserProfilePage() {
 
 			<div className="container mx-auto grid gap-7 px-4 pt-8 pb-18 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
 				<div className="flex min-w-0 flex-col gap-8">
-					<section className="flex flex-col gap-4">
-						<h2 className="font-bold text-2xl">Projects</h2>
-						{profile.projects.length > 0 ? (
-							<div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
-								{profile.projects.map((project) => (
-									<ProjectCard
-										content={project}
-										key={project._id}
-									/>
-								))}
-							</div>
-						) : (
-							<p className="rounded-md border border-dashed px-6 py-8 text-center text-muted-foreground">
-								No published projects yet.
-							</p>
-						)}
-					</section>
+					{PROJECT_TYPES.map((type) => {
+						const items = profile.projects.filter(
+							(item) => normalizeProjectType(item.type) === type,
+						)
+						return (
+							<section className="flex flex-col gap-4" key={type}>
+								<h2 className="font-bold text-2xl">
+									{PROJECT_TYPE_PLURAL_LABELS[type]}
+								</h2>
+								{items.length ? (
+									<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))] gap-4">
+										{items.map((item) => (
+											<ProjectCard
+												content={item}
+												key={item._id}
+											/>
+										))}
+									</div>
+								) : (
+									<p className="rounded-md border border-dashed px-6 py-8 text-center text-muted-foreground">
+										No published{' '}
+										{PROJECT_TYPE_PLURAL_LABELS[
+											type
+										].toLowerCase()}{' '}
+										yet.
+									</p>
+								)}
+							</section>
+						)
+					})}
 					{plugins.projects.length > 0 ? (
 						<section className="flex flex-col gap-4">
 							<h2 className="font-bold text-2xl">Plugins</h2>

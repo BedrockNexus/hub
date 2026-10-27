@@ -11,6 +11,7 @@ import {
 	EmptyTitle,
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
+import { contentHref } from '@/lib/content-routes'
 import { formatDate } from '@/lib/format'
 import {
 	getProjectReleasePolicy,
@@ -89,7 +90,7 @@ export function ProjectReleases({
 							<div className="flex flex-wrap items-center gap-2">
 								<Link
 									className="font-semibold text-lg hover:text-primary hover:underline"
-									href={`/projects/${projectSlug}/releases/${encodeURIComponent(release.version)}`}
+									href={`${contentHref(projectType, projectSlug)}/releases/${encodeURIComponent(release.version)}`}
 								>
 									{release.version}
 								</Link>
@@ -102,6 +103,7 @@ export function ProjectReleases({
 						<ProjectVersionActions
 							fileName={release.fileName}
 							projectSlug={projectSlug}
+							projectType={projectType}
 							version={release.version}
 							versionId={release._id}
 						/>

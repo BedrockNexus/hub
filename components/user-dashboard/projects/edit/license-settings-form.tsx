@@ -14,19 +14,16 @@ import {
 	FieldGroup,
 	FieldLabel,
 } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
-import { Textarea } from '@/components/ui/textarea'
+import { LicenseCombobox } from '@/components/user-dashboard/license-combobox'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import { LICENSE_CATALOG_SOURCE } from '@/lib/licenses'
 
 const licenseSchema = z.object({
 	license: z.string().max(80, 'License must be less than 80 characters'),
-	licenseCustom: z
-		.string()
-		.max(2000, 'Custom license text must be less than 2000 characters'),
 })
 
 type LicenseFormData = z.infer<typeof licenseSchema>
@@ -47,16 +44,17 @@ export function ProjectLicenseSettingsForm({
 
 	const form = useForm<LicenseFormData>({
 		resolver: zodResolver(licenseSchema),
-		defaultValues: { license: '', licenseCustom: '' },
+		defaultValues: { license: '' },
 		mode: 'onChange',
 	})
-	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
+	// Subscribe before conditional rendering or short-circuiting the save state.
+	const { isDirty, isValid } = form.formState
+	useUnsavedChangesWarning(isDirty && !isSubmitting)
 
 	useEffect(() => {
 		if (project) {
 			form.reset({
 				license: project.license || '',
-				licenseCustom: project.licenseCustom || '',
 			})
 		}
 	}, [project, form])
@@ -70,8 +68,7 @@ export function ProjectLicenseSettingsForm({
 		try {
 			await updateProject({
 				id: project._id,
-				license: data.license || undefined,
-				licenseCustom: data.licenseCustom || undefined,
+				license: data.license,
 			})
 			form.reset(data)
 			toast.success('License saved!')
@@ -93,7 +90,6 @@ export function ProjectLicenseSettingsForm({
 				<Skeleton className="h-4 w-64" />
 				<Skeleton className="h-px w-full" />
 				<Skeleton className="h-10 w-full" />
-				<Skeleton className="h-32 w-full" />
 			</div>
 		)
 	}
@@ -101,17 +97,16 @@ export function ProjectLicenseSettingsForm({
 	if (project === null) {
 		return (
 			<div className="py-12 text-center">
-				<h2 className="font-semibold text-xl">Project not found</h2>
+				<h2 className="font-semibold text-xl">Listing not found</h2>
 				<p className="mt-2 text-muted-foreground">
-					The project you&apos;re looking for doesn&apos;t exist or
+					The listing you&apos;re looking for doesn&apos;t exist or
 					you don&apos;t have access to it.
 				</p>
 			</div>
 		)
 	}
 
-	const isSaveDisabled =
-		isSubmitting || !form.formState.isDirty || !form.formState.isValid
+	const isSaveDisabled = isSubmitting || !isDirty || !isValid
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
@@ -120,7 +115,7 @@ export function ProjectLicenseSettingsForm({
 					License
 				</h2>
 				<p className="text-muted-foreground text-sm">
-					Set the license shown on the public project details
+					Set the license shown on your public listing
 				</p>
 			</div>
 			<Separator />
@@ -132,39 +127,26 @@ export function ProjectLicenseSettingsForm({
 						<Field data-invalid={fieldState.invalid}>
 							<FieldLabel htmlFor="license">License</FieldLabel>
 							<FieldDescription>
-								SPDX identifier or short license name
+								Search licenses from{' '}
+								<a
+									className="underline underline-offset-4"
+									href={LICENSE_CATALOG_SOURCE}
+									rel="noreferrer noopener"
+									target="_blank"
+								>
+									Choose a License
+								</a>{' '}
+								by name or SPDX identifier
 							</FieldDescription>
-							<Input
-								{...field}
-								aria-invalid={fieldState.invalid}
+							<LicenseCombobox
+								disabled={isSubmitting}
 								id="license"
-								placeholder="MIT, GPL-3.0, All Rights Reserved"
-							/>
-							{fieldState.error && (
-								<FieldError errors={[fieldState.error]} />
-							)}
-						</Field>
-					)}
-				/>
-
-				<Controller
-					control={form.control}
-					name="licenseCustom"
-					render={({ field, fieldState }) => (
-						<Field data-invalid={fieldState.invalid}>
-							<FieldLabel htmlFor="licenseCustom">
-								Custom License Notes
-							</FieldLabel>
-							<FieldDescription>
-								Optional terms or attribution notes for custom
-								licenses
-							</FieldDescription>
-							<Textarea
-								{...field}
-								aria-invalid={fieldState.invalid}
-								className="min-h-32"
-								id="licenseCustom"
-								placeholder="Add custom license terms or credits..."
+								inputRef={field.ref}
+								invalid={fieldState.invalid}
+								name={field.name}
+								onBlur={field.onBlur}
+								onChange={field.onChange}
+								value={field.value}
 							/>
 							{fieldState.error && (
 								<FieldError errors={[fieldState.error]} />

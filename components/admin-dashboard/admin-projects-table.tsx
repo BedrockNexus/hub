@@ -90,7 +90,7 @@ function AdminProjectStats({ projects }: { projects: AdminProjectRow[] }) {
 	return (
 		<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 			<Stat>
-				<StatLabel>Total Projects</StatLabel>
+				<StatLabel>Total Listings</StatLabel>
 				<StatValue>{projects.length}</StatValue>
 				<StatDescription>{publishedCount} published</StatDescription>
 			</Stat>
@@ -402,7 +402,7 @@ export function AdminProjectsTable() {
 			<div className="min-w-0 space-y-6">
 				<AdminPageHeader
 					description="Review, publish, unpublish, and reject project submissions."
-					title="Projects"
+					title="Addons & Resource Packs"
 				/>
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
@@ -431,7 +431,7 @@ export function AdminProjectsTable() {
 		<div className="min-w-0 space-y-6">
 			<AdminPageHeader
 				description="Review, publish, unpublish, and reject project submissions."
-				title="Projects"
+				title="Addons & Resource Packs"
 			/>
 			<AdminProjectStats projects={projects} />
 			<DataTable table={table}>

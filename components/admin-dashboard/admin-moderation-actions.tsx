@@ -27,12 +27,18 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 
 type ContentStatus = 'draft' | 'published' | 'under_review'
-type ModerationAction = 'approve' | 'flag' | 'reject' | 'unpublish'
+type ModerationAction = 'approve' | 'flag' | 'reject' | 'unpublish' | 'changes'
 
 const ACTION_COPY: Record<
 	ModerationAction,
 	{ title: string; description: string; submit: string }
 > = {
+	changes: {
+		title: 'Request changes?',
+		description:
+			'Return this submission to draft with feedback. The creator can correct it and submit again.',
+		submit: 'Request changes',
+	},
 	approve: {
 		title: 'Approve content?',
 		description:
@@ -110,6 +116,9 @@ export function AdminModerationActions({
 		api.functions.projects.projects.adminUpdate,
 	)
 	const updateServer = useMutation(api.functions.servers.servers.updateAdmin)
+	const requestProjectChanges = useMutation(
+		api.functions.projects.projects.requestChanges,
+	)
 	const [action, setAction] = useState<ModerationAction | null>(null)
 	const [reason, setReason] = useState('')
 	const [isSubmitting, setIsSubmitting] = useState(false)
@@ -140,7 +149,12 @@ export function AdminModerationActions({
 			return
 		}
 		const trimmedReason = reason.trim()
-		if ((action === 'flag' || action === 'reject') && !trimmedReason) {
+		if (
+			(action === 'flag' ||
+				action === 'reject' ||
+				action === 'changes') &&
+			!trimmedReason
+		) {
 			toast.error('Add a reason for the creator')
 			return
 		}
@@ -149,7 +163,12 @@ export function AdminModerationActions({
 
 		setIsSubmitting(true)
 		try {
-			if (contentType === 'server') {
+			if (action === 'changes' && contentType === 'project') {
+				await requestProjectChanges({
+					id: contentId as Id<'projects'>,
+					reason: trimmedReason,
+				})
+			} else if (contentType === 'server') {
 				await updateServer({
 					id: contentId as Id<'servers'>,
 					...patch,
@@ -161,7 +180,8 @@ export function AdminModerationActions({
 				})
 			}
 			toast.success(`${contentName} updated`)
-			close()
+			setAction(null)
+			setReason('')
 		} catch (error) {
 			toast.error(
 				error instanceof Error
@@ -170,8 +190,6 @@ export function AdminModerationActions({
 			)
 		} finally {
 			setIsSubmitting(false)
-			setAction(null)
-			setReason('')
 		}
 	}
 
@@ -191,6 +209,15 @@ export function AdminModerationActions({
 							/>
 							Approve
 						</Button>
+						{contentType === 'project' &&
+						moderationStatus !== 'rejected' ? (
+							<Button
+								onClick={() => setAction('changes')}
+								variant="outline"
+							>
+								Request changes
+							</Button>
+						) : null}
 						<Button
 							onClick={() => setAction('reject')}
 							variant="destructive"
@@ -257,7 +284,9 @@ export function AdminModerationActions({
 							{action ? ACTION_COPY[action].description : ''}
 						</DialogDescription>
 					</DialogHeader>
-					{action === 'flag' || action === 'reject' ? (
+					{action === 'flag' ||
+					action === 'reject' ||
+					action === 'changes' ? (
 						<div className="space-y-2">
 							<Label htmlFor="moderation-reason">
 								Reason for creator

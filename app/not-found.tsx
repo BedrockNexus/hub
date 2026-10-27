@@ -56,13 +56,13 @@ export default function NotFound() {
 					</Link>
 					<Link
 						className={buttonVariants({ variant: 'outline' })}
-						href="/projects"
+						href="/addons"
 					>
 						<HugeiconsIcon
 							className="size-4"
 							icon={Package01Icon}
 						/>
-						Projects
+						Addons
 					</Link>
 				</div>
 			</section>

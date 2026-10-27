@@ -77,7 +77,9 @@ export function ProjectLinksSettingsForm({
 		},
 		mode: 'onChange',
 	})
-	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
+	// Subscribe before conditional rendering or short-circuiting the save state.
+	const { isDirty, isValid } = form.formState
+	useUnsavedChangesWarning(isDirty && !isSubmitting)
 
 	useEffect(() => {
 		if (project) {
@@ -137,24 +139,23 @@ export function ProjectLinksSettingsForm({
 	if (project === null) {
 		return (
 			<div className="py-12 text-center">
-				<h2 className="font-semibold text-xl">Project not found</h2>
+				<h2 className="font-semibold text-xl">Listing not found</h2>
 				<p className="mt-2 text-muted-foreground">
-					The project you&apos;re looking for doesn&apos;t exist or
+					The listing you&apos;re looking for doesn&apos;t exist or
 					you don&apos;t have access to it.
 				</p>
 			</div>
 		)
 	}
 
-	const isSaveDisabled =
-		isSubmitting || !form.formState.isDirty || !form.formState.isValid
+	const isSaveDisabled = isSubmitting || !isDirty || !isValid
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 			<div>
 				<h2 className="font-semibold text-lg tracking-tight">Links</h2>
 				<p className="text-muted-foreground text-sm">
-					Manage resource links for your project
+					Manage resource links for your listing
 				</p>
 			</div>
 			<Separator />

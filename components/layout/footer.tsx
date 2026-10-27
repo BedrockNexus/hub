@@ -36,7 +36,8 @@ function footerColumns(
 			title: 'Discover',
 			links: [
 				{ href: '/servers', label: 'Servers' },
-				{ href: '/projects', label: 'Projects' },
+				{ href: '/addons', label: 'Addons' },
+				{ href: '/resource-packs', label: 'Resource Packs' },
 				{ href: '/trending', label: 'Trending' },
 				{ href: '/picks', label: 'Picks' },
 				{ href: '/creators', label: 'Creators' },
@@ -52,7 +53,11 @@ function footerColumns(
 			title: 'Creators',
 			links: [
 				{ href: '/dashboard/servers/add', label: 'List a server' },
-				{ href: '/dashboard/projects/add', label: 'Publish a project' },
+				{ href: '/dashboard/addons/add', label: 'Publish an addon' },
+				{
+					href: '/dashboard/resource-packs/add',
+					label: 'Publish a resource pack',
+				},
 				...(pluginsEnabled
 					? [
 							{

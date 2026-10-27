@@ -34,7 +34,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { contentEditHref } from '@/lib/content-routes'
 import { formatDate } from '@/lib/format'
+import type { ProjectType } from '@/lib/project-artifacts'
 
 function formatBytes(bytes: number): string {
 	if (bytes === 0) {
@@ -46,6 +48,7 @@ function formatBytes(bytes: number): string {
 }
 
 interface ProjectVersionsFormProps {
+	projectType: ProjectType
 	projectId: Id<'projects'>
 }
 
@@ -128,7 +131,10 @@ function RetryValidationButton({
 	)
 }
 
-export function ProjectVersionsForm({ projectId }: ProjectVersionsFormProps) {
+export function ProjectVersionsForm({
+	projectType,
+	projectId,
+}: ProjectVersionsFormProps) {
 	const versions = useQuery(api.functions.projects.versions.list, {
 		projectId,
 	})
@@ -194,7 +200,7 @@ export function ProjectVersionsForm({ projectId }: ProjectVersionsFormProps) {
 						<EmptyTitle>No releases yet</EmptyTitle>
 						<EmptyDescription>
 							Publish your first release to let users download
-							your project.
+							your listing.
 						</EmptyDescription>
 					</EmptyHeader>
 				</Empty>
@@ -347,14 +353,14 @@ export function ProjectVersionsForm({ projectId }: ProjectVersionsFormProps) {
 				<div>
 					<h2 className="font-semibold text-lg">Releases</h2>
 					<p className="text-muted-foreground text-sm">
-						Manage downloadable files for your project
+						Manage downloadable files for your listing
 					</p>
 				</div>
 				<Button
 					nativeButton={false}
 					render={
 						<Link
-							href={`/dashboard/projects/${projectId}/versions/add`}
+							href={`${contentEditHref(projectType, projectId)}/versions/add`}
 						/>
 					}
 				>

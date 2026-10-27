@@ -12,6 +12,7 @@ export default defineConfig({
 	reporter: [['list'], ['html', { open: 'never' }]],
 	use: {
 		baseURL,
+		channel: process.env.E2E_BROWSER_CHANNEL,
 		trace: 'on-first-retry',
 	},
 	webServer: process.env.E2E_BASE_URL

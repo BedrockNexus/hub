@@ -3,6 +3,7 @@
 import {
 	Add01Icon,
 	ArrowRight01Icon,
+	PaintBrush01Icon,
 	PuzzleIcon,
 	ServerStack03Icon,
 	Settings01Icon,
@@ -110,10 +111,16 @@ const QUICK_ACTIONS = [
 		icon: ServerStack03Icon,
 	},
 	{
-		label: 'Create Project',
-		description: 'Start an addon or resource pack',
-		href: '/dashboard/projects/add',
+		label: 'Create Addon',
+		description: 'Publish a Bedrock addon',
+		href: '/dashboard/addons/add',
 		icon: PuzzleIcon,
+	},
+	{
+		label: 'Create Resource Pack',
+		description: 'Publish a Bedrock resource pack',
+		href: '/dashboard/resource-packs/add',
+		icon: PaintBrush01Icon,
 	},
 	{
 		label: 'New Organization',

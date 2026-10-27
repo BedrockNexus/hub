@@ -60,18 +60,20 @@ export default async function Home() {
 			/>
 			<GamemodesSection categories={gamemodes.slice(0, 8)} />
 			<ProjectListSection
-				href="/projects?sort=trending"
-				linkLabel="All trending projects"
+				href="/addons?sort=trending"
+				linkLabel="All trending addons"
 				sort="trending"
-				title="Trending addons & packs"
+				title="Trending addons"
+				type="addon"
 			/>
 			<ProjectListSection
 				count={3}
 				hideWhenEmpty
-				href="/projects?sort=updated"
-				linkLabel="All recently updated"
+				href="/resource-packs?sort=updated"
+				linkLabel="All resource packs"
 				sort="updated"
-				title="Recently updated"
+				title="Recently updated resource packs"
+				type="resource_pack"
 			/>
 			{features.pluginsEnabled ? (
 				<PluginListSection

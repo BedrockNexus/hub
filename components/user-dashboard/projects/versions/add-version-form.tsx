@@ -37,6 +37,7 @@ import { VersionFileUpload } from '@/components/uploads/version-file-upload'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import { contentEditHref } from '@/lib/content-routes'
 import {
 	getProjectArtifactPolicy,
 	getProjectReleasePolicy,
@@ -107,7 +108,7 @@ export function AddVersionForm({
 			toast.success(
 				`Release ${result.version} uploaded and queued for validation`,
 			)
-			router.push(`/dashboard/projects/${projectId}/versions`)
+			router.push(`${contentEditHref(projectType, projectId)}/versions`)
 		} catch (err) {
 			toast.error(
 				err instanceof Error ? err.message : 'Failed to upload release',

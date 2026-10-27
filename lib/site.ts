@@ -1,6 +1,7 @@
 import {
 	Home01Icon,
 	Package01Icon,
+	PaintBrush01Icon,
 	PlugSocketIcon,
 	ServerStack01Icon,
 	Wifi01Icon,
@@ -27,9 +28,14 @@ export const publicNavigation = [
 		icon: ServerStack01Icon,
 	},
 	{
-		href: '/projects',
-		label: 'Projects',
+		href: '/addons',
+		label: 'Addons',
 		icon: Package01Icon,
+	},
+	{
+		href: '/resource-packs',
+		label: 'Resource Packs',
+		icon: PaintBrush01Icon,
 	},
 ] as const
 

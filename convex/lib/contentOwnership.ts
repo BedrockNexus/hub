@@ -3,6 +3,16 @@ type OwnerReference = {
 	ownerId: string
 }
 
+/** An empty organization selection means the acting user's personal account. */
+export function ownerFromOrganization(
+	organizationId: string | undefined,
+	userId: string,
+): OwnerReference {
+	return organizationId
+		? { ownerType: 'organization', ownerId: organizationId }
+		: { ownerType: 'user', ownerId: userId }
+}
+
 export function canModifyProjectOwner(args: {
 	owner: OwnerReference
 	userId: string
@@ -35,7 +45,9 @@ export function canModifyServerOwner(args: {
  * admins may delete organization content or move it to another owner; plain
  * members may only edit it.
  */
-export function isOrganizationManagerRole(role: string | null | undefined): boolean {
+export function isOrganizationManagerRole(
+	role: string | null | undefined,
+): boolean {
 	return (role ?? '')
 		.split(',')
 		.map((value) => value.trim())

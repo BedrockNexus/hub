@@ -16,8 +16,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { contentHref } from '@/lib/content-routes'
+
+import type { ProjectType } from '@/lib/project-artifacts'
 
 interface ProjectVersionActionsProps {
+	projectType: ProjectType
 	fileName: string
 	projectSlug: string
 	version: string
@@ -25,6 +29,7 @@ interface ProjectVersionActionsProps {
 }
 
 export function ProjectVersionActions({
+	projectType,
 	fileName,
 	projectSlug,
 	version,
@@ -71,7 +76,7 @@ export function ProjectVersionActions({
 					<DropdownMenuItem
 						render={
 							<Link
-								href={`/projects/${projectSlug}/releases/${encodeURIComponent(version)}`}
+								href={`${contentHref(projectType, projectSlug)}/releases/${encodeURIComponent(version)}`}
 							/>
 						}
 					>

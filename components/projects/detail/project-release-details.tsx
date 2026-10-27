@@ -13,6 +13,7 @@ import {
 import { ProjectVersionDownloadButton } from '@/components/projects/detail/project-version-download-button'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
+import { contentHref } from '@/lib/content-routes'
 import { formatDate } from '@/lib/format'
 import {
 	getProjectReleasePolicy,
@@ -37,7 +38,7 @@ export function ProjectReleaseDetails({
 			<header className="space-y-4 border-b bg-muted/25 p-5 sm:p-6">
 				<Link
 					className="inline-flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground"
-					href={`/projects/${projectSlug}/releases`}
+					href={`${contentHref(projectType, projectSlug)}/releases`}
 				>
 					<HugeiconsIcon className="size-4" icon={ArrowLeft02Icon} />
 					All {projectName} releases

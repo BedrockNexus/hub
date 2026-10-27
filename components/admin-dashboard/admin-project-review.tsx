@@ -62,9 +62,14 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 		)
 	}
 
-	const hasVersionFiles = project.versions.length > 0
+	const hasVersionFiles = project.versions.some(
+		(version) =>
+			(version.validationStatus === 'valid' ||
+				version.validationStatus === undefined) &&
+			version.reviewStatus !== 'rejected',
+	)
 	const versionApprovalMessage =
-		'The creator must upload at least one project version file before this project can be approved.'
+		'The creator must have a validated release eligible for review before this listing can be approved.'
 
 	return (
 		<div className="space-y-6">
@@ -79,7 +84,7 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 							className="size-4"
 							icon={ArrowLeft02Icon}
 						/>
-						Projects
+						Addons & Resource Packs
 					</Button>
 					<div className="flex items-center gap-4">
 						{project.iconUrl ? (

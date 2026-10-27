@@ -32,7 +32,7 @@ const data = {
 			icon: ServerStack03Icon,
 		},
 		{
-			title: 'Projects',
+			title: 'Addons & Resource Packs',
 			url: '/admin/projects',
 			icon: PuzzleIcon,
 		},

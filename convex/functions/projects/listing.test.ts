@@ -96,6 +96,20 @@ const slugsOf = (result: Awaited<ReturnType<typeof browse>>) =>
 	result.page.map((project) => project.slug)
 
 describe('project listing', () => {
+	it('includes normalized content types in sitemap entries and excludes private listings', async () => {
+		const t = createTest()
+		await addProject(t, { slug: 'addon', type: 'addon' })
+		await addProject(t, { slug: 'pack', type: 'resource_pack' })
+		await addProject(t, { slug: 'legacy-pack', type: 'texture_pack' })
+		await addProject(t, { slug: 'draft', status: 'draft' })
+		await addProject(t, { slug: 'pending', moderationStatus: 'pending' })
+		const entries = await t.query(api.functions.projects.listing.sitemapEntries, {})
+		expect(entries.map(({ slug, type }) => ({ slug, type })).sort((a, b) => a.slug.localeCompare(b.slug))).toEqual([
+			{ slug: 'addon', type: 'addon' },
+			{ slug: 'legacy-pack', type: 'resource_pack' },
+			{ slug: 'pack', type: 'resource_pack' },
+		])
+	})
 	it('orders by each sort and never shows content that is not public', async () => {
 		const t = createTest()
 		await addProject(

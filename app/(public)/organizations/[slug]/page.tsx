@@ -10,6 +10,11 @@ import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_PLURAL_LABELS,
+	PROJECT_TYPES,
+} from '@/lib/project-artifacts'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
 import { siteConfig } from '@/lib/site'
 import { getSiteFeatures, getSiteSeo } from '@/lib/site-settings'
@@ -170,21 +175,30 @@ export default async function OrganizationPage({
 								</div>
 							</section>
 						) : null}
-						{organization.projects.length > 0 ? (
-							<section className="space-y-4">
-								<h2 className="font-semibold text-xl">
-									Projects
-								</h2>
-								<div className="grid gap-4 sm:grid-cols-2">
-									{organization.projects.map((project) => (
-										<ProjectCard
-											content={project}
-											key={project._id}
-										/>
-									))}
-								</div>
-							</section>
-						) : null}
+						{PROJECT_TYPES.map((type) => {
+							const items = organization.projects.filter(
+								(item) =>
+									normalizeProjectType(item.type) === type,
+							)
+							if (!items.length) {
+								return null
+							}
+							return (
+								<section className="space-y-4" key={type}>
+									<h2 className="font-semibold text-xl">
+										{PROJECT_TYPE_PLURAL_LABELS[type]}
+									</h2>
+									<div className="grid gap-4 sm:grid-cols-2">
+										{items.map((item) => (
+											<ProjectCard
+												content={item}
+												key={item._id}
+											/>
+										))}
+									</div>
+								</section>
+							)
+						})}
 						{plugins.length > 0 ? (
 							<section className="space-y-4">
 								<h2 className="font-semibold text-xl">

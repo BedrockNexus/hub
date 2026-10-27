@@ -48,6 +48,7 @@ const DEBOUNCE_MS = 300
 const THROTTLE_MS = 50
 const DEFAULT_PAGE_SIZE = 10
 const EMPTY_SORTING: SortingState = []
+const ACTION_COLUMN_SIZE = 64
 
 interface FiltersDraft {
 	filters: ColumnFiltersState
@@ -128,7 +129,44 @@ function useDataTable<TData extends RowData>({
 		],
 	)
 
-	const [initialTableState] = React.useState(initialState)
+	const tableColumns = React.useMemo(
+		() =>
+			columns.map((column) =>
+				column.id === 'actions'
+					? {
+							...column,
+							size: ACTION_COLUMN_SIZE,
+							minSize: ACTION_COLUMN_SIZE,
+							maxSize: ACTION_COLUMN_SIZE,
+							enableResizing: false,
+							enableSorting: false,
+							enableHiding: false,
+						}
+					: column,
+			),
+		[columns],
+	)
+
+	const [initialTableState] = React.useState(() => {
+		if (!columns.some((column) => column.id === 'actions')) {
+			return initialState
+		}
+		return {
+			...initialState,
+			columnPinning: {
+				start: (initialState?.columnPinning?.start ?? []).filter(
+					(id) => id !== 'actions',
+				),
+				end: [
+					...(initialState?.columnPinning?.end ?? []).filter(
+						(id) => id !== 'actions',
+					),
+					'actions',
+				],
+			},
+			columnVisibility: { ...initialState?.columnVisibility, actions: true },
+		}
+	})
 
 	const pageParser = React.useMemo(
 		() => parseAsInteger.withOptions(queryStateOptions).withDefault(1),
@@ -319,7 +357,7 @@ function useDataTable<TData extends RowData>({
 		{
 			...props,
 			features: dataTableFeatures,
-			columns,
+			columns: tableColumns,
 			initialState: initialTableState,
 			pageCount: isServer ? pageCount : undefined,
 			state: {
