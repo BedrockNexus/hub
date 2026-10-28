@@ -18,8 +18,19 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { api } from '@/convex/_generated/api'
+import { MAPS_UI_ENABLED } from '@/lib/maps-feature'
 
 const ITEMS = [
+	...(MAPS_UI_ENABLED
+		? [
+				{
+					href: '/dashboard/maps/add',
+					label: 'Add a map',
+					description: 'Publish a Minecraft Bedrock world',
+					icon: CubeIcon,
+				},
+			]
+		: []),
 	{
 		href: '/dashboard/servers/add',
 		label: 'Add a server',
@@ -54,6 +65,9 @@ export function CreateMenu() {
 		useQuery(api.functions.site.settings.getFeatures, {})
 			?.pluginsEnabled === true
 	const items = pluginsEnabled ? [...ITEMS, PLUGIN_ITEM] : ITEMS
+	const addLabel = pluginsEnabled
+		? 'Add a server, addon, resource pack or plugin'
+		: 'Add a server, addon or resource pack'
 
 	return (
 		<DropdownMenu>
@@ -61,9 +75,7 @@ export function CreateMenu() {
 				render={
 					<Button
 						aria-label={
-							pluginsEnabled
-								? 'Add a server, addon, resource pack or plugin'
-								: 'Add a server, addon or resource pack'
+							MAPS_UI_ENABLED ? `${addLabel}, or map` : addLabel
 						}
 						size="icon-lg"
 						variant="brand"

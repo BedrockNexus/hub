@@ -28,6 +28,7 @@ export function ProjectCategoryPicker({
 	onToggle,
 }: ProjectCategoryPickerProps) {
 	const selectedIds = watch('categoryIds')
+	const isMap = watch('type') === 'map'
 
 	return (
 		<Controller
@@ -43,6 +44,11 @@ export function ProjectCategoryPicker({
 							return (
 								<Button
 									className="h-auto justify-start py-3"
+									disabled={
+										isMap &&
+										selectedIds.length >= 3 &&
+										!isSelected
+									}
 									key={category._id}
 									onClick={() => onToggle(category._id)}
 									type="button"
@@ -66,6 +72,7 @@ export function ProjectCategoryPicker({
 
 					<p className="mt-3 text-muted-foreground text-sm">
 						Selected: {selectedIds.length}
+						{isMap ? ' of 3 maximum' : ''}
 					</p>
 				</Field>
 			)}

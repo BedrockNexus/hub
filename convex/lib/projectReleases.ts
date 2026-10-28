@@ -1,8 +1,16 @@
 import { isCdnR2Key } from './r2Keys'
+import {
+	isMapRelease,
+	isValidatedMapRelease,
+	type MapReleaseCandidate,
+} from './mapReleaseEligibility'
 
-export function isValidatedRelease(release: {
-	validationStatus?: string
-}): boolean {
+export function isValidatedRelease(
+	release: MapReleaseCandidate,
+	projectType?: string,
+): boolean {
+	if (isMapRelease(release, projectType))
+		return isValidatedMapRelease(release)
 	return (
 		release.validationStatus === undefined ||
 		release.validationStatus === 'valid'
@@ -14,16 +22,28 @@ export function isValidatedRelease(release: {
  * downloaded. Releases created before release review existed have no
  * `reviewStatus` and were approved with their project.
  */
-export function isApprovedRelease(release: { reviewStatus?: string }): boolean {
-	return release.reviewStatus === undefined || release.reviewStatus === 'approved'
+export function isApprovedRelease(
+	release: MapReleaseCandidate,
+	projectType?: string,
+): boolean {
+	if (isMapRelease(release, projectType))
+		return release.reviewStatus === 'approved'
+	return (
+		release.reviewStatus === undefined ||
+		release.reviewStatus === 'approved'
+	)
 }
 
 /** Validated by the artifact validator and approved by a moderator. */
-export function isPublicRelease(release: {
-	validationStatus?: string
-	reviewStatus?: string
-}): boolean {
-	return isValidatedRelease(release) && isApprovedRelease(release)
+export function isPublicRelease(
+	release: MapReleaseCandidate,
+	projectType?: string,
+): boolean {
+	return (
+		!release.deletionRequestedAt &&
+		isValidatedRelease(release, projectType) &&
+		isApprovedRelease(release, projectType)
+	)
 }
 
 export function getPublishedReleaseKey(release: {

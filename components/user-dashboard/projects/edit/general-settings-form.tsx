@@ -101,7 +101,9 @@ export function ProjectGeneralSettingsForm({
 				organizationId: data.organizationId || '',
 				name: data.name,
 				summary: data.summary,
-				metadata: projectMetadataFromForm(data),
+				...(data.type === 'map'
+					? {}
+					: { metadata: projectMetadataFromForm(data) }),
 			}
 
 			if (iconR2Key !== undefined) {

@@ -2,7 +2,7 @@
 
 import { Cancel01Icon, Upload03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation } from 'convex/react'
+import { useAction, useMutation } from 'convex/react'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -55,7 +55,9 @@ export function VersionFileUpload({
 	const generateUploadUrl = useMutation(
 		api.functions.projects.versions.generateVersionUploadUrl,
 	)
-	const syncMetadata = useMutation(api.lib.r2.syncUploadMetadata)
+	const completeUpload = useAction(
+		api.functions.projects.artifactDelivery.completeUpload,
+	)
 	const discardUpload = useMutation(
 		api.functions.projects.versions.discardUpload,
 	)
@@ -113,7 +115,7 @@ export function VersionFileUpload({
 				})
 
 				// 3. Sync metadata to Convex so it's queryable
-				await syncMetadata({ key })
+				await completeUpload({ uploadId })
 
 				onUploadComplete(
 					uploadId,
@@ -131,7 +133,13 @@ export function VersionFileUpload({
 				throw err
 			}
 		},
-		[generateUploadUrl, syncMetadata, projectId, version, onUploadComplete],
+		[
+			generateUploadUrl,
+			completeUpload,
+			projectId,
+			version,
+			onUploadComplete,
+		],
 	)
 
 	const handleFilesChange = useCallback(

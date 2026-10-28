@@ -6,6 +6,8 @@ import { useMutation, useQuery } from 'convex/react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { MapReleaseDetails } from '@/components/projects/detail/map-release-details'
+import { MapValidationSummary } from '@/components/projects/detail/map-validation-summary'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -191,9 +193,20 @@ export function AdminPendingReleases() {
 									? ''
 									: ' · validation pending'}
 							</p>
+							<MapReleaseDetails
+								metadata={release.releaseMetadata}
+								version={release.version}
+							/>
+							<MapValidationSummary
+								report={release.mapValidationReport}
+							/>
 						</div>
 						<ReleaseReviewActions
-							canApprove={release.validationStatus === 'valid'}
+							canApprove={
+								release.validationStatus === 'valid' &&
+								(release.project.type !== 'map' ||
+									release.eligibleForReview === true)
+							}
 							versionId={release._id}
 							versionLabel={`${release.project.name} v${release.version}`}
 						/>

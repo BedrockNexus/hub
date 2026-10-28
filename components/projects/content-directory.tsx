@@ -264,9 +264,12 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 				</Link>
 			}
 			description={
-				type === 'addon'
-					? 'Discover community addons that bring new features, mobs, and gameplay to Minecraft Bedrock.'
-					: 'Find resource packs that change the textures, sounds, and appearance of Minecraft Bedrock.'
+				{
+					addon: 'Discover community addons that bring new features, mobs, and gameplay to Minecraft Bedrock.',
+					resource_pack:
+						'Find resource packs that change the textures, sounds, and appearance of Minecraft Bedrock.',
+					map: 'Discover community worlds, adventures and challenges for Minecraft Bedrock.',
+				}[type]
 			}
 			title={plural}
 		>

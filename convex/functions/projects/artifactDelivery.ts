@@ -35,6 +35,25 @@ const r2S3 = new S3Client({
 			: undefined,
 })
 
+/** Resolve only after R2 metadata is persisted, so release creation can read it. */
+export const completeUpload = action({
+	args: { uploadId: v.id('projectArtifactUploads') },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const upload = await ctx.runQuery(
+			internal.functions.projects.versions.getUploadForCompletion,
+			args,
+		)
+		if (upload.expiresAt <= Date.now())
+			throw new Error('Upload reservation has expired')
+		await syncUploadObjectMetadata(ctx, upload.key)
+		const metadata = await uploadsR2.getMetadata(ctx, upload.key)
+		if (!metadata || metadata.size !== upload.declaredFileSize)
+			throw new Error('The uploaded file size does not match the reserved artifact')
+		return null
+	},
+})
+
 function copySource(bucket: string, key: string) {
 	const encodedKey = key
 		.split('/')
@@ -48,13 +67,98 @@ function attachmentDisposition(fileName: string) {
 	return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
 }
 
+export const sealVersion = internalAction({
+	args: { versionId: v.id('projectVersions'), token: v.string() },
+	returns: v.union(v.object({ key: v.string(), etag: v.string() }), v.null()),
+	handler: async (
+		ctx,
+		args,
+	): Promise<{ key: string; etag: string } | null> => {
+		const data = await ctx.runQuery(
+			internal.functions.projects.artifactValidation
+				.getVersionForValidation,
+			{ versionId: args.versionId },
+		)
+		if (
+			!data ||
+			data.project.type !== 'map' ||
+			data.version.deletionRequestedAt ||
+			data.version.validationToken !== args.token
+		)
+			return null
+		if (data.version.sealedR2Key && data.version.sealedEtag)
+			return {
+				key: data.version.sealedR2Key,
+				etag: data.version.sealedEtag,
+			}
+		const key = await ctx.runMutation(
+			internal.functions.projects.artifactValidation.reserveSeal,
+			args,
+		)
+		if (!key) return null
+		const sourceKey = data.version.stagingR2Key ?? data.version.uploadR2Key
+		if (!sourceKey) throw new Error('Maps private upload is missing')
+		const head = await r2S3.send(
+			new HeadObjectCommand({
+				Bucket: uploadsR2.config.bucket,
+				Key: sourceKey,
+			}),
+		)
+		if (!head.ETag || head.ContentLength !== data.version.fileSize)
+			throw new Error('Maps upload size or identity changed')
+		await r2S3.send(
+			new CopyObjectCommand({
+				Bucket: uploadsR2.config.bucket,
+				Key: key,
+				CopySource: copySource(uploadsR2.config.bucket, sourceKey),
+				CopySourceIfMatch: head.ETag,
+				MetadataDirective: 'REPLACE',
+				ContentType: 'application/octet-stream',
+			}),
+		)
+		const sealed = await r2S3.send(
+			new HeadObjectCommand({
+				Bucket: uploadsR2.config.bucket,
+				Key: key,
+			}),
+		)
+		if (!sealed.ETag || sealed.ContentLength !== data.version.fileSize)
+			throw new Error('Sealed Maps upload size or identity changed')
+		await syncUploadObjectMetadata(ctx, key)
+		const recorded = await ctx.runMutation(
+			internal.functions.projects.artifactValidation.recordSeal,
+			{ ...args, key, etag: sealed.ETag },
+		)
+		if (!recorded) {
+			await r2S3.send(
+				new DeleteObjectCommand({
+					Bucket: uploadsR2.config.bucket,
+					Key: key,
+				}),
+			)
+			return null
+		}
+		await r2S3.send(
+			new DeleteObjectCommand({
+				Bucket: uploadsR2.config.bucket,
+				Key: sourceKey,
+			}),
+		)
+		return { key, etag: sealed.ETag }
+	},
+})
+
 export const promoteVersion = internalAction({
 	args: { versionId: v.id('projectVersions') },
 	handler: async (ctx, args) => {
 		const data = (await ctx.runQuery(
-			internal.functions.projects.artifactValidation.getVersionForPromotion,
+			internal.functions.projects.artifactValidation
+				.getVersionForPromotion,
 			args,
-		)) as { project: Doc<'projects'>; version: Doc<'projectVersions'> } | null
+		)) as {
+			project: Doc<'projects'>
+			version: Doc<'projectVersions'>
+		} | null
 		if (!data) return
 
 		const uploadKey = data.version.uploadR2Key ?? data.version.r2Key
@@ -69,6 +173,13 @@ export const promoteVersion = internalAction({
 		} catch {
 			throw new Error('Validated release is missing from private storage')
 		}
+		if (
+			data.project.type === 'map' &&
+			(uploadKey !== data.version.sealedR2Key ||
+				metadata.ETag !== data.version.sealedEtag ||
+				metadata.ContentLength !== data.version.fileSize)
+		)
+			throw new Error('Maps artifact identity changed before promotion')
 		const cdnKey = buildProjectDownloadR2ObjectKey({
 			projectId: data.project._id,
 			releaseId: data.version._id,
@@ -82,16 +193,28 @@ export const promoteVersion = internalAction({
 				Bucket: cdnR2.config.bucket,
 				Key: cdnKey,
 				CopySource: copySource(uploadsR2.config.bucket, uploadKey),
+				...(data.project.type === 'map'
+					? { CopySourceIfMatch: data.version.sealedEtag }
+					: {}),
 				MetadataDirective: 'REPLACE',
 				ContentType: metadata.ContentType ?? 'application/octet-stream',
-				ContentDisposition: attachmentDisposition(data.version.fileName),
+				ContentDisposition: attachmentDisposition(
+					data.version.fileName,
+				),
 				CacheControl: 'public, max-age=31536000, immutable',
 			}),
 		)
 		await syncCdnObjectMetadata(ctx, cdnKey)
 		await ctx.runMutation(
 			internal.functions.projects.artifactValidation.finalizePromotion,
-			{ versionId: data.version._id, uploadKey, cdnKey },
+			{
+				versionId: data.version._id,
+				uploadKey,
+				cdnKey,
+				...(data.project.type === 'map'
+					? { sourceEtag: data.version.sealedEtag }
+					: {}),
+			},
 		)
 	},
 })
@@ -100,17 +223,33 @@ export const demoteVersion = internalAction({
 	args: { versionId: v.id('projectVersions') },
 	handler: async (ctx, args) => {
 		const data = (await ctx.runQuery(
-			internal.functions.projects.artifactValidation.getVersionForValidation,
+			internal.functions.projects.artifactValidation
+				.getVersionForValidation,
 			args,
-		)) as { project: Doc<'projects'>; version: Doc<'projectVersions'> } | null
+		)) as {
+			project: Doc<'projects'>
+			version: Doc<'projectVersions'>
+		} | null
 		if (
 			!data?.version.cdnR2Key ||
 			(data.project.status === 'published' &&
 				data.project.moderationStatus === 'approved' &&
 				isApprovedRelease(data.version))
-		) return
+		)
+			return
 		const uploadKey = data.version.uploadR2Key
 		if (!uploadKey) return
+		if (data.project.type === 'map') {
+			await ctx.runMutation(
+				internal.functions.projects.artifactValidation.finalizeDemotion,
+				{
+					versionId: data.version._id,
+					uploadKey,
+					cdnKey: data.version.cdnR2Key,
+				},
+			)
+			return
+		}
 
 		let metadata
 		try {
@@ -127,7 +266,10 @@ export const demoteVersion = internalAction({
 			new CopyObjectCommand({
 				Bucket: uploadsR2.config.bucket,
 				Key: uploadKey,
-				CopySource: copySource(cdnR2.config.bucket, data.version.cdnR2Key),
+				CopySource: copySource(
+					cdnR2.config.bucket,
+					data.version.cdnR2Key,
+				),
 				MetadataDirective: 'REPLACE',
 				ContentType: metadata.ContentType ?? 'application/octet-stream',
 			}),
@@ -148,7 +290,8 @@ export const syncProjectDelivery = internalAction({
 	args: { projectId: v.id('projects'), published: v.boolean() },
 	handler: async (ctx, args) => {
 		const versions = (await ctx.runQuery(
-			internal.functions.projects.artifactValidation.listProjectVersionsForDelivery,
+			internal.functions.projects.artifactValidation
+				.listProjectVersionsForDelivery,
 			{ projectId: args.projectId },
 		)) as Doc<'projectVersions'>[]
 		for (const version of versions) {
@@ -185,6 +328,8 @@ export const remove = action({
 		const uploadKeys = new Set<string>()
 		const cdnKeys = new Set<string>([expectedCdnKey])
 		if (version.uploadR2Key) uploadKeys.add(version.uploadR2Key)
+		if (version.sealedR2Key) uploadKeys.add(version.sealedR2Key)
+		if (version.stagingR2Key) uploadKeys.add(version.stagingR2Key)
 		if (version.cdnR2Key) cdnKeys.add(version.cdnR2Key)
 		if (isPrivateUploadR2Key(version.r2Key)) uploadKeys.add(version.r2Key)
 		if (isCdnR2Key(version.r2Key)) cdnKeys.add(version.r2Key)

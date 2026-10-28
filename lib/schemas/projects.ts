@@ -6,12 +6,13 @@ import {
 	RESOURCE_PACK_RESOLUTIONS,
 } from '@/lib/project-metadata'
 import { richTextLength } from '@/lib/rich-text-length'
+import { mapReleaseMetadataSchema } from '../map-release-metadata'
 
 const VERSION_PATTERN = /^[a-zA-Z0-9._+-]+$/
 
 export const projectFormSchema = z.object({
 	organizationId: z.string().optional(),
-	type: z.enum(PROJECT_TYPES),
+	type: z.enum([...PROJECT_TYPES, 'map']),
 	name: z
 		.string()
 		.min(3, 'Name must be at least 3 characters')
@@ -111,8 +112,10 @@ export const PROJECT_FORM_DEFAULTS: ProjectFormData = {
 
 export function projectMetadataFromForm(
 	data: ProjectFormData,
-): ProjectMetadata {
+): ProjectMetadata | undefined {
 	switch (data.type) {
+		case 'map':
+			return undefined
 		case 'addon':
 			return {
 				type: 'addon',
@@ -180,10 +183,18 @@ export const versionFormSchema = z.object({
 	fileName: z.string().min(1),
 	fileSize: z.number().positive(),
 	gameVersions: z.array(z.string()),
+	releaseMetadata: mapReleaseMetadataSchema.optional(),
 })
 
-export function createVersionFormSchema(_projectType: ProjectType) {
+export function createVersionFormSchema(projectType: ProjectType) {
 	return versionFormSchema.superRefine((data, ctx) => {
+		if (projectType === 'map' && !data.releaseMetadata) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'Complete the map requirements for this release',
+				path: ['releaseMetadata'],
+			})
+		}
 		if (!data.version.trim()) {
 			ctx.addIssue({
 				code: 'custom',

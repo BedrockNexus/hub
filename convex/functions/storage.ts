@@ -119,6 +119,7 @@ async function isManagedKeyReferenced(
 		return versions.some(
 			(version) =>
 				version.r2Key === key ||
+                version.sealedR2Key === key || (version.stagingR2Key === key && !version.sealedEtag) ||
 				version.uploadR2Key === key ||
 				version.cdnR2Key === key,
 		)

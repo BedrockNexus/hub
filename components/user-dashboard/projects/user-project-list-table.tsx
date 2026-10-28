@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import {
 	Copy01Icon,
@@ -56,9 +56,9 @@ import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
 	PROJECT_TYPE_PLURAL_LABELS,
-	PROJECT_TYPES,
 	type ProjectType,
 	type StoredProjectType,
+	VISIBLE_PROJECT_TYPES,
 } from '@/lib/project-artifacts'
 
 interface ProjectCategory {
@@ -461,7 +461,7 @@ export function ProjectListTable({
 				meta: {
 					label: 'Type',
 					variant: 'multiSelect',
-					options: PROJECT_TYPES.map((value) => ({
+					options: VISIBLE_PROJECT_TYPES.map((value) => ({
 						label: PROJECT_TYPE_LABELS[value],
 						value,
 					})),

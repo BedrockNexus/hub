@@ -19,6 +19,7 @@ import {
 	getProjectReleasePolicy,
 	type ProjectType,
 } from '@/lib/project-artifacts'
+import { MapReleaseDetails } from './map-release-details'
 
 export function ProjectReleaseDetails({
 	projectName,
@@ -61,6 +62,11 @@ export function ProjectReleaseDetails({
 			</header>
 
 			<div className="space-y-6 p-5 sm:p-6">
+				<MapReleaseDetails
+					metadata={release.releaseMetadata}
+					sha256={release.sha256}
+					version={release.version}
+				/>
 				{releasePolicy.requireGameVersions ? (
 					<div className="flex flex-wrap gap-2">
 						{release.gameVersions?.length ? (

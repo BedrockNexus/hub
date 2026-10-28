@@ -16,6 +16,8 @@ import {
 } from '@/components/admin-dashboard/admin-release-review'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
+import { MapReleaseDetails } from '@/components/projects/detail/map-release-details'
+import { MapValidationSummary } from '@/components/projects/detail/map-validation-summary'
 import { ProjectTypeDetailsCard } from '@/components/projects/detail/project-type-details-card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +34,7 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { isValidatedRelease } from '@/convex/lib/projectReleases'
 
 function formatBytes(bytes: number) {
 	if (bytes < 1024) {
@@ -64,8 +67,7 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 
 	const hasVersionFiles = project.versions.some(
 		(version) =>
-			(version.validationStatus === 'valid' ||
-				version.validationStatus === undefined) &&
+			isValidatedRelease(version, project.type) &&
 			version.reviewStatus !== 'rejected',
 	)
 	const versionApprovalMessage =
@@ -278,6 +280,19 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 					</CardContent>
 				</Card>
 				<ProjectTypeDetailsCard metadata={project.metadata} />
+				{project.type === 'map'
+					? project.versions.map((version) => (
+							<div className="space-y-3" key={version._id}>
+								<MapReleaseDetails
+									metadata={version.releaseMetadata}
+									version={version.version}
+								/>
+								<MapValidationSummary
+									report={version.mapValidationReport}
+								/>
+							</div>
+						))
+					: null}
 			</div>
 		</div>
 	)

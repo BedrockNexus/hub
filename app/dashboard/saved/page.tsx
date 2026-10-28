@@ -24,7 +24,7 @@ import { api } from '@/convex/_generated/api'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_PLURAL_LABELS,
-	PROJECT_TYPES,
+	VISIBLE_PROJECT_TYPES,
 } from '@/lib/project-artifacts'
 
 export default function SavedItemsPage() {
@@ -66,7 +66,7 @@ export default function SavedItemsPage() {
 						</div>
 					</section>
 				) : null}
-				{PROJECT_TYPES.map((type) => {
+				{VISIBLE_PROJECT_TYPES.map((type) => {
 					const items = saved.projects.filter(
 						(item) => normalizeProjectType(item.type) === type,
 					)

@@ -14,10 +14,11 @@ import { ServerEditSidebar } from '@/components/user-dashboard/servers/server-ed
 const SERVER_EDIT_PATTERN = /^\/dashboard\/servers\/(?!add(?:\/|$))([^/]+)/
 const CONTENT_TYPE_BY_ROUTE = {
 	addons: 'addon',
+	maps: 'map',
 	'resource-packs': 'resource_pack',
 } as const
 const PROJECT_EDIT_PATTERN =
-	/^\/dashboard\/(addons|resource-packs)\/(?!add(?:\/|$))([^/]+)/
+	/^\/dashboard\/(addons|resource-packs|maps)\/(?!add(?:\/|$))([^/]+)/
 const PLUGIN_EDIT_PATTERN =
 	/^\/dashboard\/plugins\/(?!new(?:\/|$)|repositories(?:\/|$))([^/]+)/
 const ORG_PATTERN = /^\/dashboard\/organizations\/([^/]+)/

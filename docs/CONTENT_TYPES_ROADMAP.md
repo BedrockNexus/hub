@@ -70,6 +70,11 @@ different checks and should be described accurately.
 The shared internal `projects` implementation remains an implementation detail.
 Maps are not exposed yet; their schema and artifact validator are separate work.
 
+The [Maps publishing contract proposal](./MAPS_PUBLISHING_CONTRACT.md)
+(2026-10-27) records the existing flow, proposed listing/release metadata,
+self-contained `.mcworld` validation, and the representative-world measurements
+needed before selecting production limits. It does not enable Maps or resume Mods.
+
 ## Rollout and verification
 
 Deploy the hub's Convex functions **before** publishing the matching Next app:
@@ -172,3 +177,18 @@ workspace-root `.handoff-backups/20261026-133428-mods-pause/`. That snapshot als
 contains completed pre-existing work: recover Mods changes selectively rather
 than restoring the whole snapshot over later work. Runtime scope and real
 representative artifacts must be settled before implementation resumes.
+
+## Maps UI slice (2026-10-28)
+
+Maps now has local backend support and gated creator, organization, public and
+moderation interfaces. Release requirements are immutable snapshots; structural
+observations and creator claims are displayed separately. Navigation, catalogs,
+canonicals and sitemap handling include Maps behind a default-off UI switch.
+Backend creation and remote validation have separate default-off switches.
+
+The production build, application/Convex type checks, changed-file lint,
+112 Bun tests, 214 Vitest tests and isolated browser component checks passed.
+See [the Maps implementation record](./MAPS_PUBLISHING_CONTRACT.md) for the exact
+switches and evidence boundary. No push or deployment occurred. Real packed-world,
+hosted capacity, signed-in lifecycle and Minecraft import/play acceptance remain
+pending. Mods remain paused.

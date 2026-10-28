@@ -28,7 +28,7 @@ import { api } from '@/convex/_generated/api'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_PLURAL_LABELS,
-	PROJECT_TYPES,
+	VISIBLE_PROJECT_TYPES,
 } from '@/lib/project-artifacts'
 
 type Profile = NonNullable<
@@ -285,7 +285,7 @@ export default function PublicUserProfilePage() {
 
 			<div className="container mx-auto grid gap-7 px-4 pt-8 pb-18 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
 				<div className="flex min-w-0 flex-col gap-8">
-					{PROJECT_TYPES.map((type) => {
+					{VISIBLE_PROJECT_TYPES.map((type) => {
 						const items = profile.projects.filter(
 							(item) => normalizeProjectType(item.type) === type,
 						)

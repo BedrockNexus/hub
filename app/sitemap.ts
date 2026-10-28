@@ -2,6 +2,7 @@ import { fetchQuery } from 'convex/nextjs'
 import type { MetadataRoute } from 'next'
 import { api } from '@/convex/_generated/api'
 import { contentHref } from '@/lib/content-routes'
+import { MAPS_UI_ENABLED } from '@/lib/maps-feature'
 import { absoluteUrl } from '@/lib/seo'
 import { getSiteFeatures } from '@/lib/site-settings'
 
@@ -10,6 +11,7 @@ const staticRoutes = [
 	'/servers',
 	'/addons',
 	'/resource-packs',
+	...(MAPS_UI_ENABLED ? ['/maps'] : []),
 	'/trending',
 	'/picks',
 	'/creators',
@@ -77,12 +79,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 		priority: 0.8,
 	}))
 
-	const projectEntries: MetadataRoute.Sitemap = projects.map((project) => ({
-		url: absoluteUrl(contentHref(project.type, project.slug)),
-		lastModified: new Date(project.updatedAt),
-		changeFrequency: 'daily',
-		priority: 0.8,
-	}))
+	const projectEntries: MetadataRoute.Sitemap = projects
+		.filter((project) => MAPS_UI_ENABLED || project.type !== 'map')
+		.map((project) => ({
+			url: absoluteUrl(contentHref(project.type, project.slug)),
+			lastModified: new Date(project.updatedAt),
+			changeFrequency: 'daily',
+			priority: 0.8,
+		}))
 
 	const pluginEntries: MetadataRoute.Sitemap = plugins.map((plugin) => ({
 		url: absoluteUrl(`/plugins/${plugin.slug}`),

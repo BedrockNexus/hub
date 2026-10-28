@@ -18,6 +18,7 @@ import { SidebarNav } from '@/components/sidebar/sidebar-nav'
 import { SidebarSocialsNav } from '@/components/sidebar/sidebar-socials-nav'
 import { Sidebar, SidebarContent, SidebarHeader } from '@/components/ui/sidebar'
 import { DashboardOrganizationSwitcher } from '@/components/user-dashboard/organizations/dashboard-organization-switcher'
+import { MAPS_UI_ENABLED } from '@/lib/maps-feature'
 
 function getOrgNav(slug: string) {
 	const base = `/dashboard/organizations/${slug}`
@@ -31,6 +32,9 @@ function getOrgNav(slug: string) {
 			},
 		],
 		navManage: [
+			...(MAPS_UI_ENABLED
+				? [{ title: 'Maps', url: `${base}/maps`, icon: PuzzleIcon }]
+				: []),
 			{
 				title: 'Servers',
 				url: `${base}/servers`,

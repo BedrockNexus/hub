@@ -1,14 +1,22 @@
 export const PROJECT_TYPES = ['addon', 'resource_pack'] as const
 
-export type ProjectType = (typeof PROJECT_TYPES)[number]
+import { MAPS_UI_ENABLED } from './maps-feature'
+
+// Normal navigation stays limited to PROJECT_TYPES until Maps acceptance.
+export type ProjectType = (typeof PROJECT_TYPES)[number] | 'map'
 export type StoredProjectType = ProjectType | 'texture_pack'
+export const VISIBLE_PROJECT_TYPES: readonly ProjectType[] = MAPS_UI_ENABLED
+	? [...PROJECT_TYPES, 'map']
+	: PROJECT_TYPES
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
+	map: 'Map',
 	addon: 'Addon',
 	resource_pack: 'Resource Pack',
 }
 
 export const PROJECT_TYPE_PLURAL_LABELS: Record<ProjectType, string> = {
+	map: 'Maps',
 	addon: 'Addons',
 	resource_pack: 'Resource Packs',
 }
@@ -33,6 +41,12 @@ export const PROJECT_ARTIFACT_POLICIES: Record<
 	ProjectType,
 	ProjectArtifactPolicy
 > = {
+	map: {
+		accept: '.mcworld',
+		extensions: ['mcworld'],
+		maxFileSize: 512 * MEBIBYTE,
+		requirement: 'One .mcworld file, up to 512 MiB.',
+	},
 	addon: {
 		accept: '.mcaddon',
 		extensions: ['mcaddon'],
@@ -51,6 +65,12 @@ export const PROJECT_RELEASE_POLICIES: Record<
 	ProjectType,
 	ProjectReleasePolicy
 > = {
+	map: {
+		allowChangelog: true,
+		displayVersion: true,
+		requireCreatorVersion: true,
+		requireGameVersions: true,
+	},
 	addon: {
 		allowChangelog: true,
 		displayVersion: true,

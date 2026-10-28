@@ -11,6 +11,14 @@ import { isApprovedRelease, isPublicRelease } from '../../lib/projectReleases'
 import { syncProject } from '../../lib/discovery'
 import { cdnR2, uploadsR2 } from '../../lib/r2'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
+import { mapValidationReport } from '../../schemas/mapReleases'
+import { mapValidationReportSchema } from '../../../lib/map-validation-report'
+import {
+	mapReleaseMetadataSchema,
+	mapReleaseObservationIssues,
+} from '../../../lib/map-release-metadata'
+import { buildProjectUploadR2ObjectKey } from '../../lib/r2Keys'
+import { readMapValidatorResult } from '../../../lib/map-validator-result'
 
 const MAX_SUPPORTED_GAME_VERSIONS = 200
 
@@ -72,17 +80,28 @@ export const getVersionForValidation = internalQuery({
 
 export const markValidating = internalMutation({
 	args: { versionId: v.id('projectVersions') },
+	returns: v.union(
+		v.object({ attempts: v.number(), token: v.string() }),
+		v.null(),
+	),
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.versionId)
-		if (!version || version.validationStatus === 'valid') return null
+		if (
+			!version ||
+			version.validationStatus === 'valid' ||
+			version.deletionRequestedAt
+		)
+			return null
 		const attempts = (version.validationAttempts ?? 0) + 1
+		const token = crypto.randomUUID()
 		await ctx.db.patch(version._id, {
 			validationStatus: 'validating',
 			validationAttempts: attempts,
+			validationToken: token,
 			validationCode: undefined,
 			validationError: undefined,
 		})
-		return attempts
+		return { attempts, token }
 	},
 })
 
@@ -105,7 +124,10 @@ export async function updateProjectReleaseSummary(
 		.withIndex('by_project', (q) => q.eq('projectId', projectId))
 		.order('desc')
 		.collect()
-	const versions = allVersions.filter(isPublicRelease)
+	const ownerProject = await ctx.db.get(projectId)
+	const versions = allVersions.filter((release) =>
+		isPublicRelease(release, ownerProject?.type),
+	)
 	const latest = versions[0]
 	await ctx.db.patch(projectId, {
 		latestVersionId: latest?._id,
@@ -129,18 +151,50 @@ export const applyValidationResult = internalMutation({
 		error: v.optional(v.string()),
 		report: v.optional(validationReport),
 		deleteArtifact: v.boolean(),
+		token: v.optional(v.string()),
+		mapReport: v.optional(mapValidationReport),
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.versionId)
-		if (!version) return
+		if (
+			!version ||
+			version.deletionRequestedAt ||
+			(args.token !== undefined &&
+				(version.validationToken !== args.token ||
+					version.validationStatus !== 'validating'))
+		)
+			return null
+		const project = await ctx.db.get(version.projectId)
+		if (project?.type === 'map') {
+			if (!args.token || version.validationToken !== args.token)
+				return null
+			if (args.status === 'valid') {
+				const metadata = mapReleaseMetadataSchema.parse(
+					version.releaseMetadata,
+				)
+				const report = mapValidationReportSchema.parse(args.mapReport)
+				if (
+					!version.sealedR2Key ||
+					report.sourceEtag !== version.sealedEtag ||
+					report.fileSize !== version.fileSize
+				)
+					throw new Error('Maps artifact identity mismatch')
+				if (mapReleaseObservationIssues(metadata, report).length)
+					throw new Error('Maps artifact requirements mismatch')
+			}
+		}
 		await ctx.db.patch(version._id, {
 			validationStatus: args.status,
 			validationCode: args.code,
 			validationError: args.error,
 			validationReport: args.report,
+			mapValidationReport: args.mapReport,
 			validatedAt: Date.now(),
 		})
 		if (args.deleteArtifact) {
+			if (version.stagingR2Key)
+				await uploadsR2.deleteObject(ctx, version.stagingR2Key)
 			if (version.uploadR2Key) {
 				await uploadsR2.deleteObject(ctx, version.uploadR2Key)
 			} else {
@@ -148,6 +202,63 @@ export const applyValidationResult = internalMutation({
 			}
 		}
 		await updateProjectReleaseSummary(ctx, version.projectId)
+		return null
+	},
+})
+
+export const reserveSeal = internalMutation({
+	args: { versionId: v.id('projectVersions'), token: v.string() },
+	returns: v.union(v.string(), v.null()),
+	handler: async (ctx, args) => {
+		const release = await ctx.db.get(args.versionId)
+		if (
+			!release ||
+			release.deletionRequestedAt ||
+			release.validationToken !== args.token ||
+			release.artifactType !== 'map'
+		)
+			return null
+		const key = buildProjectUploadR2ObjectKey({
+			projectId: release.projectId,
+			releaseId: release._id,
+			artifactId: `sealed-${args.token}`,
+			fileName: release.fileName,
+		})
+		if (release.sealedR2Key === key) return null
+		await ctx.db.patch(release._id, {
+			sealedR2Key: key,
+			sealedEtag: undefined,
+			stagingR2Key: release.stagingR2Key ?? release.uploadR2Key,
+		})
+		return key
+	},
+})
+
+export const recordSeal = internalMutation({
+	args: {
+		versionId: v.id('projectVersions'),
+		token: v.string(),
+		key: v.string(),
+		etag: v.string(),
+	},
+	returns: v.boolean(),
+	handler: async (ctx, args) => {
+		const release = await ctx.db.get(args.versionId)
+		if (
+			!release ||
+			release.deletionRequestedAt ||
+			release.validationStatus !== 'validating' ||
+			release.sealedEtag ||
+			release.validationToken !== args.token ||
+			release.sealedR2Key !== args.key
+		)
+			return false
+		await ctx.db.patch(release._id, {
+			sealedEtag: args.etag,
+			uploadR2Key: args.key,
+			r2Key: args.key,
+		})
+		return true
 	},
 })
 
@@ -160,14 +271,17 @@ export const getVersionForPromotion = internalQuery({
 			version.validationStatus !== 'valid' ||
 			!isApprovedRelease(version) ||
 			version.deletionRequestedAt
-		) return null
+		)
+			return null
 		const project = await ctx.db.get(version.projectId)
 		if (
 			!project ||
 			project.status !== 'published' ||
 			project.moderationStatus !== 'approved'
-		) return null
-		if (version.cdnR2Key) return null
+		)
+			return null
+		if (!isPublicRelease(version, project.type) || version.cdnR2Key)
+			return null
 		return { project, version }
 	},
 })
@@ -187,6 +301,7 @@ export const finalizePromotion = internalMutation({
 		versionId: v.id('projectVersions'),
 		uploadKey: v.string(),
 		cdnKey: v.string(),
+		sourceEtag: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.versionId)
@@ -200,7 +315,23 @@ export const finalizePromotion = internalMutation({
 			await uploadsR2.deleteObject(ctx, args.uploadKey)
 			return
 		}
-		if (version.validationStatus !== 'valid') {
+		const project = await ctx.db.get(version.projectId)
+		if (
+			project?.type === 'map' &&
+			(version.sealedEtag !== args.sourceEtag ||
+				version.sealedR2Key !== args.uploadKey)
+		) {
+			if (version.cdnR2Key !== args.cdnKey)
+				await cdnR2.deleteObject(ctx, args.cdnKey)
+			return
+		}
+		if (
+			!project ||
+			version.validationStatus !== 'valid' ||
+			project.status !== 'published' ||
+			project.moderationStatus !== 'approved' ||
+			!isPublicRelease(version, project.type)
+		) {
 			await cdnR2.deleteObject(ctx, args.cdnKey)
 			return
 		}
@@ -210,7 +341,8 @@ export const finalizePromotion = internalMutation({
 			cdnR2Key: args.cdnKey,
 			publishedAt: version.publishedAt ?? Date.now(),
 		})
-		await uploadsR2.deleteObject(ctx, args.uploadKey)
+		if (project.type !== 'map')
+			await uploadsR2.deleteObject(ctx, args.uploadKey)
 	},
 })
 
@@ -223,6 +355,13 @@ export const finalizeDemotion = internalMutation({
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.versionId)
 		if (!version || version.cdnR2Key !== args.cdnKey) return
+		const project = await ctx.db.get(version.projectId)
+		if (
+			project?.status === 'published' &&
+			project.moderationStatus === 'approved' &&
+			isPublicRelease(version, project.type)
+		)
+			return
 		await ctx.db.patch(version._id, {
 			r2Key: args.uploadKey,
 			uploadR2Key: args.uploadKey,
@@ -236,48 +375,108 @@ export const finalizeDemotion = internalMutation({
 export const validateVersion = internalAction({
 	args: { versionId: v.id('projectVersions') },
 	handler: async (ctx, args) => {
-		const attempts = await ctx.runMutation(
+		const attempt = await ctx.runMutation(
 			internal.functions.projects.artifactValidation.markValidating,
 			args,
 		)
-		if (attempts === null) return
+		if (attempt === null) return
+		const { attempts, token } = attempt
 
 		const data = (await ctx.runQuery(
-			internal.functions.projects.artifactValidation.getVersionForValidation,
+			internal.functions.projects.artifactValidation
+				.getVersionForValidation,
 			args,
-		)) as { project: Doc<'projects'>; version: Doc<'projectVersions'> } | null
+		)) as {
+			project: Doc<'projects'>
+			version: Doc<'projectVersions'>
+		} | null
 		if (!data) return
 
 		try {
 			const config = getValidatorConfig()
-			const sourceKey = data.version.uploadR2Key ?? data.version.r2Key
+			const sealed =
+				data.project.type === 'map'
+					? await ctx.runAction(
+							internal.functions.projects.artifactDelivery
+								.sealVersion,
+							{ versionId: args.versionId, token },
+						)
+					: null
+			if (data.project.type === 'map' && !sealed) return
+			const sourceKey =
+				sealed?.key ?? data.version.uploadR2Key ?? data.version.r2Key
 			const source = data.version.uploadR2Key ? uploadsR2 : cdnR2
 			const downloadUrl = await source.getUrl(sourceKey, {
 				expiresIn: VALIDATION_URL_EXPIRES_IN,
 			})
-			const response = await fetch(config.url, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-API-Key': config.apiKey,
+			const response = await fetch(
+				data.project.type === 'map' ? `${config.url}/maps` : config.url,
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-API-Key': config.apiKey,
+					},
+					body: JSON.stringify({
+						type: normalizeProjectType(data.project.type),
+						fileName: data.version.fileName,
+						fileSize: data.version.fileSize,
+						downloadUrl,
+						...(sealed ? { sourceEtag: sealed.etag } : {}),
+					}),
+					signal: AbortSignal.timeout(120_000),
 				},
-				body: JSON.stringify({
-					type: normalizeProjectType(data.project.type),
-					fileName: data.version.fileName,
-					fileSize: data.version.fileSize,
-					downloadUrl,
-				}),
-				signal: AbortSignal.timeout(120_000),
-			})
+			)
 			if (!response.ok) {
 				throw new Error(`Validator returned HTTP ${response.status}`)
 			}
-			const result = (await response.json()) as ValidatorResult
-			if (result.valid && result.report) {
+			const result: ValidatorResult =
+				data.project.type === 'map'
+					? await readMapValidatorResult(response)
+					: await response.json()
+			if (data.project.type === 'map' && result.valid) {
+				const report = mapValidationReportSchema.parse(result.report)
+				const metadata = mapReleaseMetadataSchema.parse(
+					data.version.releaseMetadata,
+				)
+				const issues = mapReleaseObservationIssues(metadata, report)
+				if (issues.length) {
+					await ctx.runMutation(
+						internal.functions.projects.artifactValidation
+							.applyValidationResult,
+						{
+							versionId: args.versionId,
+							token,
+							status: 'invalid',
+							code: 'MAP_METADATA_MISMATCH',
+							error: issues
+								.map((issue) => issue.message)
+								.join(' '),
+							deleteArtifact: true,
+						},
+					)
+					return
+				}
 				await ctx.runMutation(
-					internal.functions.projects.artifactValidation.applyValidationResult,
+					internal.functions.projects.artifactValidation
+						.applyValidationResult,
 					{
 						versionId: args.versionId,
+						token,
+						status: 'valid',
+						mapReport: report,
+						deleteArtifact: false,
+					},
+				)
+				return
+			}
+			if (result.valid && result.report) {
+				await ctx.runMutation(
+					internal.functions.projects.artifactValidation
+						.applyValidationResult,
+					{
+						versionId: args.versionId,
+						token,
 						status: 'valid',
 						report: result.report,
 						deleteArtifact: false,
@@ -285,16 +484,19 @@ export const validateVersion = internalAction({
 				)
 				if (data.project.status === 'published') {
 					await ctx.runAction(
-						internal.functions.projects.artifactDelivery.promoteVersion,
+						internal.functions.projects.artifactDelivery
+							.promoteVersion,
 						args,
 					)
 				}
 				return
 			}
 			await ctx.runMutation(
-				internal.functions.projects.artifactValidation.applyValidationResult,
+				internal.functions.projects.artifactValidation
+					.applyValidationResult,
 				{
 					versionId: args.versionId,
+					token,
 					status: 'invalid',
 					code: result.code ?? 'INVALID_ARTIFACT',
 					error: result.error ?? 'The artifact failed validation',
@@ -302,18 +504,32 @@ export const validateVersion = internalAction({
 				},
 			)
 		} catch (error) {
+			const current = await ctx.runQuery(
+				internal.functions.projects.artifactValidation
+					.getVersionForValidation,
+				args,
+			)
+			if (
+				!current ||
+				current.version.deletionRequestedAt ||
+				current.version.validationToken !== token
+			)
+				return
 			if (attempts < MAX_VALIDATION_ATTEMPTS) {
 				await ctx.scheduler.runAfter(
 					30_000 * attempts,
-					internal.functions.projects.artifactValidation.validateVersion,
+					internal.functions.projects.artifactValidation
+						.validateVersion,
 					args,
 				)
 				return
 			}
 			await ctx.runMutation(
-				internal.functions.projects.artifactValidation.applyValidationResult,
+				internal.functions.projects.artifactValidation
+					.applyValidationResult,
 				{
 					versionId: args.versionId,
+					token,
 					status: 'invalid',
 					code: 'VALIDATOR_UNAVAILABLE',
 					error:

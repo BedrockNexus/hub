@@ -39,6 +39,10 @@ import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { contentEditHref } from '@/lib/content-routes'
 import {
+	MAP_GAME_VERSION_PATTERN,
+	MAP_RELEASE_DEFAULTS,
+} from '@/lib/map-release-metadata'
+import {
 	getProjectArtifactPolicy,
 	getProjectReleasePolicy,
 	normalizeProjectType,
@@ -49,6 +53,7 @@ import {
 	VERSION_FORM_DEFAULTS,
 	type VersionFormData,
 } from '@/lib/schemas/projects'
+import { MapReleaseFields } from './map-release-fields'
 
 interface AddVersionFormProps {
 	projectId: Id<'projects'>
@@ -69,16 +74,22 @@ export function AddVersionForm({
 	const normalizedProjectType = normalizeProjectType(projectType)
 	const releasePolicy = getProjectReleasePolicy(normalizedProjectType)
 
+	const form = useForm<VersionFormData>({
+		resolver: zodResolver(createVersionFormSchema(normalizedProjectType)),
+		defaultValues: {
+			...VERSION_FORM_DEFAULTS,
+			...(normalizedProjectType === 'map'
+				? { releaseMetadata: structuredClone(MAP_RELEASE_DEFAULTS) }
+				: {}),
+		},
+	})
 	const {
 		control,
 		handleSubmit,
 		setValue,
 		watch,
 		formState: { errors, isDirty },
-	} = useForm<VersionFormData>({
-		resolver: zodResolver(createVersionFormSchema(normalizedProjectType)),
-		defaultValues: VERSION_FORM_DEFAULTS,
-	})
+	} = form
 
 	const versionValue = watch('version')
 	const uploadId = watch('uploadId')
@@ -101,6 +112,9 @@ export function AddVersionForm({
 					: undefined,
 				uploadId: data.uploadId as Id<'projectArtifactUploads'>,
 				gameVersions,
+				...(normalizedProjectType === 'map'
+					? { releaseMetadata: data.releaseMetadata }
+					: {}),
 			})
 			if (!result.ok) {
 				throw new Error(result.error)
@@ -197,12 +211,18 @@ export function AddVersionForm({
 						control={control}
 						name="gameVersions"
 						render={({ field, fieldState }) => {
-							const options = (activeGameVersions ?? []).map(
-								(gv: { version: string }) => ({
+							const options = (activeGameVersions ?? [])
+								.filter(
+									(gv) =>
+										normalizedProjectType !== 'map' ||
+										MAP_GAME_VERSION_PATTERN.test(
+											gv.version,
+										),
+								)
+								.map((gv: { version: string }) => ({
 									label: gv.version,
 									value: gv.version,
-								}),
-							)
+								}))
 							return (
 								<Field data-invalid={fieldState.invalid}>
 									<FieldLabel>
@@ -271,6 +291,9 @@ export function AddVersionForm({
 					/>
 				) : null}
 
+				{normalizedProjectType === 'map' ? (
+					<MapReleaseFields disabled={isSubmitting} form={form} />
+				) : null}
 				{releasePolicy.allowChangelog ? (
 					<Controller
 						control={control}
@@ -323,7 +346,9 @@ export function AddVersionForm({
 								className="size-4"
 								icon={CheckmarkCircle02Icon}
 							/>
-							Publish Release
+							{normalizedProjectType === 'map'
+								? 'Save release for review'
+								: 'Publish Release'}
 						</>
 					)}
 				</Button>

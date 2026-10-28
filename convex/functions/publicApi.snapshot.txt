@@ -6,6 +6,7 @@ action   functions/plugins/publishing/actions:getReviewDownloadUrl
 action   functions/plugins/publishing/actions:installWorkflow
 action   functions/plugins/publishing/actions:startFromRepository
 action   functions/plugins/publishing/actions:syncBuilds
+action   functions/projects/artifactDelivery:completeUpload
 action   functions/projects/artifactDelivery:remove
 action   functions/servers/software:confirmLogoUpload
 action   functions/servers/status:refreshStatus

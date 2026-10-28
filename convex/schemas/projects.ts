@@ -1,11 +1,13 @@
 import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
+import { mapReleaseMetadata, mapValidationReport } from './mapReleases'
 
 // =============================================================================
 // PROJECT TYPE
 // =============================================================================
 
 export const projectType = v.union(
+	v.literal('map'),
 	v.literal('addon'),
 	v.literal('resource_pack'),
 	// Remove after functions/projects/migrations:migrateTexturePacks is run.
@@ -47,6 +49,7 @@ export const projectMetadata = v.union(
 
 // Stored types after normalization; see normalizeProjectType.
 export const projectDiscoveryType = v.union(
+	v.literal('map'),
 	v.literal('addon'),
 	v.literal('resource_pack'),
 )
@@ -214,6 +217,13 @@ export const tables = {
 		fileName: v.string(),
 		fileSize: v.number(),
 		artifactId: v.optional(v.string()),
+		artifactType: v.optional(v.literal('map')),
+		releaseMetadata: v.optional(mapReleaseMetadata),
+		mapValidationReport: v.optional(mapValidationReport),
+		sealedR2Key: v.optional(v.string()),
+		stagingR2Key: v.optional(v.string()),
+		sealedEtag: v.optional(v.string()),
+		validationToken: v.optional(v.string()),
 		validationStatus: v.optional(
 			v.union(
 				v.literal('pending'),

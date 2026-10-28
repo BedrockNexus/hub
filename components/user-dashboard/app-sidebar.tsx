@@ -23,6 +23,7 @@ import { SidebarSocialsNav } from '@/components/sidebar/sidebar-socials-nav'
 import { Sidebar, SidebarContent, SidebarHeader } from '@/components/ui/sidebar'
 import { DashboardOrganizationSwitcher } from '@/components/user-dashboard/organizations/dashboard-organization-switcher'
 import { api } from '@/convex/_generated/api'
+import { MAPS_UI_ENABLED } from '@/lib/maps-feature'
 
 const PLUGINS_URL = '/dashboard/plugins'
 
@@ -36,6 +37,9 @@ const data = {
 		},
 	],
 	navManage: [
+		...(MAPS_UI_ENABLED
+			? [{ title: 'Maps', url: '/dashboard/maps', icon: PuzzleIcon }]
+			: []),
 		{
 			title: 'Servers',
 			url: '/dashboard/servers',

@@ -1,6 +1,7 @@
 import { projectFormSchema } from './schemas/projects'
 
 interface SubmissionDetails {
+	type?: string
 	name: string
 	summary: string
 	description: string
@@ -35,10 +36,15 @@ export function projectSubmissionChecklist(project: SubmissionDetails) {
 			).success,
 		},
 		{
-			label: 'At least one category',
+			label:
+				project.type === 'map'
+					? 'One to three map categories'
+					: 'At least one category',
 			section: '/categories',
 			required: true,
-			complete: project.categoryIds.length > 0,
+			complete:
+				project.categoryIds.length > 0 &&
+				(project.type !== 'map' || project.categoryIds.length <= 3),
 		},
 		{
 			label: 'Validated release eligible for review',
@@ -47,10 +53,16 @@ export function projectSubmissionChecklist(project: SubmissionDetails) {
 			complete: project.hasValidatedRelease,
 		},
 		{
-			label: 'Content details and requirements',
-			section: '',
-			required: false,
-			complete: !!project.metadata,
+			label:
+				project.type === 'map'
+					? 'Gameplay and requirements saved with a validated release'
+					: 'Content details and requirements',
+			section: project.type === 'map' ? '/versions' : '',
+			required: project.type === 'map',
+			complete:
+				project.type === 'map'
+					? project.hasValidatedRelease
+					: !!project.metadata,
 		},
 		{
 			label: 'Listing icon',

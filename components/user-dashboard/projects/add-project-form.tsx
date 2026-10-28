@@ -204,7 +204,9 @@ export function AddProjectForm({ type }: { type: ProjectType }) {
 				summary: data.summary,
 				description: data.description,
 				categoryIds: data.categoryIds as Id<'projectCategories'>[],
-				metadata: projectMetadataFromForm(data),
+				...(data.type === 'map'
+					? {}
+					: { metadata: projectMetadataFromForm(data) }),
 				sourceUrl: data.sourceUrl || undefined,
 				websiteUrl: data.websiteUrl || undefined,
 				issueTrackerUrl: data.issueTrackerUrl || undefined,

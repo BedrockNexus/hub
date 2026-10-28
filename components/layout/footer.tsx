@@ -8,6 +8,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { MAPS_UI_ENABLED } from '@/lib/maps-feature'
 import { legalNavigation, pluginsNavigation, siteConfig } from '@/lib/site'
 
 interface FooterProps {
@@ -38,6 +39,7 @@ function footerColumns(
 				{ href: '/servers', label: 'Servers' },
 				{ href: '/addons', label: 'Addons' },
 				{ href: '/resource-packs', label: 'Resource Packs' },
+				...(MAPS_UI_ENABLED ? [{ href: '/maps', label: 'Maps' }] : []),
 				{ href: '/trending', label: 'Trending' },
 				{ href: '/picks', label: 'Picks' },
 				{ href: '/creators', label: 'Creators' },
@@ -54,6 +56,9 @@ function footerColumns(
 			links: [
 				{ href: '/dashboard/servers/add', label: 'List a server' },
 				{ href: '/dashboard/addons/add', label: 'Publish an addon' },
+				...(MAPS_UI_ENABLED
+					? [{ href: '/dashboard/maps/add', label: 'Publish a map' }]
+					: []),
 				{
 					href: '/dashboard/resource-packs/add',
 					label: 'Publish a resource pack',

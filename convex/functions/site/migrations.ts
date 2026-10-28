@@ -282,7 +282,7 @@ export const backfillDiscovery = internalMutation({
 					.withIndex('by_project', (q) => q.eq('projectId', project._id))
 					.order('desc')
 					.collect()
-				const versions = supportedGameVersions(releases.filter(isPublicRelease))
+				const versions = supportedGameVersions(releases.filter(release => isPublicRelease(release, project.type)))
 				if (versions.join('\n') !== (project.supportedGameVersions ?? []).join('\n')) {
 					await ctx.db.patch(project._id, { supportedGameVersions: versions })
 				}

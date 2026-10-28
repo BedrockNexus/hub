@@ -13,12 +13,23 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
 import type { UserButtonLink } from '@/components/ba-ui/user/user-button'
 import { api } from '@/convex/_generated/api'
+import { MAPS_UI_ENABLED } from '@/lib/maps-feature'
 
 function linkIcon(icon: typeof UserIcon) {
 	return <HugeiconsIcon className="text-muted-foreground" icon={icon} />
 }
 
 const ACCOUNT_LINKS: (UserButtonLink & { pluginsOnly?: boolean })[] = [
+	...(MAPS_UI_ENABLED
+		? [
+				{
+					label: 'Maps',
+					href: '/dashboard/maps',
+					icon: linkIcon(Package01Icon),
+					visibility: 'authenticated' as const,
+				},
+			]
+		: []),
 	{
 		label: 'Profile',
 		href: '/dashboard/settings/profile',

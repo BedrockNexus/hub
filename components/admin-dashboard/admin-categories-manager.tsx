@@ -70,9 +70,9 @@ import type { Id } from '@/convex/_generated/dataModel'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
-	PROJECT_TYPES,
 	type ProjectType,
 	type StoredProjectType,
+	VISIBLE_PROJECT_TYPES,
 } from '@/lib/project-artifacts'
 import { AdminPageHeader } from './admin-page-header'
 
@@ -363,7 +363,7 @@ function CategoryCreateDialog({
 									</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
-									{PROJECT_TYPES.map((type) => (
+									{VISIBLE_PROJECT_TYPES.map((type) => (
 										<SelectItem key={type} value={type}>
 											{PROJECT_TYPE_LABELS[type]}
 										</SelectItem>

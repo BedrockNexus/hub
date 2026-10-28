@@ -7,6 +7,8 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
+import { MapReleaseDetails } from '@/components/projects/detail/map-release-details'
+import { MapValidationSummary } from '@/components/projects/detail/map-validation-summary'
 import { ProjectTypeDetailsCard } from '@/components/projects/detail/project-type-details-card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -211,13 +213,26 @@ export function ProjectSubmissionReview({ id }: { id: Id<'projects'> }) {
 									</p>
 									<p className="text-muted-foreground">
 										Validation:{' '}
-										{version.validationStatus ?? 'valid'} ·
-										Review:{' '}
-										{version.reviewStatus ?? 'approved'} ·
-										Bedrock:{' '}
+										{version.validationStatus ??
+											(project.type === 'map'
+												? 'pending'
+												: 'valid')}{' '}
+										· Review:{' '}
+										{version.reviewStatus ??
+											(project.type === 'map'
+												? 'pending'
+												: 'approved')}{' '}
+										· Bedrock:{' '}
 										{version.gameVersions?.join(', ') ||
 											'Not specified'}
 									</p>
+									<MapReleaseDetails
+										metadata={version.releaseMetadata}
+										version={version.version}
+									/>
+									<MapValidationSummary
+										report={version.mapValidationReport}
+									/>
 									{version.validationError ||
 									version.reviewReason ? (
 										<p className="text-destructive">

@@ -5,9 +5,9 @@ import {
 
 /** Public content types have separate routes while retaining their existing IDs. */
 export function contentDirectory(type: StoredProjectType) {
-	return normalizeProjectType(type) === 'addon'
-		? '/addons'
-		: '/resource-packs'
+	return { addon: '/addons', resource_pack: '/resource-packs', map: '/maps' }[
+		normalizeProjectType(type)
+	]
 }
 
 export function contentHref(type: StoredProjectType, slug: string) {
@@ -32,7 +32,7 @@ export function legacyDirectoryHref(
 	const type = Array.isArray(search.type) ? search.type[0] : search.type
 	const isResourcePack = type === 'resource_pack' || type === 'texture_pack'
 	const resolvedType = isResourcePack ? 'resource_pack' : 'addon'
-	const base = `${dashboard ? '/dashboard' : ''}${contentDirectory(resolvedType)}`
+	const base = `${dashboard ? '/dashboard' : ''}${contentDirectory(type === 'map' ? 'map' : resolvedType)}`
 	return withContentSearch(base, search, ['type'])
 }
 

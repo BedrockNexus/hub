@@ -5,6 +5,12 @@ const { fetchQuery, fetchAuthQuery, getSiteSeo } = vi.hoisted(() => ({
 	fetchAuthQuery: vi.fn(),
 	getSiteSeo: vi.fn(),
 }))
+const mapsFeature = vi.hoisted(() => ({ enabled: false }))
+vi.mock('@/lib/maps-feature', () => ({
+	get MAPS_UI_ENABLED() {
+		return mapsFeature.enabled
+	},
+}))
 
 vi.mock('convex/nextjs', () => ({ fetchQuery }))
 vi.mock('@/lib/auth-server', () => ({ fetchAuthQuery }))
@@ -48,7 +54,11 @@ vi.mock(
 	() => ({ AddVersionForm: () => null }),
 )
 
+import MapPublicPage, {
+	generateMetadata as mapMetadata,
+} from '../app/(public)/maps/[slug]/[[...section]]/page'
 import LegacyPublicPage from '../app/(public)/projects/[slug]/[[...section]]/page'
+import MapSettingsPage from '../app/dashboard/maps/[id]/[[...section]]/page'
 import LegacySettingsPage from '../app/dashboard/projects/[id]/[[...section]]/page'
 import {
 	ContentPage,
@@ -66,10 +76,68 @@ const project = {
 }
 
 beforeEach(() => {
+	mapsFeature.enabled = false
 	vi.resetAllMocks()
 	fetchQuery.mockResolvedValue(project)
 	fetchAuthQuery.mockResolvedValue(project)
 	getSiteSeo.mockResolvedValue({})
+})
+
+describe('gated Maps pages', () => {
+	it('returns not found before fetching content when the UI switch is off', () => {
+		const publicProps = { params: Promise.resolve({ slug: 'example' }) }
+		expect(() => MapPublicPage(publicProps)).toThrow()
+		expect(() => mapMetadata(publicProps)).toThrow()
+		expect(() =>
+			MapSettingsPage({ params: Promise.resolve({ id: 'existing-id' }) }),
+		).toThrow()
+		expect(fetchQuery).not.toHaveBeenCalled()
+		expect(fetchAuthQuery).not.toHaveBeenCalled()
+	})
+	it('uses Maps canonicals and the shared stored-type fence when enabled', async () => {
+		mapsFeature.enabled = true
+		fetchQuery.mockResolvedValue({ ...project, type: 'map' })
+		const metadata = await mapMetadata({
+			params: Promise.resolve({ slug: 'example', section: ['gallery'] }),
+		})
+		expect(metadata.alternates?.canonical).toBe(
+			'https://bedrocknexus.com/maps/example/gallery',
+		)
+		fetchQuery.mockResolvedValue(project)
+		await expect(
+			ContentPage({
+				params: Promise.resolve({ slug: 'example' }),
+				type: 'map',
+			}),
+		).rejects.toThrow()
+	})
+	it('retains owner and stored-type checks on Maps settings', async () => {
+		mapsFeature.enabled = true
+		fetchAuthQuery.mockResolvedValue(null)
+		await expect(
+			ContentSettingsPage({
+				params: Promise.resolve({ id: 'existing-id' }),
+				type: 'map',
+			}),
+		).rejects.toThrow()
+		fetchAuthQuery.mockResolvedValue(project)
+		await expect(
+			ContentSettingsPage({
+				params: Promise.resolve({ id: 'existing-id' }),
+				type: 'map',
+			}),
+		).rejects.toThrow()
+		fetchAuthQuery.mockResolvedValue({ ...project, type: 'map' })
+		expect(
+			await ContentSettingsPage({
+				params: Promise.resolve({
+					id: 'existing-id',
+					section: ['review'],
+				}),
+				type: 'map',
+			}),
+		).toBeTruthy()
+	})
 })
 
 describe('typed public content routes', () => {

@@ -1,4 +1,4 @@
-﻿import { ConvexError, v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
@@ -78,12 +78,15 @@ async function resolveProjectIconUrl(
 }
 
 async function assertCategoriesMatchProjectType(
-	ctx: MutationCtx,
+	ctx: MutationCtx | QueryCtx,
 	categoryIds: Id<'projectCategories'>[],
 	type: StoredProjectType,
 ) {
 	const categories = await Promise.all(categoryIds.map((id) => ctx.db.get(id)))
 	const normalizedType = normalizeProjectType(type)
+	if (type === 'map' && (categoryIds.length < 1 || categoryIds.length > 3 || new Set(categoryIds).size !== categoryIds.length || categories.some(category => !category?.isActive))) {
+		throw new Error('Maps require 1-3 unique active map categories')
+	}
 
 	if (
 		categories.some(
@@ -210,11 +213,12 @@ async function projectHasVersion(
 	ctx: QueryCtx | MutationCtx,
 	projectId: Id<'projects'>,
 ) {
+	const project = await ctx.db.get(projectId)
 	const versions = ctx.db
 		.query('projectVersions')
 		.withIndex('by_project', (q) => q.eq('projectId', projectId))
 	for await (const version of versions) {
-		if (isValidatedRelease(version) && version.reviewStatus !== 'rejected') {
+		if (isValidatedRelease(version, project?.type) && version.reviewStatus !== 'rejected') {
 			return true
 		}
 	}
@@ -225,6 +229,10 @@ async function assertProjectHasVersion(
 	ctx: QueryCtx | MutationCtx,
 	projectId: Id<'projects'>,
 ) {
+	const project = await ctx.db.get(projectId)
+	if (project?.type === 'map') {
+		await assertCategoriesMatchProjectType(ctx, project.categoryIds, project.type)
+	}
 	if (!(await projectHasVersion(ctx, projectId))) {
 		throw new Error(
 			'Upload and validate at least one version file before this project can be submitted or published',
@@ -256,6 +264,8 @@ async function deleteProjectFiles(ctx: MutationCtx, project: Doc<'projects'>) {
 		.withIndex('by_project', (q) => q.eq('projectId', project._id))
 		.collect()
 	for (const version of versions) {
+		if (version.sealedR2Key) await uploadsR2.deleteObject(ctx, version.sealedR2Key)
+		if (version.stagingR2Key) await uploadsR2.deleteObject(ctx, version.stagingR2Key)
 		if (version.uploadR2Key) {
 			await uploadsR2.deleteObject(ctx, version.uploadR2Key)
 		}
@@ -334,7 +344,7 @@ async function enrichProjectDetail(ctx: QueryCtx, item: Doc<'projects'>) {
 		.take(50)
 	const latestVersion = recentVersions.find(
 		(release) =>
-			isPublicRelease(release) && Boolean(getPublishedReleaseKey(release)),
+			isPublicRelease(release, item.type) && Boolean(getPublishedReleaseKey(release)),
 	)
 
 	let ownerData:
@@ -406,6 +416,8 @@ async function enrichProjectDetail(ctx: QueryCtx, item: Doc<'projects'>) {
 					version: latestVersion.version,
 					createdAt: latestVersion.createdAt,
 					gameVersions: latestVersion.gameVersions,
+					releaseMetadata: latestVersion.releaseMetadata,
+					sha256: latestVersion.mapValidationReport?.sha256,
 					fileName: latestVersion.fileName,
 					fileSize: latestVersion.fileSize,
 					validationReport: latestVersion.validationReport,
@@ -595,6 +607,8 @@ export const getForEdit = query({
 						version: latestVersion.version,
 						createdAt: latestVersion.createdAt,
 						gameVersions: latestVersion.gameVersions,
+					releaseMetadata: latestVersion.releaseMetadata,
+					sha256: latestVersion.mapValidationReport?.sha256,
 					}
 				: null,
 			hasValidatedRelease: await projectHasVersion(ctx, item._id),
@@ -763,6 +777,7 @@ export const create = mutation({
 			throw new Error('You must be logged in to create a project')
 		}
 		validateProjectFields(args)
+		if (args.type === 'map' && process.env.MAPS_PUBLISHING_ENABLED !== 'true') throw new ConvexError('Maps creation is not enabled yet')
 
 		const ownerType = args.ownerType
 		const ownerId = ownerType === 'user' ? user._id : args.ownerId
@@ -865,6 +880,7 @@ export const update = mutation({
 			throw new Error('You do not have permission to edit this project')
 		}
 		validateProjectFields(args)
+		if (args.type === 'map' && process.env.MAPS_PUBLISHING_ENABLED !== 'true') throw new ConvexError('Maps creation is not enabled yet')
 
 		const now = Date.now()
 		const {
@@ -906,6 +922,9 @@ export const update = mutation({
 		}
 
 		const nextType = args.type ?? item.type
+		if (nextType !== item.type && (nextType === 'map' || item.type === 'map')) {
+			throw new ConvexError('Maps content type cannot be changed')
+		}
 		const nextCategoryIds = args.categoryIds ?? item.categoryIds
 		await assertCategoriesMatchProjectType(ctx, nextCategoryIds, nextType)
 		assertMetadataMatchesProjectType(nextType, args.metadata ?? item.metadata)
@@ -1202,7 +1221,7 @@ export const adminUpdate = adminMutation({
 				.withIndex('by_project', (q) => q.eq('projectId', item._id))
 				.collect()
 			for (const release of pendingReleases) {
-				if (release.reviewStatus === 'pending' && isValidatedRelease(release)) {
+				if (release.reviewStatus === 'pending' && isValidatedRelease(release, item.type)) {
 					await ctx.db.patch(release._id, {
 						reviewStatus: 'approved',
 						reviewedAt: now,

@@ -73,6 +73,15 @@ export function ProjectTypeFields({
 		name: 'addonDependencies',
 	})
 
+	if (type === 'map') {
+		return (
+			<p className="text-muted-foreground text-sm">
+				Player counts, gameplay, setup and bundled packs are saved with
+				each map release.
+			</p>
+		)
+	}
+
 	if (type === 'addon') {
 		return (
 			<div className="space-y-4">

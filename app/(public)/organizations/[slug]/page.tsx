@@ -13,7 +13,7 @@ import { api } from '@/convex/_generated/api'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_PLURAL_LABELS,
-	PROJECT_TYPES,
+	VISIBLE_PROJECT_TYPES,
 } from '@/lib/project-artifacts'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
 import { siteConfig } from '@/lib/site'
@@ -175,7 +175,7 @@ export default async function OrganizationPage({
 								</div>
 							</section>
 						) : null}
-						{PROJECT_TYPES.map((type) => {
+						{VISIBLE_PROJECT_TYPES.map((type) => {
 							const items = organization.projects.filter(
 								(item) =>
 									normalizeProjectType(item.type) === type,

@@ -31,6 +31,7 @@ import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
 } from '@/lib/project-artifacts'
+import { MapReleaseDetails } from './map-release-details'
 
 export type ProjectDetailTab =
 	| 'description'
@@ -48,9 +49,9 @@ function formatBytes(bytes: number) {
 		return `${bytes} B`
 	}
 	if (bytes < 1024 * 1024) {
-		return `${(bytes / 1024).toFixed(0)} KB`
+		return `${(bytes / 1024).toFixed(0)} KiB`
 	}
-	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
 }
 
 function DetailSkeleton() {
@@ -268,7 +269,13 @@ export function ProjectDetailShell({
 				>
 					<HugeiconsIcon icon={ArrowLeft02Icon} />
 					Browse{' '}
-					{expectedType === 'addon' ? 'addons' : 'resource packs'}
+					{
+						{
+							addon: 'addons',
+							resource_pack: 'resource packs',
+							map: 'maps',
+						}[expectedType]
+					}
 				</Link>
 			</main>
 		)
@@ -318,7 +325,16 @@ export function ProjectDetailShell({
 					/>
 				)
 			default:
-				return <ProjectAbout description={content.description} />
+				return (
+					<div className="space-y-6">
+						<ProjectAbout description={content.description} />
+						<MapReleaseDetails
+							metadata={latestRelease?.releaseMetadata}
+							sha256={latestRelease?.sha256}
+							version={latestRelease?.version}
+						/>
+					</div>
+				)
 		}
 	})()
 

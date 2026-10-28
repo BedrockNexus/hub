@@ -6,6 +6,7 @@ import {
 	ServerStack01Icon,
 	Wifi01Icon,
 } from '@hugeicons/core-free-icons'
+import { MAPS_UI_ENABLED } from './maps-feature'
 
 export const siteConfig = {
 	name: 'BedrockNexus',
@@ -22,6 +23,9 @@ export const homeNavigation = {
 } as const
 
 export const publicNavigation = [
+	...(MAPS_UI_ENABLED
+		? [{ href: '/maps', label: 'Maps', icon: Package01Icon }]
+		: []),
 	{
 		href: '/servers',
 		label: 'Servers',
