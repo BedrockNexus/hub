@@ -4,8 +4,6 @@ import { usePaginatedQuery } from 'convex-helpers/react'
 import Link from 'next/link'
 import {
 	parseAsArrayOf,
-	parseAsBoolean,
-	parseAsInteger,
 	parseAsString,
 	parseAsStringLiteral,
 	useQueryStates,
@@ -19,6 +17,7 @@ import {
 	AdvancedServerSearch,
 	INITIAL_SERVER_FILTERS,
 	SERVER_SORTS,
+	SERVER_STATUSES,
 	type ServerSearchFilters,
 } from '@/components/servers/advanced-server-search'
 import {
@@ -37,12 +36,12 @@ const urlFilters = {
 	q: parseAsString.withDefault(''),
 	sort: parseAsStringLiteral(SERVER_SORTS).withDefault('players'),
 	category: parseAsArrayOf(parseAsString).withDefault([]),
-	region: parseAsString,
-	online: parseAsBoolean.withDefault(false),
-	verified: parseAsBoolean.withDefault(false),
+	region: parseAsArrayOf(parseAsString).withDefault([]),
+	status: parseAsArrayOf(parseAsStringLiteral(SERVER_STATUSES)).withDefault(
+		[],
+	),
+	version: parseAsArrayOf(parseAsString).withDefault([]),
 	software: parseAsString,
-	version: parseAsString,
-	players: parseAsInteger.withDefault(0),
 }
 
 function ServersDirectory() {
@@ -55,12 +54,10 @@ function ServersDirectory() {
 			query: url.q,
 			sort: url.sort,
 			categories: url.category,
-			region: url.region,
-			onlineOnly: url.online,
-			verifiedOnly: url.verified,
+			regions: url.region,
+			status: url.status,
+			gameVersions: url.version,
 			software: url.software,
-			gameVersion: url.version,
-			minPlayers: Math.max(0, url.players),
 		}),
 		[url],
 	)
@@ -72,12 +69,10 @@ function ServersDirectory() {
 				q: next.query,
 				sort: next.sort,
 				category: next.categories,
-				region: next.region,
-				online: next.onlineOnly,
-				verified: next.verifiedOnly,
+				region: next.regions,
+				status: next.status,
+				version: next.gameVersions,
 				software: next.software,
-				version: next.gameVersion,
-				players: next.minPlayers,
 			})
 		},
 		[setUrl],
@@ -90,12 +85,13 @@ function ServersDirectory() {
 			sort: filters.sort,
 			categories:
 				filters.categories.length > 0 ? filters.categories : undefined,
-			region: filters.region ?? undefined,
-			onlineOnly: filters.onlineOnly || undefined,
-			verifiedOnly: filters.verifiedOnly || undefined,
+			regions: filters.regions.length > 0 ? filters.regions : undefined,
+			status: filters.status.length > 0 ? filters.status : undefined,
+			gameVersions:
+				filters.gameVersions.length > 0
+					? filters.gameVersions
+					: undefined,
 			software: filters.software ?? undefined,
-			gameVersion: filters.gameVersion ?? undefined,
-			minPlayers: filters.minPlayers || undefined,
 		},
 		{ initialNumItems: PAGE_SIZE },
 	)

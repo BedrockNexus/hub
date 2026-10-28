@@ -463,7 +463,6 @@ async function enrichServerDetail(ctx: QueryCtx, server: Doc<'servers'>) {
 		online: status?.online,
 		playerCount: status?.playerCount ?? 0,
 		maxPlayers: status?.maxPlayers,
-		verified: server.verifiedAt !== undefined,
 		// Declared by the owner; a status ping cannot confirm it.
 		software: software ? { name: software.name, slug: software.slug } : null,
 		owner: ownerData,

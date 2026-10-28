@@ -113,16 +113,21 @@ describe('server listing', () => {
 
 		// Most players is the default; offline servers come last.
 		expect(await slugs(t)).toEqual(['busy', 'quiet', 'down'])
-		expect(await slugs(t, { onlineOnly: true })).toEqual(['busy', 'quiet'])
-		expect(await slugs(t, { minPlayers: 100 })).toEqual(['busy'])
+		expect(await slugs(t, { status: ['online'] })).toEqual(['busy', 'quiet'])
+		expect(await slugs(t, { status: ['offline'] })).toEqual(['down'])
+		expect(await slugs(t, { status: ['online', 'offline'] })).toEqual([
+			'busy',
+			'quiet',
+			'down',
+		])
 		const [busiest] = (await browse(t)).page
 		expect(busiest).toMatchObject({
 			slug: 'busy',
 			online: true,
 			playerCount: 240,
 			maxPlayers: 500,
-			verified: false,
 		})
+		expect(busiest).not.toHaveProperty('verified')
 	})
 
 	it('orders by trending, rating, newest and saves', async () => {
@@ -171,13 +176,16 @@ describe('server listing', () => {
 			'brand-new',
 		])
 		expect((await slugs(t)).sort()).toEqual(['old-favourite', 'rising'])
-		expect(await slugs(t, { sort: 'newest', onlineOnly: true })).toEqual([
+		expect(await slugs(t, { sort: 'newest', status: ['online'] })).toEqual([
 			'rising',
 			'old-favourite',
 		])
+		expect(await slugs(t, { sort: 'newest', status: ['offline'] })).toEqual([
+			'brand-new',
+		])
 	})
 
-	it('combines gamemode, region, software, version and verified filters', async () => {
+	it('combines gamemode, region, software, version and status filters', async () => {
 		const t = createTest()
 		const skyblock = await addCategory(t, 'skyblock')
 		const pvp = await addCategory(t, 'pvp')
@@ -216,19 +224,29 @@ describe('server listing', () => {
 			'arena',
 			'islands',
 		])
-		expect(await found({ region: 'Europe' })).toEqual(['islands'])
+		expect(await found({ regions: ['Europe'] })).toEqual(['islands'])
+		expect(await found({ regions: ['Europe', 'North America'] })).toEqual([
+			'arena',
+			'islands',
+		])
 		expect(await found({ software: 'pocketmine-mp' })).toEqual(['islands'])
 		expect(await found({ software: 'no-such-software' })).toEqual([])
-		expect(await found({ gameVersion: '1.21.70' })).toEqual(['arena'])
-		expect(await found({ verifiedOnly: true })).toEqual(['islands'])
+		expect(await found({ gameVersions: ['1.21.70'] })).toEqual(['arena'])
 		expect(
-			await found({ sort: 'newest', region: 'Europe', minPlayers: 50 }),
+			await found({ gameVersions: ['1.21.70', '1.21.80'] }),
+		).toEqual(['arena', 'islands'])
+		expect(
+			await found({
+				sort: 'newest',
+				regions: ['Europe'],
+				status: ['offline'],
+			}),
 		).toEqual([])
 		expect(
 			await found({
 				sort: 'rating',
 				categories: ['pvp'],
-				minPlayers: 50,
+				status: ['online'],
 			}),
 		).toEqual(['arena'])
 	})
@@ -292,7 +310,7 @@ describe('server listing', () => {
 		expect(await found('nukkit')).toEqual(['cloud'])
 		expect(await found('asia')).toEqual(['cloud'])
 		expect(await found('economy', { software: 'nukkit' })).toEqual(['cloud'])
-		expect(await found('economy', { minPlayers: 50 })).toEqual([])
+		expect(await found('economy', { status: ['offline'] })).toEqual([])
 		expect(await found('nothing-like-this')).toEqual([])
 	})
 })

@@ -23,6 +23,13 @@ type RegistrySort = 'relevance' | 'latest' | 'rating'
 function first(value: string | string[] | undefined) {
 	return Array.isArray(value) ? value[0] : value
 }
+/** A comma-separated list, as the filters write it; unknown values dropped. */
+function list(value: string | string[] | undefined, known: Set<string>) {
+	const values = (Array.isArray(value) ? value : [value ?? ''])
+		.flatMap((item) => item.split(','))
+		.filter((item) => known.has(item))
+	return [...new Set(values)]
+}
 
 export default async function ExplorePage({
 	searchParams,
@@ -31,8 +38,6 @@ export default async function ExplorePage({
 }) {
 	const params = await searchParams
 	const search = first(params.q)?.trim().slice(0, 100) || undefined
-	const requestedSoftware = first(params.software)
-	const requestedCategory = first(params.category)
 	const requestedSort = first(params.sort)
 	const cursor = first(params.cursor) || null
 	const [allSoftware, categories] = await Promise.all([
@@ -40,16 +45,14 @@ export default async function ExplorePage({
 		fetchQuery(api.functions.plugins.categories.list, {}),
 	])
 	const software = allSoftware.filter((item) => item.supportsPlugins)
-	const categorySlug = categories.some(
-		(item) => item.slug === requestedCategory,
+	const categorySlugs = list(
+		params.category,
+		new Set(categories.map((item) => item.slug)),
 	)
-		? requestedCategory
-		: undefined
-	const softwareSlug = software.some(
-		(item) => item.slug === requestedSoftware,
+	const softwareSlugs = list(
+		params.software,
+		new Set(software.map((item) => item.slug)),
 	)
-		? requestedSoftware
-		: undefined
 	const sort: RegistrySort = search
 		? 'relevance'
 		: requestedSort === 'rating'
@@ -58,8 +61,8 @@ export default async function ExplorePage({
 	const queryArgs = {
 		paginationOpts: { numItems: 20, cursor },
 		search,
-		softwareSlug,
-		categorySlug,
+		softwareSlugs,
+		categorySlugs,
 		sort,
 	}
 	const result = await fetchQuery(
@@ -78,11 +81,11 @@ export default async function ExplorePage({
 	if (search) {
 		filters.set('q', search)
 	}
-	if (softwareSlug) {
-		filters.set('software', softwareSlug)
+	if (softwareSlugs.length) {
+		filters.set('software', softwareSlugs.join(','))
 	}
-	if (categorySlug) {
-		filters.set('category', categorySlug)
+	if (categorySlugs.length) {
+		filters.set('category', categorySlugs.join(','))
 	}
 	if (requestedSort === 'rating') {
 		filters.set('sort', 'rating')
@@ -93,7 +96,11 @@ export default async function ExplorePage({
 	if (!result.isDone) {
 		filters.set('cursor', result.continueCursor)
 	}
-	const hasFilters = !!(search || softwareSlug || categorySlug)
+	const hasFilters = !!(
+		search ||
+		softwareSlugs.length ||
+		categorySlugs.length
+	)
 	return (
 		<ListingLayout
 			action={

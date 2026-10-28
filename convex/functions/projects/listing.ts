@@ -2,7 +2,6 @@ import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { stream } from 'convex-helpers/server/stream'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
-import { normalizeTags } from '../../../lib/tags'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { type QueryCtx, query } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
@@ -29,7 +28,7 @@ const MAX_PAGE_SIZE = 48
 const MAX_ROWS_PER_PAGE = 400
 const MAX_QUERY_LENGTH = 100
 const MAX_CATEGORY_FILTERS = 20
-const MAX_TAG_FILTERS = 5
+const MAX_VALUE_FILTERS = 20
 const ICON_URL_EXPIRES_IN = 60 * 60 * 24 * 7
 
 const sortValidator = v.union(
@@ -64,73 +63,40 @@ const filterArgs = {
 	// Any of these categories. Plain strings because they arrive from the
 	// page URL; anything that is not a category ID is ignored.
 	categoryIds: v.optional(v.array(v.string())),
-	experimentalFeaturesRequired: v.optional(v.boolean()),
-	resourcePackResolution: v.optional(
-		v.union(
-			v.literal('8x'),
-			v.literal('16x'),
-			v.literal('32x'),
-			v.literal('64x'),
-			v.literal('128x'),
-			v.literal('256x'),
-			v.literal('512x'),
-			v.literal('custom'),
+	// Any of these resource pack resolutions.
+	resourcePackResolutions: v.optional(
+		v.array(
+			v.union(
+				v.literal('8x'),
+				v.literal('16x'),
+				v.literal('32x'),
+				v.literal('64x'),
+				v.literal('128x'),
+				v.literal('256x'),
+				v.literal('512x'),
+				v.literal('custom'),
+			),
 		),
 	),
-	resourcePackContentType: v.optional(
-		v.union(
-			v.literal('textures'),
-			v.literal('ui'),
-			v.literal('sounds'),
-			v.literal('shaders'),
-		),
-	),
-	// A Minecraft version some public release supports, e.g. "1.21.80".
-	gameVersion: v.optional(v.string()),
-	// Every tag must be present.
-	tags: v.optional(v.array(v.string())),
-	// Last release at or after this time. The client passes it (rounded, so
-	// results stay cacheable) because queries must not read the clock.
-	updatedAfter: v.optional(v.number()),
+	// Any of these Minecraft versions some public release supports,
+	// e.g. "1.21.80".
+	gameVersions: v.optional(v.array(v.string())),
 }
 
 interface Filters {
 	type?: Doc<'projectStats'>['type']
 	categoryIds: Id<'projectCategories'>[]
-	experimentalFeaturesRequired?: boolean
-	resourcePackResolution?: string
-	resourcePackContentType?: string
-	gameVersion?: string
-	tags: string[]
-	updatedAfter?: number
+	resourcePackResolutions: string[]
+	gameVersions: string[]
 }
 
 function matchesMetadata(project: Doc<'projects'>, filters: Filters) {
 	const metadata = project.metadata
-	if (
-		filters.experimentalFeaturesRequired !== undefined &&
-		(metadata?.type !== 'addon' ||
-			metadata.experimentalFeaturesRequired !==
-				filters.experimentalFeaturesRequired)
-	) {
-		return false
-	}
-	if (
-		filters.resourcePackResolution &&
-		(metadata?.type !== 'resource_pack' ||
-			metadata.resolution !== filters.resourcePackResolution)
-	) {
-		return false
-	}
-	const contentType = filters.resourcePackContentType
-	if (
-		contentType &&
-		(metadata?.type !== 'resource_pack' ||
-			!metadata.contentTypes.some((item) => item === contentType))
-	) {
-		return false
-	}
-	return true
+	return (
+		filters.resourcePackResolutions.length === 0 ||
+		(metadata?.type === 'resource_pack' &&
+			filters.resourcePackResolutions.includes(metadata.resolution))
+	)
 }
 
 /** Everything the listing checks on the project itself. */
@@ -148,17 +114,10 @@ function matchesFilters(project: Doc<'projects'>, filters: Filters) {
 		return false
 	}
 	if (
-		filters.gameVersion &&
-		!project.supportedGameVersions?.includes(filters.gameVersion)
-	) {
-		return false
-	}
-	if (!filters.tags.every((tag) => project.tags?.includes(tag))) {
-		return false
-	}
-	if (
-		filters.updatedAfter !== undefined &&
-		(project.latestVersionAt ?? 0) < filters.updatedAfter
+		filters.gameVersions.length > 0 &&
+		!filters.gameVersions.some((version) =>
+			project.supportedGameVersions?.includes(version),
+		)
 	) {
 		return false
 	}
@@ -228,12 +187,16 @@ export const browse = query({
 					const id = ctx.db.normalizeId('projectCategories', value)
 					return id ? [id] : []
 				}),
-			experimentalFeaturesRequired: args.experimentalFeaturesRequired,
-			resourcePackResolution: args.resourcePackResolution,
-			resourcePackContentType: args.resourcePackContentType,
-			gameVersion: args.gameVersion?.trim() || undefined,
-			tags: normalizeTags(args.tags ?? []).slice(0, MAX_TAG_FILTERS),
-			updatedAfter: args.updatedAfter,
+			resourcePackResolutions: [
+				...new Set(args.resourcePackResolutions ?? []),
+			],
+			gameVersions: [
+				...new Set(
+					(args.gameVersions ?? [])
+						.map((version) => version.trim())
+						.filter(Boolean),
+				),
+			].slice(0, MAX_VALUE_FILTERS),
 		}
 		const text = args.query?.trim().slice(0, MAX_QUERY_LENGTH)
 

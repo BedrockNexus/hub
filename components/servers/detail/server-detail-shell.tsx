@@ -33,7 +33,6 @@ import {
 	RatingLabel,
 	ServerStatusLabel,
 	TagChip,
-	VerifiedMark,
 } from '@/components/servers/server-bits'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -113,12 +112,6 @@ function ServerHero({ server, status, online }: ServerPartProps) {
 							<h1 className="font-bold text-[clamp(2rem,4vw,3rem)] leading-none">
 								{server.name}
 							</h1>
-							{server.verified ? (
-								<span className="inline-flex items-center gap-1.5 rounded-sm border border-ember px-2 py-0.5 font-semibold text-[13px] text-ember-text">
-									<VerifiedMark className="[&_svg]:size-3.5" />
-									Verified owner
-								</span>
-							) : null}
 						</div>
 						{server.smallDescription ? (
 							<p className="text-[17px] text-muted-foreground">

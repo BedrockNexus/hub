@@ -1018,10 +1018,10 @@ describe('plugin icons and links', () => {
 		await expect(save([retired])).rejects.toThrow('no longer available')
 		await save([economy, chat])
 
-		const explore = (categorySlug: string) =>
+		const explore = (...categorySlugs: string[]) =>
 			t.query(api.functions.plugins.catalog.explore, {
 				paginationOpts: { cursor: null, numItems: 10 },
-				categorySlug,
+				categorySlugs,
 				sort: 'latest',
 			})
 		const economyPage = await explore('economy')
@@ -1034,6 +1034,10 @@ describe('plugin icons and links', () => {
 		])
 		expect((await explore('tools')).page).toEqual([])
 		expect((await explore('retired')).page).toEqual([])
+		// Any of several categories.
+		expect(
+			(await explore('tools', 'chat')).page.map((plugin) => plugin.slug),
+		).toEqual([foundation.slug])
 	})
 })
 

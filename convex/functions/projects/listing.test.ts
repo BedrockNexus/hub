@@ -188,7 +188,7 @@ describe('project listing', () => {
 		expect(slugs[slugs.length - 1]).toBe('pack-00')
 	})
 
-	it('combines type, category, version, tag, date and detail filters', async () => {
+	it('combines type, category, version and resolution filters', async () => {
 		const t = createTest()
 		const magic = await addCategory(t, 'Magic')
 		const tech = await addCategory(t, 'Tech')
@@ -234,31 +234,24 @@ describe('project listing', () => {
 			'machines',
 			'wands',
 		])
-		expect(await found({ gameVersion: '1.21.80' })).toEqual([
+		expect(await found({ gameVersions: ['1.21.80'] })).toEqual([
 			'faithful',
 			'wands',
 		])
-		// Tags are normalized, and every one must be present.
-		expect(await found({ tags: ['Survival'] })).toEqual([
+		expect(await found({ gameVersions: ['1.21.70', '1.21.80'] })).toEqual([
+			'faithful',
 			'machines',
 			'wands',
 		])
-		expect(await found({ tags: ['survival', 'spells'] })).toEqual(['wands'])
-		expect(await found({ updatedAfter: 4000 })).toEqual([
+		expect(await found({ resourcePackResolutions: ['32x'] })).toEqual([
 			'faithful',
-			'wands',
-		])
-		expect(await found({ experimentalFeaturesRequired: true })).toEqual([
-			'wands',
 		])
 		expect(
-			await found({
-				resourcePackResolution: '32x',
-				resourcePackContentType: 'ui',
-			}),
+			await found({ resourcePackResolutions: ['16x', '32x'] }),
 		).toEqual(['faithful'])
+		expect(await found({ resourcePackResolutions: ['16x'] })).toEqual([])
 		expect(
-			await found({ gameVersion: '1.21.80', categoryIds: [tech] }),
+			await found({ gameVersions: ['1.21.80'], categoryIds: [tech] }),
 		).toEqual([])
 	})
 
@@ -317,8 +310,8 @@ describe('project listing', () => {
 		expect(await found('decor')).toEqual(['cozy'])
 		expect(await found('furniture')).toEqual(['cozy'])
 		expect(await found('dragon')).toEqual(['dragons'])
-		expect(await found('lamps', { gameVersion: '1.21.70' })).toEqual([])
-		expect(await found('lamps', { gameVersion: '1.21.80' })).toEqual([
+		expect(await found('lamps', { gameVersions: ['1.21.70'] })).toEqual([])
+		expect(await found('lamps', { gameVersions: ['1.21.80'] })).toEqual([
 			'cozy',
 		])
 		expect(await found('nothing-like-this')).toEqual([])

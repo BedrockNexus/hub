@@ -28,6 +28,7 @@ const MAX_PAGE_SIZE = 48
 const MAX_ROWS_PER_PAGE = 300
 const MAX_QUERY_LENGTH = 100
 const MAX_CATEGORY_FILTERS = 20
+const MAX_VALUE_FILTERS = 20
 const IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
 
 const sortValidator = v.union(
@@ -45,14 +46,15 @@ const STATS_SORT_INDEX = {
 	saved: 'by_isPublic_and_favouriteCount',
 } as const
 
+const statusValidator = v.union(v.literal('online'), v.literal('offline'))
+
 interface Filters {
 	categoryIds: Id<'serverCategories'>[]
-	region?: string
-	onlineOnly: boolean
-	verifiedOnly: boolean
+	regions: string[]
+	// Online or offline; empty, or both, keeps every server.
+	online?: boolean
 	softwareId?: Id<'serverSoftware'>
-	gameVersion?: string
-	minPlayers: number
+	gameVersions: string[]
 }
 
 interface Row {
@@ -72,26 +74,36 @@ function matchesFilters({ server, status }: Row, filters: Filters) {
 	) {
 		return false
 	}
-	if (filters.region && server.region !== filters.region) {
-		return false
-	}
-	if (filters.verifiedOnly && server.verifiedAt === undefined) {
+	if (
+		filters.regions.length > 0 &&
+		!(server.region && filters.regions.includes(server.region))
+	) {
 		return false
 	}
 	if (filters.softwareId && server.softwareId !== filters.softwareId) {
 		return false
 	}
 	if (
-		filters.gameVersion &&
-		!server.gameVersions?.includes(filters.gameVersion)
+		filters.gameVersions.length > 0 &&
+		!filters.gameVersions.some((version) =>
+			server.gameVersions?.includes(version),
+		)
 	) {
 		return false
 	}
-	const isOnline = status?.online === true
-	if ((filters.onlineOnly || filters.minPlayers > 0) && !isOnline) {
-		return false
-	}
-	return (status?.playerCount ?? 0) >= filters.minPlayers
+	return (
+		filters.online === undefined ||
+		(status?.online === true) === filters.online
+	)
+}
+
+/** Distinct, trimmed values from the page URL. */
+function cleanValues(values: string[] | undefined) {
+	return [
+		...new Set(
+			(values ?? []).map((value) => value.trim()).filter(Boolean),
+		),
+	].slice(0, MAX_VALUE_FILTERS)
 }
 
 export async function statsOf(ctx: QueryCtx, serverId: Id<'servers'>) {
@@ -138,7 +150,6 @@ export async function toCards(ctx: QueryCtx, rows: Row[]) {
 			online: status?.online,
 			playerCount: status?.playerCount ?? 0,
 			maxPlayers: status?.maxPlayers,
-			verified: server.verifiedAt !== undefined,
 			averageRating: stats?.averageRating ?? 0,
 			reviewCount: stats?.reviewCount ?? 0,
 			favouriteCount: stats?.favouriteCount ?? 0,
@@ -166,15 +177,15 @@ export const browse = query({
 		sort: v.optional(sortValidator),
 		// Any of these gamemodes, by slug.
 		categories: v.optional(v.array(v.string())),
-		region: v.optional(v.string()),
-		onlineOnly: v.optional(v.boolean()),
-		verifiedOnly: v.optional(v.boolean()),
+		// Any of these regions.
+		regions: v.optional(v.array(v.string())),
+		// Any of these live statuses.
+		status: v.optional(v.array(statusValidator)),
 		// Server software slug, as declared by the owner.
 		software: v.optional(v.string()),
-		// A Minecraft version the owner lists as supported, e.g. "1.21.80".
-		gameVersion: v.optional(v.string()),
-		// At least this many players online right now.
-		minPlayers: v.optional(v.number()),
+		// Any of these Minecraft versions the owner lists as supported,
+		// e.g. "1.21.80".
+		gameVersions: v.optional(v.array(v.string())),
 	},
 	handler: async (ctx, args) => {
 		const paginationOpts = {
@@ -195,14 +206,13 @@ export const browse = query({
 			// Nothing can declare software that does not exist.
 			return { page: [], isDone: true, continueCursor: '' }
 		}
+		const status = new Set(args.status ?? [])
 		const filters: Filters = {
 			categoryIds: await categoryIdsFor(ctx, args.categories ?? []),
-			region: args.region?.trim() || undefined,
-			onlineOnly: args.onlineOnly === true,
-			verifiedOnly: args.verifiedOnly === true,
+			regions: cleanValues(args.regions),
+			online: status.size === 1 ? status.has('online') : undefined,
 			softwareId: software?._id,
-			gameVersion: args.gameVersion?.trim() || undefined,
-			minPlayers: Math.max(0, Math.floor(args.minPlayers ?? 0)),
+			gameVersions: cleanValues(args.gameVersions),
 		}
 		const keep = (row: Row) => (matchesFilters(row, filters) ? row : null)
 		const text = args.query?.trim().slice(0, MAX_QUERY_LENGTH)
@@ -240,17 +250,14 @@ export const browse = query({
 		const limits = { ...paginationOpts, maximumRowsRead: MAX_ROWS_PER_PAGE }
 
 		if (sort === 'players') {
-			const { minPlayers, onlineOnly } = filters
+			const { online } = filters
 			const result = await stream(ctx.db, schema)
 				.query('serverStatus')
 				.withIndex('by_isPublic_and_online_and_playerCount', (q) => {
 					const listed = q.eq('isPublic', true)
-					if (minPlayers > 0) {
-						return listed
-							.eq('online', true)
-							.gte('playerCount', minPlayers)
-					}
-					return onlineOnly ? listed.eq('online', true) : listed
+					return online === undefined
+						? listed
+						: listed.eq('online', online)
 				})
 				.order('desc')
 				.map(async (status): Promise<Row | null> => {

@@ -157,6 +157,7 @@ async function hydrateProjectPage(
 }
 
 const CATEGORY_SCAN_LIMIT = 500
+const MAX_SLUG_FILTERS = 20
 
 const sortValidator = v.union(
 	v.literal('relevance'),
@@ -164,37 +165,61 @@ const sortValidator = v.union(
 	v.literal('rating'),
 )
 
+/** Distinct slugs from the page URL, capped. */
+function cleanSlugs(slugs: string[] | undefined) {
+	return [...new Set((slugs ?? []).map((slug) => slug.trim()))]
+		.filter(Boolean)
+		.slice(0, MAX_SLUG_FILTERS)
+}
+
 export const explore = query({
 	args: {
 		paginationOpts: paginationOptsValidator,
 		search: v.optional(v.string()),
-		softwareSlug: v.optional(v.string()),
-		categorySlug: v.optional(v.string()),
+		// Any of these server software, by slug.
+		softwareSlugs: v.optional(v.array(v.string())),
+		// Any of these categories, by slug.
+		categorySlugs: v.optional(v.array(v.string())),
 		sort: sortValidator,
 	},
 	returns: paginationResultValidator(projectCardValidator),
 	handler: async (ctx, args) => {
-		// A category narrows the newest published plugins in memory: plugins
-		// are few, and array membership cannot be indexed.
-		if (args.categorySlug) {
-			const category = await ctx.db
-				.query('pluginCategories')
-				.withIndex('by_slug', (q) =>
-					q.eq('slug', args.categorySlug as string),
-				)
-				.unique()
-			if (!category?.isActive) {
-				return { page: [], isDone: true, continueCursor: '' }
-			}
-			const term = args.search?.trim().toLowerCase()
-			const softwareFilter = args.softwareSlug
-				? await ctx.db
+		const empty = { page: [], isDone: true, continueCursor: '' }
+		const categorySlugs = cleanSlugs(args.categorySlugs)
+		const softwareSlugs = cleanSlugs(args.softwareSlugs)
+		const categories = (
+			await Promise.all(
+				categorySlugs.map((slug) =>
+					ctx.db
+						.query('pluginCategories')
+						.withIndex('by_slug', (q) => q.eq('slug', slug))
+						.unique(),
+				),
+			)
+		).flatMap((category) => (category?.isActive ? [category._id] : []))
+		const softwareIds = (
+			await Promise.all(
+				softwareSlugs.map((slug) =>
+					ctx.db
 						.query('serverSoftware')
-						.withIndex('by_slug', (q) =>
-							q.eq('slug', args.softwareSlug as string),
-						)
-						.unique()
-				: null
+						.withIndex('by_slug', (q) => q.eq('slug', slug))
+						.unique(),
+				),
+			)
+		).flatMap((software) => (software ? [software._id] : []))
+		// Nothing can match only categories or software that do not exist.
+		if (
+			(categorySlugs.length > 0 && categories.length === 0) ||
+			(softwareSlugs.length > 0 && softwareIds.length === 0)
+		) {
+			return empty
+		}
+
+		// Categories, or more than one software, narrow the newest published
+		// plugins in memory: plugins are few, and array membership cannot be
+		// indexed.
+		if (categories.length > 0 || softwareIds.length > 1) {
+			const term = args.search?.trim().toLowerCase()
 			const plugins = await ctx.db
 				.query('plugins')
 				.withIndex('by_visibility_and_status_and_updated_at', (index) =>
@@ -204,10 +229,17 @@ export const explore = query({
 				.take(CATEGORY_SCAN_LIMIT)
 			const matching = plugins.filter(
 				(plugin) =>
-					plugin.categoryIds?.includes(category._id) &&
-					(!softwareFilter || plugin.softwareId === softwareFilter._id) &&
+					(categories.length === 0 ||
+						categories.some((id) => plugin.categoryIds?.includes(id))) &&
+					(softwareIds.length === 0 ||
+						softwareIds.includes(plugin.softwareId)) &&
 					(!term || plugin.searchText.toLowerCase().includes(term)),
 			)
+			if (args.sort === 'rating') {
+				matching.sort(
+					(a, b) => b.ratingAverage - a.ratingAverage,
+				)
+			}
 			return {
 				page: await hydrateProjectPage(
 					ctx,
@@ -218,25 +250,10 @@ export const explore = query({
 			}
 		}
 		const search = args.search?.trim().slice(0, 100)
-		const software = args.softwareSlug
-			? await ctx.db
-					.query('serverSoftware')
-					.withIndex('by_slug', (index) =>
-						index.eq('slug', args.softwareSlug as string),
-					)
-					.unique()
-			: null
-
-		if (args.softwareSlug && !software) {
-			return {
-				page: [],
-				isDone: true,
-				continueCursor: '',
-			}
-		}
+		const [softwareId] = softwareIds
 
 		if (search) {
-			const result = software
+			const result = softwareId
 				? await ctx.db
 						.query('plugins')
 						.withSearchIndex('search_search_text', (index) =>
@@ -244,7 +261,7 @@ export const explore = query({
 								.search('searchText', search)
 								.eq('visibility', 'public')
 								.eq('status', 'published')
-								.eq('softwareId', software._id),
+								.eq('softwareId', softwareId),
 						)
 						.paginate(args.paginationOpts)
 				: await ctx.db
@@ -263,7 +280,7 @@ export const explore = query({
 			}
 		}
 
-		if (software) {
+		if (softwareId) {
 			if (args.sort === 'rating') {
 				const result = await ctx.db
 					.query('plugins')
@@ -273,7 +290,7 @@ export const explore = query({
 							index
 								.eq('visibility', 'public')
 								.eq('status', 'published')
-								.eq('softwareId', software._id),
+								.eq('softwareId', softwareId),
 					)
 					.order('desc')
 					.paginate(args.paginationOpts)
@@ -290,7 +307,7 @@ export const explore = query({
 						index
 							.eq('visibility', 'public')
 							.eq('status', 'published')
-							.eq('softwareId', software._id),
+							.eq('softwareId', softwareId),
 				)
 				.order('desc')
 				.paginate(args.paginationOpts)

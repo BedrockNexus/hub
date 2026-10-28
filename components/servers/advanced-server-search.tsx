@@ -3,13 +3,12 @@
 import { useQuery } from 'convex/react'
 import {
 	ActiveListingFilter,
+	ListingChipsCombobox,
+	ListingCombobox,
 	ListingFilters,
-	ListingMultiSelect,
-	ListingSelect,
 	ListingSort,
 } from '@/components/listings/listing-filters'
 import { ListingSearch } from '@/components/listings/listing-search'
-import { Button } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 
 export const SERVER_SORTS = [
@@ -20,26 +19,25 @@ export const SERVER_SORTS = [
 	'saved',
 ] as const
 export type SortOption = (typeof SERVER_SORTS)[number]
+export const SERVER_STATUSES = ['online', 'offline'] as const
+export type ServerStatusFilter = (typeof SERVER_STATUSES)[number]
 export interface ServerSearchFilters {
 	query: string
 	categories: string[]
-	region: string | null
-	onlineOnly: boolean
-	verifiedOnly: boolean
+	regions: string[]
+	status: ServerStatusFilter[]
+	gameVersions: string[]
+	// Only set by links such as /software/[slug]; there is no selector for it.
 	software: string | null
-	gameVersion: string | null
-	minPlayers: number
 	sort: SortOption
 }
 export const INITIAL_SERVER_FILTERS: ServerSearchFilters = {
 	query: '',
 	categories: [],
-	region: null,
-	onlineOnly: false,
-	verifiedOnly: false,
+	regions: [],
+	status: [],
+	gameVersions: [],
 	software: null,
-	gameVersion: null,
-	minPlayers: 0,
 	sort: 'players',
 }
 export const SERVER_SORT_OPTIONS: { value: SortOption; label: string }[] = [
@@ -49,7 +47,10 @@ export const SERVER_SORT_OPTIONS: { value: SortOption; label: string }[] = [
 	{ value: 'newest', label: 'Newest' },
 	{ value: 'saved', label: 'Most saved' },
 ]
-const ANY = 'all'
+const STATUS_OPTIONS: { value: ServerStatusFilter; label: string }[] = [
+	{ value: 'online', label: 'Online' },
+	{ value: 'offline', label: 'Offline' },
+]
 
 export function AdvancedServerSearch({
 	filters,
@@ -78,12 +79,10 @@ export function AdvancedServerSearch({
 	const active = !!(
 		filters.query ||
 		filters.categories.length ||
-		filters.region ||
-		filters.onlineOnly ||
-		filters.verifiedOnly ||
+		filters.regions.length ||
+		filters.status.length ||
+		filters.gameVersions.length ||
 		filters.software ||
-		filters.gameVersion ||
-		filters.minPlayers ||
 		filters.sort !== 'players'
 	)
 	return (
@@ -97,82 +96,39 @@ export function AdvancedServerSearch({
 				active={active}
 				onClear={() => onFiltersChange(INITIAL_SERVER_FILTERS)}
 			>
-				<ListingMultiSelect
+				<ListingChipsCombobox
 					label="Categories"
 					onChange={(value) => update('categories', value)}
 					options={(categories ?? []).map((item) => ({
 						value: item.slug,
 						label: item.name,
 					}))}
+					placeholder="Filter by category..."
 					values={filters.categories}
 				/>
-				<ListingSelect
+				<ListingCombobox
 					label="Minecraft version"
-					onChange={(value) =>
-						update('gameVersion', value === ANY ? null : value)
-					}
-					options={[
-						{ value: ANY, label: 'Any version' },
-						...versions.map((value) => ({ value, label: value })),
-					]}
-					value={filters.gameVersion ?? ANY}
+					onChange={(value) => update('gameVersions', value)}
+					options={versions.map((value) => ({ value, label: value }))}
+					values={filters.gameVersions}
 				/>
-				<ListingSelect
-					label="Server software"
-					onChange={(value) =>
-						update('software', value === ANY ? null : value)
-					}
-					options={[
-						{ value: ANY, label: 'Any software' },
-						...(software ?? []).map((item) => ({
-							value: item.slug,
-							label: item.name,
-						})),
-					]}
-					value={filters.software ?? ANY}
-				/>
-				<ListingSelect
+				<ListingCombobox
 					label="Region"
-					onChange={(value) =>
-						update('region', value === ANY ? null : value)
-					}
-					options={[
-						{ value: ANY, label: 'All regions' },
-						...(regions ?? []).map((value) => ({
-							value,
-							label: value,
-						})),
-					]}
-					value={filters.region ?? ANY}
-				/>
-				<ListingSelect
-					label="Players online"
-					onChange={(value) => update('minPlayers', Number(value))}
-					options={[0, 10, 50, 100, 500].map((value) => ({
-						value: String(value),
-						label: value
-							? `${value}+ players online`
-							: 'Any player count',
+					onChange={(value) => update('regions', value)}
+					options={(regions ?? []).map((value) => ({
+						value,
+						label: value,
 					}))}
-					value={String(filters.minPlayers)}
+					values={filters.regions}
 				/>
-				<Button
-					aria-pressed={filters.onlineOnly}
-					onClick={() => update('onlineOnly', !filters.onlineOnly)}
-					variant={filters.onlineOnly ? 'secondary' : 'outline'}
-				>
-					Online only
-				</Button>
-				<Button
-					aria-pressed={filters.verifiedOnly}
-					className="col-span-2 sm:col-span-1"
-					onClick={() =>
-						update('verifiedOnly', !filters.verifiedOnly)
+				<ListingCombobox
+					label="Status"
+					onChange={(value) =>
+						update('status', value as ServerStatusFilter[])
 					}
-					variant={filters.verifiedOnly ? 'secondary' : 'outline'}
-				>
-					Verified owners only
-				</Button>
+					options={STATUS_OPTIONS}
+					values={filters.status}
+				/>
 				<ListingSort
 					onChange={(value) => update('sort', value as SortOption)}
 					options={SERVER_SORT_OPTIONS}
@@ -180,28 +136,19 @@ export function AdvancedServerSearch({
 					value={filters.sort}
 				/>
 			</ListingFilters>
-			{filters.categories.length ? (
+			{filters.software ? (
 				<fieldset
 					aria-label="Active filters"
 					className="flex min-w-0 flex-wrap gap-2"
 				>
-					{filters.categories.map((slug) => (
-						<ActiveListingFilter
-							key={slug}
-							label={
-								categories?.find((item) => item.slug === slug)
-									?.name ?? slug
-							}
-							onRemove={() =>
-								update(
-									'categories',
-									filters.categories.filter(
-										(value) => value !== slug,
-									),
-								)
-							}
-						/>
-					))}
+					<ActiveListingFilter
+						label={
+							software?.find(
+								(item) => item.slug === filters.software,
+							)?.name ?? filters.software
+						}
+						onRemove={() => update('software', null)}
+					/>
 				</fieldset>
 			) : null}
 		</div>

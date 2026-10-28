@@ -144,7 +144,7 @@ describe('public registry catalog', () => {
 		const explored = await t.query(api.functions.plugins.catalog.explore, {
 			paginationOpts: { cursor: null, numItems: 12 },
 			search: 'trusted',
-			softwareSlug: 'powernukkitx',
+			softwareSlugs: ['powernukkitx'],
 			sort: 'relevance',
 		})
 		const project = await t.query(

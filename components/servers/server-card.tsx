@@ -7,7 +7,6 @@ import {
 	RatingLabel,
 	ServerStatusLabel,
 	TagChip,
-	VerifiedMark,
 } from '@/components/servers/server-bits'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -26,7 +25,6 @@ export interface ServerListItem {
 	online?: boolean
 	playerCount?: number
 	maxPlayers?: number
-	verified?: boolean
 	averageRating?: number
 	reviewCount?: number
 }
@@ -78,7 +76,6 @@ export function ServerCard({ server }: { server: ServerListItem }) {
 						<span className="truncate">
 							<CardLink server={server} />
 						</span>
-						{server.verified ? <VerifiedMark /> : null}
 					</h3>
 					{server.smallDescription ? (
 						<p className="line-clamp-2 text-muted-foreground text-sm">
@@ -138,7 +135,6 @@ export function ServerRow({
 					<span className="truncate">
 						<CardLink server={server} />
 					</span>
-					{server.verified ? <VerifiedMark /> : null}
 				</h3>
 				{tags.length > 0 ? (
 					<div className="flex flex-wrap gap-1.5">

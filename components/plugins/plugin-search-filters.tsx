@@ -1,12 +1,17 @@
 'use client'
 
-import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
+import {
+	parseAsArrayOf,
+	parseAsString,
+	parseAsStringLiteral,
+	useQueryStates,
+} from 'nuqs'
 import { useTransition } from 'react'
 import {
-	ActiveListingFilter,
+	ListingChipsCombobox,
+	ListingCombobox,
 	ListingFilters,
 	type ListingOption,
-	ListingSelect,
 	ListingSort,
 } from '@/components/listings/listing-filters'
 import { ListingSearch } from '@/components/listings/listing-search'
@@ -22,8 +27,8 @@ export function PluginSearchFilters({
 	const [filters, setFilters] = useQueryStates(
 		{
 			q: parseAsString.withDefault(''),
-			software: parseAsString.withDefault(''),
-			category: parseAsString.withDefault(''),
+			software: parseAsArrayOf(parseAsString).withDefault([]),
+			category: parseAsArrayOf(parseAsString).withDefault([]),
 			sort: parseAsStringLiteral([
 				'latest',
 				'rating',
@@ -32,16 +37,12 @@ export function PluginSearchFilters({
 		},
 		{ history: 'replace', shallow: false, scroll: false, startTransition },
 	)
-	const softwareValue = software.some(
-		(option) => option.value === filters.software,
-	)
-		? filters.software
-		: ''
-	const categoryValue = categories.some(
-		(option) => option.value === filters.category,
-	)
-		? filters.category
-		: ''
+	const known = (options: ListingOption[], values: string[]) =>
+		values.filter((value) =>
+			options.some((option) => option.value === value),
+		)
+	const softwareValues = known(software, filters.software)
+	const categoryValues = known(categories, filters.category)
 	const update = (next: Partial<typeof filters>) =>
 		setFilters({ ...next, cursor: null })
 	return (
@@ -56,8 +57,8 @@ export function PluginSearchFilters({
 				active={
 					!!(
 						filters.q ||
-						filters.software ||
-						filters.category ||
+						softwareValues.length ||
+						categoryValues.length ||
 						filters.sort !== 'latest'
 					)
 				}
@@ -65,33 +66,24 @@ export function PluginSearchFilters({
 				onClear={() =>
 					update({
 						q: '',
-						software: '',
-						category: '',
+						software: [],
+						category: [],
 						sort: 'latest',
 					})
 				}
 			>
-				<ListingSelect
+				<ListingChipsCombobox
 					label="Categories"
-					onChange={(category) =>
-						update({ category: category === 'all' ? '' : category })
-					}
-					options={[
-						{ value: 'all', label: 'All categories' },
-						...categories,
-					]}
-					value={categoryValue || 'all'}
+					onChange={(category) => update({ category })}
+					options={categories}
+					placeholder="Filter by category..."
+					values={categoryValues}
 				/>
-				<ListingSelect
+				<ListingCombobox
 					label="Server software"
-					onChange={(software) =>
-						update({ software: software === 'all' ? '' : software })
-					}
-					options={[
-						{ value: 'all', label: 'Any software' },
-						...software,
-					]}
-					value={softwareValue || 'all'}
+					onChange={(value) => update({ software: value })}
+					options={software}
+					values={softwareValues}
 				/>
 				<ListingSort
 					onChange={(sort) =>
@@ -105,33 +97,6 @@ export function PluginSearchFilters({
 					value={filters.sort}
 				/>
 			</ListingFilters>
-			{softwareValue || categoryValue ? (
-				<fieldset
-					aria-label="Active filters"
-					className="flex min-w-0 flex-wrap gap-2"
-				>
-					{softwareValue ? (
-						<ActiveListingFilter
-							label={
-								software.find(
-									(option) => option.value === softwareValue,
-								)?.label ?? softwareValue
-							}
-							onRemove={() => update({ software: '' })}
-						/>
-					) : null}
-					{categoryValue ? (
-						<ActiveListingFilter
-							label={
-								categories.find(
-									(option) => option.value === categoryValue,
-								)?.label ?? categoryValue
-							}
-							onRemove={() => update({ category: '' })}
-						/>
-					) : null}
-				</fieldset>
-			) : null}
 			<span aria-live="polite" className="sr-only">
 				{pending ? 'Updating plugin results' : ''}
 			</span>

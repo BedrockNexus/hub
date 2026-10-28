@@ -19,9 +19,7 @@ import {
 	AdvancedProjectSearch,
 	EMPTY_PROJECT_FILTERS,
 	PROJECT_SORTS,
-	PROJECT_UPDATED_FILTERS,
 	type ProjectSearchFilters,
-	type ProjectUpdatedFilter,
 } from '@/components/projects/advanced-project-search'
 import {
 	ProjectCard,
@@ -44,13 +42,9 @@ import {
 	PROJECT_TYPE_PLURAL_LABELS,
 	type ProjectType,
 } from '@/lib/project-artifacts'
-import {
-	RESOURCE_PACK_CONTENT_TYPES,
-	RESOURCE_PACK_RESOLUTIONS,
-} from '@/lib/project-metadata'
+import { RESOURCE_PACK_RESOLUTIONS } from '@/lib/project-metadata'
 
 const PAGE_SIZE = 24
-const DAY_MS = 24 * 60 * 60 * 1000
 
 const SKELETON_KEYS = [
 	'1',
@@ -72,31 +66,10 @@ const urlFilters = {
 	q: parseAsString.withDefault(''),
 	sort: parseAsStringLiteral(PROJECT_SORTS).withDefault('downloads'),
 	category: parseAsArrayOf(parseAsString).withDefault([]),
-	version: parseAsString.withDefault(''),
-	tag: parseAsArrayOf(parseAsString).withDefault([]),
-	updated: parseAsStringLiteral(PROJECT_UPDATED_FILTERS).withDefault('any'),
-	experiments: parseAsStringLiteral(['required', 'not_required'] as const),
-	resolution: parseAsStringLiteral(RESOURCE_PACK_RESOLUTIONS),
-	content: parseAsStringLiteral(RESOURCE_PACK_CONTENT_TYPES),
-}
-
-const UPDATED_WITHIN_DAYS: Record<
-	Exclude<ProjectUpdatedFilter, 'any'>,
-	number
-> = {
-	week: 7,
-	month: 30,
-	quarter: 90,
-	year: 365,
-}
-
-/** Start of a UTC day, so the value (and the cached query) holds all day. */
-function updatedAfter(filter: ProjectUpdatedFilter) {
-	if (filter === 'any') {
-		return
-	}
-	const today = Math.floor(Date.now() / DAY_MS) * DAY_MS
-	return today - UPDATED_WITHIN_DAYS[filter] * DAY_MS
+	version: parseAsArrayOf(parseAsString).withDefault([]),
+	resolution: parseAsArrayOf(
+		parseAsStringLiteral(RESOURCE_PACK_RESOLUTIONS),
+	).withDefault([]),
 }
 
 function ProjectsDirectory({ type }: { type: ProjectType }) {
@@ -113,15 +86,8 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 			type,
 			sort: url.sort,
 			categoryIds: url.category as ProjectSearchFilters['categoryIds'],
-			gameVersion: url.version,
-			tags: url.tag,
-			updated: url.updated,
-			addonExperiments:
-				type === 'addon' ? (url.experiments ?? 'all') : 'all',
-			resourcePackResolution:
-				type === 'resource_pack' ? (url.resolution ?? 'all') : 'all',
-			resourcePackContentType:
-				type === 'resource_pack' ? (url.content ?? 'all') : 'all',
+			gameVersions: url.version,
+			resolutions: type === 'resource_pack' ? url.resolution : [],
 		}),
 		[url, type],
 	)
@@ -133,21 +99,8 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 				q: next.query,
 				sort: next.sort,
 				category: next.categoryIds,
-				version: next.gameVersion,
-				tag: next.tags,
-				updated: next.updated,
-				experiments:
-					next.addonExperiments === 'all'
-						? null
-						: next.addonExperiments,
-				resolution:
-					next.resourcePackResolution === 'all'
-						? null
-						: next.resourcePackResolution,
-				content:
-					next.resourcePackContentType === 'all'
-						? null
-						: next.resourcePackContentType,
+				version: next.gameVersions,
+				resolution: next.resolutions,
 			})
 		},
 		[setUrl],
@@ -163,21 +116,14 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 				filters.categoryIds.length > 0
 					? filters.categoryIds
 					: undefined,
-			gameVersion: filters.gameVersion || undefined,
-			tags: filters.tags.length > 0 ? filters.tags : undefined,
-			updatedAfter: updatedAfter(filters.updated),
-			experimentalFeaturesRequired:
-				filters.addonExperiments === 'all'
-					? undefined
-					: filters.addonExperiments === 'required',
-			resourcePackResolution:
-				filters.resourcePackResolution === 'all'
-					? undefined
-					: filters.resourcePackResolution,
-			resourcePackContentType:
-				filters.resourcePackContentType === 'all'
-					? undefined
-					: filters.resourcePackContentType,
+			gameVersions:
+				filters.gameVersions.length > 0
+					? filters.gameVersions
+					: undefined,
+			resourcePackResolutions:
+				filters.resolutions.length > 0
+					? filters.resolutions
+					: undefined,
 		},
 		{ initialNumItems: PAGE_SIZE },
 	)

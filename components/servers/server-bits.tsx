@@ -1,8 +1,4 @@
-import {
-	SecurityCheckIcon,
-	StarIcon,
-	UserGroupIcon,
-} from '@hugeicons/core-free-icons'
+import { StarIcon, UserGroupIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
@@ -107,22 +103,6 @@ export function RatingLabel({
 			) : (
 				'No reviews'
 			)}
-		</span>
-	)
-}
-
-export function VerifiedMark({ className }: { className?: string }) {
-	return (
-		<span
-			className={cn('inline-flex text-ember-text', className)}
-			title="Ownership verified"
-		>
-			<HugeiconsIcon
-				aria-hidden
-				className="size-4.5"
-				icon={SecurityCheckIcon}
-			/>
-			<span className="sr-only">Verified owner</span>
 		</span>
 	)
 }
