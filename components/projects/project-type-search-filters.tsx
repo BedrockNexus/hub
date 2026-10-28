@@ -71,7 +71,10 @@ export function ProjectTypeSearchFilters({
 				}
 				value={filters.addonExperiments}
 			>
-				<SelectTrigger className="w-full sm:w-auto">
+				<SelectTrigger
+					aria-label="Experiments"
+					className="w-full sm:w-auto"
+				>
 					<SelectValue>
 						{addonExperimentsLabel(filters.addonExperiments)}
 					</SelectValue>
@@ -101,7 +104,10 @@ export function ProjectTypeSearchFilters({
 					}
 					value={filters.resourcePackResolution}
 				>
-					<SelectTrigger className="w-full sm:w-auto">
+					<SelectTrigger
+						aria-label="Resolution"
+						className="w-full sm:w-auto"
+					>
 						<SelectValue>
 							{filters.resourcePackResolution === 'all'
 								? 'Any resolution'
@@ -126,7 +132,10 @@ export function ProjectTypeSearchFilters({
 					}
 					value={filters.resourcePackContentType}
 				>
-					<SelectTrigger className="w-full sm:w-auto">
+					<SelectTrigger
+						aria-label="Content type"
+						className="w-full sm:w-auto"
+					>
 						<SelectValue>
 							{filters.resourcePackContentType === 'all'
 								? 'Any content'

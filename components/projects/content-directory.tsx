@@ -11,7 +11,10 @@ import {
 	useQueryStates,
 } from 'nuqs'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { PageShell } from '@/components/page-shell'
+import {
+	LISTING_GRID_CLASS,
+	ListingLayout,
+} from '@/components/listings/listing-layout'
 import {
 	AdvancedProjectSearch,
 	EMPTY_PROJECT_FILTERS,
@@ -194,7 +197,7 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 	const renderResults = () => {
 		if (isLoading) {
 			return (
-				<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))] gap-4">
+				<div className={LISTING_GRID_CLASS}>
 					{SKELETON_KEYS.map((key) => (
 						<ProjectCardSkeleton key={key} />
 					))}
@@ -228,7 +231,7 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 
 		return (
 			<>
-				<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))] gap-4">
+				<div className={LISTING_GRID_CLASS}>
 					{results.map((item) => (
 						<ProjectCard content={item} key={item._id} />
 					))}
@@ -253,27 +256,19 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 	}
 
 	return (
-		<PageShell
-			actions={
+		<ListingLayout
+			action={
 				<Link
-					className={buttonVariants({ variant: 'brand', size: 'xl' })}
+					className={buttonVariants({ variant: 'outline' })}
 					href={`${contentDashboard(type)}/add`}
 				>
 					Publish {type === 'addon' ? 'an' : 'a'}{' '}
 					{label.toLowerCase()}
 				</Link>
 			}
-			description={
-				{
-					addon: 'Discover community addons that bring new features, mobs, and gameplay to Minecraft Bedrock.',
-					resource_pack:
-						'Find resource packs that change the textures, sounds, and appearance of Minecraft Bedrock.',
-					map: 'Discover community worlds, adventures and challenges for Minecraft Bedrock.',
-				}[type]
-			}
 			title={plural}
 		>
-			<div className="mb-6">
+			<div>
 				<AdvancedProjectSearch
 					contentType={type}
 					filters={filters}
@@ -296,7 +291,7 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 
 				{renderResults()}
 			</div>
-		</PageShell>
+		</ListingLayout>
 	)
 }
 
