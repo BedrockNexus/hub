@@ -79,34 +79,8 @@ async function main() {
 					['servers', 'Servers'],
 					['plugins', 'Plugins'],
 				]
-		for (const [route, title] of liveRoutes) {
-			const checks = []
-			console.log(`Checking /${route}`)
-			await page.goto(`${base}/${route}`)
-			await expect(
-				page.getByRole('heading', {
-					name: title,
-					exact: true,
-					level: 1,
-				}),
-			).toBeVisible({ timeout: 60_000 })
-			const search = page.getByRole('searchbox', {
-				name: `Search ${title.toLowerCase()}`,
-				exact: true,
-			})
-			await expect(search).toBeVisible()
-			await expect(page.locator('main > header')).toHaveCount(0)
-			await expect(page.locator('main aside')).toHaveCount(0)
-			await expect(
-				page.getByRole('group', {
-					name: 'Listing filters',
-					exact: true,
-				}),
-			).toBeVisible()
-			await expect(combobox('Categories')).toBeVisible()
-			checks.push(
-				'compact layout, shared search/filter bar, category chips input',
-			)
+		// The controls each listing should and should not offer.
+		const routeControls = async (route, checks) => {
 			if (route === 'servers') {
 				await absent(
 					'Server software',
@@ -164,6 +138,36 @@ async function main() {
 					'no experiments, updated, content or tag controls; multi version/resolution filters',
 				)
 			}
+		}
+		for (const [route, title] of liveRoutes) {
+			const checks = []
+			console.log(`Checking /${route}`)
+			await page.goto(`${base}/${route}`)
+			await expect(
+				page.getByRole('heading', {
+					name: title,
+					exact: true,
+					level: 1,
+				}),
+			).toBeVisible({ timeout: 60_000 })
+			const search = page.getByRole('searchbox', {
+				name: `Search ${title.toLowerCase()}`,
+				exact: true,
+			})
+			await expect(search).toBeVisible()
+			await expect(page.locator('main > header')).toHaveCount(0)
+			await expect(page.locator('main aside')).toHaveCount(0)
+			await expect(
+				page.getByRole('group', {
+					name: 'Listing filters',
+					exact: true,
+				}),
+			).toBeVisible()
+			await expect(combobox('Categories')).toBeVisible()
+			checks.push(
+				'compact layout, shared search/filter bar, category chips input',
+			)
+			await routeControls(route, checks)
 			const retained = new URL(page.url()).searchParams.toString()
 			await search.fill('directory-check-no-match')
 			await expect.poll(() => query('q')).toBe('directory-check-no-match')
