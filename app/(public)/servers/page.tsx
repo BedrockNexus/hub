@@ -1,6 +1,5 @@
 'use client'
 
-import { useQuery } from 'convex/react'
 import { usePaginatedQuery } from 'convex-helpers/react'
 import Link from 'next/link'
 import {
@@ -12,16 +11,20 @@ import {
 	useQueryStates,
 } from 'nuqs'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { PageShell } from '@/components/page-shell'
 import {
+	LISTING_GRID_CLASS,
+	ListingLayout,
+} from '@/components/listings/listing-layout'
+import {
+	AdvancedServerSearch,
 	INITIAL_SERVER_FILTERS,
 	SERVER_SORTS,
-	ServerFilters,
-	ServerSearchField,
 	type ServerSearchFilters,
-	ServerSortButtons,
 } from '@/components/servers/advanced-server-search'
-import { ServerRow, ServerRowSkeleton } from '@/components/servers/server-card'
+import {
+	ServerCard,
+	ServerCardSkeleton,
+} from '@/components/servers/server-card'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 
@@ -96,7 +99,6 @@ function ServersDirectory() {
 		},
 		{ initialNumItems: PAGE_SIZE },
 	)
-	const stats = useQuery(api.functions.site.settings.getStats, {})
 
 	// A load can come back short when filters reject most of what it read,
 	// so keep going until the visitor has what they asked for.
@@ -112,7 +114,13 @@ function ServersDirectory() {
 
 	const renderResults = () => {
 		if (isLoading) {
-			return SKELETONS.map((key) => <ServerRowSkeleton key={key} />)
+			return (
+				<div className={LISTING_GRID_CLASS}>
+					{SKELETONS.map((key) => (
+						<ServerCardSkeleton key={key} />
+					))}
+				</div>
+			)
 		}
 		if (results.length === 0) {
 			return (
@@ -134,13 +142,11 @@ function ServersDirectory() {
 		}
 		return (
 			<>
-				{results.map((server, index) => (
-					<ServerRow
-						key={server._id}
-						rank={index + 1}
-						server={server}
-					/>
-				))}
+				<div className={LISTING_GRID_CLASS}>
+					{results.map((server) => (
+						<ServerCard key={server._id} server={server} />
+					))}
+				</div>
 				{isExhausted ? null : (
 					<div className="mt-4 flex justify-center border-t pt-6">
 						<Button
@@ -159,64 +165,42 @@ function ServersDirectory() {
 	}
 
 	return (
-		<PageShell
-			actions={
+		<ListingLayout
+			action={
 				<Link
-					className={buttonVariants({ variant: 'brand', size: 'xl' })}
+					className={buttonVariants({ variant: 'outline' })}
 					href="/dashboard/servers/add"
 				>
 					List your server
 				</Link>
 			}
-			description={
-				stats
-					? `${stats.servers.toLocaleString()} servers, ${stats.onlinePlayers.toLocaleString()} players online right now.`
-					: 'Live status checked every few minutes.'
-			}
-			headerContent={
-				<ServerSearchField
-					filters={filters}
-					onFiltersChange={handleFiltersChange}
-				/>
-			}
 			title="Servers"
 		>
-			<div className="flex flex-wrap gap-6">
-				<div className="w-full lg:w-64">
-					<ServerFilters
-						filters={filters}
-						onFiltersChange={handleFiltersChange}
-					/>
-				</div>
-				<section
-					aria-label="Results"
-					className="flex min-w-0 flex-[999_1_35rem] scroll-mt-24 flex-col gap-3.5"
-					id="server-results"
-				>
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<p aria-live="polite" className="text-muted-foreground">
-							{isLoading ? (
-								'Loading servers…'
-							) : (
-								<>
-									{isExhausted ? null : 'First '}
-									<strong className="text-foreground">
-										{results.length.toLocaleString()}
-									</strong>{' '}
-									server{results.length === 1 ? '' : 's'}
-								</>
-							)}
-						</p>
-						<ServerSortButtons
-							filters={filters}
-							onFiltersChange={handleFiltersChange}
-						/>
-					</div>
+			<AdvancedServerSearch
+				filters={filters}
+				onFiltersChange={handleFiltersChange}
+			/>
+			<section
+				aria-label="Results"
+				className="flex min-w-0 scroll-mt-24 flex-col gap-4"
+				id="server-results"
+			>
+				<p aria-live="polite" className="text-muted-foreground text-sm">
+					{isLoading ? (
+						'Loading servers…'
+					) : (
+						<>
+							{isExhausted ? null : 'Showing the first '}
+							{results.length.toLocaleString()} server
+							{results.length === 1 ? '' : 's'}
+							{isExhausted ? ' found' : null}
+						</>
+					)}
+				</p>
 
-					{renderResults()}
-				</section>
-			</div>
-		</PageShell>
+				{renderResults()}
+			</section>
+		</ListingLayout>
 	)
 }
 

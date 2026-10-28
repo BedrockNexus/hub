@@ -3,6 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import type { Route } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
+import { LISTING_GRID_CLASS } from '@/components/listings/listing-layout'
 
 import { RatingLabel, TagChip } from '@/components/servers/server-bits'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -117,8 +118,7 @@ export function PluginCardSkeleton() {
 	)
 }
 
-export const PLUGIN_GRID_CLASS =
-	'grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4'
+export const PLUGIN_GRID_CLASS = LISTING_GRID_CLASS
 
 export function PluginGrid({
 	plugins,
