@@ -5,6 +5,16 @@
 @plugin "tailwind-scrollbar-hide";
 /* @import "shadcn/tailwind.css"; */
 
+/* shadcn's name for scrollbar-hide, used by its list components. */
+@utility no-scrollbar {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

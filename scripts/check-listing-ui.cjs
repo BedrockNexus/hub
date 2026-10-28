@@ -95,7 +95,7 @@ async function main() {
 				await expect.poll(() => query('status')).toBe('online')
 				await pick('Status', 'Offline')
 				await expect.poll(() => query('status')).toBe('online,offline')
-				if (!(await firstChoice('Minecraft version', 'version'))) {
+				if (!(await firstChoice('Version', 'version'))) {
 					checks.push(
 						'version filter disabled: no active game versions',
 					)
@@ -122,7 +122,7 @@ async function main() {
 				)
 				await sortBy('Trending')
 				await expect.poll(() => query('sort')).toBe('trending')
-				if (!(await firstChoice('Minecraft version', 'version'))) {
+				if (!(await firstChoice('Version', 'version'))) {
 					checks.push(
 						'version filter disabled: no active game versions',
 					)

@@ -107,7 +107,7 @@ export function AdvancedServerSearch({
 					values={filters.categories}
 				/>
 				<ListingCombobox
-					label="Minecraft version"
+					label="Version"
 					onChange={(value) => update('gameVersions', value)}
 					options={versions.map((value) => ({ value, label: value }))}
 					values={filters.gameVersions}
