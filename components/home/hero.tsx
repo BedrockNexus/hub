@@ -6,25 +6,10 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
-import Link from 'next/link'
 import { getSiteStats } from '@/lib/site-settings'
 import { cn } from '@/lib/utils'
 
-export interface HeroCategory {
-	name: string
-	slug: string
-}
-
-export function Hero({ categories }: { categories: HeroCategory[] }) {
-	const chips = [
-		...categories.map((category) => ({
-			href: `/servers?category=${encodeURIComponent(category.slug)}`,
-			label: category.name,
-		})),
-		{ href: '/addons', label: 'Addons' },
-		{ href: '/resource-packs', label: 'Resource packs' },
-	]
-
+export function Hero() {
 	return (
 		<section className="border-b">
 			<div className="container mx-auto flex flex-col items-center gap-5 px-4 pt-10 pb-12 text-center sm:pt-12 md:px-6">
@@ -44,24 +29,6 @@ export function Hero({ categories }: { categories: HeroCategory[] }) {
 					Find servers with live status, and addons and resource packs
 					from independent creators. Publishing your own is free.
 				</p>
-				<div className="mt-1 flex w-full flex-col items-center gap-3">
-					{chips.length > 0 ? (
-						<nav
-							aria-label="Popular categories"
-							className="flex max-w-3xl flex-wrap justify-center gap-2"
-						>
-							{chips.map((chip) => (
-								<Link
-									className="inline-flex min-h-10 items-center rounded-sm border border-input bg-card px-3.5 font-medium text-muted-foreground text-sm transition-colors hover:border-ember hover:text-foreground"
-									href={chip.href}
-									key={chip.href}
-								>
-									{chip.label}
-								</Link>
-							))}
-						</nav>
-					) : null}
-				</div>
 			</div>
 		</section>
 	)
