@@ -1,27 +1,28 @@
 'use client'
 
-import {
-	Add01Icon,
-	Delete02Icon,
-	WorkflowSquare01Icon,
-} from '@hugeicons/core-free-icons'
+import { Add01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useConvexAuth, useMutation, useQuery } from 'convex/react'
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
+import { DataTableSkeleton } from '@/components/data-table/data-table-skeleton'
 import {
 	getWorkflowTemplateValidationError,
 	YamlWorkflowEditor,
 } from '@/components/plugins/editors/yaml-workflow-editor'
+import {
+	type WorkflowTemplate,
+	WorkflowTemplatesTable,
+} from '@/components/plugins/publishing/workflow-templates-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui/card'
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -75,23 +76,16 @@ export function WorkflowTemplateEditor() {
 		content: '',
 	})
 	const [busy, setBusy] = useState(false)
-	const selected =
-		templates?.find((template) => template.key === selectedKey) ??
-		(selectedKey ? undefined : templates?.[0])
-
-	useEffect(() => {
-		if (!selected || adding) {
-			return
-		}
-		setSelectedKey(selected.key)
-		setContent(selected.content)
-	}, [adding, selected])
+	const selected = templates?.find((template) => template.key === selectedKey)
+	const beginEditing = useCallback((template: WorkflowTemplate) => {
+		setAdding(false)
+		setSelectedKey(template.key)
+		setContent(template.content)
+	}, [])
 
 	if (auth.isLoading || templates === undefined || software === undefined) {
 		return (
-			<p className="text-muted-foreground text-sm">
-				Loading workflow templates…
-			</p>
+			<DataTableSkeleton columnCount={5} filterCount={2} rowCount={5} />
 		)
 	}
 
@@ -111,6 +105,7 @@ export function WorkflowTemplateEditor() {
 			softwareId,
 			content: starterContent(softwareId),
 		})
+		setSelectedKey('')
 		setAdding(true)
 	}
 
@@ -129,330 +124,296 @@ export function WorkflowTemplateEditor() {
 	)
 
 	return (
-		<div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
-			<Card className="h-fit shadow-none">
-				<CardHeader>
-					<span className="mb-3 grid size-11 place-items-center rounded-md bg-primary text-primary-foreground">
-						<HugeiconsIcon
-							className="size-5"
-							icon={WorkflowSquare01Icon}
-						/>
-					</span>
-					<CardTitle>Workflow variants</CardTitle>
-					<CardDescription>
-						Publishers pick one of these when adding a plugin, and
-						it sets the plugin's server software. Plugins can be
-						published for a software once it has a workflow here.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-2">
-					<Button
-						className="mb-2 w-full"
-						onClick={beginAdding}
-						variant="outline"
-					>
-						<HugeiconsIcon className="size-4" icon={Add01Icon} />
-						Add workflow
-					</Button>
-					{templates.map((template) => (
-						<button
-							className={
-								!adding && template.key === selected?.key
-									? 'flex w-full flex-col rounded-md bg-primary p-3 text-left text-primary-foreground'
-									: 'flex w-full flex-col rounded-md border p-3 text-left hover:bg-muted'
-							}
-							key={template.key}
-							onClick={() => {
-								setAdding(false)
-								setSelectedKey(template.key)
-								setContent(template.content)
-							}}
-							type="button"
-						>
-							<span className="font-medium text-sm">
-								{template.label}
-							</span>
-							<span
-								className={
-									!adding && template.key === selected?.key
-										? 'mt-1 text-primary-foreground/80 text-xs'
-										: 'mt-1 text-muted-foreground text-xs'
-								}
-							>
-								{template.softwareName} · version{' '}
-								{template.version}
-							</span>
-						</button>
-					))}
-				</CardContent>
-			</Card>
-
-			{adding ? (
-				<Card className="shadow-none">
-					<CardHeader>
-						<CardTitle>Add workflow</CardTitle>
-						<CardDescription>
-							Create another validated publishing option that
-							plugin developers can select.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<form
-							className="space-y-5"
-							onSubmit={async (event) => {
-								event.preventDefault()
-								setBusy(true)
-								try {
-									if (!newWorkflow.softwareId) {
-										return
-									}
-									const result = await createTemplate({
-										label: newWorkflow.label,
-										softwareId: newWorkflow.softwareId,
-										content: newWorkflow.content,
-									})
-									setAdding(false)
-									setSelectedKey(result.key)
-									toast.success(
-										'Workflow created and made available to publishers.',
-									)
-								} catch (error) {
-									toast.error(errorMessage(error))
-								} finally {
-									setBusy(false)
-								}
-							}}
-						>
-							<div className="space-y-2">
-								<Label htmlFor="new-workflow-label">
-									Workflow name
-								</Label>
-								<Input
-									id="new-workflow-label"
-									onChange={(event) =>
-										setNewWorkflow((current) => ({
-											...current,
-											label: event.target.value,
-										}))
-									}
-									placeholder="PowerNukkitX · Gradle"
-									value={newWorkflow.label}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label htmlFor="new-workflow-software">
-									Server software
-								</Label>
-								{pluginSoftware.length === 0 ? (
-									<p className="rounded-md border border-dashed p-3 text-muted-foreground text-sm">
-										No server software yet. Add one in
-										Server software first.
-									</p>
-								) : (
-									<Select
-										items={pluginSoftware.map((item) => ({
-											value: item._id,
-											label: item.name,
-										}))}
-										onValueChange={(value) =>
-											updateNewWorkflowSoftware(
-												value as Id<'serverSoftware'>,
-											)
-										}
-										value={newWorkflow.softwareId}
-									>
-										<SelectTrigger
-											className="w-full"
-											id="new-workflow-software"
-										>
-											<SelectValue placeholder="Choose software" />
-										</SelectTrigger>
-										<SelectContent>
-											{pluginSoftware.map((item) => (
-												<SelectItem
-													key={item._id}
-													value={item._id}
-												>
-													{item.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								)}
-							</div>
-							<div className="space-y-2">
-								<Label id="new-workflow-template-label">
-									GitHub Actions YAML
-								</Label>
-								<YamlWorkflowEditor
-									labelledBy="new-workflow-template-label"
-									onChange={(value) =>
-										setNewWorkflow((current) => ({
-											...current,
-											content: value,
-										}))
-									}
-									value={newWorkflow.content}
-								/>
-							</div>
-							<div className="rounded-md border bg-muted p-3 text-muted-foreground text-sm">
-								The new workflow must keep the{' '}
-								<code className="text-foreground">
-									{'{{package_name}}'}
-								</code>{' '}
-								placeholder, build on push but never on tags,
-								upload the plugin as a{' '}
-								<code className="text-foreground">
-									plugin-package
-								</code>{' '}
-								artifact, and only read the repository.
-							</div>
-							<div className="flex justify-end gap-2">
-								<Button
-									disabled={busy}
-									onClick={() => setAdding(false)}
-									type="button"
-									variant="outline"
-								>
-									Cancel
-								</Button>
-								<Button
-									disabled={
-										busy ||
-										!newWorkflow.label.trim() ||
-										!newWorkflow.softwareId ||
-										newWorkflowError !== null
-									}
-									type="submit"
-								>
-									<HugeiconsIcon
-										className="size-4"
-										icon={Add01Icon}
-									/>
-									Add workflow
-								</Button>
-							</div>
-						</form>
-					</CardContent>
-				</Card>
-			) : selected ? (
-				<Card className="shadow-none">
-					<CardHeader>
-						<div className="flex flex-wrap items-start justify-between gap-3">
+		<div className="min-w-0">
+			<WorkflowTemplatesTable
+				onAdd={beginAdding}
+				onEdit={beginEditing}
+				templates={templates}
+			/>
+			<Dialog
+				onOpenChange={(open) => {
+					if (!(open || busy)) {
+						setAdding(false)
+						setSelectedKey('')
+					}
+				}}
+				open={adding || Boolean(selected)}
+			>
+				<DialogContent
+					className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-4xl"
+					showCloseButton={!busy}
+				>
+					{adding ? (
+						<>
+							<DialogHeader className="pr-8">
+								<DialogTitle>Add workflow template</DialogTitle>
+								<DialogDescription>
+									Create another validated publishing option
+									that plugin developers can select.
+								</DialogDescription>
+							</DialogHeader>
 							<div>
-								<CardTitle>{selected.label}</CardTitle>
-								<CardDescription>
-									Saved content is used when a publisher
-									installs or updates this workflow.
-								</CardDescription>
+								<form
+									className="space-y-5"
+									onSubmit={async (event) => {
+										event.preventDefault()
+										setBusy(true)
+										try {
+											if (!newWorkflow.softwareId) {
+												return
+											}
+											await createTemplate({
+												label: newWorkflow.label,
+												softwareId:
+													newWorkflow.softwareId,
+												content: newWorkflow.content,
+											})
+											setAdding(false)
+											setSelectedKey('')
+											toast.success(
+												'Workflow created and made available to publishers.',
+											)
+										} catch (error) {
+											toast.error(errorMessage(error))
+										} finally {
+											setBusy(false)
+										}
+									}}
+								>
+									<div className="space-y-2">
+										<Label htmlFor="new-workflow-label">
+											Workflow name
+										</Label>
+										<Input
+											disabled={busy}
+											id="new-workflow-label"
+											maxLength={80}
+											minLength={3}
+											onChange={(event) =>
+												setNewWorkflow((current) => ({
+													...current,
+													label: event.target.value,
+												}))
+											}
+											placeholder="PowerNukkitX · Gradle"
+											required
+											value={newWorkflow.label}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="new-workflow-software">
+											Server software
+										</Label>
+										{pluginSoftware.length === 0 ? (
+											<p className="rounded-md border border-dashed p-3 text-muted-foreground text-sm">
+												No server software yet. Add one
+												in Server software first.
+											</p>
+										) : (
+											<Select
+												disabled={busy}
+												items={pluginSoftware.map(
+													(item) => ({
+														value: item._id,
+														label: item.name,
+													}),
+												)}
+												onValueChange={(value) =>
+													updateNewWorkflowSoftware(
+														value as Id<'serverSoftware'>,
+													)
+												}
+												value={newWorkflow.softwareId}
+											>
+												<SelectTrigger
+													className="w-full"
+													id="new-workflow-software"
+												>
+													<SelectValue placeholder="Choose software" />
+												</SelectTrigger>
+												<SelectContent>
+													{pluginSoftware.map(
+														(item) => (
+															<SelectItem
+																key={item._id}
+																value={item._id}
+															>
+																{item.name}
+															</SelectItem>
+														),
+													)}
+												</SelectContent>
+											</Select>
+										)}
+									</div>
+									<div className="space-y-2">
+										<Label id="new-workflow-template-label">
+											GitHub Actions YAML
+										</Label>
+										<YamlWorkflowEditor
+											disabled={busy}
+											labelledBy="new-workflow-template-label"
+											onChange={(value) =>
+												setNewWorkflow((current) => ({
+													...current,
+													content: value,
+												}))
+											}
+											value={newWorkflow.content}
+										/>
+									</div>
+									<div className="rounded-md border bg-muted p-3 text-muted-foreground text-sm">
+										The new workflow must keep the{' '}
+										<code className="text-foreground">
+											{'{{package_name}}'}
+										</code>{' '}
+										placeholder, build on push but never on
+										tags, upload the plugin as a{' '}
+										<code className="text-foreground">
+											plugin-package
+										</code>{' '}
+										artifact, and only read the repository.
+									</div>
+									<div className="flex justify-end gap-2">
+										<Button
+											disabled={busy}
+											onClick={() => setAdding(false)}
+											type="button"
+											variant="outline"
+										>
+											Cancel
+										</Button>
+										<Button
+											disabled={
+												busy ||
+												!newWorkflow.label.trim() ||
+												!newWorkflow.softwareId ||
+												newWorkflowError !== null
+											}
+											type="submit"
+										>
+											<HugeiconsIcon
+												className="size-4"
+												icon={Add01Icon}
+											/>
+											Add workflow
+										</Button>
+									</div>
+								</form>
 							</div>
-							<Badge variant="outline">v{selected.version}</Badge>
-						</div>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="space-y-2">
-							<Label id="workflow-template-label">
-								GitHub Actions YAML
-							</Label>
-							<YamlWorkflowEditor
-								labelledBy="workflow-template-label"
-								minHeight="36rem"
-								onChange={setContent}
-								value={content}
-							/>
-						</div>
-						<div className="rounded-md border bg-muted p-3 text-muted-foreground text-sm">
-							Keep the{' '}
-							<code className="text-foreground">
-								{'{{package_name}}'}
-							</code>{' '}
-							placeholder and upload the built plugin as a{' '}
-							<code className="text-foreground">
-								plugin-package
-							</code>{' '}
-							artifact. Workflows only build: they cannot run on
-							tags, write to the repository, or read secrets.
-							BedrockNexus creates the GitHub release after a
-							version is approved.
-						</div>
-						<div className="flex flex-wrap justify-end gap-2">
-							<Button
-								disabled={busy}
-								onClick={async () => {
-									if (
-										!window.confirm(
-											`Delete "${selected.label}"? It will no longer be available to publishers.`,
-										)
-									) {
-										return
-									}
-									setBusy(true)
-									try {
-										await removeTemplate({
-											key: selected.key,
-										})
-										setSelectedKey('')
-										toast.success('Workflow deleted.')
-									} catch (error) {
-										toast.error(errorMessage(error))
-									} finally {
-										setBusy(false)
-									}
-								}}
-								variant="destructive"
-							>
-								<HugeiconsIcon
-									className="size-4"
-									icon={Delete02Icon}
-								/>
-								Delete workflow
-							</Button>
-							<Button
-								disabled={
-									busy || !changed || contentError !== null
-								}
-								onClick={async () => {
-									setBusy(true)
-									try {
-										const result = await saveTemplate({
-											key: selected.key,
-											content,
-										})
-										toast.success(
-											`Workflow template version ${result.version} saved.`,
-										)
-									} catch (error) {
-										toast.error(errorMessage(error))
-									} finally {
-										setBusy(false)
-									}
-								}}
-							>
-								Save workflow
-							</Button>
-						</div>
-					</CardContent>
-				</Card>
-			) : (
-				<Card className="shadow-none">
-					<CardHeader>
-						<CardTitle>No publishing workflows yet</CardTitle>
-						<CardDescription>
-							Add one for each server software publishers can use.
-							Until then nobody can publish a plugin for it.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<Button onClick={beginAdding}>
-							<HugeiconsIcon
-								className="size-4"
-								icon={Add01Icon}
-							/>
-							Add workflow
-						</Button>
-					</CardContent>
-				</Card>
-			)}
+						</>
+					) : selected ? (
+						<>
+							<DialogHeader className="pr-8">
+								<div className="flex flex-wrap items-start justify-between gap-3">
+									<div>
+										<DialogTitle>
+											{selected.label}
+										</DialogTitle>
+										<DialogDescription>
+											Saved content is used when a
+											publisher installs or updates this
+											workflow.
+										</DialogDescription>
+									</div>
+									<Badge variant="outline">
+										v{selected.version}
+									</Badge>
+								</div>
+							</DialogHeader>
+							<div className="space-y-4">
+								<div className="space-y-2">
+									<Label id="workflow-template-label">
+										GitHub Actions YAML
+									</Label>
+									<YamlWorkflowEditor
+										disabled={busy}
+										labelledBy="workflow-template-label"
+										onChange={setContent}
+										value={content}
+									/>
+								</div>
+								<div className="rounded-md border bg-muted p-3 text-muted-foreground text-sm">
+									Keep the{' '}
+									<code className="text-foreground">
+										{'{{package_name}}'}
+									</code>{' '}
+									placeholder and upload the built plugin as a{' '}
+									<code className="text-foreground">
+										plugin-package
+									</code>{' '}
+									artifact. Workflows only build: they cannot
+									run on tags, write to the repository, or
+									read secrets. BedrockNexus creates the
+									GitHub release after a version is approved.
+								</div>
+								<div className="flex flex-wrap justify-end gap-2">
+									<Button
+										disabled={busy}
+										onClick={async () => {
+											if (
+												!window.confirm(
+													`Delete "${selected.label}"? It will no longer be available to publishers.`,
+												)
+											) {
+												return
+											}
+											setBusy(true)
+											try {
+												await removeTemplate({
+													key: selected.key,
+												})
+												setSelectedKey('')
+												toast.success(
+													'Workflow deleted.',
+												)
+											} catch (error) {
+												toast.error(errorMessage(error))
+											} finally {
+												setBusy(false)
+											}
+										}}
+										variant="destructive"
+									>
+										<HugeiconsIcon
+											className="size-4"
+											icon={Delete02Icon}
+										/>
+										Delete workflow
+									</Button>
+									<Button
+										disabled={
+											busy ||
+											!changed ||
+											contentError !== null
+										}
+										onClick={async () => {
+											setBusy(true)
+											try {
+												const result =
+													await saveTemplate({
+														key: selected.key,
+														content,
+													})
+												setSelectedKey('')
+												toast.success(
+													`Workflow template version ${result.version} saved.`,
+												)
+											} catch (error) {
+												toast.error(errorMessage(error))
+											} finally {
+												setBusy(false)
+											}
+										}}
+									>
+										Save workflow
+									</Button>
+								</div>
+							</div>
+						</>
+					) : null}
+				</DialogContent>
+			</Dialog>
 		</div>
 	)
 }

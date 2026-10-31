@@ -5,7 +5,6 @@ import {
 	GithubIcon,
 	Package01Icon,
 	RefreshIcon,
-	RepositoryIcon,
 	WorkflowSquare01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -20,19 +19,14 @@ import { MarkdownEditor } from '@/components/editor/markdown-editor'
 import { PluginIconField } from '@/components/plugins/publishing/plugin-icon-field'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
@@ -253,6 +247,7 @@ export function AddPluginFlow() {
 	const [draftId, setDraftId] = useState<Id<'pluginPublishingDrafts'> | null>(
 		null,
 	)
+	const [step, setStep] = useState<'repository' | 'details'>('repository')
 	const { busy, run } = useBusy()
 	const repositories = (
 		installations?.flatMap((installation) => installation.repositories) ??
@@ -264,169 +259,150 @@ export function AddPluginFlow() {
 	const repository = repositories.find((item) => item._id === repositoryId)
 	const draft = drafts?.find((entry) => entry.draft._id === draftId)?.draft
 
-	return (
-		<div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-			<Card className="h-fit shadow-none">
-				<CardHeader>
-					<span className="mb-3 grid size-11 place-items-center rounded-md bg-primary text-primary-foreground">
-						<HugeiconsIcon
-							className="size-5"
-							icon={RepositoryIcon}
-						/>
-					</span>
-					<CardTitle>Choose a repository</CardTitle>
-					<CardDescription>
-						Its name, description and README fill in the plugin
-						details. Only public repositories can be published.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					{auth.isLoading || installations === undefined ? (
-						<p className="text-muted-foreground text-sm">
-							Loading repositories…
-						</p>
-					) : repositories.length === 0 ? (
-						<>
-							<p className="text-muted-foreground text-sm">
-								Install the GitHub App and give it access to the
-								public repository you want to publish.
-							</p>
-							<a
-								className={buttonVariants()}
-								href="/api/github/install"
-							>
-								Install GitHub App
-							</a>
-						</>
-					) : (
-						<>
-							<Select
-								disabled={Boolean(draft)}
-								items={repositories.map((item) => ({
-									value: item._id,
-									label: item.fullName,
-								}))}
-								onValueChange={(value) =>
-									setRepositoryId(
-										value as Id<'githubRepositories'> | null,
+	if (step === 'details') {
+		return (
+			<section
+				aria-labelledby="plugin-details-heading"
+				className="max-w-3xl space-y-6"
+			>
+				<Button
+					disabled={busy !== null}
+					onClick={() => setStep('repository')}
+					variant="outline"
+				>
+					Back
+				</Button>
+				<div className="space-y-1">
+					<h2
+						className="font-semibold text-lg"
+						id="plugin-details-heading"
+					>
+						Plugin details
+					</h2>
+					<p className="text-muted-foreground text-sm">
+						Filled in from{' '}
+						{repository?.fullName ?? 'the repository'}. Edit
+						anything before continuing.
+					</p>
+				</div>
+				{draft ? (
+					<MetadataForm
+						busy={busy !== null}
+						draft={draft}
+						key={draft._id}
+						onSave={(metadata) =>
+							run('metadata', async () => {
+								if (!repository) {
+									throw new Error(
+										'The selected repository is no longer available.',
 									)
 								}
-								value={repositoryId}
-							>
-								<SelectTrigger
-									className="h-10 w-full"
-									id="publishing-repository"
-								>
-									<SelectValue placeholder="Choose a public repository" />
-								</SelectTrigger>
-								<SelectContent>
-									{repositories.map((item) => (
-										<SelectItem
-											key={item._id}
-											value={item._id}
-										>
-											{item.fullName}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-							<Button
-								className="w-full"
-								disabled={
-									!repositoryId ||
-									Boolean(draft) ||
-									busy !== null
-								}
-								onClick={() =>
-									run('start', async () => {
-										if (!repositoryId) {
-											return
-										}
-										setDraftId(
-											await startFromRepository({
-												repositoryId,
-											}),
-										)
-									})
-								}
-							>
-								{busy === 'start'
-									? 'Reading repository…'
-									: 'Use this repository'}
-							</Button>
-							<p className="text-muted-foreground text-xs">
-								Missing a repository?{' '}
-								<a
-									className="text-primary hover:underline"
-									href="/api/github/install"
-								>
-									Change the GitHub App’s access
-								</a>
-								.
-							</p>
-						</>
-					)}
-				</CardContent>
-			</Card>
-
-			{draft ? (
-				<Card className="shadow-none">
-					<CardHeader>
-						<CardTitle>Plugin details</CardTitle>
-						<CardDescription>
-							Filled in from{' '}
-							{repository?.fullName ?? 'the repository'}. Edit
-							anything; nothing is public until a moderator
-							approves your first version.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<MetadataForm
-							busy={busy !== null}
-							draft={draft}
-							key={draft._id}
-							onSave={(metadata) =>
-								run('metadata', async () => {
-									await saveMetadata({
-										draftId: draft._id,
-										...metadata,
-									})
-									if (!repository) {
-										throw new Error(
-											'The selected repository is no longer available.',
-										)
-									}
-									toast.success(
-										'Details saved. Now pick a workflow.',
-									)
-									router.push(
-										`/dashboard/plugins/${createPluginDashboardId(repository.githubRepositoryId)}/workflow` as Route,
-									)
+								await saveMetadata({
+									draftId: draft._id,
+									...metadata,
 								})
-							}
-							repository={repository}
-							submitLabel="Save and continue"
-						/>
-					</CardContent>
-				</Card>
+								router.push(
+									`/dashboard/plugins/${createPluginDashboardId(repository.githubRepositoryId)}/workflow` as Route,
+								)
+							})
+						}
+						repository={repository}
+						submitLabel={
+							busy === 'metadata' ? 'Saving...' : 'Continue'
+						}
+					/>
+				) : (
+					<p className="text-muted-foreground text-sm" role="status">
+						Loading plugin details...
+					</p>
+				)}
+			</section>
+		)
+	}
+
+	return (
+		<div className="max-w-lg space-y-4">
+			{auth.isLoading || installations === undefined ? (
+				<p className="text-muted-foreground text-sm" role="status">
+					Loading repositories...
+				</p>
+			) : repositories.length === 0 ? (
+				<>
+					<p className="text-muted-foreground text-sm">
+						Install the GitHub App and give it access to the public
+						repository you want to publish.
+					</p>
+					<a className={buttonVariants()} href="/api/github/install">
+						Install GitHub App
+					</a>
+				</>
 			) : (
-				<Card className="border-dashed shadow-none">
-					<CardContent className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
-						<span className="grid size-14 place-items-center rounded-md border text-muted-foreground">
-							<HugeiconsIcon
-								className="size-6"
-								icon={Package01Icon}
-							/>
-						</span>
-						<h2 className="mt-5 font-semibold text-lg">
-							Pick a repository to start
-						</h2>
-						<p className="mt-2 max-w-md text-muted-foreground text-sm">
-							Then choose a build workflow. Every push builds your
-							plugin, and you pick which build to publish.
-						</p>
-					</CardContent>
-				</Card>
+				<form
+					className="space-y-4"
+					onSubmit={(event) => {
+						event.preventDefault()
+						if (!repositoryId || busy !== null) {
+							return
+						}
+						void run('start', async () => {
+							setDraftId(
+								await startFromRepository({ repositoryId }),
+							)
+							setStep('details')
+						})
+					}}
+				>
+					<div className="space-y-2">
+						<Label htmlFor="publishing-repository">
+							Choose a repository
+						</Label>
+						<Select
+							disabled={busy !== null}
+							items={repositories.map((item) => ({
+								value: item._id,
+								label: item.fullName,
+							}))}
+							onValueChange={(value) =>
+								setRepositoryId(
+									value as Id<'githubRepositories'> | null,
+								)
+							}
+							value={repositoryId}
+						>
+							<SelectTrigger
+								className="w-full"
+								id="publishing-repository"
+							>
+								<SelectValue placeholder="Choose a public repository" />
+							</SelectTrigger>
+							<SelectContent>
+								{repositories.map((item) => (
+									<SelectItem key={item._id} value={item._id}>
+										{item.fullName}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<p className="text-muted-foreground text-xs">
+						Missing a repository?{' '}
+						<a
+							className="text-primary hover:underline"
+							href="/api/github/install"
+						>
+							Change GitHub App access
+						</a>
+						.
+					</p>
+					<Button
+						disabled={!repositoryId || busy !== null}
+						type="submit"
+					>
+						{busy === 'start'
+							? 'Reading repository...'
+							: 'Continue'}
+					</Button>
+				</form>
 			)}
 		</div>
 	)
@@ -496,61 +472,68 @@ export function PluginWorkflowManager({
 						add them; check back soon.
 					</p>
 				) : null}
-				{softwareNames.map((softwareName) => (
-					<div className="space-y-3" key={softwareName}>
-						<Label>{softwareName}</Label>
-						<div className="grid gap-3 sm:grid-cols-2">
-							{workflows
-								.filter(
-									(workflow) =>
-										workflow.softwareName === softwareName,
-								)
-								.map((workflow) => {
-									const isSelected =
-										workflow.key ===
-										draft.workflowTemplateKey
-									return (
-										<button
-											className={
-												isSelected
-													? 'rounded-md border border-primary bg-primary p-4 text-left text-primary-foreground'
-													: 'rounded-md border p-4 text-left transition-colors hover:bg-muted'
-											}
-											disabled={
-												project.locked || busy !== null
-											}
-											key={workflow.key}
-											onClick={() =>
-												run('select', async () => {
-													await selectWorkflow({
-														draftId: draft._id,
-														key: workflow.key,
-													})
-													toast.success(
-														`${workflow.label} selected.`,
-													)
-												})
-											}
-											type="button"
-										>
-											<span className="block font-medium text-sm">
-												{workflow.label}
-											</span>
-											<span
-												className={
-													isSelected
-														? 'mt-1 block text-primary-foreground/80 text-xs'
-														: 'mt-1 block text-muted-foreground text-xs'
-												}
-											>
-												Version {workflow.version}
-											</span>
-										</button>
-									)
-								})}
-						</div>
+				{workflows.length > 0 ? (
+					<div className="max-w-lg space-y-2">
+						<Label htmlFor="publishing-workflow">
+							Build workflow
+						</Label>
+						<Select
+							disabled={project.locked || busy !== null}
+							items={workflows.map((workflow) => ({
+								value: workflow.key,
+								label: `${workflow.softwareName}: ${workflow.label}`,
+							}))}
+							onValueChange={(key) => {
+								if (!key || key === draft.workflowTemplateKey) {
+									return
+								}
+								void run('select', async () => {
+									await selectWorkflow({
+										draftId: draft._id,
+										key,
+									})
+								})
+							}}
+							value={selectedWorkflow?.key ?? null}
+						>
+							<SelectTrigger
+								className="w-full"
+								id="publishing-workflow"
+							>
+								<SelectValue placeholder="Choose a workflow" />
+							</SelectTrigger>
+							<SelectContent>
+								{softwareNames.map((softwareName) => (
+									<SelectGroup key={softwareName}>
+										<SelectLabel>
+											{softwareName}
+										</SelectLabel>
+										{workflows
+											.filter(
+												(workflow) =>
+													workflow.softwareName ===
+													softwareName,
+											)
+											.map((workflow) => (
+												<SelectItem
+													key={workflow.key}
+													value={workflow.key}
+												>
+													{workflow.label}
+												</SelectItem>
+											))}
+									</SelectGroup>
+								))}
+							</SelectContent>
+						</Select>
+						{selectedWorkflow ? (
+							<p className="text-muted-foreground text-xs">
+								Version {selectedWorkflow.version}
+							</p>
+						) : null}
 					</div>
-				))}
+				) : null}
+
 				<div className="rounded-md border bg-muted p-4 font-mono text-sm">
 					.github/workflows/bedrocknexus-publish.yml
 				</div>

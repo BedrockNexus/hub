@@ -3,17 +3,12 @@
 import {
 	ArrowRight02Icon,
 	Calendar03Icon,
-	CubeIcon,
 	GlobeIcon,
 	Location01Icon,
 	OfficeIcon,
-	PulseIcon,
-	StarIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
-import type { FunctionReturnType } from 'convex/server'
-import { formatDistanceToNowStrict } from 'date-fns'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -31,13 +26,6 @@ import {
 	PROJECT_TYPES,
 } from '@/lib/project-artifacts'
 
-type Profile = NonNullable<
-	FunctionReturnType<
-		typeof api.functions.site.users.getPublicProfileByUsername
-	>
->
-type Activity = Profile['activity'][number]
-
 const SOCIAL_LABELS: Record<string, string> = {
 	github: 'GitHub',
 	discord: 'Discord',
@@ -47,37 +35,6 @@ const SOCIAL_LABELS: Record<string, string> = {
 	bluesky: 'Bluesky',
 	instagram: 'Instagram',
 	tiktok: 'TikTok',
-}
-
-function activityText(entry: Activity) {
-	switch (entry.type) {
-		case 'server_added':
-			return {
-				verb: 'Listed',
-				icon: PulseIcon,
-				href: `/servers/${entry.targetSlug}`,
-			}
-		case 'project_added':
-			return {
-				verb: 'Published',
-				icon: CubeIcon,
-				href: `/projects/${entry.targetSlug}`,
-			}
-		case 'version_released':
-			return {
-				verb: `Released ${entry.metadata?.version ? `v${entry.metadata.version} of` : 'a new version of'}`,
-				icon: CubeIcon,
-				href: `/projects/${entry.targetSlug}/releases`,
-			}
-		case 'review_added':
-			return {
-				verb: 'Reviewed',
-				icon: StarIcon,
-				href: `/${entry.metadata?.targetType === 'project' ? 'projects' : 'servers'}/${entry.targetSlug}`,
-			}
-		default:
-			return null
-	}
 }
 
 function Stat({ value, label }: { value: number; label: string }) {
@@ -155,9 +112,9 @@ export default function PublicUserProfilePage() {
 	const socials = Object.entries(profile.socials ?? {}).filter(
 		(entry): entry is [string, string] => Boolean(entry[1]),
 	)
-	const activity = profile.activity
-		.map((entry) => ({ entry, text: activityText(entry) }))
-		.filter((item) => item.text !== null)
+	const hasSidebar =
+		profile.organizations.length > 0 ||
+		Boolean(profile.support?.externalUrl)
 
 	return (
 		<main className="flex-1">
@@ -283,7 +240,9 @@ export default function PublicUserProfilePage() {
 				</div>
 			</section>
 
-			<div className="container mx-auto grid gap-7 px-4 pt-8 pb-18 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+			<div
+				className={`container mx-auto grid gap-7 px-4 pt-8 pb-18 md:px-6 ${hasSidebar ? 'lg:grid-cols-[minmax(0,1fr)_18rem]' : ''}`}
+			>
 				<div className="flex min-w-0 flex-col gap-8">
 					{PROJECT_TYPES.map((type) => {
 						const items = profile.projects.filter(
@@ -340,7 +299,7 @@ export default function PublicUserProfilePage() {
 					</section>
 				</div>
 
-				<aside className="flex min-w-0 flex-col gap-4">
+				<aside className="flex min-w-0 flex-col gap-4 empty:hidden">
 					{profile.organizations.length > 0 ? (
 						<SideCard title="Organizations">
 							<div className="flex flex-col gap-2.5">
@@ -385,48 +344,6 @@ export default function PublicUserProfilePage() {
 							</div>
 						</SideCard>
 					) : null}
-
-					<SideCard title="Recent activity">
-						{activity.length > 0 ? (
-							<ol className="flex flex-col">
-								{activity.map(({ entry, text }) =>
-									text ? (
-										<li
-											className="flex gap-2.5 border-b border-dashed py-2 text-sm last:border-b-0"
-											key={entry._id}
-										>
-											<HugeiconsIcon
-												aria-hidden
-												className="mt-0.5 size-4 shrink-0 text-ember-text"
-												icon={text.icon}
-											/>
-											<span className="text-muted-foreground">
-												{text.verb}{' '}
-												<Link
-													className="font-medium text-foreground hover:text-ember-text"
-													href={text.href}
-												>
-													{entry.targetName}
-												</Link>
-												<span className="block text-xs">
-													{formatDistanceToNowStrict(
-														entry.createdAt,
-														{
-															addSuffix: true,
-														},
-													)}
-												</span>
-											</span>
-										</li>
-									) : null,
-								)}
-							</ol>
-						) : (
-							<p className="text-muted-foreground text-sm">
-								No public activity yet.
-							</p>
-						)}
-					</SideCard>
 
 					{profile.support?.externalUrl ? (
 						<SideCard title="Support">
