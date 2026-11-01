@@ -179,31 +179,3 @@ describe('forgiveFalseOfflineChecks', () => {
 		})
 	})
 })
-
-describe('clearSoftwareClassification', () => {
-	it('removes the old guesses and nothing else', async () => {
-		const t = createTest()
-		const serverId = await insertServer(t, { slug: 'server' })
-		await t.run(async (ctx) => {
-			await ctx.db.insert('serverStatus', {
-				checksOnline: 1,
-				checksTotal: 1,
-				lastChecked: 1,
-				maxPlayers: 10,
-				online: true,
-				playerCount: 2,
-				serverId,
-				softwareClassification: 'geyser_likely',
-				softwareReasons: ['A guess'],
-				uptimePercent: 100,
-			})
-		})
-
-		await t.mutation(internal.functions.servers.migrations.clearSoftwareClassification, {})
-
-		const { status } = await readServer(t, serverId)
-		expect(status?.softwareClassification).toBeUndefined()
-		expect(status?.softwareReasons).toBeUndefined()
-		expect(status).toMatchObject({ online: true, playerCount: 2 })
-	})
-})

@@ -64,7 +64,6 @@ import type * as functions_site_migrations from "../functions/site/migrations.js
 import type * as functions_site_organizations from "../functions/site/organizations.js";
 import type * as functions_site_picks from "../functions/site/picks.js";
 import type * as functions_site_releases from "../functions/site/releases.js";
-import type * as functions_site_schemaCleanup from "../functions/site/schemaCleanup.js";
 import type * as functions_site_settings from "../functions/site/settings.js";
 import type * as functions_site_support from "../functions/site/support.js";
 import type * as functions_site_trending from "../functions/site/trending.js";
@@ -176,7 +175,6 @@ declare const fullApi: ApiFromModules<{
   "functions/site/organizations": typeof functions_site_organizations;
   "functions/site/picks": typeof functions_site_picks;
   "functions/site/releases": typeof functions_site_releases;
-  "functions/site/schemaCleanup": typeof functions_site_schemaCleanup;
   "functions/site/settings": typeof functions_site_settings;
   "functions/site/support": typeof functions_site_support;
   "functions/site/trending": typeof functions_site_trending;

@@ -1,14 +1,12 @@
 # Schema maintenance
 
-Schema fields are removed only after checking readers, writers, indexes and
-stored data. An unused UI control alone does not make a field safe to remove.
-Counts below were checked with bounded read-only queries on 2026-11-01 against
-Jean's dev deployment and production. No cleanup mutation was run in that audit.
+The 2026-11-01 cleanup checked readers, writers, indexes and stored data on both
+Jean's dev deployment and production. Empty definitions were narrowed first;
+populated legacy data was migrated before its definitions were removed.
 
-## Empty definitions removed locally
+## Removed definitions
 
-These 16 fields had no active product use or writer and no stored values in either
-checked deployment:
+Nineteen obsolete application fields are removed:
 
 | Table | Removed fields |
 | --- | --- |
@@ -17,81 +15,71 @@ checked deployment:
 | `projectVersions` | `versionNumeric` |
 | `serverSoftware` | `pluginFileExtension` |
 | `serverReviews` | `ownerReply` |
+| `servers` | `isFeatured` |
+| `serverStatus` | `softwareClassification`, `softwareReasons` |
 
-Removed unused indexes: `userProfiles.by_verified`, `userProfiles.by_creator`,
-`projects.by_featured`, and `servers.by_featured`. The completed
-`clearPluginFileTypes` migration is removed with its empty target field.
-`serverSoftware` plugin support is determined by publishing workflows. Actual
-profile counters come from active listing/statistics data, and editorial choices
-come from `picks`.
+The retired `analyticsEvents` table definition and its indexes are also removed.
+Other removed indexes are `userProfiles.by_verified`, `userProfiles.by_creator`,
+`projects.by_featured`, and `servers.by_featured`.
 
-Recheck other deployments or restored backups before deploying these stricter
-validators. Table names, IDs, ownership, authentication component schemas, active
-review fields, official totals and historical/active statistics are unchanged.
+Publishing workflows determine software plugin support. Real profile counts
+come from active listing/statistics data, editorial choices come from `picks`,
+and new optional analytics go to OpenPanel.
 
-## Populated legacy data retained for migration
+## Completed data retirement
 
-| Definition | Dev | Production | Retirement path |
-| --- | --- | --- | --- |
-| `analyticsEvents` | 19 events | 74 events | Purge retired local events, verify empty, then remove the table and purge function |
-| `serverStatus.softwareClassification` / `softwareReasons` | 1 affected status row | 4 affected status rows | Clear the retired guesses, verify both absent, then remove the validators and migration |
-| `servers.isFeatured` | 4 values | 0 values | Clear the old flags in dev, verify every deployment, then remove the field and public projection |
+| Data removed before narrowing | Dev | Production |
+| --- | --- | --- |
+| Retired local analytics events | 19 | 74 |
+| Status rows containing software guesses | 1 | 4 |
+| Old server featured flags | 4 | 0 |
 
-The schema still accepts these populated legacy definitions. New analytics go
-to OpenPanel and editorial choices use `picks`; no active code writes these
-legacy fields. A schema push does not erase fields or table data automatically.
-The follow-up narrowing must happen after the cleanup has completed.
+After the migration, all affected-field/event counts were zero in both
+deployments. The comparison against the pre-cleanup snapshots verified stable
+content across 15 application tables, official download/server counters, and
+server-status identities and uptime counters. Live pings and derived directory
+visibility continue updating normally during these comparisons.
 
-## Inspect and apply
+The full snapshots include authentication and counter components and are kept
+privately in ignored `test-results/schema-cleanup-2026-11-01/backups/`. They are
+not source artifacts and must not be committed.
 
-Run from the Hub repository. Commands below default to dev; append `--prod`
-only when production cleanup is intended.
+Temporary audit/cleanup functions and their migration tests are preserved in
+[transition commit 9a9dbbe](https://github.com/BedrockNexus/hub/commit/9a9dbbe5e5b12f635d433fd1922db04dba5d9b8f).
+They and the completed `purgeAnalyticsEvents`, `clearSoftwareClassification`,
+and `clearPluginFileTypes` migrations are removed from active code.
 
-The new audit query returns counts and a continuation cursor, never row contents:
+## Future schema retirement
 
-```sh
-bunx convex run functions/site/schemaCleanup:auditRetiredData '{"table":"analyticsEvents"}'
-bunx convex run functions/site/schemaCleanup:auditRetiredData '{"table":"serverStatus"}'
-bunx convex run functions/site/schemaCleanup:auditRetiredData '{"table":"servers"}'
-```
+1. Check all readers, writers, indexes, public projections and installed
+   components. A missing UI control does not establish that data is unused.
+2. Inspect each intended deployment with bounded, read-only queries that return
+   counts. Paginate if a scan is capped; do not infer completion from one sample.
+3. Export the target deployment, including component data, before destructive
+   cleanup. Record content/counter preservation checks appropriate to the change.
+4. Keep compatible validators while temporary internal migrations clear or
+   transform old values. Preview first where supported, then verify all batches.
+5. Require zero old values before narrowing validators. Remove completed
+   migration functions, temporary tests and stale instructions afterward, while
+   retaining their source in Git history.
+6. Run typechecks, tests and a deployment preview; deploy dev and production,
+   then verify the live flow and preservation checks.
 
-If `done` is false, pass the returned `cursor` with the same table and total all
-pages. Deploy the cleanup functions before calling them remotely. Take an export
-of the intended deployment before applying a destructive retirement.
-
-Server featured flags preview by default. Applying removes only that old field;
-it does not delete listings, picks or statistics:
-
-```sh
-bunx convex run functions/site/schemaCleanup:clearServerFeaturedFlags '{}'
-bunx convex run functions/site/schemaCleanup:clearServerFeaturedFlags '{"apply":true}'
-```
-
-Existing internal migrations handle the other two populated definitions:
-
-```sh
-bunx convex run functions/servers/migrations:clearSoftwareClassification '{}'
-bunx convex run functions/site/migrations:purgeAnalyticsEvents '{}'
-```
-
-Those two commands apply immediately; use the audit first. They page/schedule
-their work. Wait until scheduled batches finish, rerun the count-only audit over
-all pages, and require zero affected records before removing schema definitions.
-Keep the migrations available until every intended deployment has been checked.
-Do not purge official counters or authentication data as part of this cleanup.
+Restored backups or other developers' deployments may still contain retired
+fields. Use a compatible transition schema and the historical migration source
+before deploying the final stricter schema to those environments.
 
 ## Definitions deliberately kept
 
-- `pluginDownloads`: 50 historical production rows and no dev rows. New official
-  counts use sharded counters, but deletion cleanup still references this history.
-  Retention or retirement is a separate decision; do not silently discard it.
-- Plugin/project download counters, owner counters, review totals, status
-  history, daily statistics, creator listings, publication and moderation fields
-  are active data even when a particular page does not show every value.
+- `pluginDownloads`: 50 historical production rows and no dev rows at the audit.
+  New official counts use sharded counters, but deletion cleanup still references
+  this history. Its retention was preserved by this cleanup.
+- Official download counters, owner counters, review totals, status history,
+  daily statistics, creator listings and publication/moderation fields remain.
 - Review `helpfulCount` and project `authorReply` remain in current public
   projections. Removing public response fields needs its own contract decision.
 - The `texture_pack` discriminator remains for historical compatibility across
-  projects, categories and uploads. It is not a dormant product feature.
+  projects, categories and uploads; it is not a dormant product feature.
 - Better Auth and installed Convex component schemas are owned by their
   components and are outside this application-schema cleanup.
 

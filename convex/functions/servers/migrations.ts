@@ -9,38 +9,6 @@ const BATCH_SIZE = 100
 const MAX_HISTORY_ROWS = 9000
 
 /**
- * Removes the software guesses left on status rows from when they were made.
- * Safe to re-run; it pages through the table and schedules itself until done.
- *
- * Run: npx convex run functions/servers/migrations:clearSoftwareClassification
- */
-export const clearSoftwareClassification = internalMutation({
-	args: { cursor: v.optional(v.union(v.string(), v.null())) },
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		const page = await ctx.db
-			.query('serverStatus')
-			.paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE })
-		for (const status of page.page) {
-			if (status.softwareClassification || status.softwareReasons) {
-				await ctx.db.patch('serverStatus', status._id, {
-					softwareClassification: undefined,
-					softwareReasons: undefined,
-				})
-			}
-		}
-		if (!page.isDone) {
-			await ctx.scheduler.runAfter(
-				0,
-				internal.functions.servers.migrations.clearSoftwareClassification,
-				{ cursor: page.continueCursor },
-			)
-		}
-		return null
-	},
-})
-
-/**
  * Takes back the offline checks wrongly recorded while NetherNet-only servers
  * were pinged only over RakNet. A server qualifies only if it was offline right
  * up to the fix and online at its first check after, and only its unbroken run

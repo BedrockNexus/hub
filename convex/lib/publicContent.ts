@@ -26,7 +26,6 @@ export function toPublicServer(server: Doc<'servers'>) {
 		storeUrl: server.storeUrl,
 		wikiUrl: server.wikiUrl,
 		ownerType: server.ownerType,
-		isFeatured: server.isFeatured,
 		publishedAt: server.publishedAt,
 		region: server.region,
 		language: server.language,

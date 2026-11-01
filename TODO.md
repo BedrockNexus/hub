@@ -6,13 +6,6 @@ Current work as of 2026-11-01. Keep product priorities here, regression checks i
 
 ## Cleanup
 
-- [ ] Validate and deploy the local schema cleanup: 16 empty, unused fields and
-  four unused indexes removed. The audit and deployment stages are documented
-  in [schema maintenance](./docs/SCHEMA_MAINTENANCE.md).
-- [ ] Retire populated legacy data before removing its validators: old local
-  analytics events, retired server software guesses, and server featured flags.
-  Inspect the count-only report, apply the intended cleanup, verify every page,
-  then remove the remaining schema definitions. Do not reset official counters.
 - [ ] Backfill server address keys and inspect conflicts. On 2026-11-01, three
   of four production servers had no `addressKey`; dev was complete. Use
   `functions/servers/migrations:backfillAddressKeys` and check its result.
@@ -41,9 +34,3 @@ Current work as of 2026-11-01. Keep product priorities here, regression checks i
 
 - Blog publishing, schema, RSS and public posts.
 - Mods remain paused. Do not restore the old mixed backup over the active code.
-
-The catalog API, stable listing references, section download URLs, optional
-OpenPanel integration, public response privacy fixes and current server status
-changes shipped on 2026-11-01. Completed rollout steps belong in Git history,
-not in a permanent deploy checklist. Older one-off backfills are maintenance
-options; their execution is not inferred from old TODO notes.

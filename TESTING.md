@@ -144,7 +144,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [ ] Confirm download HEAD requests return 405 and link prefetch is disabled.
 - [ ] Confirm browser events omit account pages, search values and URL fragments.
 - [ ] Confirm collector failures do not block downloads or change official totals.
-- [ ] Run the count-only retired-data audit before and after each cleanup batch.
+- [ ] Use bounded count-only queries before and after each cleanup batch.
 - [ ] Verify previews do not mutate data and cleanup preserves listings, picks,
   ownership, active statistics and historical official download totals.
 - [ ] Confirm both dev and production are free of removed fields before narrowing

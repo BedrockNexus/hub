@@ -24,33 +24,6 @@ import {
 } from '../../lib/r2Keys'
 import { supportedGameVersions } from '../projects/artifactValidation'
 
-const BATCH_SIZE = 500
-
-/**
- * Deletes every row of the retired `analyticsEvents` table in batches,
- * rescheduling itself until the table is empty. Safe to re-run. Once it
- * finishes, remove the table from `convex/schemas/site.ts`.
- *
- * Run: npx convex run functions/site/migrations:purgeAnalyticsEvents
- */
-export const purgeAnalyticsEvents = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		const events = await ctx.db.query('analyticsEvents').take(BATCH_SIZE)
-		for (const event of events) {
-			await ctx.db.delete(event._id)
-		}
-		if (events.length === BATCH_SIZE) {
-			await ctx.scheduler.runAfter(
-				0,
-				internal.functions.site.migrations.purgeAnalyticsEvents,
-				{},
-			)
-		}
-		return { deleted: events.length, done: events.length < BATCH_SIZE }
-	},
-})
-
 const ACTIVITY_SOURCES = [
 	'servers',
 	'projects',

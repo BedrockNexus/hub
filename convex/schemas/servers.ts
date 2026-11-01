@@ -116,10 +116,6 @@ export const tables = {
 		ownerId: v.string(), // userId or organizationId based on ownerType
 		registeredBy: v.string(), // Original creator (audit trail)
 
-		// Retired: editorial choices live in picks. Retained for old dev rows;
-		// clear with site/schemaCleanup:clearServerFeaturedFlags before removal.
-		isFeatured: v.optional(v.boolean()),
-
 		// Lifecycle
 		status: serverLifecycleStatus,
 		publishedAt: v.optional(v.number()),
@@ -280,16 +276,6 @@ export const tables = {
 		motd: v.optional(v.string()),
 		version: v.optional(v.string()),
 		gameMode: v.optional(v.string()),
-		// No longer written; software is declared by the owner. Delete both after
-		// functions/servers/migrations:clearSoftwareClassification has run everywhere.
-		softwareClassification: v.optional(
-			v.union(
-				v.literal('native_bedrock'),
-				v.literal('geyser_likely'),
-				v.literal('ambiguous'),
-			),
-		),
-		softwareReasons: v.optional(v.array(v.string())),
 
 		// Ping info
 		latency: v.optional(v.number()),

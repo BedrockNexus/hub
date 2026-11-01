@@ -85,35 +85,6 @@ export const tables = {
 		.index('by_server', ['serverId'])
 		.index('by_project', ['projectId']),
 
-	// Retired local event store. OpenPanel receives new analytics externally.
-	// Kept only so existing rows still validate until
-	// `functions/site/migrations:purgeAnalyticsEvents` empties the table; then
-	// delete this definition.
-	analyticsEvents: defineTable({
-		targetType: v.union(
-			v.literal('server'),
-			v.literal('project'),
-			v.literal('organization'),
-			v.literal('profile'),
-		),
-		targetId: v.string(),
-		eventType: v.union(
-			v.literal('view'),
-			v.literal('ip_copy'),
-			v.literal('download'),
-			v.literal('outbound_click'),
-			v.literal('share'),
-		),
-		userId: v.optional(v.string()),
-		referrer: v.optional(v.string()),
-		dayKey: v.string(),
-		createdAt: v.number(),
-	})
-		.index('by_target', ['targetType', 'targetId', 'createdAt'])
-		.index('by_target_day', ['targetType', 'targetId', 'dayKey'])
-		.index('by_event', ['eventType', 'createdAt'])
-		.index('by_created', ['createdAt']),
-
 	// ===========================================================================
 	// ACTIVITY LOG (Public feed of user actions)
 	// ===========================================================================
