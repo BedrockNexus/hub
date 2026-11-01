@@ -162,6 +162,7 @@ query    functions/projects/reviews:getStats
 query    functions/projects/reviews:getUserReview
 query    functions/projects/reviews:list
 query    functions/projects/versions:getByVersion
+query    functions/projects/versions:getDownloadPath
 query    functions/projects/versions:getLatest
 query    functions/projects/versions:getPublicByVersion
 query    functions/projects/versions:list
@@ -208,6 +209,7 @@ query    functions/site/organizations:getPublicBySlug
 query    functions/site/organizations:listAdmin
 query    functions/site/picks:list
 query    functions/site/picks:listAdmin
+query    functions/site/releases:latest
 query    functions/site/settings:get
 query    functions/site/settings:getAdmin
 query    functions/site/settings:getAll

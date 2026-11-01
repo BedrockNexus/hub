@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { toPublicProject, toPublicServer } from '../../lib/publicContent'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
 	adjustProjectFavourites,
@@ -186,7 +187,7 @@ export const listMine = query({
 						ctx.db.query('serverStatus').withIndex('by_server', (q) => q.eq('serverId', server._id)).first(),
 					])
 					return {
-						...server,
+						...toPublicServer(server),
 						logoUrl: server.logoR2Key ? await resolveCdnObjectUrl(server.logoR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 						categories: categories.filter(Boolean),
 						online: status?.online,
@@ -208,7 +209,7 @@ export const listMine = query({
 						ctx.db.query('projectStats').withIndex('by_project', (q) => q.eq('projectId', project._id)).first(),
 					])
 					return {
-						...project,
+						...toPublicProject(project),
 						iconUrl: project.iconR2Key ? await resolveCdnObjectUrl(project.iconR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 						categories: categories.filter(Boolean),
 						averageRating: stats?.averageRating ?? 0,

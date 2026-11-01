@@ -243,8 +243,8 @@ export function ServerOwnershipVerification({
 				<div className="pt-2">
 					<p className="mb-3 text-muted-foreground text-xs">
 						{method === 'dns_txt'
-							? 'DNS changes can take a few minutes to propagate. The server must be online and pass the native Bedrock software check. This code is tied to your account and stays valid for 24 hours.'
-							: 'The server must be online. Verification checks both MOTD lines and rejects Java servers using Geyser. This code is tied to your account and stays valid for 24 hours.'}
+							? 'DNS changes can take a few minutes to propagate. The server must be online. This code is tied to your account and stays valid for 24 hours.'
+							: 'The server must be online. Verification checks both MOTD lines. This code is tied to your account and stays valid for 24 hours.'}
 					</p>
 
 					<div className="flex flex-col gap-2 sm:flex-row sm:items-center">

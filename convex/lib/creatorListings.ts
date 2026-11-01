@@ -1,7 +1,7 @@
 import { components } from '../_generated/api'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
-import { isPublicProject, isPublicServer } from './contentVisibility'
+import { isListedServer, isPublicProject } from './contentVisibility'
 
 /**
  * Keeps `creatorListings` - the rows that make creators and organizations
@@ -163,7 +163,7 @@ async function countPublicContent(
 	])
 	return {
 		serverCount: servers.filter(
-			(server) => server._id !== excluding && isPublicServer(server),
+			(server) => server._id !== excluding && isListedServer(server),
 		).length,
 		projectCount: projects.filter(
 			(project) => project._id !== excluding && isPublicProject(project),
@@ -344,7 +344,7 @@ export async function syncServerOwners(
 	await syncContentOwners(ctx, {
 		before,
 		after,
-		isPublic: isPublicServer,
+		isPublic: isListedServer,
 		owners: (server) => [
 			`user:${server.registeredBy}`,
 			...(server.ownerType === 'organization'

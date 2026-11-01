@@ -3,7 +3,8 @@ import { v } from 'convex/values'
 import { stream } from 'convex-helpers/server/stream'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { type QueryCtx, query } from '../../_generated/server'
-import { isPublicServer } from '../../lib/contentVisibility'
+import { isListedServer } from '../../lib/contentVisibility'
+import { toPublicServer } from '../../lib/publicContent'
 import { resolveCdnObjectUrl } from '../../lib/r2'
 import schema from '../../schema'
 
@@ -65,7 +66,7 @@ interface Row {
 
 /** Everything the listing checks on the server and its live status. */
 function matchesFilters({ server, status }: Row, filters: Filters) {
-	if (!isPublicServer(server)) {
+	if (!isListedServer(server)) {
 		return false
 	}
 	if (
@@ -140,7 +141,7 @@ export async function toCards(ctx: QueryCtx, rows: Row[]) {
 	)
 	return await Promise.all(
 		rows.map(async ({ server, stats, status }) => ({
-			...server,
+			...toPublicServer(server),
 			logoUrl: await imageUrl(server.logoR2Key),
 			bannerUrl: await imageUrl(server.bannerR2Key),
 			categories: server.categoryIds.flatMap((id) => {
@@ -311,7 +312,7 @@ export const sitemapEntries = query({
 			listed.map((stats) => ctx.db.get('servers', stats.serverId)),
 		)
 		return servers.flatMap((server) =>
-			server && isPublicServer(server)
+			server && isListedServer(server)
 				? [
 						{
 							ipAddress: server.ipAddress, port: server.port, slug: server.slug,

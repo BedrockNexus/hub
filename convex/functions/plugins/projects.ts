@@ -15,6 +15,7 @@ import {
 import {
 	projectStatusValidator,
 	projectValidator,
+	publicProjectValidator,
 	projectVisibilityValidator,
 } from '../../schemas/plugins'
 
@@ -120,7 +121,7 @@ async function hydrateDashboardProject(
 
 export const getBySlug = query({
 	args: { slug: v.string() },
-	returns: v.union(projectValidator, v.null()),
+	returns: v.union(publicProjectValidator, v.null()),
 	handler: async (ctx, args) => {
 		const project = await resolvePluginReference(ctx, args.slug)
 
@@ -129,7 +130,18 @@ export const getBySlug = query({
 		}
 
 		const user = await getCurrentUserOrNull(ctx)
-		return (await canViewProject(ctx, project, user)) ? project : null
+		if (!(await canViewProject(ctx, project, user))) {
+			return null
+		}
+		const {
+			ownerId: _ownerId,
+			createdBy: _createdBy,
+			searchText: _searchText,
+			downloadCounterReadyAt: _downloadCounterReadyAt,
+			downloadCountRefreshScheduledAt: _downloadCountRefreshScheduledAt,
+			...visible
+		} = project
+		return visible
 	},
 })
 

@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { type MutationCtx, type QueryCtx, query } from '../../_generated/server'
 import { recordAdminAction } from '../../lib/audit'
-import { isPublicProject, isPublicServer } from '../../lib/contentVisibility'
+import { isListedServer, isPublicProject } from '../../lib/contentVisibility'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import { toCards as toProjectCards } from '../projects/listing'
 import {
@@ -41,7 +41,7 @@ async function targetOf(ctx: QueryCtx, pick: Doc<'picks'>) {
 	if (pick.targetType === 'server' && pick.serverId) {
 		const server = await ctx.db.get('servers', pick.serverId)
 		return server
-			? { server, isPublic: isPublicServer(server) }
+			? { server, isPublic: isListedServer(server) }
 			: null
 	}
 	if (pick.targetType === 'project' && pick.projectId) {
@@ -200,7 +200,7 @@ export const add = adminMutation({
 		)
 		const isPublic =
 			args.targetType === 'server'
-				? isPublicServer(target as Doc<'servers'>)
+				? isListedServer(target as Doc<'servers'>)
 				: isPublicProject(target as Doc<'projects'>)
 		if (!isPublic) {
 			throw new Error('Only something that is public can be a pick')

@@ -21,7 +21,7 @@ import {
 	isSoftwareLogoR2Key,
 } from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
-import { isPublicServer } from '../../lib/contentVisibility'
+import { isListedServer } from '../../lib/contentVisibility'
 import { countPublishedProjectsForSoftwareBatch } from '../../lib/plugins/aggregates'
 import { softwareIdsWithWorkflows } from '../../lib/plugins/workflowTemplates'
 import { statusOf, toCards } from './listing'
@@ -476,7 +476,7 @@ export const getDirectoryEntry = query({
 			await Promise.all(
 				busiest.map(async (row) => {
 					const server = await ctx.db.get('servers', row.serverId)
-					return server && isPublicServer(server)
+					return server && isListedServer(server)
 						? {
 								server,
 								stats: row,

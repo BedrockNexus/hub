@@ -1,15 +1,8 @@
-import { createHash } from 'node:crypto'
-import { fetchMutation } from 'convex/nextjs'
 import { api } from '@/convex/_generated/api'
 import { logEvent } from '@/convex/lib/redact'
-import { getClientAddress } from '@/lib/client-address'
+import { fetchAuthMutation } from '@/lib/auth-server'
+import { getClientAddress, hashClientKey } from '@/lib/client-address'
 import { parsePluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
-
-function hashFingerprint(salt: string, namespace: string, value: string) {
-	return createHash('sha256')
-		.update(`${salt}\0${namespace}\0${value}`)
-		.digest('hex')
-}
 
 function errorCode(error: unknown) {
 	if (typeof error !== 'object' || error === null) {
@@ -69,26 +62,19 @@ export async function GET(
 		})
 	}
 
-	const userAgent = request.headers.get('user-agent') || 'unknown'
-	const anonymousIdHash = hashFingerprint(
+	const anonymousIdHash = hashClientKey(
 		redirectSecret,
-		'address',
 		getClientAddress(request.headers),
-	)
-	const userAgentHash = hashFingerprint(
-		redirectSecret,
-		'user-agent',
-		userAgent,
 	)
 
 	try {
-		const result = await fetchMutation(
+		const result = await fetchAuthMutation(
 			api.functions.plugins.downloads.resolveAndRecord,
 			{
 				projectSlug,
 				version,
 				anonymousIdHash,
-				userAgentHash,
+				source: 'website',
 				redirectSecret,
 			},
 		)
@@ -125,4 +111,11 @@ export async function GET(
 			headers: { 'Cache-Control': 'no-store' },
 		})
 	}
+}
+
+export function HEAD() {
+	return new Response(null, {
+		status: 405,
+		headers: { Allow: 'GET', 'Cache-Control': 'no-store' },
+	})
 }

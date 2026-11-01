@@ -1,7 +1,7 @@
 import { normalizeProjectType } from '../../lib/project-artifacts'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
-import { isPublicProject, isPublicServer } from './contentVisibility'
+import { isListedServer, isPublicProject } from './contentVisibility'
 import { utcDayKey, utcMonthKey } from './dayKeys'
 
 /**
@@ -200,7 +200,7 @@ export async function adjustProjectFavourites(
 
 /** Copies a server's listing fields to its stats and status, and refreshes its search text. */
 export async function syncServer(ctx: MutationCtx, server: Doc<'servers'>) {
-	const isPublic = isPublicServer(server)
+	const isPublic = isListedServer(server)
 	const stats = await ensureServerStats(ctx, server._id)
 	await patchChanged(ctx, stats, {
 		isPublic,

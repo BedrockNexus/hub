@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getProjectDownloadCount, getOwnerDownloadCount } from '../../lib/plugins/downloadCounts'
 
 import { createTest as createBackend } from '../../test.setup'
 import { api } from '../../_generated/api'
@@ -11,6 +12,7 @@ type TestClient = ReturnType<typeof createTest>
 async function createPublishedFixture(t: TestClient) {
 	return await t.run(async (ctx) => {
 		const now = Date.now()
+		await ctx.db.insert('siteSettings', { key: 'features', value: { pluginsEnabled: true }, updatedAt: now })
 		const installationId = await ctx.db.insert('githubInstallations', {
 			installationId: 7_001,
 			accountId: 8_001,
@@ -198,7 +200,7 @@ describe('download redirects', () => {
 		).rejects.toThrow('Download not found')
 	})
 
-	it('serves the published file without counting the download', async () => {
+	it('counts a published release once per requester and preserves fresh redirects', async () => {
 		const t = createTest()
 		const fixture = await createPublishedFixture(t)
 		const args = {
@@ -213,8 +215,16 @@ describe('download redirects', () => {
 			t.mutation(api.functions.plugins.downloads.resolveAndRecord, args),
 		).resolves.toEqual({
 			url: `${cdnUrl}/plugins/${fixture.projectId}/versions/1.0.0/TrustedPlugin.jar`,
-			counted: false,
+			counted: true,
 		})
+		const repeated = await t.mutation(api.functions.plugins.downloads.resolveAndRecord, args)
+		expect(repeated.counted).toBe(false)
+		const counts = await t.run(async (ctx) => {
+			const project = await ctx.db.get(fixture.projectId)
+			if (!project) throw new Error('Missing fixture')
+			return [await getProjectDownloadCount(ctx, project), await getOwnerDownloadCount(ctx, project.ownerType, project.ownerId)]
+		})
+		expect(counts).toEqual([1, 1])
 
 		const downloads = await t.run(
 			async (ctx) => await ctx.db.query('pluginDownloads').take(10),

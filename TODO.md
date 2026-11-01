@@ -41,28 +41,31 @@ lives in Git history; automated checks and manual QA live in `TESTING.md`.
 
 ## P1 - Public Catalog API
 
-- [ ] Expand the API service into a versioned, read-only public catalog API for
-  launchers, bots, websites, and community integrations:
-  - Add `/v1` endpoints for searching and retrieving published servers,
-    projects, project releases, categories, project types, and supported game
-    versions by stable ID or slug.
-  - Return only the same public, published data exposed by Hub. Keep drafts,
-    moderation data, private R2 upload keys, ownership proofs, admin data, and
-    write operations out of the public API.
-  - Keep downloads routed through Hub's tracked download endpoint instead of
-    exposing storage URLs that bypass analytics and release availability rules.
-  - Define consistent pagination, filtering, sorting, field names, timestamps,
-    error responses, and cache headers before publishing the API contract.
-  - Publish an OpenAPI specification and human-readable API documentation with
-    request and response examples.
-  - Add public API rate limits, CORS, request validation, observability, and
-    contract tests without weakening the existing internal API-key boundaries.
+- [x] The API service has a versioned, read-only catalog for launchers, bots,
+  websites, and community integrations. `/v1` follows the site's sections
+  (`/addons`, `/resource-packs`, `/plugins`, `/servers`), with an OpenAPI document
+  at `/v1/openapi.json` and documentation in the API's README.
+- [ ] Once this is deployed, run these once per deployment (dev: not run):
+  - `npx convex run functions/servers/migrations:backfillAddressKeys` lowercases
+    every stored server address. Its result lists any address it had to leave
+    for an admin.
+  - `npx convex run functions/projects/artifactValidation:backfillChecksums`
+    adds checksums to releases validated before they were recorded.
+  - `npx convex run functions/servers/migrations:clearSoftwareClassification`
+    clears the old software guesses. After it has run everywhere, delete
+    `softwareClassification` and `softwareReasons` from `serverStatus`.
+  - `npx convex run functions/servers/migrations:forgiveFalseOfflineChecks`
+    takes back the offline checks wrongly recorded while NetherNet-only servers
+    were pinged only over RakNet. Pass `fixedAt` as the epoch milliseconds of the
+    ping fix's deploy; it only reports until `apply` is true.
 
 ## Explicitly Deferred
 
 - [ ] Blog publishing, schema, RSS, and public post routes remain deferred.
-- [ ] Analytics. Hub's own tracking and dashboards were removed; hub and
-  plugins will both use the central Amblydia analytics platform once it exists.
+- [ ] Activate shared OpenPanel at `analytics.amblydia.com` after deployment and
+  configure its browser/server clients. Public browsing and download events are
+  wired; official download totals and deduplication remain in Convex. See
+  `docs/ANALYTICS_AND_DOWNLOADS.md`. Creator analytics dashboards remain deferred.
 - [ ] After `functions/site/migrations:purgeAnalyticsEvents` has emptied the
   retired `analyticsEvents` table in every deployment, delete its definition
   from `convex/schemas/site.ts`.

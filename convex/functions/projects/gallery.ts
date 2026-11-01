@@ -4,6 +4,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { toPublicGalleryItem } from '../../lib/publicContent'
 import { canEditContent } from '../../lib/permissions'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
@@ -101,7 +102,12 @@ export const listPublic = query({
 			)
 			.collect()
 
-		return Promise.all(items.map(enrichGalleryItem))
+		return Promise.all(
+			items.map(async (item) => {
+				const { url } = await enrichGalleryItem(item)
+				return toPublicGalleryItem(item, url)
+			}),
+		)
 	},
 })
 

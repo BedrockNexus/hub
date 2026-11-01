@@ -23,6 +23,8 @@ export const LOCAL_REQUIRED = [
 // CONVEX_DEPLOY_KEY is deliberately absent: it redirects every Convex CLI
 // command to the deployment it belongs to, so it is set only in CI.
 export const LOCAL_OPTIONAL = [
+	'OPENPANEL_BROWSER_CLIENT_ID',
+	'OPENPANEL_API_URL',
 	'TRUSTED_PROXY_HOPS',
 	'CLIENT_IP_HEADER',
 	'E2E_BASE_URL',
@@ -61,6 +63,9 @@ export const CONVEX_REQUIRED = [
 ]
 
 export const CONVEX_OPTIONAL = [
+	'OPENPANEL_CLIENT_ID',
+	'OPENPANEL_CLIENT_SECRET',
+	'OPENPANEL_API_URL',
 	'ARTIFACT_VALIDATOR_API_KEY',
 	// Turns on the Runqora plugin in convex/auth.ts.
 	'RUNQORA_AUTH_SECRET',

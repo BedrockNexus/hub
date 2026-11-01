@@ -3,9 +3,10 @@ import { v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { action, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { toPublicProject, toPublicServer } from '../../lib/publicContent'
 import { adminQuery } from '../../lib/functions'
 import type { ActionCtx, MutationCtx, QueryCtx } from '../../_generated/server'
-import { isPublicProject } from '../../lib/contentVisibility'
+import { isListedServer, isPublicProject } from '../../lib/contentVisibility'
 import { validateImageObjectMetadata } from '../../lib/media'
 import { confirmOwnerPictureUpload } from '../../lib/ownerPictures'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
@@ -121,7 +122,7 @@ export const getPublicBySlug = query({
 			members.map((member) => authComponent.getAnyUserById(ctx, member.userId)),
 		)
 
-		const publicServers = servers.filter((server) => server.status === 'published')
+		const publicServers = servers.filter(isListedServer)
 		const publicProjects = projects.filter(isPublicProject)
 
 		return {
@@ -147,7 +148,7 @@ export const getPublicBySlug = query({
 					ctx.db.query('serverStatus').withIndex('by_server', (q) => q.eq('serverId', server._id)).first(),
 				])
 				return {
-					...server,
+					...toPublicServer(server),
 					logoUrl: server.logoR2Key ? await resolveCdnObjectUrl(server.logoR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 					categories: categories.filter(Boolean),
 					online: status?.online,
@@ -162,7 +163,7 @@ export const getPublicBySlug = query({
 					ctx.db.query('projectStats').withIndex('by_project', (q) => q.eq('projectId', project._id)).first(),
 				])
 				return {
-					...project,
+					...toPublicProject(project),
 					iconUrl: project.iconR2Key ? await resolveCdnObjectUrl(project.iconR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
 					categories: categories.filter(Boolean),
 					averageRating: stats?.averageRating ?? 0,

@@ -140,6 +140,10 @@ export const tables = {
 		verifiedBy: v.optional(v.string()),
 		verificationMethod: v.optional(serverVerificationMethod),
 
+		// When it was left out of listings for being offline too long; cleared by
+		// its next successful status check. See isListedServer.
+		offlineHiddenAt: v.optional(v.number()),
+
 		// Name, summary, tags, category and software names; see lib/discovery.ts.
 		searchText: v.optional(v.string()),
 
@@ -279,6 +283,8 @@ export const tables = {
 		motd: v.optional(v.string()),
 		version: v.optional(v.string()),
 		gameMode: v.optional(v.string()),
+		// No longer written; software is declared by the owner. Delete both after
+		// functions/servers/migrations:clearSoftwareClassification has run everywhere.
 		softwareClassification: v.optional(
 			v.union(
 				v.literal('native_bedrock'),

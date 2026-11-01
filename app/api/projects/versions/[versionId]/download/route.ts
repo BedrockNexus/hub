@@ -1,153 +1,65 @@
-import { ConvexError } from 'convex/values'
-import { NextResponse } from 'next/server'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
-import { fetchAuthMutation } from '@/lib/auth-server'
-import { getClientAddress, hashClientKey } from '@/lib/client-address'
+import { fetchAuthQuery } from '@/lib/auth-server'
+import { absoluteUrl } from '@/lib/seo'
 
-interface DownloadRouteContext {
-	params: Promise<{ versionId: string }>
-}
+const INVALID_ID = /ArgumentValidationError|Invalid ID/
 
-const DOWNLOAD_ERROR_STATUS = {
-	FILE_MISSING: 410,
-	VERSION_NOT_FOUND: 404,
-	VERSION_NOT_VALIDATED: 409,
-	VERSION_PROCESSING: 409,
-	VERSION_UNAVAILABLE: 404,
-} as const
-
-function rateLimitRetryAfterMs(error: unknown): number | null {
-	if (!(error instanceof ConvexError)) {
-		return null
-	}
-	const data = error.data as { code?: string; retryAfterMs?: number } | null
-	return data?.code === 'RATE_LIMITED' ? (data.retryAfterMs ?? 0) : null
-}
-
-function isInvalidVersionIdError(error: unknown) {
-	if (!(error instanceof Error)) {
-		return false
-	}
-
-	return (
-		error.message.includes('ArgumentValidationError') ||
-		error.message.includes('Invalid ID')
-	)
-}
-
-export async function GET(request: Request, { params }: DownloadRouteContext) {
+/** Compatibility only; availability and counting happen at the canonical URL. */
+export async function GET(
+	request: Request,
+	{ params }: { params: Promise<{ versionId: string }> },
+) {
 	const { versionId } = await params
-	const wantsJson = new URL(request.url).searchParams.get('format') === 'json'
-	const downloadSecret = process.env.DOWNLOAD_REDIRECT_SECRET
-	if (!downloadSecret) {
-		console.error('DOWNLOAD_REDIRECT_SECRET is not configured')
-		return NextResponse.json(
-			{
-				code: 'DOWNLOAD_TEMPORARILY_UNAVAILABLE',
-				message: 'Downloads are temporarily unavailable.',
-				ok: false,
-			},
-			{ headers: { 'Cache-Control': 'no-store' }, status: 503 },
-		)
-	}
-
 	try {
-		// Forward the session when present so signed-in users are limited and
-		// counted per account; anonymous visitors per hashed client address.
-		const result = await fetchAuthMutation(
-			api.functions.projects.versions.createDownloadUrl,
-			{
-				versionId: versionId as Id<'projectVersions'>,
-				downloadSecret,
-				clientKey: hashClientKey(
-					downloadSecret,
-					getClientAddress(request.headers),
-				),
-			},
+		const path = await fetchAuthQuery(
+			api.functions.projects.versions.getDownloadPath,
+			{ versionId: versionId as Id<'projectVersions'> },
 		)
-
-		if (!result.ok) {
-			const status = DOWNLOAD_ERROR_STATUS[result.code]
-			return NextResponse.json(
+		if (!path) {
+			return Response.json(
 				{
-					code: result.code,
-					message: result.message,
 					ok: false,
-				},
-				{
-					headers: { 'Cache-Control': 'no-store' },
-					status,
-				},
-			)
-		}
-
-		if (wantsJson) {
-			return NextResponse.json(
-				{
-					expiresIn: result.expiresIn,
-					fileName: result.fileName,
-					ok: true,
-					url: result.url,
-				},
-				{ headers: { 'Cache-Control': 'no-store' } },
-			)
-		}
-
-		const response = NextResponse.redirect(result.url, 307)
-		response.headers.set('Cache-Control', 'no-store')
-		return response
-	} catch (error) {
-		if (isInvalidVersionIdError(error)) {
-			return NextResponse.json(
-				{
 					code: 'VERSION_NOT_FOUND',
 					message: 'This release is no longer available.',
-					ok: false,
 				},
-				{
-					headers: { 'Cache-Control': 'no-store' },
-					status: 404,
-				},
+				{ status: 404, headers: { 'Cache-Control': 'no-store' } },
 			)
 		}
-
-		const retryAfterMs = rateLimitRetryAfterMs(error)
-		if (retryAfterMs !== null) {
-			return NextResponse.json(
-				{
-					code: 'DOWNLOAD_RATE_LIMITED',
-					message:
-						'Too many download requests. Please wait before trying again.',
-					ok: false,
-				},
-				{
-					headers: {
-						'Cache-Control': 'no-store',
-						'Retry-After': String(
-							Math.max(1, Math.ceil(retryAfterMs / 1000)),
-						),
-					},
-					status: 429,
-				},
-			)
+		const target = new URL(absoluteUrl(path))
+		if (new URL(request.url).searchParams.get('format') === 'json') {
+			target.searchParams.set('format', 'json')
 		}
-
-		console.error('Could not create project version download URL', error)
-		return NextResponse.json(
+		return new Response(null, {
+			status: 307,
+			headers: {
+				Location: target.toString(),
+				'Cache-Control': 'no-store',
+			},
+		})
+	} catch (error) {
+		const invalid = error instanceof Error && INVALID_ID.test(error.message)
+		return Response.json(
 			{
-				code: 'DOWNLOAD_TEMPORARILY_UNAVAILABLE',
-				message:
-					'We could not prepare a fresh download link. Please try again.',
 				ok: false,
+				code: invalid
+					? 'VERSION_NOT_FOUND'
+					: 'DOWNLOAD_TEMPORARILY_UNAVAILABLE',
+				message: invalid
+					? 'This release is no longer available.'
+					: 'Downloads are temporarily unavailable.',
 			},
 			{
-				headers: {
-					'Cache-Control': 'no-store',
-					'Retry-After': '5',
-				},
-				status: 503,
+				status: invalid ? 404 : 503,
+				headers: { 'Cache-Control': 'no-store' },
 			},
 		)
 	}
+}
+
+export function HEAD() {
+	return new Response(null, {
+		status: 405,
+		headers: { Allow: 'GET', 'Cache-Control': 'no-store' },
+	})
 }

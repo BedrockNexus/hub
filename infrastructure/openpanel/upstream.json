@@ -1,0 +1,6 @@
+{
+  "url": "https://raw.githubusercontent.com/coollabsio/coolify/main/templates/compose/openpanel.yaml",
+  "fetchedAt": "2026-11-01T20:36:24.953Z",
+  "sha256": "dd1102a88d3163ee7f2a13b6d068ace7461cd109f4d28b160142d74f17a11b6c",
+  "note": "Adapted to a same-origin gateway and standard Compose file mounts; the official template remains the upgrade reference."
+}

@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { RatingLabel, TagChip } from '@/components/servers/server-bits'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Doc } from '@/convex/_generated/dataModel'
+import type { PublicProject } from '@/convex/lib/publicContent'
 import { contentHref } from '@/lib/content-routes'
 import {
 	normalizeProjectType,
@@ -16,7 +17,7 @@ import {
 } from '@/lib/project-artifacts'
 
 interface ProjectCardProps {
-	content: Doc<'projects'> & {
+	content: PublicProject & {
 		iconUrl?: string
 		categories: (Doc<'projectCategories'> | null)[]
 		averageRating?: number

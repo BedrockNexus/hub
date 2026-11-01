@@ -3,6 +3,7 @@ import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { toPublicProject } from '../../lib/publicContent'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
@@ -300,7 +301,8 @@ async function deleteProjectRelatedRows(
 	}
 }
 
-async function enrichProjectDetail(ctx: QueryCtx, item: Doc<'projects'>) {
+/** Everything a project's detail page shows beyond the document itself. */
+async function projectDetailExtras(ctx: QueryCtx, item: Doc<'projects'>) {
 	const now = Date.now()
 	const dayKey = getUtcDayKey(now)
 	const monthKey = getUtcMonthKey(now)
@@ -393,7 +395,6 @@ async function enrichProjectDetail(ctx: QueryCtx, item: Doc<'projects'>) {
 	}
 
 	return {
-		...item,
 		iconUrl,
 		bannerUrl,
 		categories: categories.filter(Boolean),
@@ -458,7 +459,10 @@ export const getPublishedBySlug = query({
 			return null
 		}
 
-		return enrichProjectDetail(ctx, item)
+		return {
+			...toPublicProject(item),
+			...(await projectDetailExtras(ctx, item)),
+		}
 	},
 })
 
@@ -1012,7 +1016,10 @@ export const getAdminReview = adminQuery({
 		}
 
 		const [detail, gallery, versions] = await Promise.all([
-			enrichProjectDetail(ctx, project),
+			projectDetailExtras(ctx, project).then((extras) => ({
+				...project,
+				...extras,
+			})),
 			ctx.db
 				.query('projectGallery')
 				.withIndex('by_project_sort', (q) =>

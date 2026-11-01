@@ -25,6 +25,7 @@ const validationReport = v.object({
 	manifestCount: v.optional(v.number()),
 	width: v.optional(v.number()),
 	height: v.optional(v.number()),
+	sha256: v.optional(v.string()),
 })
 
 interface ValidatorResult {
@@ -39,6 +40,7 @@ interface ValidatorResult {
 		manifestCount?: number
 		width?: number
 		height?: number
+		sha256?: string
 	}
 }
 
@@ -230,6 +232,122 @@ export const finalizeDemotion = internalMutation({
 			publishedAt: undefined,
 		})
 		await cdnR2.deleteObject(ctx, args.cdnKey)
+	},
+})
+
+const CHECKSUM_BATCH_SIZE = 10
+
+export const listVersionsForChecksums = internalQuery({
+	args: { cursor: v.union(v.string(), v.null()) },
+	handler: async (ctx, args) => {
+		const result = await ctx.db
+			.query('projectVersions')
+			.paginate({ cursor: args.cursor, numItems: CHECKSUM_BATCH_SIZE })
+		const versions = await Promise.all(
+			result.page
+				.filter(
+					(version) =>
+						version.validationStatus === 'valid' &&
+						!version.validationReport?.sha256 &&
+						!version.deletionRequestedAt,
+				)
+				.map(async (version) => {
+					const project = await ctx.db.get(version.projectId)
+					return project ? { project, version } : null
+				}),
+		)
+		return {
+			continueCursor: result.continueCursor,
+			isDone: result.isDone,
+			versions: versions.flatMap((item) => (item ? [item] : [])),
+		}
+	},
+})
+
+export const saveChecksum = internalMutation({
+	args: { versionId: v.id('projectVersions'), sha256: v.string() },
+	handler: async (ctx, args) => {
+		const version = await ctx.db.get(args.versionId)
+		if (version?.validationReport) {
+			await ctx.db.patch(version._id, {
+				validationReport: { ...version.validationReport, sha256: args.sha256 },
+			})
+		}
+	},
+})
+
+/**
+ * Adds checksums to releases validated before they were recorded, by sending
+ * each through the validator again. Results other than a checksum change
+ * nothing, so a release that now fails stays as it was and is only logged.
+ * Safe to re-run: releases with a checksum are skipped.
+ *
+ * Run: npx convex run functions/projects/artifactValidation:backfillChecksums
+ */
+export const backfillChecksums = internalAction({
+	args: { cursor: v.optional(v.union(v.string(), v.null())) },
+	handler: async (ctx, args): Promise<void> => {
+		const page: {
+			continueCursor: string
+			isDone: boolean
+			versions: Array<{
+				project: Doc<'projects'>
+				version: Doc<'projectVersions'>
+			}>
+		} = await ctx.runQuery(
+			internal.functions.projects.artifactValidation.listVersionsForChecksums,
+			{ cursor: args.cursor ?? null },
+		)
+		const config = page.versions.length > 0 ? getValidatorConfig() : null
+
+		for (const { project, version } of page.versions) {
+			if (!config) break
+			// A promoted release's upload copy is gone; the CDN holds the file.
+			const downloadUrl = version.cdnR2Key
+				? await cdnR2.getUrl(version.cdnR2Key, {
+						expiresIn: VALIDATION_URL_EXPIRES_IN,
+					})
+				: version.uploadR2Key
+					? await uploadsR2.getUrl(version.uploadR2Key, {
+							expiresIn: VALIDATION_URL_EXPIRES_IN,
+						})
+					: await cdnR2.getUrl(version.r2Key, {
+							expiresIn: VALIDATION_URL_EXPIRES_IN,
+						})
+			const response = await fetch(config.url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-API-Key': config.apiKey,
+				},
+				body: JSON.stringify({
+					type: normalizeProjectType(project.type),
+					fileName: version.fileName,
+					fileSize: version.fileSize,
+					downloadUrl,
+				}),
+				signal: AbortSignal.timeout(120_000),
+			}).catch(() => null)
+			const result = response?.ok
+				? ((await response.json()) as ValidatorResult)
+				: null
+			if (result?.valid && result.report?.sha256) {
+				await ctx.runMutation(
+					internal.functions.projects.artifactValidation.saveChecksum,
+					{ versionId: version._id, sha256: result.report.sha256 },
+				)
+			} else {
+				console.error(`[Checksums] No checksum for release ${version._id}`)
+			}
+		}
+
+		if (!page.isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.projects.artifactValidation.backfillChecksums,
+				{ cursor: page.continueCursor },
+			)
+		}
 	},
 })
 

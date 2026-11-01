@@ -36,6 +36,14 @@ function connectSources(): string[] {
 	if (statusApi) {
 		sources.add(statusApi.origin)
 	}
+	if (process.env.OPENPANEL_BROWSER_CLIENT_ID) {
+		const analyticsApi = originOf(
+			process.env.OPENPANEL_API_URL || 'https://api.openpanel.dev',
+		)
+		if (analyticsApi) {
+			sources.add(analyticsApi.origin)
+		}
+	}
 	// Presigned R2 upload URLs for images, editor media, and project files.
 	sources.add('https://*.r2.cloudflarestorage.com')
 	return [...sources]

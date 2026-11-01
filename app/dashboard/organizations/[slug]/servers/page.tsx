@@ -57,10 +57,6 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
 import { useFullOrganization } from '@/hooks/use-organization'
-import {
-	getSoftwareClassificationLabel,
-	type ServerSoftwareClassification,
-} from '@/lib/bedrock-api'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import { serverEditHref, serverHref } from '@/lib/server-routes'
 
@@ -82,7 +78,7 @@ interface ServerRow {
 	status?: 'online' | 'offline' | 'checking'
 	playerCount?: number
 	maxPlayers?: number
-	softwareClassification?: ServerSoftwareClassification
+	offlineHiddenAt?: number
 }
 
 const LOADING_ROW_KEYS = [
@@ -237,7 +233,6 @@ export default function OrganizationServersPage() {
 				status: 'online' | 'offline' | 'checking'
 				playerCount?: number
 				maxPlayers?: number
-				softwareClassification?: ServerSoftwareClassification
 			}
 		>
 	>({})
@@ -264,9 +259,6 @@ export default function OrganizationServersPage() {
 					manualStatus?.playerCount ?? storedStatus?.playerCount,
 				maxPlayers:
 					manualStatus?.maxPlayers ?? storedStatus?.maxPlayers,
-				softwareClassification:
-					manualStatus?.softwareClassification ??
-					storedStatus?.softwareClassification,
 			}
 		})
 	}, [orgServers, storedStatuses, manualStatuses])
@@ -287,20 +279,8 @@ export default function OrganizationServersPage() {
 						status: data.status,
 						playerCount: data.playerCount,
 						maxPlayers: data.maxPlayers,
-						softwareClassification: data.softwareClassification,
 					},
 				}))
-				if (
-					data.softwareClassification === 'geyser_likely' ||
-					data.softwareClassification === 'ambiguous'
-				) {
-					toast.warning(
-						data.softwareReasons?.[0] ||
-							getSoftwareClassificationLabel(
-								data.softwareClassification,
-							),
-					)
-				}
 			} catch (error) {
 				toast.error(
 					error instanceof Error
@@ -394,37 +374,24 @@ export default function OrganizationServersPage() {
 							</Status>
 						)
 					}
-					if (
-						row.original.softwareClassification ===
-							'geyser_likely' ||
-						row.original.softwareClassification === 'ambiguous'
-					) {
-						return (
-							<Status
-								variant={
-									row.original.softwareClassification ===
-									'geyser_likely'
-										? 'error'
-										: 'warning'
-								}
-							>
-								<StatusIndicator />
-								<StatusLabel>
-									{getSoftwareClassificationLabel(
-										row.original.softwareClassification,
-									)}
-								</StatusLabel>
-							</Status>
-						)
-					}
 
 					return (
 						<Status
 							variant={status === 'online' ? 'success' : 'error'}
 						>
 							<StatusIndicator />
-							<StatusLabel className="capitalize">
-								{status}
+							<StatusLabel
+								className="capitalize"
+								title={
+									row.original.offlineHiddenAt === undefined
+										? undefined
+										: 'Hidden from the directory after 14 days offline. It returns on its next successful check.'
+								}
+							>
+								{status === 'offline' &&
+								row.original.offlineHiddenAt !== undefined
+									? 'Offline, hidden'
+									: status}
 							</StatusLabel>
 						</Status>
 					)

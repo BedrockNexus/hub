@@ -3,13 +3,14 @@ import { v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { action, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { toPublicProject, toPublicServer } from '../../lib/publicContent'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import type { QueryCtx } from '../../_generated/server'
 import { validateImageObjectMetadata } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { isActivityVisible } from '../../lib/activity'
 import { recordAdminAction } from '../../lib/audit'
-import { isPublicProject } from '../../lib/contentVisibility'
+import { isListedServer, isPublicProject } from '../../lib/contentVisibility'
 import { syncCreatorListing } from '../../lib/creatorListings'
 import { confirmOwnerPictureUpload } from '../../lib/ownerPictures'
 import {
@@ -524,7 +525,7 @@ export const getPublicProfileByUsername = query({
 			)
 			.collect()
 
-		const activeServers = servers.filter((s) => s.status === 'published')
+		const activeServers = servers.filter(isListedServer)
 
 		// Resolve server logos, categories, and status
 		const serversWithDetails = await Promise.all(
@@ -555,7 +556,7 @@ export const getPublicProfileByUsername = query({
 					.first()
 
 				return {
-					...server,
+					...toPublicServer(server),
 					logoUrl,
 					categories,
 					online: status?.online,
@@ -598,7 +599,7 @@ export const getPublicProfileByUsername = query({
 					: undefined
 
 				return {
-					...item,
+					...toPublicProject(item),
 					iconUrl,
 					categories: categories.filter(Boolean),
 					averageRating: stats?.averageRating ?? 0,

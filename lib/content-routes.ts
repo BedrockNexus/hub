@@ -23,6 +23,14 @@ export function contentDashboard(type: StoredProjectType) {
 	return `/dashboard${contentDirectory(type)}`
 }
 
+export function contentDownloadHref(
+	type: StoredProjectType,
+	reference: string,
+	version: string,
+) {
+	return `${contentDirectory(type)}/${encodeURIComponent(reference)}/download/${encodeURIComponent(version)}`
+}
+
 export function contentEditHref(type: StoredProjectType, id: string) {
 	return `${contentDashboard(type)}/${encodeURIComponent(projectReference(type, id))}`
 }

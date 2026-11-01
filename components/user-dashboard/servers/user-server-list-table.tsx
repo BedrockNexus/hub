@@ -59,10 +59,6 @@ import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-ta
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
-import {
-	getSoftwareClassificationLabel,
-	type ServerSoftwareClassification,
-} from '@/lib/bedrock-api'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import { serverEditHref } from '@/lib/server-routes'
 
@@ -97,7 +93,7 @@ interface ServerRow {
 	pingStatus?: 'online' | 'offline' | 'checking'
 	playerCount?: number
 	maxPlayers?: number
-	softwareClassification?: ServerSoftwareClassification
+	offlineHiddenAt?: number
 }
 
 function ServerRowActionsCell({
@@ -262,16 +258,16 @@ function ServerRowActionsCell({
 // ─── Inline Clickable Status Badge ──────────────────────────────────────────
 
 function ClickableStatusBadge({
+	hidden,
 	status,
 	playerCount,
 	maxPlayers,
-	softwareClassification,
 	onRefresh,
 }: {
+	hidden: boolean
 	status?: 'online' | 'offline' | 'checking'
 	playerCount?: number
 	maxPlayers?: number
-	softwareClassification?: ServerSoftwareClassification
 	onRefresh: () => void
 }) {
 	if (status === 'checking') {
@@ -290,51 +286,28 @@ function ClickableStatusBadge({
 			</Status>
 		)
 	}
-	if (
-		softwareClassification === 'geyser_likely' ||
-		softwareClassification === 'ambiguous'
-	) {
-		return (
-			<button
-				className="cursor-pointer transition-opacity hover:opacity-80"
-				onClick={onRefresh}
-				title="Click to refresh status"
-				type="button"
-			>
-				<Status
-					variant={
-						softwareClassification === 'geyser_likely'
-							? 'error'
-							: 'warning'
-					}
-				>
-					<StatusIndicator />
-					<StatusLabel>
-						{getSoftwareClassificationLabel(softwareClassification)}
-					</StatusLabel>
-				</Status>
-			</button>
-		)
-	}
+
+	const players =
+		playerCount !== undefined && maxPlayers !== undefined
+			? ` ${playerCount}/${maxPlayers}`
+			: ''
+	const offlineLabel = hidden ? 'Offline, hidden' : 'Offline'
 
 	return (
 		<button
 			className="cursor-pointer transition-opacity hover:opacity-80"
 			onClick={onRefresh}
-			title="Click to refresh status"
+			title={
+				hidden
+					? 'Hidden from the directory after 14 days offline. It returns on its next successful check. Click to check now.'
+					: 'Click to refresh status'
+			}
 			type="button"
 		>
 			<Status variant={status === 'online' ? 'success' : 'error'}>
 				<StatusIndicator />
 				<StatusLabel>
-					{status === 'online'
-						? `Online${
-								playerCount !== undefined &&
-								maxPlayers !== undefined
-									? ` ${playerCount}/${maxPlayers}`
-									: ''
-							}`
-						: 'Offline'}
+					{status === 'online' ? `Online${players}` : offlineLabel}
 				</StatusLabel>
 			</Status>
 		</button>
@@ -408,7 +381,6 @@ export function ServerListTable() {
 				status: 'online' | 'offline' | 'checking'
 				playerCount?: number
 				maxPlayers?: number
-				softwareClassification?: ServerSoftwareClassification
 			}
 		>
 	>({})
@@ -437,9 +409,6 @@ export function ServerListTable() {
 					manualStatus?.playerCount ?? storedStatus?.playerCount,
 				maxPlayers:
 					manualStatus?.maxPlayers ?? storedStatus?.maxPlayers,
-				softwareClassification:
-					manualStatus?.softwareClassification ??
-					storedStatus?.softwareClassification,
 			}
 		})
 	}, [myServers, storedStatuses, manualStatuses])
@@ -472,20 +441,8 @@ export function ServerListTable() {
 						status: data.status,
 						playerCount: data.playerCount,
 						maxPlayers: data.maxPlayers,
-						softwareClassification: data.softwareClassification,
 					},
 				}))
-				if (
-					data.softwareClassification === 'geyser_likely' ||
-					data.softwareClassification === 'ambiguous'
-				) {
-					toast.warning(
-						data.softwareReasons?.[0] ||
-							getSoftwareClassificationLabel(
-								data.softwareClassification,
-							),
-					)
-				}
 			} catch (error) {
 				toast.error(
 					error instanceof Error
@@ -621,15 +578,13 @@ export function ServerListTable() {
 					const server = row.original
 					return (
 						<ClickableStatusBadge
+							hidden={server.offlineHiddenAt !== undefined}
 							maxPlayers={server.maxPlayers}
 							onRefresh={() => {
 								handleRefreshStatus(server._id)
 								toast.info(`Checking ${server.name} status...`)
 							}}
 							playerCount={server.playerCount}
-							softwareClassification={
-								server.softwareClassification
-							}
 							status={server.pingStatus}
 						/>
 					)

@@ -11,21 +11,19 @@ import {
 } from '../../_generated/server'
 import { authComponent } from '../../auth'
 
-import { isPublicServer } from '../../lib/contentVisibility'
+import { afterServerWrite } from '../../lib/activity'
+import { isListedServer } from '../../lib/contentVisibility'
 import { recordServerCheck } from '../../lib/discovery'
 import { enforceRateLimit } from '../../lib/rateLimits'
 
 // Spacing between scheduled status checks (5-minute cron window).
 const PING_STAGGER_MS = 150
+// A public server offline this long is left out of listings until it returns.
+const OFFLINE_HIDE_AFTER_MS = 14 * 24 * 60 * 60 * 1000
 // Raw checks are kept this long; longer trends come from rollups.
 const STATUS_HISTORY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 const STATUS_HISTORY_DELETE_BATCH = 500
 
-const softwareClassificationValidator = v.union(
-	v.literal('native_bedrock'),
-	v.literal('geyser_likely'),
-	v.literal('ambiguous'),
-)
 const DEFAULT_STATUS_API_URL = 'https://api.bedrocknexus.com'
 const TRAILING_SLASH_PATTERN = /\/$/
 const LOCAL_API_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1'])
@@ -63,13 +61,6 @@ interface BedrockStatusApiResponse {
 		max?: number
 		online?: number
 	}
-	software?: {
-		classification?:
-			| 'native_bedrock'
-			| 'geyser_likely'
-			| 'ambiguous'
-		reasons?: string[]
-	}
 	version?: string
 }
 
@@ -87,8 +78,6 @@ interface StatusRefreshResult {
 	motd?: string
 	version?: string
 	gameMode?: string
-	softwareClassification?: 'native_bedrock' | 'geyser_likely' | 'ambiguous'
-	softwareReasons?: string[]
 	latency?: number
 	lastChecked: number
 }
@@ -141,8 +130,6 @@ async function pingAndPersistServerStatus(
 			motd: data.motd,
 			version: data.version,
 			gameMode: data.gamemode,
-			softwareClassification: data.software?.classification,
-			softwareReasons: data.software?.reasons,
 			latency,
 		},
 	)
@@ -156,8 +143,6 @@ async function pingAndPersistServerStatus(
 		motd: online ? data.motd : undefined,
 		version: online ? data.version : undefined,
 		gameMode: online ? data.gamemode : undefined,
-		softwareClassification: online ? data.software?.classification : undefined,
-		softwareReasons: online ? data.software?.reasons : undefined,
 		latency,
 		lastChecked: Date.now(),
 	}
@@ -198,11 +183,6 @@ export const getStatusBatch = query({
 				motd?: string
 				version?: string
 				gameMode?: string
-				softwareClassification?:
-					| 'native_bedrock'
-					| 'geyser_likely'
-					| 'ambiguous'
-				softwareReasons?: string[]
 				latency?: number
 				lastChecked: number
 				lastOnline?: number
@@ -245,8 +225,6 @@ export const internalUpdateStatus = internalMutation({
 		motd: v.optional(v.string()),
 		version: v.optional(v.string()),
 		gameMode: v.optional(v.string()),
-		softwareClassification: v.optional(softwareClassificationValidator),
-		softwareReasons: v.optional(v.array(v.string())),
 		latency: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
@@ -272,12 +250,28 @@ export const internalUpdateStatus = internalMutation({
 			playerCount: args.playerCount ?? 0,
 			latency: args.latency,
 		})
-		const isPublic = isPublicServer(server)
 
 		const existing = await ctx.db
 			.query('serverStatus')
 			.withIndex('by_server', (q) => q.eq('serverId', args.serverId))
 			.unique()
+
+		// A server never seen online is measured from when it was listed.
+		const lastSeen =
+			existing?.lastOnline ?? server.publishedAt ?? server._creationTime
+		const hide = !args.online && now - lastSeen >= OFFLINE_HIDE_AFTER_MS
+		let listed = server
+		if (hide !== (server.offlineHiddenAt !== undefined)) {
+			await ctx.db.patch('servers', server._id, {
+				offlineHiddenAt: hide ? now : undefined,
+			})
+			const updated = await ctx.db.get('servers', server._id)
+			if (updated) {
+				listed = updated
+				await afterServerWrite(ctx, server, updated)
+			}
+		}
+		const isPublic = isListedServer(listed)
 
 		if (existing) {
 			const checksTotal = existing.checksTotal + 1
@@ -293,12 +287,6 @@ export const internalUpdateStatus = internalMutation({
 				motd: args.online ? args.motd : existing.motd,
 				version: args.online ? args.version : existing.version,
 				gameMode: args.online ? args.gameMode : existing.gameMode,
-				softwareClassification: args.online
-					? args.softwareClassification
-					: existing.softwareClassification,
-				softwareReasons: args.online
-					? args.softwareReasons
-					: existing.softwareReasons,
 				latency: args.online ? args.latency : undefined,
 				lastChecked: now,
 				lastOnline: args.online ? now : existing.lastOnline,
@@ -316,8 +304,6 @@ export const internalUpdateStatus = internalMutation({
 				motd: args.motd,
 				version: args.version,
 				gameMode: args.gameMode,
-				softwareClassification: args.softwareClassification,
-				softwareReasons: args.softwareReasons,
 				latency: args.latency,
 				lastChecked: now,
 				lastOnline: args.online ? now : undefined,

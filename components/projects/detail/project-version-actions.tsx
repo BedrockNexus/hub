@@ -25,7 +25,7 @@ interface ProjectVersionActionsProps {
 	fileName: string
 	projectSlug: string
 	version: string
-	versionId: string
+	downloadUrl: string
 }
 
 export function ProjectVersionActions({
@@ -33,7 +33,7 @@ export function ProjectVersionActions({
 	fileName,
 	projectSlug,
 	version,
-	versionId,
+	downloadUrl,
 }: ProjectVersionActionsProps) {
 	const copyText = async (value: string, label: string) => {
 		try {
@@ -49,11 +49,11 @@ export function ProjectVersionActions({
 			<ProjectVersionDownloadButton
 				ariaLabel={`Download version ${version}`}
 				buttonClassName="text-muted-foreground hover:bg-primary! hover:text-primary-foreground!"
+				downloadUrl={downloadUrl}
 				iconOnly
 				showErrorMessage={false}
 				size="icon-sm"
 				variant="ghost"
-				versionId={versionId}
 			/>
 			<DropdownMenu>
 				<DropdownMenuTrigger

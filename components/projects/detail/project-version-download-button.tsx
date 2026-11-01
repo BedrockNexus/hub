@@ -28,7 +28,7 @@ interface ProjectVersionDownloadButtonProps {
 	label?: string
 	showErrorMessage?: boolean
 	size?: ComponentProps<typeof Button>['size']
-	versionId: string
+	downloadUrl: string
 	variant?: ComponentProps<typeof Button>['variant']
 }
 
@@ -40,7 +40,7 @@ export function ProjectVersionDownloadButton({
 	label = 'Download',
 	showErrorMessage = true,
 	size = 'default',
-	versionId,
+	downloadUrl,
 	variant = 'default',
 }: ProjectVersionDownloadButtonProps) {
 	const [isDownloading, setIsDownloading] = useState(false)
@@ -51,13 +51,10 @@ export function ProjectVersionDownloadButton({
 		setError(null)
 
 		try {
-			const response = await fetch(
-				`/api/projects/versions/${encodeURIComponent(versionId)}/download?format=json`,
-				{
-					cache: 'no-store',
-					headers: { Accept: 'application/json' },
-				},
-			)
+			const response = await fetch(`${downloadUrl}?format=json`, {
+				cache: 'no-store',
+				headers: { Accept: 'application/json' },
+			})
 			const result = (await response.json()) as DownloadResponse
 
 			if (!result.ok) {
@@ -100,6 +97,7 @@ export function ProjectVersionDownloadButton({
 			<Button
 				aria-label={iconOnly ? accessibleLabel : undefined}
 				className={buttonClassName}
+				data-track="download_clicked"
 				disabled={isDownloading}
 				onClick={handleDownload}
 				size={size}

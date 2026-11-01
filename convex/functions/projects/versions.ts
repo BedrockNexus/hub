@@ -1,3 +1,6 @@
+import { contentDownloadHref } from '../../../lib/content-routes'
+import { projectReference } from '../../../lib/content-reference'
+import { scheduleDownloadEvent } from '../../lib/downloadAnalytics'
 import { resolveProjectReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
@@ -63,21 +66,22 @@ function getUtcMonthKey(epoch: number): string {
 	return new Date(epoch).toISOString().slice(0, 7)
 }
 
-function toPublicRelease(version: Doc<'projectVersions'>) {
+function toPublicRelease(version: Doc<'projectVersions'>, project: Doc<'projects'>) {
 	return {
 		_id: version._id,
 		version: version.version,
 		changelog: version.changelog,
 		fileName: version.fileName,
 		fileSize: version.fileSize,
+		sha256: version.validationReport?.sha256,
 		gameVersions: version.gameVersions,
 		downloads: version.downloads,
 		createdAt: version.createdAt,
-		downloadUrl: `/api/projects/versions/${version._id}/download`,
+		downloadUrl: contentDownloadHref(project.type, projectReference(project.type, project._id), version.version),
 	}
 }
 
-function toCreatorRelease(version: Doc<'projectVersions'>) {
+function toCreatorRelease(version: Doc<'projectVersions'>, project: Doc<'projects'>) {
 	return {
 		_id: version._id,
 		version: version.version,
@@ -93,7 +97,7 @@ function toCreatorRelease(version: Doc<'projectVersions'>) {
 		reviewStatus: version.reviewStatus,
 		reviewReason: version.reviewReason,
 		downloadUrl: isValidatedRelease(version)
-			? `/api/projects/versions/${version._id}/download`
+			? contentDownloadHref(project.type, projectReference(project.type, project._id), version.version)
 			: undefined,
 	}
 }
@@ -136,7 +140,7 @@ export const list = query({
 		projectId: v.id('projects'),
 	},
 	handler: async (ctx, args) => {
-		await assertCanManageProject(
+		const { project } = await assertCanManageProject(
 			ctx,
 			args.projectId,
 			'You must be logged in to view project releases',
@@ -147,7 +151,7 @@ export const list = query({
 			.order('desc')
 			.collect()
 
-		return versions.map(toCreatorRelease)
+		return versions.map((version) => toCreatorRelease(version, project))
 	},
 })
 
@@ -173,7 +177,20 @@ export const listPublic = query({
 					isPublicRelease(version) &&
 					Boolean(getPublishedReleaseKey(version)),
 			)
-			.map(toPublicRelease)
+			.map((version) => toPublicRelease(version, project))
+	},
+})
+
+/** Resolves old version-ID links without issuing or counting a download. */
+export const getDownloadPath = query({
+	args: { versionId: v.id('projectVersions') },
+	returns: v.union(v.string(), v.null()),
+	handler: async (ctx, args) => {
+		const version = await ctx.db.get(args.versionId)
+		if (!version || !isPublicRelease(version) || !getPublishedReleaseKey(version)) return null
+		const project = await ctx.db.get(version.projectId)
+		if (!project || !isPublicProject(project)) return null
+		return contentDownloadHref(project.type, projectReference(project.type, project._id), version.version)
 	},
 })
 
@@ -194,9 +211,10 @@ export const getPublicByVersion = query({
 			!getPublishedReleaseKey(version)
 		) return null
 		return {
-			...toPublicRelease(version),
+			...toPublicRelease(version, project),
 			project: {
 				name: project.name,
+				reference: projectReference(project.type, project._id),
 				slug: project.slug,
 				type: project.type,
 			},
@@ -221,7 +239,7 @@ export const getLatest = query({
 				isPublicRelease(release) && Boolean(getPublishedReleaseKey(release)),
 		)
 
-		return version ? toPublicRelease(version) : null
+		return version ? toPublicRelease(version, project) : null
 	},
 })
 
@@ -248,7 +266,7 @@ export const getByVersion = query({
 		return version &&
 			isPublicRelease(version) &&
 			getPublishedReleaseKey(version)
-			? toPublicRelease(version)
+			? toPublicRelease(version, project)
 			: null
 	},
 })
@@ -270,7 +288,7 @@ export const listPendingReleases = adminQuery({
 			const project = await ctx.db.get(version.projectId)
 			if (!project || !isPublicProject(project)) continue
 			result.push({
-				...toCreatorRelease(version),
+				...toCreatorRelease(version, project),
 				project: {
 					_id: project._id,
 					name: project.name,
@@ -578,7 +596,15 @@ export const createDownloadUrl = mutation({
 		versionId: v.id('projectVersions'),
 		downloadSecret: v.string(),
 		clientKey: v.string(),
+		source: v.optional(v.union(v.literal('website'), v.literal('api'))),
 	},
+	returns: v.union(
+		v.object({ ok: v.literal(true), fileName: v.string(), url: v.string(), expiresIn: v.number() }),
+		v.object({
+			ok: v.literal(false), message: v.string(),
+			code: v.union(v.literal('VERSION_NOT_FOUND'), v.literal('VERSION_NOT_VALIDATED'), v.literal('VERSION_UNAVAILABLE'), v.literal('VERSION_PROCESSING'), v.literal('FILE_MISSING')),
+		}),
+	),
 	handler: async (ctx, args) => {
 		const expectedSecret = process.env.DOWNLOAD_REDIRECT_SECRET
 		if (!expectedSecret || args.downloadSecret !== expectedSecret) {
@@ -670,6 +696,12 @@ export const createDownloadUrl = mutation({
 				recordDownload: true,
 			})
 		}
+
+		await scheduleDownloadEvent(ctx, {
+			section: normalizeProjectType(project.type) === 'addon' ? 'addons' : 'resource-packs',
+			reference: projectReference(project.type, project._id),
+			version: version.version, requesterKey, counted: countResult.ok, source: args.source ?? 'website',
+		})
 
 		return {
 			ok: true as const,

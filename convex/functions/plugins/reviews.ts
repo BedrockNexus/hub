@@ -8,6 +8,7 @@ import {
 	query,
 } from '../../_generated/server'
 import { authComponent } from '../../auth'
+import { toPublicReview } from '../../lib/publicContent'
 import { validateReview } from '../../lib/contentValidation'
 import { replaceProjectAggregates } from '../../lib/plugins/aggregates'
 import { getActiveOrganizationMembership } from '../../lib/plugins/authorization'
@@ -79,7 +80,7 @@ export const list = query({
 			reviews.map(async (review) => {
 				const user = await authComponent.getAnyUserById(ctx, review.userId)
 				return {
-					...review,
+					...toPublicReview(review),
 					user: user
 						? {
 								name: user.name,

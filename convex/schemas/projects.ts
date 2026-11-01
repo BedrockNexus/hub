@@ -234,6 +234,7 @@ export const tables = {
 				manifestCount: v.optional(v.number()),
 				width: v.optional(v.number()),
 				height: v.optional(v.number()),
+				sha256: v.optional(v.string()),
 			}),
 		),
 		validatedAt: v.optional(v.number()),

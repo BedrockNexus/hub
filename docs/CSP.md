@@ -9,7 +9,7 @@ response in `next.config.ts`.
 | `script-src` | This request's nonce + `'strict-dynamic'` | Only Next.js and next-themes scripts run; injected markup, inline handlers, and `javascript:` links are blocked. |
 | `style-src` | `'self' 'unsafe-inline'` | Base UI positioning and the MDX editor use style attributes, which nonces cannot cover. |
 | `img-src`, `media-src` | `'self'`, `data:`, `blob:`, any `https:` | CDN media, presigned R2 links, avatars, and editor audio/video. |
-| `connect-src` | `'self'`, the Convex deployment (HTTPS + WebSocket), the public status API, `*.r2.cloudflarestorage.com` | Live queries, the server ping tool, and presigned uploads. Derived from `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, and `NEXT_PUBLIC_API_URL`. |
+| `connect-src` | `'self'`, the Convex deployment (HTTPS + WebSocket), the public status API, `*.r2.cloudflarestorage.com` | Live queries, the server ping tool, and presigned uploads. When `OPENPANEL_BROWSER_CLIENT_ID` is set, `OPENPANEL_API_URL` adds the collector origin for public browsing events. Derived from `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`, and `NEXT_PUBLIC_API_URL`. |
 | `frame-src` | `https://www.youtube-nocookie.com` | YouTube embeds in rich text (always the privacy-enhanced domain). |
 | `frame-ancestors`, `object-src`, `base-uri`, `form-action` | none / none / self / self | No framing of the site, no plugins, no base or form hijacking. |
 

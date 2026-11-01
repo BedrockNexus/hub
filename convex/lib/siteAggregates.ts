@@ -1,4 +1,5 @@
 import type { Id } from '../_generated/dataModel'
+import { isListedServer } from './contentVisibility'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 
 /**
@@ -37,10 +38,12 @@ export async function computeHomeAggregates(
 export async function computeAggregates(
 	ctx: QueryCtx | MutationCtx,
 ): Promise<{ home: HomeAggregates; software: SoftwareAggregates[] }> {
-	const servers = await ctx.db
-		.query('servers')
-		.withIndex('by_status', (q) => q.eq('status', 'published'))
-		.collect()
+	const servers = (
+		await ctx.db
+			.query('servers')
+			.withIndex('by_status', (q) => q.eq('status', 'published'))
+			.collect()
+	).filter(isListedServer)
 	const publishedServerIds = new Set(servers.map((server) => server._id))
 
 	const onlineStatuses = await ctx.db

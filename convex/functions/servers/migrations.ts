@@ -5,18 +5,167 @@ import { utcDayKey } from '../../lib/dayKeys'
 import { normalizeServerAddress } from '../../lib/serverAddress'
 
 const BATCH_SIZE = 100
+// A server's raw history: 30 days of checks, every 5 minutes.
+const MAX_HISTORY_ROWS = 9000
 
 /**
- * Backfills `servers.addressKey` (and normalizes `ipAddress`) for rows created
- * before address uniqueness existed. Safe to re-run; it pages through the
- * table and schedules itself until done.
+ * Removes the software guesses left on status rows from when they were made.
+ * Safe to re-run; it pages through the table and schedules itself until done.
+ *
+ * Run: npx convex run functions/servers/migrations:clearSoftwareClassification
+ */
+export const clearSoftwareClassification = internalMutation({
+	args: { cursor: v.optional(v.union(v.string(), v.null())) },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const page = await ctx.db
+			.query('serverStatus')
+			.paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE })
+		for (const status of page.page) {
+			if (status.softwareClassification || status.softwareReasons) {
+				await ctx.db.patch('serverStatus', status._id, {
+					softwareClassification: undefined,
+					softwareReasons: undefined,
+				})
+			}
+		}
+		if (!page.isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.migrations.clearSoftwareClassification,
+				{ cursor: page.continueCursor },
+			)
+		}
+		return null
+	},
+})
+
+/**
+ * Takes back the offline checks wrongly recorded while NetherNet-only servers
+ * were pinged only over RakNet. A server qualifies only if it was offline right
+ * up to the fix and online at its first check after, and only its unbroken run
+ * of offline checks before the fix is removed, as those checks say nothing
+ * about it. A real outage that ended at that exact moment would be removed too.
+ *
+ * Reports what it would do unless `apply` is true. Pass `fixedAt` as the epoch
+ * milliseconds of the deploy. Raw history only goes back 30 days, so older
+ * checks cannot be taken back.
+ *
+ * Run: npx convex run functions/servers/migrations:forgiveFalseOfflineChecks '{"fixedAt":0}'
+ */
+export const forgiveFalseOfflineChecks = internalMutation({
+	args: {
+		fixedAt: v.number(),
+		apply: v.optional(v.boolean()),
+		cursor: v.optional(v.union(v.string(), v.null())),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const page = await ctx.db
+			.query('serverStatus')
+			.paginate({ cursor: args.cursor ?? null, numItems: 1 })
+
+		for (const status of page.page) {
+			const firstAfter = await ctx.db
+				.query('serverStatusHistory')
+				.withIndex('by_server_time', (q) =>
+					q.eq('serverId', status.serverId).gte('checkedAt', args.fixedAt),
+				)
+				.first()
+			if (!firstAfter?.online) {
+				continue
+			}
+
+			const before = await ctx.db
+				.query('serverStatusHistory')
+				.withIndex('by_server_time', (q) =>
+					q.eq('serverId', status.serverId).lt('checkedAt', args.fixedAt),
+				)
+				.order('desc')
+				.take(MAX_HISTORY_ROWS)
+			const firstOnline = before.findIndex((row) => row.online)
+			const falseChecks =
+				firstOnline === -1 ? before : before.slice(0, firstOnline)
+			if (falseChecks.length === 0) {
+				continue
+			}
+
+			console.log(
+				`[Uptime] ${status.serverId}: ${falseChecks.length} offline checks ${args.apply ? 'removed' : 'would be removed'}`,
+			)
+			if (!args.apply) {
+				continue
+			}
+
+			const removedPerDay = new Map<string, number>()
+			for (const row of falseChecks) {
+				const dayKey = utcDayKey(row.checkedAt)
+				removedPerDay.set(dayKey, (removedPerDay.get(dayKey) ?? 0) + 1)
+				await ctx.db.delete('serverStatusHistory', row._id)
+			}
+			for (const [dayKey, removed] of removedPerDay) {
+				const day = await ctx.db
+					.query('serverDailyStats')
+					.withIndex('by_serverId_and_dayKey', (q) =>
+						q.eq('serverId', status.serverId).eq('dayKey', dayKey),
+					)
+					.unique()
+				if (!day) {
+					continue
+				}
+				if (day.checks <= removed) {
+					await ctx.db.delete('serverDailyStats', day._id)
+				} else {
+					await ctx.db.patch('serverDailyStats', day._id, {
+						checks: day.checks - removed,
+					})
+				}
+			}
+
+			const checksTotal = Math.max(
+				status.checksTotal - falseChecks.length,
+				status.checksOnline,
+			)
+			await ctx.db.patch('serverStatus', status._id, {
+				checksTotal,
+				uptimePercent:
+					checksTotal > 0
+						? Math.round((status.checksOnline / checksTotal) * 100)
+						: 0,
+			})
+		}
+
+		if (!page.isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.migrations.forgiveFalseOfflineChecks,
+				{
+					apply: args.apply,
+					cursor: page.continueCursor,
+					fixedAt: args.fixedAt,
+				},
+			)
+		}
+		return null
+	},
+})
+
+/**
+ * Backfills `servers.addressKey` and lowercases `ipAddress` for rows created
+ * before addresses were normalized. An address already held by another listing
+ * is left for an admin, as two listings sharing a key would break lookups. Safe
+ * to re-run; it pages through the table and schedules itself until done.
  *
  * Run: npx convex run functions/servers/migrations:backfillAddressKeys
  * Then: npx convex run functions/servers/migrations:listDuplicateAddresses
  */
 export const backfillAddressKeys = internalMutation({
 	args: { cursor: v.optional(v.union(v.string(), v.null())) },
-	returns: v.object({ updated: v.number(), invalid: v.array(v.id('servers')) }),
+	returns: v.object({
+		conflicts: v.array(v.id('servers')),
+		invalid: v.array(v.id('servers')),
+		updated: v.number(),
+	}),
 	handler: async (ctx, args) => {
 		const page = await ctx.db
 			.query('servers')
@@ -24,20 +173,48 @@ export const backfillAddressKeys = internalMutation({
 
 		let updated = 0
 		const invalid: Array<(typeof page.page)[number]['_id']> = []
+		const conflicts: Array<(typeof page.page)[number]['_id']> = []
 		for (const server of page.page) {
-			if (server.addressKey) continue
+			let address: ReturnType<typeof normalizeServerAddress>
 			try {
-				const address = normalizeServerAddress(server.ipAddress, server.port)
-				await ctx.db.patch(server._id, {
-					ipAddress: address.host,
-					port: address.port,
-					addressKey: address.key,
-				})
-				updated += 1
+				address = normalizeServerAddress(server.ipAddress, server.port)
 			} catch {
 				// Leave malformed legacy addresses for an admin to correct.
 				invalid.push(server._id)
+				continue
 			}
+			if (
+				server.ipAddress === address.host &&
+				server.port === address.port &&
+				server.addressKey === address.key
+			) {
+				continue
+			}
+			const [sameKey, sameAddress] = await Promise.all([
+				ctx.db
+					.query('servers')
+					.withIndex('by_address_key', (q) => q.eq('addressKey', address.key))
+					.first(),
+				ctx.db
+					.query('servers')
+					.withIndex('by_ipAddress_and_port', (q) =>
+						q.eq('ipAddress', address.host).eq('port', address.port),
+					)
+					.first(),
+			])
+			if (
+				(sameKey && sameKey._id !== server._id) ||
+				(sameAddress && sameAddress._id !== server._id)
+			) {
+				conflicts.push(server._id)
+				continue
+			}
+			await ctx.db.patch(server._id, {
+				ipAddress: address.host,
+				port: address.port,
+				addressKey: address.key,
+			})
+			updated += 1
 		}
 
 		if (!page.isDone) {
@@ -47,10 +224,13 @@ export const backfillAddressKeys = internalMutation({
 				{ cursor: page.continueCursor },
 			)
 		}
-		if (invalid.length > 0) {
-			console.warn('Servers with addresses that could not be normalized', invalid)
+		if (invalid.length > 0 || conflicts.length > 0) {
+			console.warn('Servers with addresses that could not be normalized', {
+				conflicts,
+				invalid,
+			})
 		}
-		return { updated, invalid }
+		return { conflicts, invalid, updated }
 	},
 })
 
@@ -107,7 +287,9 @@ export const backfillCategoryCounts = internalMutation({
 			for (const categoryId of new Set<string>(doc.categoryIds)) {
 				const entry = counts.get(categoryId) ?? { categoryId, total: 0, published: 0 }
 				entry.total += 1
-				if (doc.status === 'published') entry.published += 1
+				if (doc.status === 'published' && doc.offlineHiddenAt === undefined) {
+					entry.published += 1
+				}
 				counts.set(categoryId, entry)
 			}
 		}

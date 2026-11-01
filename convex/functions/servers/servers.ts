@@ -1,3 +1,4 @@
+import { toPublicServer } from '../../lib/publicContent'
 import { resolveServerReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
@@ -324,7 +325,8 @@ async function deleteServerRelatedRows(
 	)
 }
 
-async function enrichServerDetail(ctx: QueryCtx, server: Doc<'servers'>) {
+/** Everything a server's detail page shows beyond the document itself. */
+async function serverDetailExtras(ctx: QueryCtx, server: Doc<'servers'>) {
 	const now = Date.now()
 	const dayKey = getUtcDayKey(now)
 	const monthKey = getUtcMonthKey(now)
@@ -452,7 +454,6 @@ async function enrichServerDetail(ctx: QueryCtx, server: Doc<'servers'>) {
 	}
 
 	return {
-		...server,
 		logoUrl,
 		bannerUrl,
 		categories: categories.filter(Boolean),
@@ -493,7 +494,10 @@ export const getPublishedBySlug = query({
 			return null
 		}
 
-		return enrichServerDetail(ctx, server)
+		return {
+			...toPublicServer(server),
+			...(await serverDetailExtras(ctx, server)),
+		}
 	},
 })
 
@@ -808,7 +812,10 @@ export const getAdminReview = adminQuery({
 		}
 
 		const [detail, gallery] = await Promise.all([
-			enrichServerDetail(ctx, server),
+			serverDetailExtras(ctx, server).then((extras) => ({
+				...server,
+				...extras,
+			})),
 			ctx.db
 				.query('serverGallery')
 				.withIndex('by_server_sort', (q) =>

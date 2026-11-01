@@ -55,7 +55,7 @@ export function ProjectReleaseDetails({
 					</div>
 					<ProjectVersionDownloadButton
 						ariaLabel={`Download ${projectName} ${release.version}`}
-						versionId={release._id}
+						downloadUrl={release.downloadUrl}
 					/>
 				</div>
 			</header>
@@ -111,7 +111,9 @@ export function ProjectReleaseDetails({
 								variant: 'outline',
 								size: 'sm',
 							})}
-							href={`/api/projects/versions/${release._id}/download`}
+							data-track="download_clicked"
+							href={release.downloadUrl}
+							prefetch={false}
 						>
 							<HugeiconsIcon
 								className="size-4"

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import localFont from 'next/font/local'
+import { Suspense } from 'react'
+import { OpenPanelAnalytics } from '@/components/openpanel-analytics'
 import './globals.css'
 import { headers } from 'next/headers'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
@@ -140,7 +142,24 @@ export default async function RootLayout({
 						<ConvexClientProvider initialToken={initialToken}>
 							<NextAuthProvider>
 								{/* Listing filters and data tables keep their state in the URL. */}
-								<NuqsAdapter>{children}</NuqsAdapter>
+								<NuqsAdapter>
+									{process.env.OPENPANEL_BROWSER_CLIENT_ID ? (
+										<Suspense fallback={null}>
+											<OpenPanelAnalytics
+												apiUrl={
+													process.env
+														.OPENPANEL_API_URL ||
+													'https://api.openpanel.dev'
+												}
+												clientId={
+													process.env
+														.OPENPANEL_BROWSER_CLIENT_ID
+												}
+											/>
+										</Suspense>
+									) : null}
+									{children}
+								</NuqsAdapter>
 							</NextAuthProvider>
 							<Toaster closeButton richColors />
 						</ConvexClientProvider>

@@ -7,7 +7,7 @@ import {
 	type QueryCtx,
 	query,
 } from '../../_generated/server'
-import { isPublicProject, isPublicServer } from '../../lib/contentVisibility'
+import { isListedServer, isPublicProject } from '../../lib/contentVisibility'
 import { creatorRankScore } from '../../lib/creatorRank'
 
 const MAX_QUERY_LENGTH = 100
@@ -230,7 +230,7 @@ async function measureActivity(ctx: MutationCtx, listing: Doc<'creatorListings'>
 	])
 	const [serverStats, projectStats] = await Promise.all([
 		Promise.all(
-			servers.filter(isPublicServer).map((server) =>
+			servers.filter(isListedServer).map((server) =>
 				ctx.db
 					.query('serverStats')
 					.withIndex('by_server', (q) => q.eq('serverId', server._id))

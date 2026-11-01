@@ -3,6 +3,7 @@ import type { MutationCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { Doc, Id } from '../../_generated/dataModel'
+import { toPublicReview } from '../../lib/publicContent'
 import { validateReview } from '../../lib/contentValidation'
 import { isPublicServer } from '../../lib/contentVisibility'
 import { isAffiliatedWithContent } from '../../lib/permissions'
@@ -56,7 +57,7 @@ export const list = query({
 					review.userId,
 				)
 				return {
-					...review,
+					...toPublicReview(review),
 					user: user
 						? {
 								name: user.name,

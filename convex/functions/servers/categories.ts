@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { query } from '../../_generated/server'
+import { isListedServer } from '../../lib/contentVisibility'
 import { adminMutation, adminQuery } from '../../lib/functions'
 
 // =============================================================================
@@ -72,10 +73,12 @@ export const listWithCounts = query({
 			}))
 		}
 
-		const servers = await ctx.db
-			.query('servers')
-			.withIndex('by_status', (q) => q.eq('status', 'published'))
-			.collect()
+		const servers = (
+			await ctx.db
+				.query('servers')
+				.withIndex('by_status', (q) => q.eq('status', 'published'))
+				.collect()
+		).filter(isListedServer)
 
 		return categories.map((category) => ({
 			...category,

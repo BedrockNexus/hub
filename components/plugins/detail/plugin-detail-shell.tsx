@@ -177,10 +177,12 @@ function PluginHero({
 									variant: 'brand',
 									className: 'w-full',
 								})}
+								data-track="download_clicked"
 								href={downloadHref(
 									project.publicId,
 									downloadable,
 								)}
+								prefetch={false}
 								rel="nofollow"
 							>
 								<HugeiconsIcon
@@ -277,10 +279,12 @@ function PluginVersions({ detail }: { detail: PluginDetail }) {
 										size: 'sm',
 										variant: 'outline',
 									})}
+									data-track="download_clicked"
 									href={downloadHref(
 										project.publicId,
 										version,
 									)}
+									prefetch={false}
 									rel="nofollow"
 								>
 									<HugeiconsIcon

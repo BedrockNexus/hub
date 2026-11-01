@@ -1,8 +1,3 @@
-export type ServerSoftwareClassification =
-	| 'ambiguous'
-	| 'geyser_likely'
-	| 'native_bedrock'
-
 const TRAILING_SLASH_PATTERN = /\/$/
 
 export interface BedrockStatusResponse {
@@ -19,15 +14,6 @@ export interface BedrockStatusResponse {
 	port?: number
 	protocolVersion?: number
 	serverId?: string
-	software?: {
-		classification: ServerSoftwareClassification
-		javaEndpoints: Array<{
-			host: string
-			port: number
-			version: string
-		}>
-		reasons: string[]
-	}
 	version?: string
 }
 
@@ -94,17 +80,4 @@ export async function fetchBedrockStatus(
 		motd: stripMinecraftFormatting(data.motd),
 		mapName: stripMinecraftFormatting(data.mapName),
 	} as BedrockStatusResponse
-}
-
-export function getSoftwareClassificationLabel(
-	classification: ServerSoftwareClassification,
-) {
-	switch (classification) {
-		case 'geyser_likely':
-			return 'Geyser detected'
-		case 'ambiguous':
-			return 'Needs review'
-		default:
-			return 'Native Bedrock'
-	}
 }

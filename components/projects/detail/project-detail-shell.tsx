@@ -196,10 +196,10 @@ function ProjectHero({
 							<ProjectVersionDownloadButton
 								buttonClassName="w-full"
 								className="w-full"
+								downloadUrl={latestRelease.downloadUrl}
 								label="Download"
 								size="xl"
 								variant="brand"
-								versionId={latestRelease._id}
 							/>
 						) : (
 							<p className="rounded-sm border border-dashed px-4 py-3 text-center text-muted-foreground text-sm">

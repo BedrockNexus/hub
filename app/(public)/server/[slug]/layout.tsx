@@ -37,6 +37,10 @@ export async function generateMetadata({
 		title,
 		description,
 		alternates: { canonical: url },
+		robots:
+			server.offlineHiddenAt === undefined
+				? undefined
+				: { index: false, follow: true },
 		openGraph: {
 			title: `${title} | ${siteConfig.name}`,
 			description,

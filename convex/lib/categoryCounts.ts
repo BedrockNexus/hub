@@ -12,7 +12,11 @@ import type { MutationCtx } from '../_generated/server'
  * equivalent) writes them; until then readers fall back to scanning.
  */
 
-type Countable = { categoryIds: readonly string[]; status: string } | null
+type Countable = {
+	categoryIds: readonly string[]
+	offlineHiddenAt?: number
+	status: string
+} | null
 
 type Delta = { total: number; published: number }
 
@@ -23,7 +27,9 @@ export function categoryCountDeltas(before: Countable, after: Countable) {
 		for (const categoryId of new Set(doc.categoryIds)) {
 			const delta = deltas.get(categoryId) ?? { total: 0, published: 0 }
 			delta.total += sign
-			if (doc.status === 'published') delta.published += sign
+			if (doc.status === 'published' && doc.offlineHiddenAt === undefined) {
+				delta.published += sign
+			}
 			deltas.set(categoryId, delta)
 		}
 	}

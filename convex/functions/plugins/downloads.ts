@@ -3,7 +3,12 @@ import { resolvePluginReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 
 import { internalMutation, mutation } from '../../_generated/server'
-import { projectDownloadCounts } from '../../lib/plugins/downloadCounts'
+import { authComponent } from '../../auth'
+import { internal } from '../../_generated/api'
+import { scheduleDownloadEvent } from '../../lib/downloadAnalytics'
+import { ownerDownloadCounts, projectDownloadCounts } from '../../lib/plugins/downloadCounts'
+import { projectOwnerKey } from '../../lib/plugins/aggregates'
+import { createPluginDashboardId } from '../../../lib/plugins/plugin-dashboard-id'
 import { getCdnObjectUrl } from '../../lib/r2'
 import { rateLimiter } from '../../lib/plugins/rateLimits'
 
@@ -13,7 +18,7 @@ const notFound = () =>
 		message: 'Download not found.',
 	})
 
-/** Still scheduled by downloads counted before counting stopped. */
+/** Refreshes the materialized total used by catalog sorting. */
 export const refreshMaterializedCount = internalMutation({
 	args: {
 		projectId: v.id('plugins'),
@@ -43,6 +48,7 @@ export const resolveAndRecord = mutation({
 		anonymousIdHash: v.string(),
 		userAgentHash: v.optional(v.string()),
 		redirectSecret: v.string(),
+		source: v.optional(v.union(v.literal('website'), v.literal('api'))),
 	},
 	returns: v.object({
 		url: v.string(),
@@ -53,6 +59,11 @@ export const resolveAndRecord = mutation({
 			!process.env.DOWNLOAD_REDIRECT_SECRET ||
 			args.redirectSecret !== process.env.DOWNLOAD_REDIRECT_SECRET
 		) {
+			throw notFound()
+		}
+		const features = await ctx.db.query('siteSettings')
+			.withIndex('by_key', (q) => q.eq('key', 'features')).unique()
+		if ((features?.value as { pluginsEnabled?: boolean } | undefined)?.pluginsEnabled !== true) {
 			throw notFound()
 		}
 		if (
@@ -100,8 +111,10 @@ export const resolveAndRecord = mutation({
 			throw notFound()
 		}
 
-		const rateLimit = await rateLimiter.limit(ctx, 'pluginDownload', {
-			key: args.anonymousIdHash,
+		const user = await authComponent.safeGetAuthUser(ctx)
+		const requesterKey = user?._id ? `user:${user._id}` : `client:${args.anonymousIdHash}`
+		const rateLimit = await rateLimiter.limit(ctx, 'versionDownload', {
+			key: requesterKey,
 		})
 		if (!rateLimit.ok) {
 			throw new ConvexError({
@@ -111,8 +124,26 @@ export const resolveAndRecord = mutation({
 			})
 		}
 
-		// Downloads are not counted here any more; a proper analytics tool will
-		// record them. Earlier counts stay in pluginDownloads untouched.
-		return { url, counted: false }
+		const count = await rateLimiter.limit(ctx, 'versionDownloadCount', {
+			key: `${requesterKey}:${version._id}`,
+		})
+		if (count.ok) {
+			if (project.downloadCounterReadyAt) {
+				await projectDownloadCounts.add(ctx, project._id, 1)
+				if (!project.downloadCountRefreshScheduledAt) {
+					await ctx.db.patch(project._id, { downloadCountRefreshScheduledAt: Date.now() })
+					await ctx.scheduler.runAfter(5000, internal.functions.plugins.downloads.refreshMaterializedCount, { projectId: project._id })
+				}
+			} else {
+				await ctx.db.patch(project._id, { downloadCount: project.downloadCount + 1 })
+			}
+			await ownerDownloadCounts.add(ctx, projectOwnerKey(project.ownerType, project.ownerId), 1)
+		}
+		const repository = await ctx.db.get(project.repositoryId)
+		if (repository) await scheduleDownloadEvent(ctx, {
+			section: 'plugins', reference: createPluginDashboardId(repository.githubRepositoryId),
+			version: version.normalizedVersion, requesterKey, counted: count.ok, source: args.source ?? 'website',
+		})
+		return { url, counted: count.ok }
 	},
 })

@@ -101,11 +101,11 @@ export function ProjectReleases({
 							</p>
 						</div>
 						<ProjectVersionActions
+							downloadUrl={release.downloadUrl}
 							fileName={release.fileName}
 							projectSlug={projectSlug}
 							projectType={projectType}
 							version={release.version}
-							versionId={release._id}
 						/>
 					</header>
 

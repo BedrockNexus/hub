@@ -29,7 +29,6 @@ import {
 	BedrockApiError,
 	type BedrockStatusResponse,
 	fetchBedrockStatus,
-	getSoftwareClassificationLabel,
 } from '@/lib/bedrock-api'
 
 interface ServerPingToolProps {
@@ -126,9 +125,6 @@ export function ServerPingTool({
 		}
 		pingServer(normalizedHost, parsedPort).catch(() => undefined)
 	}
-
-	const software = result?.software
-	const classification = software?.classification
 
 	return (
 		<main className="container mx-auto max-w-5xl px-4 py-10 sm:py-14">
@@ -246,7 +242,7 @@ export function ServerPingTool({
 								/>
 							</div>
 
-							<div className="mt-6 grid gap-5 border-t pt-6 sm:grid-cols-2">
+							<div className="mt-6 border-t pt-6">
 								<div>
 									<p className="text-muted-foreground text-xs">
 										World
@@ -255,55 +251,7 @@ export function ServerPingTool({
 										{result.mapName || 'Not reported'}
 									</p>
 								</div>
-								<div>
-									<p className="text-muted-foreground text-xs">
-										Software
-									</p>
-									<p className="mt-1 font-medium">
-										{classification
-											? getSoftwareClassificationLabel(
-													classification,
-												)
-											: 'Not classified'}
-									</p>
-								</div>
 							</div>
-
-							{software && software.reasons.length > 0 && (
-								<div className="mt-5 rounded-md bg-muted p-4">
-									<p className="font-medium text-sm">
-										Classification details
-									</p>
-									<ul className="mt-2 space-y-1 text-muted-foreground text-sm">
-										{software.reasons.map((reason) => (
-											<li key={reason}>{reason}</li>
-										))}
-									</ul>
-								</div>
-							)}
-
-							{software && software.javaEndpoints.length > 0 && (
-								<div className="mt-5 border-t pt-5">
-									<p className="font-medium text-sm">
-										Related Java endpoints
-									</p>
-									<div className="mt-2 space-y-2 text-muted-foreground text-sm">
-										{software.javaEndpoints.map(
-											(endpoint) => (
-												<p
-													key={`${endpoint.host}:${endpoint.port}`}
-												>
-													{endpoint.host}:
-													{endpoint.port}
-													{endpoint.version
-														? ` - ${endpoint.version}`
-														: ''}
-												</p>
-											),
-										)}
-									</div>
-								</div>
-							)}
 						</section>
 					)}
 				</CardContent>

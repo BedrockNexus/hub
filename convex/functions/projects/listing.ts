@@ -5,6 +5,7 @@ import { normalizeProjectType } from '../../../lib/project-artifacts'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { type QueryCtx, query } from '../../_generated/server'
 import { isPublicProject } from '../../lib/contentVisibility'
+import { toPublicProject } from '../../lib/publicContent'
 import { resolveCdnObjectUrl } from '../../lib/r2'
 import schema from '../../schema'
 import { projectDiscoveryType } from '../../schemas/projects'
@@ -145,7 +146,7 @@ export async function toCards(ctx: QueryCtx, rows: Row[]) {
 	)
 	return await Promise.all(
 		rows.map(async ({ project, stats }) => ({
-			...project,
+			...toPublicProject(project),
 			iconUrl: project.iconR2Key
 				? await resolveCdnObjectUrl(
 						project.iconR2Key,

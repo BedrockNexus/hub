@@ -262,6 +262,15 @@ export const projectValidator = v.object({
 	updatedAt: v.number(),
 })
 
+/** What anyone who can see a plugin may read of its document. */
+export const publicProjectValidator = projectValidator.omit(
+	'ownerId',
+	'createdBy',
+	'searchText',
+	'downloadCounterReadyAt',
+	'downloadCountRefreshScheduledAt',
+)
+
 export const tables = {
 	githubInstallations: defineTable({
 		installationId: v.number(),
