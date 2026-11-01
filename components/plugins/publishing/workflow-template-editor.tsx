@@ -31,6 +31,13 @@ import {
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 
+// The YAML editor gets the height the window leaves after the header, fields,
+// notice, buttons and the dialog's padding and margin, so the dialog fits
+// without scrolling. Fields stack on narrow screens, which takes more room.
+const EDITOR_HEIGHT = 'var(--workflow-editor-height)'
+const EDITOR_HEIGHT_CLASSES =
+	'[--workflow-editor-height:clamp(10rem,calc(100dvh-36rem),36rem)] sm:[--workflow-editor-height:clamp(12rem,calc(100dvh-27rem),36rem)]'
+
 interface NewWorkflow {
 	label: string
 	softwareId: Id<'serverSoftware'> | null
@@ -113,7 +120,7 @@ export function WorkflowTemplateEditor() {
 				open={adding}
 			>
 				<DialogContent
-					className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-4xl"
+					className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[min(56rem,calc(100%-2rem))]"
 					showCloseButton={!busy}
 				>
 					{adding ? (
@@ -125,9 +132,9 @@ export function WorkflowTemplateEditor() {
 									that plugin developers can select.
 								</DialogDescription>
 							</DialogHeader>
-							<div>
+							<div className={`min-w-0 ${EDITOR_HEIGHT_CLASSES}`}>
 								<form
-									className="space-y-5"
+									className="min-w-0 space-y-4"
 									onSubmit={async (event) => {
 										event.preventDefault()
 										setBusy(true)
@@ -152,71 +159,83 @@ export function WorkflowTemplateEditor() {
 										}
 									}}
 								>
-									<div className="space-y-2">
-										<Label htmlFor="new-workflow-label">
-											Workflow name
-										</Label>
-										<Input
-											disabled={busy}
-											id="new-workflow-label"
-											maxLength={80}
-											minLength={3}
-											onChange={(event) =>
-												setNewWorkflow((current) => ({
-													...current,
-													label: event.target.value,
-												}))
-											}
-											placeholder="PowerNukkitX · Gradle"
-											required
-											value={newWorkflow.label}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="new-workflow-software">
-											Server software
-										</Label>
-										{pluginSoftware.length === 0 ? (
-											<p className="rounded-md border border-dashed p-3 text-muted-foreground text-sm">
-												No server software yet. Add one
-												in Server software first.
-											</p>
-										) : (
-											<Select
+									<div className="grid gap-4 sm:grid-cols-2">
+										<div className="space-y-2">
+											<Label htmlFor="new-workflow-label">
+												Workflow name
+											</Label>
+											<Input
 												disabled={busy}
-												items={pluginSoftware.map(
-													(item) => ({
-														value: item._id,
-														label: item.name,
-													}),
-												)}
-												onValueChange={(value) =>
-													updateNewWorkflowSoftware(
-														value as Id<'serverSoftware'>,
+												id="new-workflow-label"
+												maxLength={80}
+												minLength={3}
+												onChange={(event) =>
+													setNewWorkflow(
+														(current) => ({
+															...current,
+															label: event.target
+																.value,
+														}),
 													)
 												}
-												value={newWorkflow.softwareId}
-											>
-												<SelectTrigger
-													className="w-full"
-													id="new-workflow-software"
-												>
-													<SelectValue placeholder="Choose software" />
-												</SelectTrigger>
-												<SelectContent>
-													{pluginSoftware.map(
-														(item) => (
-															<SelectItem
-																key={item._id}
-																value={item._id}
-															>
-																{item.name}
-															</SelectItem>
-														),
+												placeholder="PowerNukkitX · Gradle"
+												required
+												value={newWorkflow.label}
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="new-workflow-software">
+												Server software
+											</Label>
+											{pluginSoftware.length === 0 ? (
+												<p className="rounded-md border border-dashed p-3 text-muted-foreground text-sm">
+													No server software yet. Add
+													one in Server software
+													first.
+												</p>
+											) : (
+												<Select
+													disabled={busy}
+													items={pluginSoftware.map(
+														(item) => ({
+															value: item._id,
+															label: item.name,
+														}),
 													)}
-												</SelectContent>
-											</Select>
-										)}
+													onValueChange={(value) =>
+														updateNewWorkflowSoftware(
+															value as Id<'serverSoftware'>,
+														)
+													}
+													value={
+														newWorkflow.softwareId
+													}
+												>
+													<SelectTrigger
+														className="w-full"
+														id="new-workflow-software"
+													>
+														<SelectValue placeholder="Choose software" />
+													</SelectTrigger>
+													<SelectContent>
+														{pluginSoftware.map(
+															(item) => (
+																<SelectItem
+																	key={
+																		item._id
+																	}
+																	value={
+																		item._id
+																	}
+																>
+																	{item.name}
+																</SelectItem>
+															),
+														)}
+													</SelectContent>
+												</Select>
+											)}
+										</div>
 									</div>
 									<div className="space-y-2">
 										<Label id="new-workflow-template-label">
@@ -225,6 +244,7 @@ export function WorkflowTemplateEditor() {
 										<YamlWorkflowEditor
 											disabled={busy}
 											labelledBy="new-workflow-template-label"
+											minHeight={EDITOR_HEIGHT}
 											onChange={(value) =>
 												setNewWorkflow((current) => ({
 													...current,

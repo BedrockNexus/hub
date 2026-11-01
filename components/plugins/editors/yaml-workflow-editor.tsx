@@ -119,7 +119,9 @@ export function YamlWorkflowEditor({
 		<fieldset
 			aria-labelledby={labelledBy}
 			className={cn(
-				'overflow-hidden rounded-md border bg-background',
+				// Fieldsets default to min-width: min-content, so long YAML lines
+				// would widen the page instead of scrolling inside the editor.
+				'min-w-0 overflow-hidden rounded-md border bg-background',
 				className,
 			)}
 			disabled={disabled}
