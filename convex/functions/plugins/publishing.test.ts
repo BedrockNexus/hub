@@ -1239,3 +1239,61 @@ describe('plugin reviews', () => {
 		).toBeNull()
 	})
 })
+
+
+describe('selected workflow metadata', () => {
+	it('allows renaming but prevents moving a selected template to different software', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const other = await t.run((ctx) =>
+			ctx.db.insert('serverSoftware', {
+				slug: 'other-software',
+				name: 'Other software',
+				description: 'Fixture',
+				enabled: true,
+				sortOrder: 2,
+				createdAt: Date.now(),
+				updatedAt: Date.now(),
+			}),
+		)
+		const key = `${POCKETMINE.slug}:default`
+		await expect(
+			foundation.moderator.client.mutation(
+				api.functions.plugins.workflowTemplates.save,
+				{
+					key,
+					label: 'Renamed workflow',
+					softwareId: other,
+					content: TEST_WORKFLOW_TEMPLATE,
+				},
+			),
+		).rejects.toThrow('selected by a plugin')
+		const result = await foundation.moderator.client.mutation(
+			api.functions.plugins.workflowTemplates.save,
+			{
+				key,
+				label: 'Renamed workflow',
+				softwareId: foundation.softwareId,
+				content: TEST_WORKFLOW_TEMPLATE,
+			},
+		)
+		expect(result.key).toBe(key)
+		expect(
+			await t.query(
+				internal.functions.plugins.workflowTemplates.getTemplate,
+				{ key },
+			),
+		).toMatchObject({
+			label: 'Renamed workflow',
+			softwareId: foundation.softwareId,
+		})
+		expect(
+			await t.run((ctx) => ctx.db.get('plugins', foundation.projectId)),
+		).toMatchObject({ softwareId: foundation.softwareId })
+		expect(
+			await t.run((ctx) =>
+				ctx.db.get('pluginPublishingDrafts', foundation.draftId),
+			),
+		).toMatchObject({ workflowTemplateKey: key })
+	})
+})

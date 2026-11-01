@@ -4,12 +4,14 @@ import { Add01Icon, PencilEdit02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { Column, ColumnDef } from '@tanstack/react-table'
 import type { FunctionReturnType } from 'convex/server'
+import type { Route } from 'next'
+import Link from 'next/link'
 import { useMemo } from 'react'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import type { api } from '@/convex/_generated/api'
 import { useDataTable } from '@/hooks/use-data-table'
 import type { DataTableFeatures } from '@/lib/data-table-features'
@@ -24,11 +26,9 @@ type TemplateColumn = Column<DataTableFeatures, WorkflowTemplate, unknown>
 export function WorkflowTemplatesTable({
 	templates,
 	onAdd,
-	onEdit,
 }: {
 	templates: WorkflowTemplate[]
 	onAdd: () => void
-	onEdit: (template: WorkflowTemplate) => void
 }) {
 	const columns = useMemo<ColumnDef<DataTableFeatures, WorkflowTemplate>[]>(
 		() => [
@@ -111,21 +111,25 @@ export function WorkflowTemplatesTable({
 			{
 				id: 'actions',
 				cell: ({ row }) => (
-					<Button
+					<Link
 						aria-label={`Edit ${row.original.label}`}
-						onClick={() => onEdit(row.original)}
-						size="icon-sm"
-						variant="ghost"
+						className={buttonVariants({
+							size: 'icon-sm',
+							variant: 'ghost',
+						})}
+						href={
+							`/admin/plugins/workflows/${encodeURIComponent(row.original.key)}` as Route
+						}
 					>
 						<HugeiconsIcon
 							className="size-4"
 							icon={PencilEdit02Icon}
 						/>
-					</Button>
+					</Link>
 				),
 			},
 		],
-		[templates, onEdit],
+		[templates],
 	)
 	const { table } = useDataTable({
 		mode: 'client',

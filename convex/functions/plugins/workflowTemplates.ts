@@ -125,6 +125,8 @@ export const save = adminMutation({
 	args: {
 		key: workflowTemplateKeyValidator,
 		content: v.string(),
+		label: v.optional(v.string()),
+		softwareId: v.optional(v.id('serverSoftware')),
 	},
 	returns: v.object({
 		key: workflowTemplateKeyValidator,
@@ -141,15 +143,37 @@ export const save = adminMutation({
 				message: 'The workflow template was not found.',
 			})
 		}
+		const label = validatedLabel(args.label ?? existing.label ?? existing.key)
+		const softwareId = args.softwareId ?? existing.softwareId
+		const software = await ctx.db.get('serverSoftware', softwareId)
+		if (!software) {
+			throw new ConvexError({
+				code: 'SERVER_SOFTWARE_NOT_FOUND',
+				message: 'Server software not found.',
+			})
+		}
+		if (softwareId !== existing.softwareId) {
+			const selectedDraft = await ctx.db
+				.query('pluginPublishingDrafts')
+				.withIndex('by_workflow_template_key', (query) => query.eq('workflowTemplateKey', args.key))
+				.first()
+			if (selectedDraft) {
+				throw new ConvexError({
+					code: 'WORKFLOW_TEMPLATE_IN_USE',
+					message: 'This workflow is selected by a plugin. Create a separate template for another server software.',
+				})
+			}
+		}
 		const content = validatedContent(args.content)
 		const version = existing.version + 1
 		await ctx.db.patch('pluginWorkflowTemplates', existing._id, {
+			label,
+			softwareId,
 			content,
 			version,
 			updatedBy: ctx.admin._id,
 			updatedAt: Date.now(),
 		})
-		const label = existing.label ?? existing.key
 		await recordAdminAction(ctx, ctx.admin._id, {
 			action: 'pluginWorkflowTemplate.save',
 			targetType: 'pluginWorkflowTemplate',
@@ -157,6 +181,8 @@ export const save = adminMutation({
 			changes: {
 				previousState: `version:${existing.version}`,
 				resultingState: `version:${version}`,
+				label: `${existing.label ?? existing.key} -> ${label}`,
+				softwareId: `${existing.softwareId} -> ${softwareId}`,
 			},
 			reason: `Saved ${label} workflow template version ${version}.`,
 		})
