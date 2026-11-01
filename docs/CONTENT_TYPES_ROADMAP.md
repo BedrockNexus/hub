@@ -1,4 +1,4 @@
-# Addons, resource packs, and maps
+# Addons and resource packs
 
 ## Objective
 
@@ -15,19 +15,15 @@ creator and player experience: submission, review, discovery, download, and upda
    updates that keep the current approved release available during review.
 3. **Complete resource-pack publishing.** Adapt the proven flow to pack-specific
    metadata, previews, requirements, filters, and validation.
-4. **Add maps end to end.** Define map metadata, categories and file policies;
-   extend the hub and artifact validator; support uploading, review, publication,
-   downloads, updates, and deletion. Test representative world sizes before
-   choosing storage and processing limits.
-5. **Improve discovery and download decisions.** Useful type-specific filters,
+4. **Improve discovery and download decisions.** Useful type-specific filters,
    release compatibility and requirements, installation instructions, version
    history, screenshots, creator identity, credits, licensing, support, and reports.
-6. **Improve moderation.** One queue with type filters, change previews, validation
+5. **Improve moderation.** One queue with type filters, change previews, validation
    results and review history; clear edit-review rules; actionable creator feedback.
-7. **Trustworthy statistics and creator tools.** Consistent download measurement,
+6. **Trustworthy statistics and creator tools.** Consistent download measurement,
    repeat-request and abuse handling, documented historical totals, creator
    analytics, follows and release notifications. Rankings are never sold.
-8. **Verify and launch with creators.** Complete desktop/mobile lifecycle checks
+7. **Verify and launch with creators.** Complete desktop/mobile lifecycle checks
    with individual and organization accounts. Observe real publishing friction;
    measure completion, download success, review time, and repeat publishing.
 
@@ -37,7 +33,6 @@ creator and player experience: submission, review, discovery, download, and upda
 | --- | --- |
 | Addon | Included behavior/resource packs, dependencies, experiments, installation |
 | Resource pack | Content changed, resolution where relevant, rendering requirements, installation |
-| Map | Category, player count, gameplay, required/bundled packs, installation |
 
 Requirements and compatibility that can change between updates should be stored
 per release. Bundled packs must not require duplicate public listings. Structured
@@ -68,7 +63,7 @@ different checks and should be described accurately.
   new submission forms; normal navigation links directly to each form.
 
 The shared internal `projects` implementation remains an implementation detail.
-Maps are not exposed yet; their schema and artifact validator are separate work.
+Maps are not planned; BedrockNexus will not add them.
 
 ## Rollout and verification
 
@@ -160,8 +155,8 @@ endpoint was restored after testing. Subsequent real organization/resource-pack
 lifecycle checks passed; see [content acceptance](./DEV_CONTENT_ACCEPTANCE.md)
 for their scope, signed-in browser verification, and settings fixes. Interactive
 password sign-in, production and in-game acceptance remain separate.
-Maps remain the next new content type after publishing acceptance; further
-published-metadata review rules and discovery/analytics work remain in the plan.
+Further published-metadata review rules and discovery/analytics work remain in
+the plan.
 
 ### Mods are paused
 
