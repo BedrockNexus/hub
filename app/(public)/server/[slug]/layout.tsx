@@ -1,6 +1,7 @@
 import { fetchQuery } from 'convex/nextjs'
 import type { Metadata } from 'next'
 import { api } from '@/convex/_generated/api'
+import { decodeRouteParam } from '@/lib/route-params'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
 import { serverHref } from '@/lib/server-routes'
 import { siteConfig } from '@/lib/site'
@@ -14,7 +15,7 @@ interface ServerLayoutProps {
 export async function generateMetadata({
 	params,
 }: ServerLayoutProps): Promise<Metadata> {
-	const { slug } = await params
+	const slug = decodeRouteParam((await params).slug)
 	const [server, seo] = await Promise.all([
 		fetchQuery(api.functions.servers.servers.getPublishedBySlug, { slug }),
 		getSiteSeo(),

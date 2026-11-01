@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { DashboardPageShell } from '@/components/plugins/dashboard-page-shell'
 import { WorkflowTemplateEditPage } from '@/components/plugins/publishing/workflow-template-edit-page'
+import { decodeRouteParam } from '@/lib/route-params'
 
 export const metadata: Metadata = {
 	title: 'Edit workflow template',
@@ -12,7 +13,8 @@ export default async function Page({
 }: {
 	params: Promise<{ key: string }>
 }) {
-	const { key } = await params
+	// Keys contain a colon (`software:name`).
+	const key = decodeRouteParam((await params).key)
 	return (
 		<DashboardPageShell
 			description="Changes apply when a publisher installs or updates this workflow."

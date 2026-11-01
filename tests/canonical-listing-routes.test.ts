@@ -55,6 +55,23 @@ describe('canonical listing redirects', () => {
 			canonicalServer('play.test.com', '/gallery'),
 		).resolves.toBeTruthy()
 	})
+	it('accepts the percent-encoded colon Next.js passes for non-default ports', async () => {
+		const server = { ipAddress: 'play.test.com', port: 19_133 }
+		mocks.query.mockResolvedValue(server)
+		await expect(
+			canonicalServer('play.test.com%3A19133', '/reviews'),
+		).resolves.toBe(server)
+		expect(mocks.query).toHaveBeenLastCalledWith(expect.anything(), {
+			slug: 'play.test.com:19133',
+		})
+		mocks.authQuery.mockResolvedValue(server)
+		await expect(
+			canonicalServerSettings('play.test.com%3A19133', '/links'),
+		).resolves.toBe(server)
+		expect(mocks.authQuery).toHaveBeenLastCalledWith(expect.anything(), {
+			id: 'play.test.com:19133',
+		})
+	})
 	it('redirects dashboard server IDs only after the ownership query succeeds', async () => {
 		mocks.authQuery.mockResolvedValue({
 			ipAddress: 'play.test.com',
