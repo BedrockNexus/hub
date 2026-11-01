@@ -183,10 +183,14 @@ export const listPublic = query({
 
 /** Resolves old version-ID links without issuing or counting a download. */
 export const getDownloadPath = query({
-	args: { versionId: v.id('projectVersions') },
+	args: { versionId: v.string() },
 	returns: v.union(v.string(), v.null()),
 	handler: async (ctx, args) => {
-		const version = await ctx.db.get(args.versionId)
+		// Production hides validator error details, so malformed URL inputs must
+		// resolve to null here instead of depending on an exception's message.
+		const versionId = ctx.db.normalizeId('projectVersions', args.versionId)
+		if (!versionId) return null
+		const version = await ctx.db.get(versionId)
 		if (!version || !isPublicRelease(version) || !getPublishedReleaseKey(version)) return null
 		const project = await ctx.db.get(version.projectId)
 		if (!project || !isPublicProject(project)) return null

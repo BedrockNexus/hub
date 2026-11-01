@@ -11,6 +11,10 @@ vi.mock('../../lib/r2', async (original) => {
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.clearAllMocks(); vi.useRealTimers() })
 
 describe('official download counts and canonical URLs', () => {
+	it('resolves malformed legacy IDs without throwing a redacted production error', async () => {
+		const t = createTest()
+		expect(await t.query(api.functions.projects.versions.getDownloadPath, { versionId: 'invalid' })).toBeNull()
+	})
 	it('uses type-specific stable paths and hides unavailable legacy links', async () => {
 		const t = createTest()
 		for (const [type, directory, prefix] of [['addon', 'addons', 'a_'], ['texture_pack', 'resource-packs', 'rp_']] as const) {
