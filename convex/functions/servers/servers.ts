@@ -1,3 +1,4 @@
+import { resolveServerReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
@@ -486,10 +487,7 @@ export const getRegions = query({
 export const getPublishedBySlug = query({
 	args: { slug: v.string() },
 	handler: async (ctx, args) => {
-		const server = await ctx.db
-			.query('servers')
-			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
-			.first()
+		const server = await resolveServerReference(ctx, args.slug)
 
 		if (!server || !isPublicServer(server)) {
 			return null
@@ -510,13 +508,7 @@ export const getForEdit = query({
 		const dayKey = getUtcDayKey(now)
 		const monthKey = getUtcMonthKey(now)
 
-		const documentId = ctx.db.normalizeId('servers', args.id)
-		const server = documentId
-			? await ctx.db.get(documentId)
-			: await ctx.db
-					.query('servers')
-					.withIndex('by_slug', (q) => q.eq('slug', args.id))
-					.first()
+		const server = await resolveServerReference(ctx, args.id)
 
 		if (!server) {
 			return null

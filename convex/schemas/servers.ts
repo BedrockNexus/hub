@@ -152,6 +152,7 @@ export const tables = {
 		.index('by_status', ['status'])
 		.index('by_featured', ['isFeatured'])
 		.index('by_address_key', ['addressKey'])
+		.index('by_ipAddress_and_port', ['ipAddress', 'port'])
 		.index('by_softwareId', ['softwareId'])
 		.searchIndex('search_servers', {
 			searchField: 'name',

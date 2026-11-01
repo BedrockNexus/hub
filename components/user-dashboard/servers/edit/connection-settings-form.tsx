@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery } from 'convex/react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { type Resolver, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -23,6 +24,7 @@ import {
 	SERVER_FORM_DEFAULTS,
 	type ServerFormData,
 } from '@/lib/schemas/server'
+import { serverEditHref } from '@/lib/server-routes'
 
 const connectionSchema = z.object({
 	ipAddress: z
@@ -45,6 +47,7 @@ export function ConnectionSettingsForm({
 	id,
 	mode = 'user',
 }: ConnectionSettingsFormProps) {
+	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [verifiedTarget, setVerifiedTarget] =
 		useState<VerifiedServerTarget | null>(null)
@@ -96,6 +99,11 @@ export function ConnectionSettingsForm({
 			form.reset(data)
 			setVerifiedTarget(null)
 			toast.success('Connection settings saved!')
+			if (mode === 'user') {
+				router.replace(
+					`${serverEditHref({ ipAddress: data.ipAddress, port: Number(data.port) })}/connection`,
+				)
+			}
 		} catch (error) {
 			const message =
 				error instanceof Error

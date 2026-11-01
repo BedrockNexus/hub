@@ -84,7 +84,7 @@ describe('typed public content routes', () => {
 			'addon',
 		)
 		expect(meta.alternates?.canonical).toBe(
-			'https://bedrocknexus.com/addons/example/gallery',
+			'https://bedrocknexus.com/addons/a_existing-id/gallery',
 		)
 		fetchQuery
 			.mockResolvedValueOnce({ ...project, type: 'texture_pack' })
@@ -99,7 +99,7 @@ describe('typed public content routes', () => {
 			'resource_pack',
 		)
 		expect(releaseMeta.alternates?.canonical).toBe(
-			'https://bedrocknexus.com/resource-packs/example/releases/1.0%2Btest',
+			'https://bedrocknexus.com/resource-packs/rp_existing-id/releases/1.0%2Btest',
 		)
 	})
 
@@ -153,7 +153,7 @@ describe('typed public content routes', () => {
 			}),
 		).rejects.toMatchObject({
 			digest: expect.stringContaining(
-				'/resource-packs/example/releases?source=creator',
+				'/resource-packs/rp_existing-id/releases?source=creator',
 			),
 		})
 	})
@@ -172,7 +172,7 @@ describe('typed creator routes', () => {
 			}),
 		).rejects.toMatchObject({
 			digest: expect.stringContaining(
-				'/dashboard/resource-packs/existing-id/gallery',
+				'/dashboard/resource-packs/rp_existing-id/gallery',
 			),
 		})
 	})

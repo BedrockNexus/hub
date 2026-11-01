@@ -26,7 +26,7 @@ export async function generateMetadata({
 	const { project } = result
 	const title = project.name
 	const description = truncateDescription(project.summary)
-	const url = absoluteUrl(`/plugins/${project.slug}`)
+	const url = absoluteUrl(`/plugins/${project.publicId}`)
 	const image = project.iconUrl
 	return {
 		title,

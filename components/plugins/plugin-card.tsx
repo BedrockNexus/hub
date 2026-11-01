@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 
 export interface PublicPluginCard {
 	slug: string
+	publicId?: string
 	name: string
 	summary: string
 	iconUrl?: string
@@ -71,7 +72,9 @@ export function PluginCard({ plugin }: { plugin: PublicPluginCard }) {
 				<h3 className="truncate font-bold text-lg leading-tight">
 					<Link
 						className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
-						href={`/plugins/${plugin.slug}` as Route}
+						href={
+							`/plugins/${plugin.publicId ?? plugin.slug}` as Route
+						}
 					>
 						{plugin.name}
 					</Link>

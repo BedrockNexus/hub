@@ -3,7 +3,13 @@ import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
 import { cache } from 'react'
 import { api } from '@/convex/_generated/api'
-import { contentHref, legacyContentSection } from '@/lib/content-routes'
+import { projectReference } from '@/lib/content-reference'
+import {
+	type ContentSearchParams,
+	contentHref,
+	legacyContentSection,
+	withContentSearch,
+} from '@/lib/content-routes'
 import { normalizeProjectType, type ProjectType } from '@/lib/project-artifacts'
 import { projectMetadataSeoProperties } from '@/lib/project-metadata'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
@@ -16,6 +22,7 @@ import {
 
 export interface ContentPageProps {
 	params: Promise<{ slug: string; section?: string[] }>
+	searchParams?: Promise<ContentSearchParams>
 }
 
 const getContent = cache(async (slug: string, type: ProjectType) => {
@@ -94,7 +101,8 @@ export async function contentMetadata(
 		release?.changelog || project.summary,
 	)
 	const url = absoluteUrl(
-		contentHref(type, project.slug) + legacyContentSection(section),
+		contentHref(type, project.slug, project._id) +
+			legacyContentSection(section),
 	)
 	const image = project.bannerUrl || project.iconUrl || seo.ogImageUrl
 	return {
@@ -119,16 +127,12 @@ export async function contentMetadata(
 
 export async function ContentPage({
 	params,
+	searchParams,
 	type,
 }: ContentPageProps & { type: ProjectType }) {
 	const { slug, section } = await params
 	const { tab, version } = resolveSection(section)
 	const project = await getContent(slug, type)
-	if (section?.[0] === 'versions' || section?.[0] === 'changelog') {
-		permanentRedirect(
-			contentHref(type, slug) + legacyContentSection(section),
-		)
-	}
 	if (version) {
 		const release = await fetchQuery(
 			api.functions.projects.versions.getPublicByVersion,
@@ -138,12 +142,25 @@ export async function ContentPage({
 			notFound()
 		}
 	}
+	if (
+		slug !== projectReference(type, project._id) ||
+		section?.[0] === 'versions' ||
+		section?.[0] === 'changelog'
+	) {
+		permanentRedirect(
+			withContentSearch(
+				contentHref(type, project.slug, project._id) +
+					legacyContentSection(section),
+				(await searchParams) ?? {},
+			),
+		)
+	}
 	const jsonLd = {
 		'@context': 'https://schema.org',
 		'@type': 'SoftwareApplication',
 		name: project.name,
 		description: project.summary,
-		url: absoluteUrl(contentHref(type, project.slug)),
+		url: absoluteUrl(contentHref(type, project.slug, project._id)),
 		image: project.bannerUrl || project.iconUrl || undefined,
 		applicationCategory: 'GameApplication',
 		operatingSystem: 'Minecraft Bedrock Edition',

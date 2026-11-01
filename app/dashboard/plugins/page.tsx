@@ -153,9 +153,7 @@ export default async function PluginsDashboardPage({
 					? `/dashboard/plugins/${dashboardKey}`
 					: null,
 			publicHref:
-				published && row.project
-					? `/plugins/${row.project.slug}`
-					: null,
+				published && row.project ? `/plugins/${dashboardKey}` : null,
 		}
 	})
 	const connectedRepositories = installations.reduce(

@@ -64,6 +64,7 @@ import {
 	type ServerSoftwareClassification,
 } from '@/lib/bedrock-api'
 import type { DataTableFeatures } from '@/lib/data-table-features'
+import { serverEditHref } from '@/lib/server-routes'
 
 // Type for category from Convex
 interface Category {
@@ -200,10 +201,7 @@ function ServerRowActionsCell({
 					<DropdownMenuItem
 						nativeButton={false}
 						render={(props) => (
-							<Link
-								{...props}
-								href={`/dashboard/servers/${server._id}`}
-							>
+							<Link {...props} href={serverEditHref(server)}>
 								<HugeiconsIcon
 									className="size-4"
 									icon={PencilEdit01Icon}
@@ -577,7 +575,7 @@ export function ServerListTable() {
 				cell: ({ row }) => (
 					<Link
 						className="font-medium hover:underline"
-						href={`/dashboard/servers/${row.original._id}`}
+						href={serverEditHref(row.original)}
 					>
 						{row.original.name}
 					</Link>

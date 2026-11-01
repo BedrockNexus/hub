@@ -83,7 +83,7 @@ export function ProjectCard({ content: item }: ProjectCardProps) {
 				<h3 className="truncate font-bold text-lg leading-tight">
 					<Link
 						className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
-						href={contentHref(item.type, item.slug)}
+						href={contentHref(item.type, item.slug, item._id)}
 					>
 						{item.name}
 					</Link>

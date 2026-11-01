@@ -21,6 +21,7 @@ import {
 } from '@/components/user-dashboard/edit-sidebar/listing-edit-sidebar'
 import { ListingSwitcher } from '@/components/user-dashboard/edit-sidebar/listing-switcher'
 import { api } from '@/convex/_generated/api'
+import { projectReference } from '@/lib/content-reference'
 
 import { contentDashboard, contentHref } from '@/lib/content-routes'
 import {
@@ -107,7 +108,7 @@ export function ProjectEditSidebar({
 							(item) => normalizeProjectType(item.type) === type,
 						)
 						.map((item) => ({
-							id: item._id,
+							id: projectReference(item.type, item._id),
 							name: item.name,
 							imageUrl: item.iconUrl ?? undefined,
 							subtitle: item.summary,
@@ -119,7 +120,7 @@ export function ProjectEditSidebar({
 			publicHref={
 				project?.status === 'published' &&
 				project.moderationStatus === 'approved'
-					? contentHref(project.type, project.slug)
+					? contentHref(project.type, project.slug, project._id)
 					: undefined
 			}
 			sections={SECTIONS}

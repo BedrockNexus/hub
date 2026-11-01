@@ -177,7 +177,10 @@ function PluginHero({
 									variant: 'brand',
 									className: 'w-full',
 								})}
-								href={downloadHref(project.slug, downloadable)}
+								href={downloadHref(
+									project.publicId,
+									downloadable,
+								)}
 								rel="nofollow"
 							>
 								<HugeiconsIcon
@@ -274,7 +277,10 @@ function PluginVersions({ detail }: { detail: PluginDetail }) {
 										size: 'sm',
 										variant: 'outline',
 									})}
-									href={downloadHref(project.slug, version)}
+									href={downloadHref(
+										project.publicId,
+										version,
+									)}
 									rel="nofollow"
 								>
 									<HugeiconsIcon

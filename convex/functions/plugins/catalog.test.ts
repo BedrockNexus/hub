@@ -239,3 +239,20 @@ describe('download redirects', () => {
 		).rejects.toThrow('Download not found')
 	})
 })
+
+
+describe('plugin public identity',()=>{
+ it('resolves the existing dashboard ID publicly and rejects private plugins',async()=>{
+  const t=createTest()
+  const fixture=await createPublishedFixture(t)
+  const ref='p_'+(9001).toString(36)
+  const result=await t.query(api.functions.plugins.catalog.getProject,{slug:ref})
+  expect(result?.project).toMatchObject({projectId:fixture.projectId,publicId:ref})
+  await expect(t.mutation(api.functions.plugins.downloads.resolveAndRecord, {
+   projectSlug:ref, version:'1.0.0', anonymousIdHash:'d'.repeat(64), redirectSecret,
+  })).resolves.toMatchObject({url:`${cdnUrl}/plugins/${fixture.projectId}/versions/1.0.0/TrustedPlugin.jar`})
+  expect(await t.query(api.functions.plugins.projects.getBySlug,{slug:ref})).toMatchObject({_id:fixture.projectId})
+  await t.run(ctx=>ctx.db.patch('plugins',fixture.projectId,{visibility:'hidden'}))
+  expect(await t.query(api.functions.plugins.catalog.getProject,{slug:ref})).toBeNull()
+ })
+})

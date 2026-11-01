@@ -19,7 +19,7 @@ describe('content routes and legacy links', () => {
 		)
 		expect(contentDashboard('addon')).toBe('/dashboard/addons')
 		expect(contentEditHref('texture_pack', 'id123')).toBe(
-			'/dashboard/resource-packs/id123',
+			'/dashboard/resource-packs/rp_id123',
 		)
 	})
 

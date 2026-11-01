@@ -3,6 +3,7 @@ import { fetchMutation } from 'convex/nextjs'
 import { api } from '@/convex/_generated/api'
 import { logEvent } from '@/convex/lib/redact'
 import { getClientAddress } from '@/lib/client-address'
+import { parsePluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 
 function hashFingerprint(salt: string, namespace: string, value: string) {
 	return createHash('sha256')
@@ -57,7 +58,8 @@ export async function GET(
 
 	const { slug: projectSlug, version } = await params
 	if (
-		!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(projectSlug) ||
+		(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(projectSlug) &&
+			parsePluginDashboardId(projectSlug) === null) ||
 		version.length < 1 ||
 		version.length > 100
 	) {

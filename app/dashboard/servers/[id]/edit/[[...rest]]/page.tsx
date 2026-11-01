@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { api } from '@/convex/_generated/api'
 import { fetchAuthQuery } from '@/lib/auth-server'
+import { serverEditHref } from '@/lib/server-routes'
 
 /** Edit links from before the dashboard used ids: /dashboard/servers/<slug>/edit/… */
 export default async function LegacyServerEditRedirect({
@@ -17,6 +18,6 @@ export default async function LegacyServerEditRedirect({
 		notFound()
 	}
 	redirect(
-		`/dashboard/servers/${item._id}${rest?.length ? `/${rest.join('/')}` : ''}`,
+		`${serverEditHref(item)}${rest?.length ? `/${rest.map(encodeURIComponent).join('/')}` : ''}`,
 	)
 }

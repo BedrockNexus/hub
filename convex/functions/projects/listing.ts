@@ -255,6 +255,7 @@ export const sitemapEntries = query({
 	args: {},
 	returns: v.array(
         v.object({
+            _id: v.id('projects'),
             slug: v.string(),
             type: projectDiscoveryType,
             updatedAt: v.number(),
@@ -274,6 +275,7 @@ export const sitemapEntries = query({
 		return projects.flatMap((project) =>
 			project && isPublicProject(project)
 				? [{
+                    _id: project._id,
                     slug: project.slug,
                     type: normalizeProjectType(project.type),
                     updatedAt: project.updatedAt,

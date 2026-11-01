@@ -62,6 +62,7 @@ import {
 	type ServerSoftwareClassification,
 } from '@/lib/bedrock-api'
 import type { DataTableFeatures } from '@/lib/data-table-features'
+import { serverEditHref, serverHref } from '@/lib/server-routes'
 
 // Type for server table display
 interface ServerRow {
@@ -146,10 +147,7 @@ function ServerRowActionsCell({
 					<DropdownMenuItem
 						nativeButton={false}
 						render={(props) => (
-							<Link
-								{...props}
-								href={`/dashboard/servers/${server._id}`}
-							>
+							<Link {...props} href={serverEditHref(server)}>
 								<HugeiconsIcon
 									className="size-4"
 									icon={PencilEdit01Icon}
@@ -344,7 +342,7 @@ export default function OrganizationServersPage() {
 				cell: ({ row }) => (
 					<Link
 						className="flex items-center gap-3 hover:underline"
-						href={`/servers/${row.original.slug}`}
+						href={serverHref(row.original)}
 					>
 						{row.original.logoUrl ? (
 							<Image

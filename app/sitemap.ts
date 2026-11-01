@@ -3,6 +3,7 @@ import type { MetadataRoute } from 'next'
 import { api } from '@/convex/_generated/api'
 import { contentHref } from '@/lib/content-routes'
 import { absoluteUrl } from '@/lib/seo'
+import { serverHref } from '@/lib/server-routes'
 import { getSiteFeatures } from '@/lib/site-settings'
 
 const staticRoutes = [
@@ -71,14 +72,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	}))
 
 	const serverEntries: MetadataRoute.Sitemap = servers.map((server) => ({
-		url: absoluteUrl(`/servers/${server.slug}`),
+		url: absoluteUrl(serverHref(server)),
 		lastModified: new Date(server.updatedAt),
 		changeFrequency: 'daily',
 		priority: 0.8,
 	}))
 
 	const projectEntries: MetadataRoute.Sitemap = projects.map((project) => ({
-		url: absoluteUrl(contentHref(project.type, project.slug)),
+		url: absoluteUrl(contentHref(project.type, project.slug, project._id)),
 		lastModified: new Date(project.updatedAt),
 		changeFrequency: 'daily',
 		priority: 0.8,

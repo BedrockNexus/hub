@@ -1,13 +1,12 @@
-import { ServerDetailShell } from '@/components/servers/detail/server-detail-shell'
-
-interface ServerGalleryPageProps {
-	params: Promise<{ slug: string }>
-}
-
-export default async function ServerGalleryPage({
+import { legacyServer } from '@/lib/canonical-content'
+import type { ContentSearchParams } from '@/lib/content-routes'
+export default async function Page({
 	params,
-}: ServerGalleryPageProps) {
+	searchParams,
+}: {
+	params: Promise<{ slug: string }>
+	searchParams?: Promise<ContentSearchParams>
+}) {
 	const { slug } = await params
-
-	return <ServerDetailShell activeTab="gallery" slug={slug} />
+	return await legacyServer(slug, '/gallery', (await searchParams) ?? {})
 }

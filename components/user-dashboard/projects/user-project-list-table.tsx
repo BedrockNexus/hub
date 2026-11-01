@@ -170,7 +170,11 @@ function ProjectRowActionsCell({
 						render={(props) => (
 							<Link
 								{...props}
-								href={contentHref(content.type, content.slug)}
+								href={contentHref(
+									content.type,
+									content.slug,
+									content._id,
+								)}
 							>
 								<HugeiconsIcon
 									className="size-4"

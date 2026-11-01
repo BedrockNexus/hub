@@ -42,6 +42,7 @@ import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-ta
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
+import { contentHref } from '@/lib/content-routes'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import {
 	normalizeProjectType,
@@ -201,7 +202,11 @@ export function AdminProjectsTable() {
 				cell: ({ row }) => (
 					<Link
 						className="font-medium hover:underline"
-						href={`/projects/${row.original.slug}`}
+						href={contentHref(
+							row.original.type,
+							row.original.slug,
+							row.original._id,
+						)}
 					>
 						{row.original.name}
 					</Link>

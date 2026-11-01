@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import { useFullOrganization } from '@/hooks/use-organization'
 import { contentEditHref } from '@/lib/content-routes'
+import { serverEditHref } from '@/lib/server-routes'
 
 function formatDate(date: Date) {
 	return new Date(date).toLocaleDateString('en-US', {
@@ -238,7 +239,7 @@ export default function OrganizationOverviewPage() {
 						{orgServers.map((server) => (
 							<Link
 								className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
-								href={`/dashboard/servers/${server._id}`}
+								href={serverEditHref(server)}
 								key={server._id}
 							>
 								<div className="flex min-w-0 flex-1 items-center gap-3">

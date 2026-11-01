@@ -1,21 +1,19 @@
-import { fetchQuery } from 'convex/nextjs'
-import { notFound } from 'next/navigation'
 import { PluginDetailShell } from '@/components/plugins/detail/plugin-detail-shell'
-import { api } from '@/convex/_generated/api'
+import { canonicalPlugin } from '@/lib/canonical-content'
+import type { ContentSearchParams } from '@/lib/content-routes'
 import { absoluteUrl } from '@/lib/seo'
 
 interface PluginPageProps {
 	params: Promise<{ slug: string }>
+	searchParams?: Promise<ContentSearchParams>
 }
 
-export default async function PluginPage({ params }: PluginPageProps) {
+export default async function PluginPage({
+	params,
+	searchParams,
+}: PluginPageProps) {
 	const { slug } = await params
-	const result = await fetchQuery(api.functions.plugins.catalog.getProject, {
-		slug,
-	})
-	if (!result) {
-		notFound()
-	}
+	const result = await canonicalPlugin(slug, '', (await searchParams) ?? {})
 	const { project } = result
 
 	const jsonLd = {
@@ -23,7 +21,7 @@ export default async function PluginPage({ params }: PluginPageProps) {
 		'@type': 'SoftwareApplication',
 		name: project.name,
 		description: project.summary,
-		url: absoluteUrl(`/plugins/${project.slug}`),
+		url: absoluteUrl(`/plugins/${project.publicId}`),
 		image: project.iconUrl,
 		applicationCategory: 'GameApplication',
 		operatingSystem: project.software.name,

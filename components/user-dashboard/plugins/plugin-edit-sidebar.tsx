@@ -140,7 +140,7 @@ export function PluginEditSidebar({
 			moderationNote={plugin?.moderationNote}
 			publicHref={
 				published && plugin?.project?.visibility === 'public'
-					? `/plugins/${plugin.project.slug}`
+					? `/plugins/${createPluginDashboardId(plugin.repository.githubRepositoryId)}`
 					: undefined
 			}
 			sections={SECTIONS}

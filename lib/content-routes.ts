@@ -1,3 +1,4 @@
+import { projectReference } from './content-reference'
 import {
 	normalizeProjectType,
 	type StoredProjectType,
@@ -10,8 +11,12 @@ export function contentDirectory(type: StoredProjectType) {
 		: '/resource-packs'
 }
 
-export function contentHref(type: StoredProjectType, slug: string) {
-	return `${contentDirectory(type)}/${encodeURIComponent(slug)}`
+export function contentHref(
+	type: StoredProjectType,
+	slug: string,
+	id?: string,
+) {
+	return `${contentDirectory(type)}/${encodeURIComponent(id ? projectReference(type, id) : slug)}`
 }
 
 export function contentDashboard(type: StoredProjectType) {
@@ -19,7 +24,7 @@ export function contentDashboard(type: StoredProjectType) {
 }
 
 export function contentEditHref(type: StoredProjectType, id: string) {
-	return `${contentDashboard(type)}/${encodeURIComponent(id)}`
+	return `${contentDashboard(type)}/${encodeURIComponent(projectReference(type, id))}`
 }
 
 export type ContentSearchParams = Record<string, string | string[] | undefined>

@@ -1,5 +1,7 @@
 'use node'
 
+import { createPluginDashboardId } from '../../../../lib/plugins/plugin-dashboard-id'
+
 import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
 
@@ -945,7 +947,7 @@ export const createGitHubRelease = internalAction({
 						'---',
 						...(siteUrl
 							? [
-									`Published on BedrockNexus: ${siteUrl}/plugins/${context.projectSlug}`,
+									`Published on BedrockNexus: ${siteUrl}/plugins/${createPluginDashboardId(repository.githubRepositoryId)}`,
 								]
 							: []),
 						`SHA-256 of ${release.fileName}: \`${release.sha256 ?? 'unknown'}\``,

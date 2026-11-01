@@ -47,6 +47,7 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
 import type { DataTableFeatures } from '@/lib/data-table-features'
+import { serverHref } from '@/lib/server-routes'
 
 interface AdminServerCategory {
 	_id: Id<'serverCategories'>
@@ -222,7 +223,7 @@ export function AdminServersTable() {
 					<div className="min-w-48">
 						<Link
 							className="font-medium hover:underline"
-							href={`/servers/${row.original.slug}`}
+							href={serverHref(row.original)}
 						>
 							{row.original.name}
 						</Link>

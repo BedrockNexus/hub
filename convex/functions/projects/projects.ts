@@ -1,4 +1,5 @@
-﻿import { ConvexError, v } from 'convex/values'
+﻿import { resolveProjectReference } from '../../lib/contentReferences'
+import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
@@ -451,10 +452,7 @@ async function getUserOrganizationIds(
 export const getPublishedBySlug = query({
 	args: { slug: v.string() },
 	handler: async (ctx, args) => {
-		const item = await ctx.db
-			.query('projects')
-			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
-			.first()
+		const item = await resolveProjectReference(ctx, args.slug)
 
 		if (!item || !isPublicProject(item)) {
 			return null
@@ -475,13 +473,7 @@ export const getForEdit = query({
 		const dayKey = getUtcDayKey(now)
 		const monthKey = getUtcMonthKey(now)
 
-		const documentId = ctx.db.normalizeId('projects', args.id)
-		const item = documentId
-			? await ctx.db.get(documentId)
-			: await ctx.db
-					.query('projects')
-					.withIndex('by_slug', (q) => q.eq('slug', args.id))
-					.first()
+		const item = await resolveProjectReference(ctx, args.id)
 
 		if (!item) {
 			return null

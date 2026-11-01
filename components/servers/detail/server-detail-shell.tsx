@@ -41,9 +41,7 @@ import { api } from '@/convex/_generated/api'
 export type ServerDetailTab = 'description' | 'gallery' | 'reviews'
 
 function tabHref(slug: string, tab: ServerDetailTab) {
-	return tab === 'description'
-		? `/servers/${slug}`
-		: `/servers/${slug}/${tab}`
+	return tab === 'description' ? `/server/${slug}` : `/server/${slug}/${tab}`
 }
 
 /** Bedrock's deep link that adds the server to the player's server list. */

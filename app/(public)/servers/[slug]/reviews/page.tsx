@@ -1,13 +1,12 @@
-import { ServerDetailShell } from '@/components/servers/detail/server-detail-shell'
-
-interface ServerReviewsPageProps {
-	params: Promise<{ slug: string }>
-}
-
-export default async function ServerReviewsPage({
+import { legacyServer } from '@/lib/canonical-content'
+import type { ContentSearchParams } from '@/lib/content-routes'
+export default async function Page({
 	params,
-}: ServerReviewsPageProps) {
+	searchParams,
+}: {
+	params: Promise<{ slug: string }>
+	searchParams?: Promise<ContentSearchParams>
+}) {
 	const { slug } = await params
-
-	return <ServerDetailShell activeTab="reviews" slug={slug} />
+	return await legacyServer(slug, '/reviews', (await searchParams) ?? {})
 }

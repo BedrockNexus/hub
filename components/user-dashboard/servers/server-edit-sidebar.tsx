@@ -23,6 +23,7 @@ import {
 } from '@/components/user-dashboard/edit-sidebar/listing-edit-sidebar'
 import { ListingSwitcher } from '@/components/user-dashboard/edit-sidebar/listing-switcher'
 import { api } from '@/convex/_generated/api'
+import { serverHref, serverReference } from '@/lib/server-routes'
 
 const BASE_PATH = '/dashboard/servers'
 
@@ -116,7 +117,7 @@ export function ServerEditSidebar({
 					}
 					currentId={id}
 					items={servers?.map((item) => ({
-						id: item._id,
+						id: serverReference(item),
 						name: item.name,
 						imageUrl: item.logoUrl ?? undefined,
 						subtitle: item.ipAddress,
@@ -126,9 +127,7 @@ export function ServerEditSidebar({
 			id={id}
 			moderationNote={server?.moderationReason}
 			publicHref={
-				server?.status === 'published'
-					? `/servers/${server.slug}`
-					: undefined
+				server?.status === 'published' ? serverHref(server) : undefined
 			}
 			sections={SECTIONS}
 			status={

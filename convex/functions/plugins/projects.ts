@@ -1,3 +1,4 @@
+import { resolvePluginReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 
 import type { Doc } from '../../_generated/dataModel'
@@ -121,10 +122,7 @@ export const getBySlug = query({
 	args: { slug: v.string() },
 	returns: v.union(projectValidator, v.null()),
 	handler: async (ctx, args) => {
-		const project = await ctx.db
-			.query('plugins')
-			.withIndex('by_slug', (index) => index.eq('slug', args.slug))
-			.unique()
+		const project = await resolvePluginReference(ctx, args.slug)
 
 		if (!project) {
 			return null

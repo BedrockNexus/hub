@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { api } from '@/convex/_generated/api'
 import { fetchAuthQuery } from '@/lib/auth-server'
+import { projectReference } from '@/lib/content-reference'
 import { contentEditHref, legacyContentSection } from '@/lib/content-routes'
 import { normalizeProjectType, type ProjectType } from '@/lib/project-artifacts'
 import { ProjectCategoriesSettingsForm } from './edit/categories-settings-form'
@@ -29,7 +30,7 @@ export async function ContentSettingsPage({
 		notFound()
 	}
 	// Normalize old slug-based edit links, after checking ownership and type.
-	if (id !== item._id || section?.[0] === 'edit') {
+	if (id !== projectReference(type, item._id) || section?.[0] === 'edit') {
 		redirect(
 			contentEditHref(type, item._id) +
 				legacyContentSection(section, true),

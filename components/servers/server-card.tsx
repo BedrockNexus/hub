@@ -9,6 +9,7 @@ import {
 	TagChip,
 } from '@/components/servers/server-bits'
 import { Skeleton } from '@/components/ui/skeleton'
+import { serverHref } from '@/lib/server-routes'
 import { cn } from '@/lib/utils'
 
 export interface ServerListItem {
@@ -39,7 +40,7 @@ function CardLink({ server }: { server: ServerListItem }) {
 	return (
 		<Link
 			className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
-			href={`/servers/${server.slug}`}
+			href={serverHref(server)}
 		>
 			{server.name}
 		</Link>

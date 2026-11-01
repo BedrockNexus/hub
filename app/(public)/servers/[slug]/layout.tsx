@@ -2,6 +2,7 @@ import { fetchQuery } from 'convex/nextjs'
 import type { Metadata } from 'next'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
+import { serverHref } from '@/lib/server-routes'
 import { siteConfig } from '@/lib/site'
 import { getSiteSeo } from '@/lib/site-settings'
 
@@ -28,7 +29,7 @@ export async function generateMetadata({
 
 	const title = server.name
 	const description = truncateDescription(server.smallDescription)
-	const url = absoluteUrl(`/servers/${server.slug}`)
+	const url = absoluteUrl(serverHref(server))
 	const image = server.bannerUrl || server.logoUrl || seo.ogImageUrl
 
 	return {

@@ -1,3 +1,5 @@
+import { createPluginDashboardId } from '../../../lib/plugins/plugin-dashboard-id'
+import { resolvePluginReference } from '../../lib/contentReferences'
 import {
 	paginationOptsValidator,
 	paginationResultValidator,
@@ -57,6 +59,7 @@ const latestVersionSummaryValidator = v.object({
 
 export const projectCardValidator = v.object({
 	projectId: v.id('plugins'),
+	publicId: v.string(),
 	slug: v.string(),
 	name: v.string(),
 	summary: v.string(),
@@ -79,7 +82,7 @@ async function hydrateProjectCard(
 	ctx: QueryCtx,
 	project: Doc<'plugins'>,
 ): Promise<ProjectCard | null> {
-	const [software, creator, organization, latestVersion, categories] =
+	const [software, creator, organization, latestVersion, categories, repository] =
 		await Promise.all([
 			ctx.db.get('serverSoftware', project.softwareId),
 			project.ownerType === 'user'
@@ -96,9 +99,10 @@ async function hydrateProjectCard(
 					ctx.db.get('pluginCategories', id),
 				),
 			),
+			ctx.db.get('githubRepositories', project.repositoryId),
 		])
 
-	if (!software) {
+	if (!software || !repository) {
 		return null
 	}
 
@@ -119,6 +123,7 @@ async function hydrateProjectCard(
 
 	return {
 		projectId: project._id,
+		publicId: createPluginDashboardId(repository.githubRepositoryId),
 		slug: project.slug,
 		name: project.name,
 		summary: project.summary,
@@ -493,10 +498,7 @@ export const getProject = query({
 		v.null(),
 	),
 	handler: async (ctx, args) => {
-		const project = await ctx.db
-			.query('plugins')
-			.withIndex('by_slug', (index) => index.eq('slug', args.slug))
-			.unique()
+		const project = await resolvePluginReference(ctx, args.slug)
 		if (
 			project?.visibility !== 'public' ||
 			project.status !== 'published'
@@ -681,9 +683,10 @@ export const sitemapEntries = query({
 				index.eq('visibility', 'public').eq('status', 'published'),
 			)
 			.take(1_000)
-		return projects.map((item) => ({
-			slug: item.slug,
-			updatedAt: item.updatedAt,
+		const entries = await Promise.all(projects.map(async (item) => {
+			const repository = await ctx.db.get('githubRepositories', item.repositoryId)
+			return repository ? { slug: createPluginDashboardId(repository.githubRepositoryId), updatedAt: item.updatedAt } : null
 		}))
+		return entries.flatMap(entry => entry ? [entry] : [])
 	},
 })

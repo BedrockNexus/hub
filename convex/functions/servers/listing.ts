@@ -298,7 +298,7 @@ const SITEMAP_LIMIT = 2000
 /** Address and last change of every listed server, newest first, for the sitemap. */
 export const sitemapEntries = query({
 	args: {},
-	returns: v.array(v.object({ slug: v.string(), updatedAt: v.number() })),
+	returns: v.array(v.object({ ipAddress: v.string(), port: v.number(), slug: v.string(), updatedAt: v.number() })),
 	handler: async (ctx) => {
 		const listed = await ctx.db
 			.query('serverStats')
@@ -314,7 +314,7 @@ export const sitemapEntries = query({
 			server && isPublicServer(server)
 				? [
 						{
-							slug: server.slug,
+							ipAddress: server.ipAddress, port: server.port, slug: server.slug,
 							updatedAt: server.updatedAt ?? server._creationTime,
 						},
 					]

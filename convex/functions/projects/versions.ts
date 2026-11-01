@@ -1,3 +1,4 @@
+import { resolveProjectReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
@@ -179,10 +180,7 @@ export const listPublic = query({
 export const getPublicByVersion = query({
 	args: { slug: v.string(), version: v.string() },
 	handler: async (ctx, args) => {
-		const project = await ctx.db
-			.query('projects')
-			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
-			.unique()
+		const project = await resolveProjectReference(ctx, args.slug)
 		if (!project || !isPublicProject(project)) return null
 		const version = await ctx.db
 			.query('projectVersions')

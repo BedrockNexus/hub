@@ -1,3 +1,5 @@
+import { parsePluginDashboardId } from '../../../lib/plugins/plugin-dashboard-id'
+import { resolvePluginReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 
 import { internalMutation, mutation } from '../../_generated/server'
@@ -54,7 +56,7 @@ export const resolveAndRecord = mutation({
 			throw notFound()
 		}
 		if (
-			!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(args.projectSlug) ||
+			(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(args.projectSlug) && parsePluginDashboardId(args.projectSlug) === null) ||
 			args.version.length < 1 ||
 			args.version.length > 100 ||
 			!/^[a-f0-9]{64}$/.test(args.anonymousIdHash) ||
@@ -64,10 +66,7 @@ export const resolveAndRecord = mutation({
 			throw notFound()
 		}
 
-		const project = await ctx.db
-			.query('plugins')
-			.withIndex('by_slug', (index) => index.eq('slug', args.projectSlug))
-			.unique()
+		const project = await resolvePluginReference(ctx, args.projectSlug)
 		if (
 			project?.visibility !== 'public' ||
 			project.status !== 'published'
