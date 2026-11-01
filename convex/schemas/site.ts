@@ -2,7 +2,7 @@ import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 // =============================================================================
-// SITE-WIDE TABLES (Settings, Analytics, User Profiles)
+// SITE-WIDE TABLES (Settings, Profiles, Activity, and Aggregates)
 // =============================================================================
 
 export const tables = {
@@ -26,7 +26,6 @@ export const tables = {
 		// Display
 		displayName: v.optional(v.string()), // Overrides Better Auth name on profile
 		bio: v.optional(v.string()),
-		pronouns: v.optional(v.string()),
 		location: v.optional(v.string()),
 		website: v.optional(v.string()),
 		minecraftUsername: v.optional(v.string()),
@@ -46,27 +45,8 @@ export const tables = {
 			}),
 		),
 
-		// Trust signals
-		isVerified: v.optional(v.boolean()), // blue-check
-		verifiedAt: v.optional(v.number()),
-		isCreator: v.optional(v.boolean()), // unlocks creator tier features
-		badges: v.optional(v.array(v.string())), // ['early_supporter', 'staff', ...]
-
-		// Privacy
-		showEmail: v.optional(v.boolean()),
-		showOnlineStatus: v.optional(v.boolean()),
-
-		// Cached counts (for fast profile-header render)
-		followerCount: v.optional(v.number()),
-		followingCount: v.optional(v.number()),
-		projectCount: v.optional(v.number()),
-		serverCount: v.optional(v.number()),
-
 		updatedAt: v.number(),
-	})
-		.index('by_user', ['userId'])
-		.index('by_verified', ['isVerified'])
-		.index('by_creator', ['isCreator']),
+	}).index('by_user', ['userId']),
 
 	organizationProfiles: defineTable({
 		organizationId: v.string(),
@@ -105,8 +85,8 @@ export const tables = {
 		.index('by_server', ['serverId'])
 		.index('by_project', ['projectId']),
 
-	// Retired: hub no longer records analytics (a shared Amblydia analytics
-	// platform will replace it). Kept only so existing rows still validate until
+	// Retired local event store. OpenPanel receives new analytics externally.
+	// Kept only so existing rows still validate until
 	// `functions/site/migrations:purgeAnalyticsEvents` empties the table; then
 	// delete this definition.
 	analyticsEvents: defineTable({

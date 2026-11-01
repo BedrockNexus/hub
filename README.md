@@ -2,18 +2,18 @@
 
 Bedrock Nexus Hub is the open-source web platform behind
 [bedrocknexus.com](https://bedrocknexus.com). It helps the Minecraft Bedrock
-community discover servers and projects while giving creators tools for
+community discover servers, add-ons, resource packs and plugins while giving creators tools for
 publishing, collaboration, moderation, downloads, and galleries.
 
 ## What Is Included
 
-- Public server and project directories with profiles, galleries, reviews,
+- Public server, add-on, resource-pack and plugin directories with profiles, galleries, reviews,
   favourites, live server status, and search-friendly metadata
-- Creator dashboards for servers, projects, versions, organizations, and
+- Creator dashboards for listings, releases, organizations, and
   profiles
 - DNS and MOTD server ownership verification
-- Project submission and admin moderation workflows
-- R2-backed media and version downloads with cleanup and download tracking
+- Add-on/resource-pack validation and moderation, plus GitHub-based plugin publishing
+- R2 media and release delivery, official Convex download totals, and optional OpenPanel analytics
 - Better Auth accounts, email verification, sessions, roles, and organizations
 - Admin controls for moderation, users, site settings, feature flags, and SEO
 
@@ -30,7 +30,7 @@ publishing, collaboration, moderation, downloads, and galleries.
 
 ### Requirements
 
-- [Bun 1.3.6 or newer](https://bun.sh/)
+- [Bun 1.3.6](https://bun.sh/)
 - A [Convex](https://dashboard.convex.dev/) project
 - Cloudflare R2 credentials
 - Resend credentials for account emails
@@ -86,6 +86,7 @@ use, the Convex CLI will prompt you to select or create a deployment.
 | `bun run lint` | Run Biome checks |
 | `bun run lint:fix` | Apply safe Biome formatting and lint fixes |
 | `bun run lint:framework` | Run framework-specific ESLint checks |
+| `bun run test` | Run library, infrastructure and Convex function tests |
 | `bun run typecheck` | Run TypeScript without emitting files |
 | `bun run build` | Create a production build |
 | `bun run test:e2e` | Run Playwright end-to-end tests |
@@ -99,8 +100,8 @@ CI/CD uses the shared workflows in
   tests) and the production image, without pushing. `Quality` runs the same
   checks directly for fast feedback.
 - `Deploy` runs on pushes to `main`: the `test` stage must pass, then the image
-  is pushed to `ghcr.io/bedrocknexus/hub` (`latest`, `main` and an immutable
-  `sha-<short-sha>` tag) and Coolify is asked to redeploy.
+  is pushed to `ghcr.io/bedrocknexus/hub` with branch and commit tags, and
+  Coolify is asked to redeploy.
 
 Set these **repository variables** (Settings > Secrets and variables > Actions >
 Variables). They are public values inlined into the client bundle:
@@ -108,11 +109,19 @@ Variables). They are public values inlined into the client bundle:
 `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_API_URL`.
 
 Set the `COOLIFY_WEBHOOK` secret on the repository (the `COOLIFY_TOKEN` secret
-can be shared at organization level). Server-only settings such as `SITE_URL`
-and `BEDROCKNEXUS_API_URL`, and all secrets, are runtime environment variables
-in Coolify and are never built into the image.
+can be shared at organization level). Hub server settings such as `SITE_URL`,
+`DOWNLOAD_REDIRECT_SECRET` and the OpenPanel configuration are runtime values in
+Coolify. Convex-only settings, including `BEDROCKNEXUS_API_URL`, R2 credentials
+and auth secrets, belong on the Convex deployment. See [.env.example](./.env.example)
+and `scripts/env-names.mjs` for the environment ownership map. Secrets are never
+built into the image.
 
 Local development uses an ignored `.env.local` file.
+
+Convex functions deploy separately from the Hub image. Check the target before
+using `bunx convex deploy`; a Hub push does not deploy the backend. Configure
+OpenPanel only when the collector is ready; downloads work without it. See
+[analytics and downloads](./docs/ANALYTICS_AND_DOWNLOADS.md).
 
 ## Repository Layout
 
@@ -123,7 +132,9 @@ Local development uses an ignored `.env.local` file.
 | `convex/` | Schema, queries, mutations, actions, auth, and scheduled jobs |
 | `lib/` | Shared clients, helpers, validation, and SEO utilities |
 | `e2e/` | Playwright smoke tests |
-| `docs/` | Product and search-authority documentation |
+| `docs/` | Maintained contracts, operations and dated acceptance reports |
+
+Start with the [documentation index](./docs/README.md).
 
 See [SERVER_FLOW.md](./SERVER_FLOW.md) and [PROJECT_FLOW.md](./PROJECT_FLOW.md)
 for lifecycle rules. Launch verification is tracked in [TESTING.md](./TESTING.md),

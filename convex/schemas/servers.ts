@@ -57,10 +57,6 @@ export const tables = {
 		repositoryUrl: v.optional(v.string()),
 		// CDN URL of the logo (functions/servers/software:confirmLogoUpload).
 		logoUrl: v.optional(v.string()),
-		// Deprecated: a software accepts plugins once it has a publishing
-		// workflow. Cleared by functions/servers/migrations:clearPluginFileTypes;
-		// delete after it has run everywhere.
-		pluginFileExtension: v.optional(v.string()),
 		enabled: v.boolean(),
 		sortOrder: v.number(),
 		createdAt: v.number(),
@@ -120,6 +116,8 @@ export const tables = {
 		ownerId: v.string(), // userId or organizationId based on ownerType
 		registeredBy: v.string(), // Original creator (audit trail)
 
+		// Retired: editorial choices live in picks. Retained for old dev rows;
+		// clear with site/schemaCleanup:clearServerFeaturedFlags before removal.
 		isFeatured: v.optional(v.boolean()),
 
 		// Lifecycle
@@ -154,7 +152,6 @@ export const tables = {
 		.index('by_owner', ['ownerType', 'ownerId'])
 		.index('by_registered_by', ['registeredBy'])
 		.index('by_status', ['status'])
-		.index('by_featured', ['isFeatured'])
 		.index('by_address_key', ['addressKey'])
 		.index('by_ipAddress_and_port', ['ipAddress', 'port'])
 		.index('by_softwareId', ['softwareId'])
@@ -333,14 +330,6 @@ export const tables = {
 		// Engagement
 		helpfulCount: v.optional(v.number()),
 		isEdited: v.optional(v.boolean()),
-
-		// Owner reply
-		ownerReply: v.optional(
-			v.object({
-				content: v.string(),
-				createdAt: v.number(),
-			}),
-		),
 
 		// Status
 		isActive: v.boolean(), // For moderation

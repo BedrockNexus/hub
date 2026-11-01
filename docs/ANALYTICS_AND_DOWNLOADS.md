@@ -7,15 +7,14 @@ has its own project and credentials within that instance. Convex remains the
 authority for listing totals, creator totals, deduplication, and rate limits.
 No counter is read back from OpenPanel or updated by a browser event.
 
-The prepared self-hosted stack is in `../infrastructure/openpanel/`:
+The shared dashboard is planned at `https://analytics.amblydia.com`, managed
+through `https://coolify.bedrocknexus.com`. Use the collector URL actually exposed
+by that resource; a built-in Coolify service may expose a separate API origin.
+The `/api` path applies to the optional same-origin stack in
+`../infrastructure/openpanel/`, not automatically to every Coolify template.
 
-- Dashboard: `https://analytics.amblydia.com`
-- Collector base: `https://analytics.amblydia.com/api`
-- Coolify: `https://coolify.bedrocknexus.com` (user-managed deployment)
-
-The domain choice is confirmed. The stack has not been deployed by this change.
-Docker/container, authenticated dashboard, and live collection acceptance still
-need to run on the host; Docker is unavailable in the current Windows session.
+Application integration and official counters are deployed. OpenPanel activation
+and live collector acceptance remain in [TODO.md](../TODO.md).
 
 ## URL contract
 
@@ -76,35 +75,37 @@ Browser download clicks support browsing funnels. Server redirects use a
 separate pseudonymous identity, so do not assume automatic browser/server
 session stitching. A redirect records an issued link, not completed file transfer.
 
-## Configuration and release order
+## Activate OpenPanel
 
-1. Deploy OpenPanel manually using `../infrastructure/openpanel/README.md`.
-   Create separate browser and server write clients for BedrockNexus. Restrict
-   the browser client to production website origins; use a separate dev project
-   and credentials for localhost. Keep the server secret out of the browser.
-2. On the Convex deployment set `OPENPANEL_CLIENT_ID`,
-   `OPENPANEL_CLIENT_SECRET`, and
-   `OPENPANEL_API_URL=https://analytics.amblydia.com/api`. Leave credentials
-   absent until the collector is ready. Existing downloads continue to work.
-3. Deploy Convex functions first. They add only a read-only public compatibility
-   resolver and an internal telemetry action; no new analytics table or data
-   migration is required. Preserve the existing pending backend changes.
-4. On API set `CONVEX_URL`, `DOWNLOAD_REDIRECT_SECRET` (same as Hub/Convex),
-   and `API_PUBLIC_URL=https://api.bedrocknexus.com`. Configure trusted client
-   address detection: `TRUST_PROXY_HEADERS=true` only behind a proxy that
-   overwrites/validates forwarding headers, with `CLIENT_IP_HEADER` or
-   `TRUSTED_PROXY_HOPS` matching the actual topology. Deploy API.
-5. On Hub set runtime `OPENPANEL_BROWSER_CLIENT_ID` and
-   `OPENPANEL_API_URL=https://analytics.amblydia.com/api`. These runtime values
-   need no new Docker build arguments. The CSP allows this collector origin
-   only when the browser client is configured. Deploy Hub.
-6. Verify one public add-on, resource pack, and enabled plugin via website and
-   API. Check checksums, redirect targets, no-store headers, repeat deduplication,
-   HEAD rejection, visibility changes, account isolation, and rate-limit errors.
-   Confirm browser events in DevTools and the OpenPanel dashboard. Confirm
-   backend `download_redirect_issued` events after commit. A collector outage
-   must leave redirects and official totals working. Do not describe mocked
-   collector tests as live acceptance.
+1. Create the OpenPanel resource in Coolify and configure its dashboard domain.
+   The optional custom stack under `../infrastructure/openpanel/` is not required
+   when using the built-in resource. Wait for all services to become healthy.
+2. Create the Amblydia organization and a BedrockNexus project. Create separate
+   browser and server write clients. Restrict the browser client to production
+   website origins and use separate dev credentials for localhost.
+3. On production Convex set `OPENPANEL_CLIENT_ID`, `OPENPANEL_CLIENT_SECRET` and
+   `OPENPANEL_API_URL` to the server client and actual collector base URL. These
+   are deployment variables, not Hub `.env.local` values. No new function deploy
+   is required just to change the environment.
+4. On Hub's Coolify runtime environment set `OPENPANEL_BROWSER_CLIENT_ID` and
+   the same `OPENPANEL_API_URL`. Redeploy the Hub service to load them; these
+   values need no new Docker build arguments. The CSP permits the collector
+   origin only when the browser client is configured.
+5. The API needs no OpenPanel credentials; it calls the same Convex download
+   mutations as the website. Keep its existing shared redirect secret and
+   trusted proxy configuration. Disabling telemetry must not disable downloads.
+6. Verify public browser events and backend `download_redirect_issued` events in
+   OpenPanel. Check account-page exclusion, query-value omission, checksums,
+   repeat deduplication, HEAD rejection, account isolation and collector outages.
+   Browser/client, backend and Minecraft acceptance are distinct checks.
+
+## Application deployment dependency
+
+When changing the download contract, deploy Convex functions first, then API and
+Hub. The API's `DOWNLOAD_REDIRECT_SECRET` must match Hub/Convex, and
+`API_PUBLIC_URL` must be the external API origin. Configure equivalent trusted
+client-address detection on both services; never trust client-supplied forwarding
+headers without a trusted proxy. See `.env.example` in each repository.
 
 Creator-facing analytics dashboards and publication/signup funnel events are
-future work; this change establishes public discovery and download tracking.
+future work; the current integration covers public discovery and download events.

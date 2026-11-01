@@ -25,17 +25,13 @@ redirect to the new identity and preserve the active section. Public visibility
 and dashboard authorization checks still apply before returning a listing or
 redirecting. Release downloads continue to identify their original stored files.
 
-## Release order
+## Release downloads
 
-1. Deploy the Convex resolvers, plugin card identity field, sitemap projections,
-   and `servers.by_ipAddress_and_port` index first; wait for the index to be ready.
-   These functions continue accepting the old route arguments.
-2. Deploy the Hub routes and link changes.
-3. Verify public details, legacy redirects, release downloads, and an authenticated
-   dashboard edit for every listing type. Include two servers using the same host
-   on different ports.
+Website release URLs use `/<section>/<ref>/download/<version>`. Launcher download
+URLs use `/v1/<section>/<ref>/releases/<version>/download` on the API origin.
+The old `/api/projects/versions/<id>/download` resolves the original release and
+redirects to its canonical section URL. Availability rules and official counting
+remain in Convex. See [analytics and downloads](./ANALYTICS_AND_DOWNLOADS.md).
 
-Local verification covers codec and URL helpers, actual Convex test functions
-(including visibility, ownership, and plugin downloads), server component redirect
-behavior, TypeScript, and the production build. It does not replace acceptance
-against a deployed backend and an authenticated production browser session.
+Regression checks are in [TESTING.md](../TESTING.md). Route changes require both
+backend resolvers and matching application handlers; deploy the backend first.

@@ -16,7 +16,7 @@ export default defineSchema({
 	// Server-related tables
 	...serverTables,
 
-	// Site-wide tables (settings, analytics)
+	// Site-wide settings, profiles, activity, and aggregates
 	...siteTables,
 
 	// Plugin registry: GitHub repositories, publishing, releases, downloads

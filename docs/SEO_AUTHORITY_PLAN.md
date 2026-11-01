@@ -21,5 +21,5 @@
 ## Measurement
 
 - Review indexed pages, search queries, click-through rate, referring domains, and broken backlinks monthly.
-- Track shared links and outbound actions in first-party analytics without storing sensitive visitor data.
+- Use OpenPanel for public browsing analysis and Convex for authoritative product counters. Add share/outbound events deliberately; the current instrumentation covers page views, catalog searches and download clicks.
 - Remove or redirect duplicate and dead public URLs instead of allowing thin pages to remain indexed.

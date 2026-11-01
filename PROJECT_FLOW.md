@@ -1,6 +1,9 @@
-# Project Flow
+# Add-on and Resource-Pack Publishing
 
-This document records the current project publishing flow and how moderation fits into it.
+This document covers add-on and resource-pack publishing. The internal
+`projects` tables and function paths are shared implementation names; public
+catalogs and download URLs use their content section. Plugin publishing follows
+its separate GitHub workflow.
 
 Projects intentionally require pre-publication review because they distribute
 downloadable files. This differs from servers, which may publish after ownership
@@ -56,12 +59,11 @@ Expected behavior:
 - Submitting a draft for review changes it to `under_review`.
 - Submitted project listings get `moderationStatus: pending`.
 - `publishedAt` is set the first time an admin/mod publishes the project.
-- Public surfaces should only show projects with `status === 'published'`.
+- Public surfaces require `status === 'published'` and `moderationStatus === 'approved'`.
 - Admins/mods publish a reviewed project when it is okay to go public.
 - Publishing a project should mark its moderation status as `approved`.
 - Admins/mods can move a published project back to `under_review` when it should be hidden or reviewed again.
 - Project delete/removal is separate from lifecycle status.
-- Old project data with `archived` should be migrated to `under_review`.
 
 ## Release Review
 
@@ -150,3 +152,11 @@ Recommended rules for future implementation:
 - Use moderation status for the admin/review decision.
 - Do not show `draft` or `under_review` projects on public surfaces.
 - Do not reintroduce `archived` as a project status.
+
+## Downloads
+
+Validated and approved releases use `/<section>/<ref>/download/<version>` on
+the website and `/v1/<section>/<ref>/releases/<version>/download` in the API.
+Old version-ID links redirect through the compatibility route. Downloads are
+limited and counted in Convex; optional OpenPanel delivery cannot block them.
+See [the download contract](./docs/ANALYTICS_AND_DOWNLOADS.md).

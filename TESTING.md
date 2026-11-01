@@ -1,5 +1,8 @@
 # Testing
 
+This is a reusable regression checklist, not a deployment completion ledger.
+Dated evidence belongs in acceptance reports and release records.
+
 This file is the canonical checklist for launch verification, automated tests, and manual QA. Product work belongs in `TODO.md`.
 
 ## Automated Launch Checks
@@ -8,7 +11,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [x] Run `bun run lint:framework` (passes with existing React Compiler/TanStack Table and image warnings only).
 - [x] Run `bun run test`.
 - [x] Run `bun run typecheck`.
-- [ ] Run `bun run build`.
+- [x] Run `bun run build` (2026-11-01 release; rerun for code changes).
 - [ ] Run `bun run test:e2e`.
 - [ ] Treat agent sandbox ACL failures as environment-only only after the same command passes in Git Bash or a normal local terminal.
 - [ ] Add seeded Playwright fixtures and storage-state generation for authenticated creator and admin flows.
@@ -64,7 +67,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [ ] Upload and remove editor media.
 - [ ] Upload and delete one valid release artifact for each project type:
   `.mcaddon` and `.mcpack`.
-- [ ] Download a project version through the app route and confirm version and aggregate project counts increment.
+- [ ] Download a release through its canonical website and API routes; confirm the first accepted request increments official totals and repeat requests are deduplicated.
 - [ ] Confirm each version download requests a fresh signed URL and shows a preparing state.
 - [ ] Confirm a missing R2 version file shows retry-friendly unavailable copy without incrementing download counts.
 - [ ] Confirm deleted, unpublished, malformed, and temporarily failed version downloads return the correct error state instead of navigating to a dead page.
@@ -92,7 +95,7 @@ This file is the canonical checklist for launch verification, automated tests, a
 
 ## Editor And Content
 
-- [ ] Test MDXEditor rich-text and source modes for server descriptions, project descriptions, and version changelogs.
+- [ ] Test the Markdown editor and preview for server descriptions, project descriptions, and version changelogs.
 - [ ] Test headings, lists, links, tables, code blocks, and Markdown shortcuts.
 - [ ] Test R2-backed image uploads and public Markdown image rendering.
 - [ ] Test YouTube video, Short, live, and embed URLs in rich-text and source modes; confirm invalid URLs are rejected and public embeds remain responsive.
@@ -133,3 +136,16 @@ This file is the canonical checklist for launch verification, automated tests, a
 - [ ] Confirm repeated requests beyond each configured limit return a `RATE_LIMITED` Convex error with a retry delay.
 - [ ] Confirm limits are isolated by authenticated user where applicable and anonymous download limits are isolated by requester.
 - [ ] Confirm cron status checks, stale-upload cleanup, and other internal jobs are not rate limited.
+
+
+## Analytics and Schema Maintenance
+
+- [ ] Confirm old version-ID links redirect and invalid IDs return 404, not 503.
+- [ ] Confirm download HEAD requests return 405 and link prefetch is disabled.
+- [ ] Confirm browser events omit account pages, search values and URL fragments.
+- [ ] Confirm collector failures do not block downloads or change official totals.
+- [ ] Run the count-only retired-data audit before and after each cleanup batch.
+- [ ] Verify previews do not mutate data and cleanup preserves listings, picks,
+  ownership, active statistics and historical official download totals.
+- [ ] Confirm both dev and production are free of removed fields before narrowing
+  a populated schema. See [schema maintenance](./docs/SCHEMA_MAINTENANCE.md).

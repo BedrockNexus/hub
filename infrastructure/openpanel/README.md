@@ -1,7 +1,9 @@
-# Shared Amblydia OpenPanel
+# Optional Amblydia OpenPanel stack
 
 Prepared for `https://analytics.amblydia.com`, with the collector on `/api`.
-This directory is deployment configuration, not evidence of a running instance.
+Use Coolify's built-in OpenPanel resource for the standard setup. This directory
+is an optional custom alternative with a same-origin gateway; it is not required
+for the application integration and is not evidence of a running instance.
 
 The stack uses the public OpenPanel 2.x images from the
 [official Coolify template](https://github.com/coollabsio/coolify/blob/main/templates/compose/openpanel.yaml).

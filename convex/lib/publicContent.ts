@@ -59,7 +59,6 @@ export function toPublicProject(project: Doc<'projects'>) {
 		discordUrl: project.discordUrl,
 		donationUrl: project.donationUrl,
 		ownerType: project.ownerType,
-		isFeatured: project.isFeatured,
 		publishedAt: project.publishedAt,
 		license: project.license,
 		licenseCustom: project.licenseCustom,

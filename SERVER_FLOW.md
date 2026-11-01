@@ -126,6 +126,17 @@ Current moderation states:
 Moderation status is optional for ordinary draft and published servers. It is
 used when an admin moves a listing into the post-publication review flow.
 
+## Status and Directory Visibility
+
+The status API accepts RakNet or NetherNet responses. Server software is declared
+by the owner; ping-based software guesses are retired.
+
+A published server offline for 14 days is excluded from directory/search/counts
+and creator listings using `offlineHiddenAt`. Its own public page remains
+accessible, checks continue, and the next successful check clears the flag.
+Temporary failures of the checking service do not count as confirmed downtime.
+This directory rule is separate from owner publication and admin moderation.
+
 ## Future Report Flow
 
 When reports or moderation queues are added, lifecycle and moderation should work together like this:

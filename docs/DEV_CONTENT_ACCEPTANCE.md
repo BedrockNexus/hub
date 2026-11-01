@@ -1,5 +1,8 @@
 # Development content publishing acceptance
 
+> Historical acceptance report. Its deployment state and test coverage describe
+> that run only. Current operations are linked from [the documentation index](./README.md).
+
 Tested 2026-10-26 America/La_Paz (2026-10-27 UTC).
 
 This extends [the addon acceptance checks](./DEV_ADDON_ACCEPTANCE.md) to resource

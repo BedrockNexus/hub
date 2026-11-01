@@ -315,30 +315,6 @@ export const backfillCategoryCounts = internalMutation({
 })
 
 /**
- * Plugins no longer need a file type per software: a software accepts plugins
- * once it has a publishing workflow. Clears the old field so the schema can
- * drop it. Idempotent.
- *
- * Run: npx convex run functions/servers/migrations:clearPluginFileTypes
- */
-export const clearPluginFileTypes = internalMutation({
-	args: {},
-	returns: v.number(),
-	handler: async (ctx) => {
-		let cleared = 0
-		for (const software of await ctx.db.query('serverSoftware').take(500)) {
-			if (software.pluginFileExtension !== undefined) {
-				await ctx.db.patch(software._id, {
-					pluginFileExtension: undefined,
-				})
-				cleared++
-			}
-		}
-		return cleared
-	},
-})
-
-/**
  * Rebuilds `serverDailyStats` from the raw status history, one server per
  * transaction. Daily totals are normally added to as each check arrives;
  * this fills in days recorded before that started. It replaces only the days

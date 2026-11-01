@@ -131,13 +131,11 @@ export const tables = {
 
 		// Lifecycle
 		status: projectStatus,
-		isFeatured: v.optional(v.boolean()),
 		moderationStatus: v.optional(moderationStatus),
 		moderationReason: v.optional(v.string()),
 		moderatedAt: v.optional(v.number()),
 		moderatedBy: v.optional(v.string()),
 		publishedAt: v.optional(v.number()),
-		scheduledFor: v.optional(v.number()),
 
 		// Legal
 		license: v.optional(v.string()),
@@ -173,7 +171,6 @@ export const tables = {
 		.index('by_moderation_status', ['moderationStatus'])
 		.index('by_owner', ['ownerType', 'ownerId'])
 		.index('by_created_by', ['createdBy'])
-		.index('by_featured', ['isFeatured'])
 		.searchIndex('search_projects', {
 			searchField: 'name',
 			filterFields: ['status', 'categoryIds', 'type'],
@@ -204,7 +201,6 @@ export const tables = {
 
 		// Version info
 		version: v.string(),
-		versionNumeric: v.optional(v.number()),
 		changelog: v.optional(v.string()),
 
 		// File

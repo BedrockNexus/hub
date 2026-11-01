@@ -1,5 +1,8 @@
 # Development addon publishing acceptance
 
+> Historical acceptance report. Its deployment state and test coverage describe
+> that run only. Current operations are linked from [the documentation index](./README.md).
+
 Tested 2026-10-26, 20:16–20:18 America/La_Paz (2026-10-27 UTC).
 
 The current Hub Convex functions were deployed to the explicitly verified
