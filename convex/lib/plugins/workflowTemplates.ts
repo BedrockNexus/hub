@@ -2,11 +2,10 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 
 /**
- * Publishing workflows live only in `pluginWorkflowTemplates`: admins add,
- * edit and delete them at /admin/plugins/workflows, and no workflow ships with
- * the code. Each belongs to one server software, and picking one is how a
- * developer says which software their plugin is for. A software accepts
- * plugins once it has at least one workflow.
+ * Reactive read model of BedrockNexus/plugin-workflows. A scheduled action
+ * refreshes this cache atomically from one repository commit. Legacy rows stay
+ * available until the first successful refresh; retired entries are retained
+ * for history but cannot be selected or installed.
  */
 
 type DatabaseCtx = QueryCtx | MutationCtx
@@ -20,6 +19,8 @@ export type ResolvedWorkflowTemplate = {
 	content: string
 	version: number
 	updatedAt?: number
+	sourceCommit?: string
+	sourcePath?: string
 }
 
 const TEMPLATE_LIMIT = 200
@@ -29,7 +30,7 @@ async function toResolved(
 	template: Doc<'pluginWorkflowTemplates'>,
 ): Promise<ResolvedWorkflowTemplate | null> {
 	const software = await ctx.db.get('serverSoftware', template.softwareId)
-	if (!software) {
+	if (!software || template.active === false) {
 		return null
 	}
 	return {
@@ -41,6 +42,8 @@ async function toResolved(
 		content: template.content,
 		version: template.version,
 		updatedAt: template.updatedAt,
+		sourceCommit: template.sourceCommit,
+		sourcePath: template.sourcePath,
 	}
 }
 
@@ -78,5 +81,9 @@ export async function softwareIdsWithWorkflows(
 	const templates = await ctx.db
 		.query('pluginWorkflowTemplates')
 		.take(TEMPLATE_LIMIT)
-	return new Set(templates.map((template) => template.softwareId))
+	return new Set(
+		templates
+			.filter((template) => template.active !== false)
+			.map((template) => template.softwareId),
+	)
 }

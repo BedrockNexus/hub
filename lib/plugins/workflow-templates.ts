@@ -1,9 +1,8 @@
 import { parse } from 'yaml'
 
 /**
- * Publishing workflows are written and versioned by admins in the workflow
- * editor (/admin/plugins/workflows) and stored in `pluginWorkflowTemplates`.
- * None ship with the code; this module only renders and checks them.
+ * Publishing workflows come from BedrockNexus/plugin-workflows. Convex keeps
+ * an automatically refreshed read model; this module renders and checks the YAML.
  *
  * A workflow builds the plugin on every push and uploads the file as a GitHub
  * Actions artifact named `plugin-package`. It never publishes anything itself:

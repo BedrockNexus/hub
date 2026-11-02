@@ -348,6 +348,8 @@ export const installWorkflow = action({
 						workflowBlobSha: existing.sha,
 						templateKey,
 						templateVersion: template.version,
+						sourceCommit: template.sourceCommit,
+						sourcePath: template.sourcePath,
 					},
 				)
 				return {
@@ -388,6 +390,8 @@ export const installWorkflow = action({
 					workflowBlobSha,
 					templateKey,
 					templateVersion: template.version,
+					sourceCommit: template.sourceCommit,
+					sourcePath: template.sourcePath,
 				},
 			)
 			return {

@@ -1242,58 +1242,20 @@ describe('plugin reviews', () => {
 
 
 describe('selected workflow metadata', () => {
-	it('allows renaming but prevents moving a selected template to different software', async () => {
+	it('preserves installed provenance when the repository catalog changes or retires the template', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
-		const other = await t.run((ctx) =>
-			ctx.db.insert('serverSoftware', {
-				slug: 'other-software',
-				name: 'Other software',
-				description: 'Fixture',
-				enabled: true,
-				sortOrder: 2,
-				createdAt: Date.now(),
-				updatedAt: Date.now(),
-			}),
-		)
 		const key = `${POCKETMINE.slug}:default`
-		await expect(
-			foundation.moderator.client.mutation(
-				api.functions.plugins.workflowTemplates.save,
-				{
-					key,
-					label: 'Renamed workflow',
-					softwareId: other,
-					content: TEST_WORKFLOW_TEMPLATE,
-				},
-			),
-		).rejects.toThrow('selected by a plugin')
-		const result = await foundation.moderator.client.mutation(
-			api.functions.plugins.workflowTemplates.save,
-			{
-				key,
-				label: 'Renamed workflow',
-				softwareId: foundation.softwareId,
-				content: TEST_WORKFLOW_TEMPLATE,
-			},
-		)
-		expect(result.key).toBe(key)
-		expect(
-			await t.query(
-				internal.functions.plugins.workflowTemplates.getTemplate,
-				{ key },
-			),
-		).toMatchObject({
-			label: 'Renamed workflow',
-			softwareId: foundation.softwareId,
+		await t.mutation(internal.functions.plugins.publishing.model.recordWorkflowCommit, {
+			tokenIdentifier: foundation.developer.tokenIdentifier, draftId: foundation.draftId,
+			branch: 'main', commitSha: 'installed-commit', workflowBlobSha: WORKFLOW_BLOB_SHA,
+			templateKey: key, templateVersion: 1, sourceCommit: 'a'.repeat(40), sourcePath: 'templates/pmmp.yml',
 		})
-		expect(
-			await t.run((ctx) => ctx.db.get('plugins', foundation.projectId)),
-		).toMatchObject({ softwareId: foundation.softwareId })
-		expect(
-			await t.run((ctx) =>
-				ctx.db.get('pluginPublishingDrafts', foundation.draftId),
-			),
-		).toMatchObject({ workflowTemplateKey: key })
+		const before = await t.run((ctx) => ctx.db.get('pluginPublishingDrafts', foundation.draftId))
+		const generation = await t.mutation(internal.functions.plugins.workflowTemplates.beginRefresh, {})
+		await t.mutation(internal.functions.plugins.workflowTemplates.applyCatalog, { generation: generation!, commit: 'b'.repeat(40), templates: [] })
+		expect(await t.query(internal.functions.plugins.workflowTemplates.getTemplate, { key })).toBeNull()
+		expect(await t.run((ctx) => ctx.db.get('pluginPublishingDrafts', foundation.draftId))).toEqual(before)
+		expect(before).toMatchObject({ workflowBlobSha: WORKFLOW_BLOB_SHA, workflowTemplateSourceCommit: 'a'.repeat(40), workflowTemplateSourcePath: 'templates/pmmp.yml' })
 	})
 })

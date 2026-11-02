@@ -1,6 +1,6 @@
 'use client'
 
-import { Add01Icon, PencilEdit02Icon } from '@hugeicons/core-free-icons'
+import { ViewIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { Column, ColumnDef } from '@tanstack/react-table'
 import type { FunctionReturnType } from 'convex/server'
@@ -11,7 +11,7 @@ import { DataTable } from '@/components/data-table/data-table'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar'
 import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import type { api } from '@/convex/_generated/api'
 import { useDataTable } from '@/hooks/use-data-table'
 import type { DataTableFeatures } from '@/lib/data-table-features'
@@ -25,10 +25,8 @@ type TemplateColumn = Column<DataTableFeatures, WorkflowTemplate, unknown>
 
 export function WorkflowTemplatesTable({
 	templates,
-	onAdd,
 }: {
 	templates: WorkflowTemplate[]
-	onAdd: () => void
 }) {
 	const columns = useMemo<ColumnDef<DataTableFeatures, WorkflowTemplate>[]>(
 		() => [
@@ -112,7 +110,7 @@ export function WorkflowTemplatesTable({
 				id: 'actions',
 				cell: ({ row }) => (
 					<Link
-						aria-label={`Edit ${row.original.label}`}
+						aria-label={`View ${row.original.label}`}
 						className={buttonVariants({
 							size: 'icon-sm',
 							variant: 'ghost',
@@ -121,10 +119,7 @@ export function WorkflowTemplatesTable({
 							`/admin/plugins/workflows/${encodeURIComponent(row.original.key)}` as Route
 						}
 					>
-						<HugeiconsIcon
-							className="size-4"
-							icon={PencilEdit02Icon}
-						/>
+						<HugeiconsIcon className="size-4" icon={ViewIcon} />
 					</Link>
 				),
 			},
@@ -149,12 +144,7 @@ export function WorkflowTemplatesTable({
 			<DataTableToolbar
 				className="flex-col gap-3 sm:flex-row"
 				table={table}
-			>
-				<Button onClick={onAdd}>
-					<HugeiconsIcon className="size-4" icon={Add01Icon} />
-					Add workflow template
-				</Button>
-			</DataTableToolbar>
+			/>
 		</DataTable>
 	)
 }

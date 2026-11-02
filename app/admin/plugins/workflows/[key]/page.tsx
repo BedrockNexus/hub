@@ -4,7 +4,7 @@ import { WorkflowTemplateEditPage } from '@/components/plugins/publishing/workfl
 import { decodeRouteParam } from '@/lib/route-params'
 
 export const metadata: Metadata = {
-	title: 'Edit workflow template',
+	title: 'View workflow template',
 	robots: { index: false, follow: false },
 }
 
@@ -17,8 +17,8 @@ export default async function Page({
 	const key = decodeRouteParam((await params).key)
 	return (
 		<DashboardPageShell
-			description="Changes apply when a publisher installs or updates this workflow."
-			title="Edit workflow template"
+			description="Review the template and its source in the official repository."
+			title="View workflow template"
 		>
 			<WorkflowTemplateEditPage templateKey={key} />
 		</DashboardPageShell>

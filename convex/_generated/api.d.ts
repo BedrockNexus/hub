@@ -32,6 +32,7 @@ import type * as functions_plugins_projects from "../functions/plugins/projects.
 import type * as functions_plugins_publishing_actions from "../functions/plugins/publishing/actions.js";
 import type * as functions_plugins_publishing_model from "../functions/plugins/publishing/model.js";
 import type * as functions_plugins_reviews from "../functions/plugins/reviews.js";
+import type * as functions_plugins_workflowCatalog from "../functions/plugins/workflowCatalog.js";
 import type * as functions_plugins_workflowTemplates from "../functions/plugins/workflowTemplates.js";
 import type * as functions_projects_artifactDelivery from "../functions/projects/artifactDelivery.js";
 import type * as functions_projects_artifactValidation from "../functions/projects/artifactValidation.js";
@@ -143,6 +144,7 @@ declare const fullApi: ApiFromModules<{
   "functions/plugins/publishing/actions": typeof functions_plugins_publishing_actions;
   "functions/plugins/publishing/model": typeof functions_plugins_publishing_model;
   "functions/plugins/reviews": typeof functions_plugins_reviews;
+  "functions/plugins/workflowCatalog": typeof functions_plugins_workflowCatalog;
   "functions/plugins/workflowTemplates": typeof functions_plugins_workflowTemplates;
   "functions/projects/artifactDelivery": typeof functions_projects_artifactDelivery;
   "functions/projects/artifactValidation": typeof functions_projects_artifactValidation;

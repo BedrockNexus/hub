@@ -14,12 +14,15 @@ lives in [TODO.md](../TODO.md); regression checks live in [TESTING.md](../TESTIN
 | [Listing identities](./LISTING_ROUTE_IDS.md) | Stable URLs and compatibility redirects |
 | [Analytics and downloads](./ANALYTICS_AND_DOWNLOADS.md) | Convex totals, OpenPanel configuration and event meaning |
 | [Schema maintenance](./SCHEMA_MAINTENANCE.md) | Unused fields, data audits and staged retirement |
+| [Plugin workflow catalog](./PLUGIN_WORKFLOW_CATALOG.md) | Official repository, automatic refresh and installed revision tracking |
 | [Content Security Policy](./CSP.md) | Browser origins and nonce policy |
 | [API README](https://github.com/BedrockNexus/api#readme) | Public API, validator worker and API deployment |
 
 ## Planning and historical evidence
 
 - [Content roadmap](./CONTENT_TYPES_ROADMAP.md): remaining product improvements.
+- [Custom plugin workflow proposal](./PLUGIN_CUSTOM_WORKFLOWS.md): approval and
+  artifact tracking for creators connecting an existing build pipeline.
 - [Search authority plan](./SEO_AUTHORITY_PLAN.md): discovery and outreach planning.
 - [Development content acceptance](./DEV_CONTENT_ACCEPTANCE.md) and
   [development add-on acceptance](./DEV_ADDON_ACCEPTANCE.md): dated evidence with

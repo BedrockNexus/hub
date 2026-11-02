@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function WorkflowTemplatesPage() {
 	return (
 		<DashboardPageShell
-			description="Add and manage the validated GitHub Actions workflows publishers can select."
+			description="Official workflow templates maintained in the BedrockNexus GitHub repository."
 			eyebrow="Publishing infrastructure"
 			title="Workflow templates"
 		>

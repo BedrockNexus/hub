@@ -1,186 +1,324 @@
-import { describe, expect, it } from 'vitest'
-
-import { createTest } from '../../test.setup'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/workflow-templates.fixtures'
-import { api, components } from '../../_generated/api'
+import { api, internal } from '../../_generated/api'
+import { createTest, signIn } from '../../test.setup'
 
-async function insertUser(
-	t: ReturnType<typeof createTest>,
-	label: string,
-	role: 'user' | 'admin',
-) {
-	const now = Date.now()
-	const user = await t.mutation(components.betterAuth.adapter.create, {
-		input: {
-			model: 'user',
-			data: {
-				emailVerified: true,
-				name: `${role} user`,
-				email: `${label}@example.com`,
-				role,
-				createdAt: now,
-				updatedAt: now,
-			},
-		},
-	})
-	const subject = user._id as string
-	const session = await t.mutation(components.betterAuth.adapter.create, {
-		input: {
-			model: 'session',
-			data: {
-				token: `session-${label}`,
-				userId: subject,
-				expiresAt: now + 60_000,
-				createdAt: now,
-				updatedAt: now,
-			},
-		},
-	})
-	return t.withIdentity({
-		subject,
-		sessionId: session._id as string,
-		tokenIdentifier: `https://convex.test|${subject}`,
-	})
+const A = 'a'.repeat(40)
+const B = 'b'.repeat(40)
+afterEach(() => vi.unstubAllGlobals())
+const entry = {
+	key: 'pocketmine-mp:composer:pmmp',
+	softwareSlug: 'pocketmine-mp',
+	label: 'PMMP',
+	path: 'templates/pmmp.yml',
+	content: TEST_WORKFLOW_TEMPLATE,
 }
 
-async function insertSoftware(t: ReturnType<typeof createTest>, slug: string) {
-	return await t.run((ctx) =>
+async function fixture() {
+	const t = createTest()
+	const admin = await signIn(t, 'catalog-admin', 'admin')
+	const softwareId = await t.run((ctx) =>
 		ctx.db.insert('serverSoftware', {
-			slug,
-			name: slug,
-			description: 'Workflow fixture software',
+			slug: 'pocketmine-mp',
+			name: 'PocketMine-MP',
+			description: 'Fixture',
 			enabled: true,
-			sortOrder: 1,
+			sortOrder: 0,
 			createdAt: 1,
 			updatedAt: 1,
 		}),
 	)
+	return { t, admin, softwareId }
 }
 
-async function workflowAudit(
-	t: ReturnType<typeof createTest>,
-	key: string,
-) {
-	return await t.run((ctx) =>
-		ctx.db
-			.query('adminActions')
-			.withIndex('by_targetType_and_targetId', (query) =>
-				query
-					.eq('targetType', 'pluginWorkflowTemplate')
-					.eq('targetId', key),
-			)
-			.take(10),
-	)
-}
-
-describe('admin-managed workflow templates', () => {
-	it('starts empty: no workflow ships with the code', async () => {
-		const t = createTest()
-		const admin = await insertUser(t, 'empty-admin', 'admin')
-
-		expect(
-			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
-		).toEqual([])
+async function start(t: ReturnType<typeof createTest>) {
+	await t.run(async (ctx) => {
+		const state = await ctx.db.query('pluginWorkflowCatalogState').first()
+		if (state) await ctx.db.patch(state._id, { lastAttemptAt: 0 })
 	})
+	return (await t.mutation(
+		internal.functions.plugins.workflowTemplates.beginRefresh,
+		{},
+	)) as number
+}
 
-	it('lets only admins add, edit and delete workflows, and audits each change', async () => {
-		const t = createTest()
-		const developer = await insertUser(t, 'workflow-developer', 'user')
-		const admin = await insertUser(t, 'workflow-admin', 'admin')
-		const softwareId = await insertSoftware(t, 'pocketmine-mp')
-		const create = {
-			label: 'PocketMine-MP Composer',
-			softwareId,
-			content: TEST_WORKFLOW_TEMPLATE,
-		}
-
-		await expect(
-			developer.mutation(
-				api.functions.plugins.workflowTemplates.create,
-				create,
-			),
-		).rejects.toThrow('Admin role required')
-
-		const created = await admin.mutation(
-			api.functions.plugins.workflowTemplates.create,
-			create,
+describe('repository workflow catalog', () => {
+	it('refreshes through the authenticated action and preserves the cache on a later HTTP failure', async () => {
+		const { t, admin } = await fixture()
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url: string) => {
+				if (url.endsWith('/git/ref/heads/main'))
+					return Response.json({ object: { sha: A } })
+				if (url.endsWith('/templates/index.json'))
+					return Response.json({
+						schemaVersion: 1,
+						templates: [entry],
+					})
+				return new Response(TEST_WORKFLOW_TEMPLATE)
+			}),
 		)
-		expect(created).toEqual({
-			key: 'pocketmine-mp:pocketmine-mp-composer',
-			version: 1,
-		})
-		await expect(
-			admin.mutation(api.functions.plugins.workflowTemplates.create, create),
-		).rejects.toThrow('already exists')
-
-		const revised = `${TEST_WORKFLOW_TEMPLATE}\n# Admin revision\n`
-		await expect(
-			developer.mutation(api.functions.plugins.workflowTemplates.save, {
-				key: created.key,
-				content: revised,
-			}),
-		).rejects.toThrow('Admin role required')
-		await expect(
-			admin.mutation(api.functions.plugins.workflowTemplates.save, {
-				key: created.key,
-				content: revised,
-			}),
-		).resolves.toEqual({ key: created.key, version: 2 })
-
+		expect(
+			await admin.action(
+				api.functions.plugins.workflowCatalog.refresh,
+				{},
+			),
+		).toMatchObject({ commit: A, updated: 1 })
 		expect(
 			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
-		).toMatchObject([
-			{
-				key: created.key,
-				label: 'PocketMine-MP Composer',
-				softwareId,
-				softwareName: 'pocketmine-mp',
-				content: revised,
-				version: 2,
-			},
-		])
-
-		await admin.mutation(api.functions.plugins.workflowTemplates.remove, {
-			key: created.key,
+		).toMatchObject([{ key: entry.key, sourceCommit: A }])
+		await t.run(async (ctx) => {
+			const state = await ctx.db
+				.query('pluginWorkflowCatalogState')
+				.first()
+			await ctx.db.patch(state!._id, { lastAttemptAt: 0 })
+		})
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response('Unavailable', { status: 503 })),
+		)
+		await expect(
+			admin.action(api.functions.plugins.workflowCatalog.refresh, {}),
+		).rejects.toThrow('HTTP 503')
+		expect(
+			await admin.query(
+				api.functions.plugins.workflowTemplates.status,
+				{},
+			),
+		).toMatchObject({
+			sourceCommit: A,
+			lastError: expect.stringContaining('HTTP 503'),
 		})
 		expect(
 			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
-		).toEqual([])
-		expect(
-			(await workflowAudit(t, created.key)).map((entry) => entry.action),
-		).toEqual([
-			'pluginWorkflowTemplate.create',
-			'pluginWorkflowTemplate.save',
-			'pluginWorkflowTemplate.delete',
-		])
+		).toHaveLength(1)
 	})
-
-	it('refuses to edit a workflow that does not exist', async () => {
-		const t = createTest()
-		const admin = await insertUser(t, 'missing-workflow-admin', 'admin')
-
+	it('keeps cache editing disabled, including for old admin clients', async () => {
+		const { t, admin, softwareId } = await fixture()
+		const developer = await signIn(t, 'catalog-developer')
 		await expect(
-			admin.mutation(api.functions.plugins.workflowTemplates.save, {
-				key: 'pocketmine-mp:composer',
+			t.query(api.functions.plugins.workflowTemplates.list, {}),
+		).rejects.toThrow()
+		await expect(
+			developer.mutation(api.functions.plugins.workflowTemplates.create, {
+				softwareId,
+				label: 'Test',
 				content: TEST_WORKFLOW_TEMPLATE,
 			}),
-		).rejects.toThrow('not found')
-	})
-
-	it('rejects invalid workflow content before saving', async () => {
-		const t = createTest()
-		const admin = await insertUser(t, 'invalid-workflow-admin', 'admin')
-		const softwareId = await insertSoftware(t, 'powernukkitx')
-
+		).rejects.toThrow('Admin role required')
 		await expect(
 			admin.mutation(api.functions.plugins.workflowTemplates.create, {
-				label: 'Unsafe workflow',
 				softwareId,
-				content: 'name: unsafe',
+				label: 'Test',
+				content: TEST_WORKFLOW_TEMPLATE,
 			}),
-		).rejects.toThrow('must include {{package_name}}')
+		).rejects.toThrow('maintained in BedrockNexus/plugin-workflows')
+		await expect(
+			admin.mutation(api.functions.plugins.workflowTemplates.save, {
+				key: entry.key,
+				content: TEST_WORKFLOW_TEMPLATE,
+			}),
+		).rejects.toThrow('maintained in BedrockNexus/plugin-workflows')
+		await expect(
+			admin.mutation(api.functions.plugins.workflowTemplates.remove, {
+				key: entry.key,
+			}),
+		).rejects.toThrow('maintained in BedrockNexus/plugin-workflows')
+		await expect(
+			developer.action(api.functions.plugins.workflowCatalog.refresh, {}),
+		).rejects.toThrow('Admin role required')
+	})
+
+	it('adopts stable legacy keys and versions changes only when the template changes', async () => {
+		const { t, admin, softwareId } = await fixture()
+		const id = await t.run((ctx) =>
+			ctx.db.insert('pluginWorkflowTemplates', {
+				key: entry.key,
+				softwareId,
+				label: 'PMMP',
+				content: TEST_WORKFLOW_TEMPLATE,
+				version: 6,
+				updatedBy: 'admin',
+				createdAt: 1,
+				updatedAt: 1,
+			}),
+		)
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: await start(t), commit: A, templates: [entry] },
+		)
+		expect(await t.run((ctx) => ctx.db.get(id))).toMatchObject({
+			sourceCommit: A,
+			sourcePath: entry.path,
+			version: 7,
+			active: true,
+		})
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: await start(t), commit: B, templates: [entry] },
+		)
+		expect(
+			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
+		).toMatchObject([{ key: entry.key, version: 7, sourceCommit: B }])
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{
+				generation: await start(t),
+				commit: B,
+				templates: [
+					{ ...entry, content: entry.content + '\n# changed\n' },
+				],
+			},
+		)
+		expect(await t.run((ctx) => ctx.db.get(id))).toMatchObject({
+			version: 8,
+		})
+	})
+
+	it('retires removed entries without deleting their history and reactivates returning entries', async () => {
+		const { t, admin } = await fixture()
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: await start(t), commit: A, templates: [entry] },
+		)
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: await start(t), commit: B, templates: [] },
+		)
 		expect(
 			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
 		).toEqual([])
+		expect(
+			await t.query(
+				internal.functions.plugins.workflowTemplates.getTemplate,
+				{ key: entry.key },
+			),
+		).toBeNull()
+		expect(
+			await t.run((ctx) =>
+				ctx.db.query('pluginWorkflowTemplates').first(),
+			),
+		).toMatchObject({ key: entry.key, active: false, sourceCommit: A })
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: await start(t), commit: B, templates: [entry] },
+		)
+		expect(
+			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
+		).toMatchObject([{ key: entry.key, version: 2 }])
+	})
+
+	it('rejects invalid or missing software atomically and retains the last good catalog', async () => {
+		const { t, admin } = await fixture()
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: await start(t), commit: A, templates: [entry] },
+		)
+		for (const templates of [
+			[{ ...entry, content: 'invalid yaml' }],
+			[
+				entry,
+				{
+					...entry,
+					key: 'missing:build',
+					softwareSlug: 'missing',
+					path: 'templates/missing.yml',
+				},
+			],
+			[entry, entry],
+		]) {
+			await expect(
+				t.mutation(
+					internal.functions.plugins.workflowTemplates.applyCatalog,
+					{ generation: await start(t), commit: B, templates },
+				),
+			).rejects.toThrow()
+			expect(
+				await admin.query(
+					api.functions.plugins.workflowTemplates.list,
+					{},
+				),
+			).toMatchObject([{ sourceCommit: A, version: 1 }])
+		}
+		const generation = await start(t)
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.recordRefreshError,
+			{ generation, message: 'HTTP 503' },
+		)
+		expect(
+			await admin.query(
+				api.functions.plugins.workflowTemplates.status,
+				{},
+			),
+		).toMatchObject({ sourceCommit: A, lastError: 'HTTP 503' })
+	})
+
+	it('prevents reassignment of a key to another server software', async () => {
+		const { t } = await fixture()
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: await start(t), commit: A, templates: [entry] },
+		)
+		await t.run((ctx) =>
+			ctx.db.insert('serverSoftware', {
+				slug: 'other',
+				name: 'Other',
+				description: 'Fixture',
+				enabled: true,
+				sortOrder: 0,
+				createdAt: 1,
+				updatedAt: 1,
+			}),
+		)
+		await expect(
+			t.mutation(
+				internal.functions.plugins.workflowTemplates.applyCatalog,
+				{
+					generation: await start(t),
+					commit: B,
+					templates: [{ ...entry, softwareSlug: 'other' }],
+				},
+			),
+		).rejects.toThrow('cannot change server software')
+	})
+
+	it('throttles refreshes and rejects late results from older requests', async () => {
+		const { t, admin } = await fixture()
+		const first = await start(t)
+		expect(
+			await t.mutation(
+				internal.functions.plugins.workflowTemplates.beginRefresh,
+				{},
+			),
+		).toBeNull()
+		const second = await start(t)
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: second, commit: B, templates: [entry] },
+		)
+		expect(
+			await t.mutation(
+				internal.functions.plugins.workflowTemplates.applyCatalog,
+				{ generation: first, commit: A, templates: [] },
+			),
+		).toBeNull()
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.recordRefreshError,
+			{ generation: first, message: 'late error' },
+		)
+		expect(
+			await admin.query(
+				api.functions.plugins.workflowTemplates.status,
+				{},
+			),
+		).toMatchObject({ sourceCommit: B })
+		expect(
+			(
+				await admin.query(
+					api.functions.plugins.workflowTemplates.status,
+					{},
+				)
+			)?.lastError,
+		).toBeUndefined()
 	})
 })

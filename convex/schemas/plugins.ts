@@ -126,6 +126,8 @@ const draftFields = {
 	workflowBlobSha: v.optional(v.string()),
 	workflowTemplateKey: v.optional(v.string()),
 	workflowTemplateVersion: v.optional(v.number()),
+	workflowTemplateSourceCommit: v.optional(v.string()),
+	workflowTemplateSourcePath: v.optional(v.string()),
 	workflowInstalledAt: v.optional(v.number()),
 	workflowInstalled: v.boolean(),
 	buildsSyncedAt: v.optional(v.number()),
@@ -360,9 +362,22 @@ export const tables = {
 		updatedBy: v.string(),
 		createdAt: v.number(),
 		updatedAt: v.number(),
+		// Read-only cache of the official GitHub template catalog.
+		active: v.optional(v.boolean()),
+		sourceCommit: v.optional(v.string()),
+		sourcePath: v.optional(v.string()),
 	})
 		.index('by_key', ['key'])
 		.index('by_softwareId', ['softwareId']),
+
+	pluginWorkflowCatalogState: defineTable({
+		key: v.string(),
+		generation: v.number(),
+		lastAttemptAt: v.number(),
+		lastSyncedAt: v.optional(v.number()),
+		sourceCommit: v.optional(v.string()),
+		lastError: v.optional(v.string()),
+	}).index('by_key', ['key']),
 
 	githubInstallIntents: defineTable({
 		stateHash: v.string(),

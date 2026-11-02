@@ -6,6 +6,7 @@ action   functions/plugins/publishing/actions:getReviewDownloadUrl
 action   functions/plugins/publishing/actions:installWorkflow
 action   functions/plugins/publishing/actions:startFromRepository
 action   functions/plugins/publishing/actions:syncBuilds
+action   functions/plugins/workflowCatalog:refresh
 action   functions/projects/artifactDelivery:remove
 action   functions/servers/software:confirmLogoUpload
 action   functions/servers/status:refreshStatus
@@ -142,6 +143,7 @@ query    functions/plugins/reviews:getStats
 query    functions/plugins/reviews:getUserReview
 query    functions/plugins/reviews:list
 query    functions/plugins/workflowTemplates:list
+query    functions/plugins/workflowTemplates:status
 query    functions/projects/categories:getById
 query    functions/projects/categories:getBySlug
 query    functions/projects/categories:list

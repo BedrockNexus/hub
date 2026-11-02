@@ -3,6 +3,13 @@ import { internal } from './_generated/api'
 
 const crons = cronJobs()
 
+crons.interval(
+	'refresh-plugin-workflow-catalog',
+	{ minutes: 15 },
+	internal.functions.plugins.workflowCatalog.refreshScheduled,
+	{},
+)
+
 // Ping all servers every 5 minutes to update their status
 crons.interval(
 	'ping-all-servers',
