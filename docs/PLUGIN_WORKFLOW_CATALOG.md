@@ -6,10 +6,13 @@
 and create the matching server software before adding an entry.
 
 Convex's scheduled `functions/plugins/workflowCatalog:refreshScheduled` action
-runs every 15 minutes. It resolves `main` to a full commit, then fetches the index
+runs every 15 minutes. It resolves `main` to a full commit through Git's public
+HTTP reference discovery, then fetches the index
 and all YAML from that commit. Responses, paths and entry counts are bounded;
 every workflow must pass the existing managed-template validator before the
-cache is updated in one transaction.
+cache is updated in one transaction. Reference discovery uses the standard
+[Git HTTP protocol](https://git-scm.com/docs/http-protocol), avoiding the shared
+unauthenticated GitHub REST API quota.
 
 The admin workflow page has source links, refresh status and **Refresh catalog**.
 Direct database template creation, editing and deletion are disabled. Old clients

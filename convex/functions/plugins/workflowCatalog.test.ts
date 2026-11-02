@@ -2,9 +2,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/workflow-templates.fixtures'
 import { parseWorkflowCatalog } from '../../../lib/plugins/workflow-catalog'
-import { fetchRepositoryCatalog } from './workflowCatalog'
+import { fetchRepositoryCatalog, parseGitMainCommit } from './workflowCatalog'
 
 const commit = 'a'.repeat(40)
+function packet(line: string) {
+	return (Buffer.byteLength(line) + 4).toString(16).padStart(4, '0') + line
+}
+function references() {
+	return (
+		packet('# service=git-upload-pack\n') +
+		'0000' +
+		packet(`${'b'.repeat(40)} HEAD\0symref=HEAD:refs/heads/main\n`) +
+		packet(`${commit} refs/heads/main\n`) +
+		'0000'
+	)
+}
 const entry = {
 	key: 'pmmp:default',
 	softwareSlug: 'pocketmine-mp',
@@ -14,14 +26,26 @@ const entry = {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('official repository fetching', () => {
+	it('parses Git reference discovery and rejects malformed or ambiguous results', () => {
+		expect(parseGitMainCommit(Buffer.from(references()))).toBe(commit)
+		for (const body of [
+			'zzzz',
+			'0009a',
+			references().slice(0, -4),
+			packet('# service=git-upload-pack\n') + '0000',
+			references() + packet(`${commit} refs/heads/main\n`) + '0000',
+		]) {
+			expect(() => parseGitMainCommit(Buffer.from(body))).toThrow()
+		}
+	})
 	it('fetches the index and every template from the same full commit', async () => {
 		const urls: string[] = []
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string) => {
 				urls.push(url)
-				if (url.endsWith('/git/ref/heads/main'))
-					return Response.json({ object: { sha: commit } })
+				if (url.includes('/info/refs?'))
+					return new Response(references())
 				if (url.endsWith('/templates/index.json'))
 					return Response.json({
 						schemaVersion: 1,
@@ -68,8 +92,8 @@ describe('official repository fetching', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string) => {
-				if (url.endsWith('/git/ref/heads/main'))
-					return Response.json({ object: { sha: commit } })
+				if (url.includes('/info/refs?'))
+					return new Response(references())
 				if (url.endsWith('/templates/index.json'))
 					return Response.json({
 						schemaVersion: 1,
@@ -82,8 +106,8 @@ describe('official repository fetching', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string) => {
-				if (url.endsWith('/git/ref/heads/main'))
-					return Response.json({ object: { sha: commit } })
+				if (url.includes('/info/refs?'))
+					return new Response(references())
 				if (url.endsWith('/templates/index.json'))
 					return Response.json({
 						schemaVersion: 1,
@@ -92,6 +116,8 @@ describe('official repository fetching', () => {
 				return new Response('name: Invalid build')
 			}),
 		)
-		await expect(fetchRepositoryCatalog()).rejects.toThrow('{{package_name}}')
+		await expect(fetchRepositoryCatalog()).rejects.toThrow(
+			'{{package_name}}',
+		)
 	})
 })

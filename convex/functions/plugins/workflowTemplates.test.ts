@@ -48,8 +48,18 @@ describe('repository workflow catalog', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string) => {
-				if (url.endsWith('/git/ref/heads/main'))
-					return Response.json({ object: { sha: A } })
+				if (url.includes('/info/refs?')) {
+					const packet = (line: string) =>
+						(Buffer.byteLength(line) + 4)
+							.toString(16)
+							.padStart(4, '0') + line
+					return new Response(
+						packet('# service=git-upload-pack\n') +
+							'0000' +
+							packet(`${A} refs/heads/main\n`) +
+							'0000',
+					)
+				}
 				if (url.endsWith('/templates/index.json'))
 					return Response.json({
 						schemaVersion: 1,

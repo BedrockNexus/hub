@@ -9,14 +9,16 @@ import { validateWorkflowTemplate } from '../../../lib/plugins/workflow-template
 import { internal } from '../../_generated/api'
 import { action, internalAction, type ActionCtx } from '../../_generated/server'
 
-async function fetchText(url: string, maxBytes: number) {
+async function fetchBytes(url: string, maxBytes: number) {
 	const response = await fetch(url, {
 		signal: AbortSignal.timeout(15_000),
 		headers: { 'User-Agent': 'BedrockNexus-workflow-catalog' },
 		redirect: 'error',
 	})
 	if (!response.ok)
-		throw new Error(`Workflow repository returned HTTP ${response.status}.`)
+		throw new Error(
+			`Workflow repository returned HTTP ${response.status} from ${new URL(url).hostname}.`,
+		)
 	if (!response.body)
 		throw new Error('Workflow repository returned an empty response.')
 	const reader = response.body.getReader()
@@ -36,19 +38,65 @@ async function fetchText(url: string, maxBytes: number) {
 	} finally {
 		await reader.cancel()
 	}
-	return Buffer.concat(chunks).toString('utf8')
+	return Buffer.concat(chunks)
+}
+
+async function fetchText(url: string, maxBytes: number) {
+	return (await fetchBytes(url, maxBytes)).toString('utf8')
+}
+
+/** Git smart HTTP v0 reference discovery; no shared GitHub REST API quota. */
+export function parseGitMainCommit(advertisement: Uint8Array): string {
+	const bytes = Buffer.from(advertisement)
+	let offset = 0
+	let service = false
+	let flushed = false
+	let commit: string | undefined
+	while (offset < bytes.length) {
+		const prefix = bytes.subarray(offset, offset + 4).toString('ascii')
+		if (!/^[0-9a-fA-F]{4}$/.test(prefix))
+			throw new Error('Invalid Git reference packet length.')
+		const length = Number.parseInt(prefix, 16)
+		offset += 4
+		flushed = length === 0
+		if (flushed) continue
+		if (length < 4 || offset + length - 4 > bytes.length)
+			throw new Error('Truncated Git reference packet.')
+		const line = bytes
+			.subarray(offset, offset + length - 4)
+			.toString('utf8')
+		offset += length - 4
+		if (!service) {
+			if (line !== '# service=git-upload-pack\n')
+				throw new Error('Unexpected Git reference service.')
+			service = true
+			continue
+		}
+		const match = /^([a-f0-9]{40}) refs\/heads\/main\n?$/.exec(
+			line.split('\0')[0],
+		)
+		if (match) {
+			if (commit)
+				throw new Error(
+					'Duplicate main branch in Git reference advertisement.',
+				)
+			commit = match[1]
+		}
+	}
+	if (!service || !flushed || !commit)
+		throw new Error(
+			'Workflow repository did not advertise a complete main branch reference.',
+		)
+	return commit
 }
 
 export async function fetchRepositoryCatalog() {
-	const ref: unknown = JSON.parse(
-		await fetchText(
-			`https://api.github.com/repos/${WORKFLOW_REPOSITORY}/git/ref/heads/main`,
-			16_384,
+	const commit = parseGitMainCommit(
+		await fetchBytes(
+			`https://github.com/${WORKFLOW_REPOSITORY}.git/info/refs?service=git-upload-pack`,
+			65_536,
 		),
 	)
-	const commit = (ref as { object?: { sha?: unknown } })?.object?.sha
-	if (typeof commit !== 'string' || !/^[a-f0-9]{40}$/.test(commit))
-		throw new Error('Workflow repository returned an invalid commit.')
 	const base = `https://raw.githubusercontent.com/${WORKFLOW_REPOSITORY}/${commit}/`
 	const entries = parseWorkflowCatalog(
 		JSON.parse(await fetchText(`${base}templates/index.json`, 32_768)),
