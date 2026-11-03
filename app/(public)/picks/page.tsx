@@ -3,12 +3,19 @@ import type { Metadata } from 'next'
 import { PageShell } from '@/components/page-shell'
 import { PickGrid, PicksDisclosure } from '@/components/picks/pick-grid'
 import { api } from '@/convex/_generated/api'
+import { socialMetadata } from '@/lib/social-metadata'
 
-export const metadata: Metadata = {
-	title: 'Bedrock Nexus Picks',
-	description:
-		'Minecraft Bedrock servers, addons and resource packs recommended by the Bedrock Nexus team, each with a note on why.',
-	alternates: { canonical: '/picks' },
+export async function generateMetadata(): Promise<Metadata> {
+	const title = 'BedrockNexus Picks'
+	const description =
+		'Minecraft Bedrock servers, add-ons and resource packs recommended by the BedrockNexus team.'
+
+	return {
+		title,
+		description,
+		alternates: { canonical: '/picks' },
+		...(await socialMetadata(title, description, '/picks')),
+	}
 }
 
 export default async function PicksPage() {

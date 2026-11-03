@@ -6,12 +6,19 @@ import {
 } from '@/components/creators/creator-directory'
 import { PageShell } from '@/components/page-shell'
 import { api } from '@/convex/_generated/api'
+import { socialMetadata } from '@/lib/social-metadata'
 
-export const metadata: Metadata = {
-	title: 'Creators',
-	description:
-		'The people behind the most downloaded Minecraft Bedrock addons, resource packs and the busiest servers on Bedrock Nexus.',
-	alternates: { canonical: '/creators' },
+export async function generateMetadata(): Promise<Metadata> {
+	const title = 'Creators'
+	const description =
+		'The people behind the most downloaded Minecraft Bedrock add-ons and resource packs, and the busiest servers.'
+
+	return {
+		title,
+		description,
+		alternates: { canonical: '/creators' },
+		...(await socialMetadata(title, description, '/creators')),
+	}
 }
 
 export default async function CreatorsPage() {

@@ -1,10 +1,18 @@
 import type { Metadata } from 'next'
 import { ServerPingTool } from '@/components/tools/server-ping-tool'
+import { socialMetadata } from '@/lib/social-metadata'
 
-export const metadata: Metadata = {
-	title: 'Minecraft Bedrock Server Ping',
-	description:
-		'Check a Minecraft Bedrock server status, player count, version, latency, game mode, and software classification.',
+export async function generateMetadata(): Promise<Metadata> {
+	const title = 'Minecraft Bedrock Server Ping'
+	const description =
+		'Check any Minecraft Bedrock server: online status, player count, version, latency and game mode.'
+
+	return {
+		title,
+		description,
+		alternates: { canonical: '/tools/server-ping' },
+		...(await socialMetadata(title, description, '/tools/server-ping')),
+	}
 }
 
 interface ServerPingPageProps {

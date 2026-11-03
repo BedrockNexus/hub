@@ -1,18 +1,19 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { ContentDirectory } from '@/components/projects/content-directory'
-import { absoluteUrl } from '@/lib/seo'
+import { socialMetadata } from '@/lib/social-metadata'
 
-const description = 'Discover Minecraft Bedrock addons from community creators.'
-export const metadata: Metadata = {
-	title: 'Minecraft Bedrock Addons',
-	description,
-	alternates: { canonical: absoluteUrl('/addons') },
-	openGraph: {
-		title: 'Minecraft Bedrock Addons',
+export async function generateMetadata(): Promise<Metadata> {
+	const title = 'Minecraft Bedrock Add-ons'
+	const description =
+		'Discover Minecraft Bedrock add-ons from community creators, with versions, changelogs and reviews.'
+
+	return {
+		title,
 		description,
-		url: absoluteUrl('/addons'),
-	},
+		alternates: { canonical: '/addons' },
+		...(await socialMetadata(title, description, '/addons')),
+	}
 }
 export default function Page() {
 	return (

@@ -1,3 +1,4 @@
+import { siteBrand } from '../../../lib/site-brand'
 import { v } from 'convex/values'
 import { query } from '../../_generated/server'
 import type { MutationCtx } from '../../_generated/server'
@@ -37,8 +38,7 @@ type FeatureSettings = {
 }
 
 const DEFAULT_SEO = {
-	siteDescription:
-		'Discover Minecraft Bedrock servers, addons and resource packs, and publish your own. Free for creators and server owners.',
+	siteDescription: siteBrand.description,
 }
 
 const DEFAULT_FEATURES = {

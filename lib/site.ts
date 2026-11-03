@@ -6,11 +6,11 @@ import {
 	ServerStack01Icon,
 	Wifi01Icon,
 } from '@hugeicons/core-free-icons'
+import { siteBrand } from './site-brand'
 
 export const siteConfig = {
-	name: 'BedrockNexus',
-	description:
-		'Discover Minecraft Bedrock servers, addons and resource packs, and publish your own. Free for creators and server owners.',
+	name: siteBrand.name,
+	description: siteBrand.description,
 	url: 'https://bedrocknexus.com',
 	githubUrl: 'https://github.com/BedrockNexus/hub',
 } as const

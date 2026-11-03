@@ -1,31 +1,19 @@
 import type { Metadata } from 'next'
 import { absoluteUrl } from '@/lib/seo'
-import { getSiteSeo } from '@/lib/site-settings'
+import { socialMetadata } from '@/lib/social-metadata'
 
 export async function generateMetadata(): Promise<Metadata> {
-	const seo = await getSiteSeo()
 	const title = 'Minecraft Bedrock Servers'
 	const description =
 		'Browse Minecraft Bedrock servers by category, region, player activity, and community rating.'
 
 	return {
-		title: 'Minecraft Bedrock Servers',
+		title,
 		description,
 		alternates: {
 			canonical: absoluteUrl('/servers'),
 		},
-		openGraph: {
-			title,
-			description,
-			url: absoluteUrl('/servers'),
-			images: seo.ogImageUrl ? [seo.ogImageUrl] : undefined,
-		},
-		twitter: {
-			card: 'summary_large_image',
-			title,
-			description,
-			images: seo.ogImageUrl ? [seo.ogImageUrl] : undefined,
-		},
+		...(await socialMetadata(title, description, '/servers')),
 	}
 }
 

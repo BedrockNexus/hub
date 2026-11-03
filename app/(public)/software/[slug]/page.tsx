@@ -10,6 +10,7 @@ import { ServerCard } from '@/components/servers/server-card'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 import { getSiteFeatures } from '@/lib/site-settings'
+import { socialMetadata } from '@/lib/social-metadata'
 
 interface SoftwarePageProps {
 	params: Promise<{ slug: string }>
@@ -48,11 +49,16 @@ export async function generateMetadata({
 	const { entry, plugins } = page
 	const isThin =
 		entry.serverCount < MIN_SERVERS_TO_INDEX && plugins.length === 0
+	const description = `${entry.name} on Bedrock Nexus: what it is, the servers running it and how many players they have online.`
+	const path = `/software/${entry.slug}`
 	return {
 		title: entry.name,
-		description: `${entry.name} on Bedrock Nexus: what it is, the servers running it and how many players they have online.`,
-		alternates: { canonical: `/software/${entry.slug}` },
+		description,
+		alternates: { canonical: path },
 		robots: isThin ? { index: false, follow: true } : undefined,
+		...(await socialMetadata(entry.name, description, path, {
+			iconUrl: entry.logoUrl,
+		})),
 	}
 }
 

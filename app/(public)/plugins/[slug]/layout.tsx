@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { api } from '@/convex/_generated/api'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
-import { siteConfig } from '@/lib/site'
+import { socialMetadata } from '@/lib/social-metadata'
 
 interface PluginLayoutProps {
 	children: ReactNode
@@ -26,25 +26,14 @@ export async function generateMetadata({
 	const { project } = result
 	const title = project.name
 	const description = truncateDescription(project.summary)
-	const url = absoluteUrl(`/plugins/${project.publicId}`)
-	const image = project.iconUrl
+	const path = `/plugins/${project.publicId}`
 	return {
 		title,
 		description,
-		alternates: { canonical: url },
-		openGraph: {
-			title: `${title} | ${siteConfig.name}`,
-			description,
-			type: 'website',
-			url,
-			images: image ? [image] : undefined,
-		},
-		twitter: {
-			card: 'summary',
-			title: `${title} | ${siteConfig.name}`,
-			description,
-			images: image ? [image] : undefined,
-		},
+		alternates: { canonical: absoluteUrl(path) },
+		...(await socialMetadata(title, description, path, {
+			iconUrl: project.iconUrl,
+		})),
 	}
 }
 

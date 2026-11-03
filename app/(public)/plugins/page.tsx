@@ -9,12 +9,19 @@ import { PluginGrid } from '@/components/plugins/plugin-card'
 import { PluginSearchFilters } from '@/components/plugins/plugin-search-filters'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
+import { socialMetadata } from '@/lib/social-metadata'
 
-export const metadata: Metadata = {
-	title: 'Minecraft Bedrock Server Plugins',
-	description:
-		'Find Minecraft Bedrock server plugins for every supported server software, built from public source and reviewed before release.',
-	alternates: { canonical: '/plugins' },
+export async function generateMetadata(): Promise<Metadata> {
+	const title = 'Minecraft Bedrock Server Plugins'
+	const description =
+		'Find Minecraft Bedrock server plugins for every supported server software, built from public source code.'
+
+	return {
+		title,
+		description,
+		alternates: { canonical: '/plugins' },
+		...(await socialMetadata(title, description, '/plugins')),
+	}
 }
 type ExploreSearchParams = Promise<
 	Record<string, string | string[] | undefined>

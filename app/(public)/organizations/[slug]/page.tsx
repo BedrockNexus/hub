@@ -16,8 +16,8 @@ import {
 	PROJECT_TYPES,
 } from '@/lib/project-artifacts'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
-import { siteConfig } from '@/lib/site'
-import { getSiteFeatures, getSiteSeo } from '@/lib/site-settings'
+import { getSiteFeatures } from '@/lib/site-settings'
+import { socialMetadata } from '@/lib/social-metadata'
 
 interface OrganizationPageProps {
 	params: Promise<{ slug: string }>
@@ -27,10 +27,10 @@ export async function generateMetadata({
 	params,
 }: OrganizationPageProps): Promise<Metadata> {
 	const { slug } = await params
-	const [organization, seo] = await Promise.all([
-		fetchQuery(api.functions.site.organizations.getPublicBySlug, { slug }),
-		getSiteSeo(),
-	])
+	const organization = await fetchQuery(
+		api.functions.site.organizations.getPublicBySlug,
+		{ slug },
+	)
 	if (!organization) {
 		return {
 			title: 'Organization Not Found',
@@ -39,29 +39,18 @@ export async function generateMetadata({
 	}
 	const description = truncateDescription(
 		organization.about ||
-			`${organization.name} builds Minecraft Bedrock servers and projects on Bedrock Nexus.`,
+			`${organization.name} publishes Minecraft Bedrock servers, add-ons and resource packs on BedrockNexus.`,
 	)
-	let socialImages: string[] | undefined
-	if (organization.bannerUrl) {
-		socialImages = [organization.bannerUrl]
-	} else if (organization.logo) {
-		socialImages = [organization.logo]
-	} else if (seo.ogImageUrl) {
-		socialImages = [seo.ogImageUrl]
-	}
+	const path = `/organizations/${organization.slug}`
 
 	return {
 		title: organization.name,
 		description,
-		alternates: {
-			canonical: absoluteUrl(`/organizations/${organization.slug}`),
-		},
-		openGraph: {
-			title: `${organization.name} | ${siteConfig.name}`,
-			description,
-			url: absoluteUrl(`/organizations/${organization.slug}`),
-			images: socialImages,
-		},
+		alternates: { canonical: absoluteUrl(path) },
+		...(await socialMetadata(organization.name, description, path, {
+			bannerUrl: organization.bannerUrl,
+			iconUrl: organization.logo,
+		})),
 	}
 }
 

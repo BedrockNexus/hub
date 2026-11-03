@@ -6,12 +6,19 @@ import {
 } from '@/components/creators/creator-directory'
 import { PageShell } from '@/components/page-shell'
 import { api } from '@/convex/_generated/api'
+import { socialMetadata } from '@/lib/social-metadata'
 
-export const metadata: Metadata = {
-	title: 'Organizations',
-	description:
-		'Teams and networks publishing Minecraft Bedrock servers, addons and resource packs on Bedrock Nexus.',
-	alternates: { canonical: '/organizations' },
+export async function generateMetadata(): Promise<Metadata> {
+	const title = 'Organizations'
+	const description =
+		'Teams and networks publishing Minecraft Bedrock servers, add-ons and resource packs on BedrockNexus.'
+
+	return {
+		title,
+		description,
+		alternates: { canonical: '/organizations' },
+		...(await socialMetadata(title, description, '/organizations')),
+	}
 }
 
 export default async function OrganizationsPage() {

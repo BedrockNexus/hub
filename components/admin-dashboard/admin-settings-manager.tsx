@@ -28,6 +28,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import { uploadFileToPresignedUrl } from '@/lib/r2-upload'
+import { siteBrand } from '@/lib/site-brand'
 import { AdminPageHeader } from './admin-page-header'
 
 interface SeoDraft {
@@ -49,8 +50,7 @@ interface FeaturesDraft {
 }
 
 const DEFAULT_SEO_DRAFT: SeoDraft = {
-	siteDescription:
-		'Discover Minecraft Bedrock servers, projects, and community content.',
+	siteDescription: siteBrand.description,
 }
 
 const DEFAULT_SOCIALS_DRAFT: SocialsDraft = {

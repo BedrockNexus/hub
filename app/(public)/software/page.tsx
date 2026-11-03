@@ -12,12 +12,19 @@ import {
 	CardTitle,
 } from '@/components/ui/card'
 import { api } from '@/convex/_generated/api'
+import { socialMetadata } from '@/lib/social-metadata'
 
-export const metadata: Metadata = {
-	title: 'Server software',
-	description:
-		'The software Minecraft Bedrock servers run, with the servers using each and how many players they have online.',
-	alternates: { canonical: '/software' },
+export async function generateMetadata(): Promise<Metadata> {
+	const title = 'Server software'
+	const description =
+		'The software Minecraft Bedrock servers run, with the servers using each and how many players they have online.'
+
+	return {
+		title,
+		description,
+		alternates: { canonical: '/software' },
+		...(await socialMetadata(title, description, '/software')),
+	}
 }
 
 function plural(count: number, noun: string) {

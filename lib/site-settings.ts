@@ -2,6 +2,7 @@ import { fetchQuery } from 'convex/nextjs'
 import { unstable_rethrow } from 'next/navigation'
 import { cache } from 'react'
 import { api } from '@/convex/_generated/api'
+import { siteBrand } from './site-brand'
 
 const SITE_SETTINGS_TIMEOUT_MS = 2500
 const SITE_SETTINGS_CACHE_MS = 60_000
@@ -43,8 +44,7 @@ export interface SiteStats {
 }
 
 export const DEFAULT_SITE_SEO: SiteSeoSettings = {
-	siteDescription:
-		'Discover Minecraft Bedrock servers, addons and resource packs, and publish your own. Free for creators and server owners.',
+	siteDescription: siteBrand.description,
 }
 
 const DEFAULT_SITE_SOCIALS: SiteSocialSettings = {}

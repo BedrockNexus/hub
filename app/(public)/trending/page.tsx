@@ -10,12 +10,19 @@ import {
 	PROJECT_TYPE_PLURAL_LABELS,
 	type ProjectType,
 } from '@/lib/project-artifacts'
+import { socialMetadata } from '@/lib/social-metadata'
 
-export const metadata: Metadata = {
-	title: 'Trending',
-	description:
-		'The Minecraft Bedrock servers gaining players and the addons and resource packs being downloaded most this week on Bedrock Nexus.',
-	alternates: { canonical: '/trending' },
+export async function generateMetadata(): Promise<Metadata> {
+	const title = 'Trending'
+	const description =
+		'The Minecraft Bedrock servers gaining players and the add-ons and resource packs being downloaded most right now.'
+
+	return {
+		title,
+		description,
+		alternates: { canonical: '/trending' },
+		...(await socialMetadata(title, description, '/trending')),
+	}
 }
 
 const SERVERS_SHOWN = 8

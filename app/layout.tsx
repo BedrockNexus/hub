@@ -13,6 +13,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { getToken } from '@/lib/auth-server'
 import { getSiteUrl } from '@/lib/seo'
 import { siteConfig } from '@/lib/site'
+import { siteBrand } from '@/lib/site-brand'
 import { getSiteSeo } from '@/lib/site-settings'
 
 // Brand type, self-hosted (no network fetch at build time): Chakra Petch for
@@ -77,13 +78,21 @@ const monoFont = localFont({
 export async function generateMetadata(): Promise<Metadata> {
 	const seo = await getSiteSeo()
 	const description = seo.siteDescription || siteConfig.description
-	const socialImage = seo.ogImageUrl ?? '/images/bedrocknexus-logo.png'
+	const socialImage = seo.ogImageUrl
+		? { url: seo.ogImageUrl, alt: siteBrand.socialImageAlt }
+		: {
+				url: siteBrand.socialImage,
+				width: 1200,
+				height: 630,
+				alt: siteBrand.socialImageAlt,
+			}
+	const title = `${siteConfig.name} | ${siteBrand.title}`
 
 	return {
 		metadataBase: new URL(getSiteUrl()),
 		applicationName: siteConfig.name,
 		title: {
-			default: siteConfig.name,
+			default: title,
 			template: `%s | ${siteConfig.name}`,
 		},
 		description,
@@ -94,15 +103,16 @@ export async function generateMetadata(): Promise<Metadata> {
 		},
 		openGraph: {
 			type: 'website',
+			locale: 'en_US',
 			siteName: siteConfig.name,
-			title: siteConfig.name,
+			title,
 			description,
 			url: getSiteUrl(),
 			images: [socialImage],
 		},
 		twitter: {
 			card: 'summary_large_image',
-			title: siteConfig.name,
+			title,
 			description,
 			images: [socialImage],
 		},

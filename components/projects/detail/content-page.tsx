@@ -13,8 +13,7 @@ import {
 import { normalizeProjectType, type ProjectType } from '@/lib/project-artifacts'
 import { projectMetadataSeoProperties } from '@/lib/project-metadata'
 import { absoluteUrl, truncateDescription } from '@/lib/seo'
-import { siteConfig } from '@/lib/site'
-import { getSiteSeo } from '@/lib/site-settings'
+import { socialMetadata } from '@/lib/social-metadata'
 import {
 	ProjectDetailShell,
 	type ProjectDetailTab,
@@ -71,10 +70,7 @@ export async function contentMetadata(
 ): Promise<Metadata> {
 	const { slug, section } = await params
 	const { tab, version } = resolveSection(section)
-	const [project, seo] = await Promise.all([
-		getContent(slug, type),
-		getSiteSeo(),
-	])
+	const project = await getContent(slug, type)
 	const release = version
 		? await fetchQuery(api.functions.projects.versions.getPublicByVersion, {
 				slug,
@@ -100,28 +96,17 @@ export async function contentMetadata(
 	const description = truncateDescription(
 		release?.changelog || project.summary,
 	)
-	const url = absoluteUrl(
+	const path =
 		contentHref(type, project.slug, project._id) +
-			legacyContentSection(section),
-	)
-	const image = project.bannerUrl || project.iconUrl || seo.ogImageUrl
+		legacyContentSection(section)
 	return {
 		title,
 		description,
-		alternates: { canonical: url },
-		openGraph: {
-			title: `${title} | ${siteConfig.name}`,
-			description,
-			type: 'website',
-			url,
-			images: image ? [image] : undefined,
-		},
-		twitter: {
-			card: image ? 'summary_large_image' : 'summary',
-			title,
-			description,
-			images: image ? [image] : undefined,
-		},
+		alternates: { canonical: absoluteUrl(path) },
+		...(await socialMetadata(title, description, path, {
+			bannerUrl: project.bannerUrl,
+			iconUrl: project.iconUrl,
+		})),
 	}
 }
 
