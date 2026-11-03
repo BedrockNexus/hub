@@ -58,6 +58,8 @@ import type * as functions_site_aggregates from "../functions/site/aggregates.js
 import type * as functions_site_analytics from "../functions/site/analytics.js";
 import type * as functions_site_audit from "../functions/site/audit.js";
 import type * as functions_site_creators from "../functions/site/creators.js";
+import type * as functions_site_discordAnnouncementDelivery from "../functions/site/discordAnnouncementDelivery.js";
+import type * as functions_site_discordAnnouncements from "../functions/site/discordAnnouncements.js";
 import type * as functions_site_favourites from "../functions/site/favourites.js";
 import type * as functions_site_gameVersions from "../functions/site/gameVersions.js";
 import type * as functions_site_index from "../functions/site/index.js";
@@ -84,6 +86,7 @@ import type * as lib_creatorListings from "../lib/creatorListings.js";
 import type * as lib_creatorRank from "../lib/creatorRank.js";
 import type * as lib_dataUrls from "../lib/dataUrls.js";
 import type * as lib_dayKeys from "../lib/dayKeys.js";
+import type * as lib_discordAnnouncements from "../lib/discordAnnouncements.js";
 import type * as lib_discovery from "../lib/discovery.js";
 import type * as lib_downloadAnalytics from "../lib/downloadAnalytics.js";
 import type * as lib_editorMedia from "../lib/editorMedia.js";
@@ -170,6 +173,8 @@ declare const fullApi: ApiFromModules<{
   "functions/site/analytics": typeof functions_site_analytics;
   "functions/site/audit": typeof functions_site_audit;
   "functions/site/creators": typeof functions_site_creators;
+  "functions/site/discordAnnouncementDelivery": typeof functions_site_discordAnnouncementDelivery;
+  "functions/site/discordAnnouncements": typeof functions_site_discordAnnouncements;
   "functions/site/favourites": typeof functions_site_favourites;
   "functions/site/gameVersions": typeof functions_site_gameVersions;
   "functions/site/index": typeof functions_site_index;
@@ -196,6 +201,7 @@ declare const fullApi: ApiFromModules<{
   "lib/creatorRank": typeof lib_creatorRank;
   "lib/dataUrls": typeof lib_dataUrls;
   "lib/dayKeys": typeof lib_dayKeys;
+  "lib/discordAnnouncements": typeof lib_discordAnnouncements;
   "lib/discovery": typeof lib_discovery;
   "lib/downloadAnalytics": typeof lib_downloadAnalytics;
   "lib/editorMedia": typeof lib_editorMedia;

@@ -1,6 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 
 import { recordAdminAction } from '../../../lib/audit'
+import { stageAnnouncement, wakeAnnouncement } from '../../../lib/discordAnnouncements'
 import { assertOptionalHttpUrl } from '../../../lib/contentValidation'
 import { parsePluginDashboardId } from '../../../../lib/plugins/plugin-dashboard-id'
 import {
@@ -1586,6 +1587,8 @@ export const finishPublishing = internalMutation({
 			publishedAt: project.publishedAt ?? now,
 			updatedAt: now,
 		})
+		if (!project.publishedAt) await stageAnnouncement(ctx, 'plugin', project._id)
+		await wakeAnnouncement(ctx, 'plugin', project._id)
 		await ctx.scheduler.runAfter(
 			0,
 			internal.functions.plugins.publishing.actions.createGitHubRelease,

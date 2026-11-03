@@ -15,6 +15,7 @@ lives in [TODO.md](../TODO.md); regression checks live in [TESTING.md](../TESTIN
 | [Analytics and downloads](./ANALYTICS_AND_DOWNLOADS.md) | Convex totals, OpenPanel configuration and event meaning |
 | [Schema maintenance](./SCHEMA_MAINTENANCE.md) | Unused fields, data audits and staged retirement |
 | [Plugin workflow catalog](./PLUGIN_WORKFLOW_CATALOG.md) | Official repository, automatic refresh and installed revision tracking |
+| [Discord announcements](./DISCORD_ANNOUNCEMENTS.md) | First-publication events, secret configuration and delivery retries |
 | [Content Security Policy](./CSP.md) | Browser origins and nonce policy |
 | [API README](https://github.com/BedrockNexus/api#readme) | Public API, validator worker and API deployment |
 
@@ -24,6 +25,8 @@ lives in [TODO.md](../TODO.md); regression checks live in [TESTING.md](../TESTIN
 - [Custom plugin workflow proposal](./PLUGIN_CUSTOM_WORKFLOWS.md): approval and
   artifact tracking for creators connecting an existing build pipeline.
 - [Search authority plan](./SEO_AUTHORITY_PLAN.md): discovery and outreach planning.
+- [November 2026 dependency update](./DEPENDENCY_UPDATE_2026-11.md): compatibility
+  decisions, remaining audit findings and rollout guidance.
 - [Development content acceptance](./DEV_CONTENT_ACCEPTANCE.md) and
   [development add-on acceptance](./DEV_ADDON_ACCEPTANCE.md): dated evidence with
   explicit limits; they are not current deployment checklists.

@@ -5,6 +5,7 @@ import { syncProject, syncServer } from './discovery'
 import { isPublicProject, isPublicServer } from './contentVisibility'
 import { syncProjectOwners, syncServerOwners } from './creatorListings'
 import { isPublicRelease } from './projectReleases'
+import { stageAnnouncement, wakeAnnouncement } from './discordAnnouncements'
 
 /**
  * The public activity feed shown on creator profiles. Entries are written
@@ -57,6 +58,7 @@ export async function afterServerWrite(
 		await syncServer(ctx, after)
 	}
 	if (after && isPublicServer(after) && !(before && isPublicServer(before))) {
+		if (!before?.publishedAt) await stageAnnouncement(ctx, 'server', after._id)
 		await recordActivity(ctx, {
 			userId: after.registeredBy,
 			type: 'server_added',
@@ -64,6 +66,9 @@ export async function afterServerWrite(
 			targetName: after.name,
 			targetSlug: after.slug,
 		})
+	}
+	if (after && isPublicServer(after) && after.moderationStatus === 'approved') {
+		await wakeAnnouncement(ctx, 'server', after._id)
 	}
 }
 
@@ -81,6 +86,9 @@ export async function afterProjectWrite(
 	if (after) {
 		await syncProject(ctx, after)
 	}
+	if (after?.status === 'published' && before?.status !== 'published' && !before?.publishedAt) {
+		await stageAnnouncement(ctx, 'project', after._id)
+	}
 	if (after && isPublicProject(after) && !(before && isPublicProject(before))) {
 		await recordActivity(ctx, {
 			userId: after.createdBy,
@@ -90,6 +98,7 @@ export async function afterProjectWrite(
 			targetSlug: after.slug,
 		})
 	}
+	if (after && isPublicProject(after)) await wakeAnnouncement(ctx, 'project', after._id)
 }
 
 export async function recordReleaseActivity(

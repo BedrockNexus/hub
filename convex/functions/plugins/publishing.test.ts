@@ -16,6 +16,7 @@ beforeEach(() => {
 	vi.useFakeTimers()
 })
 afterEach(() => {
+	vi.unstubAllEnvs()
 	vi.useRealTimers()
 })
 
@@ -733,6 +734,25 @@ describe('workflow selection', () => {
 				{ draftId: foundation.draftId, key: 'powernukkitx:default' },
 			),
 		).rejects.toThrow('cannot move to another server software')
+	})
+})
+
+describe('plugin Discord announcements', () => {
+	it('stages the first public release once and ignores subsequent versions', async () => {
+		vi.stubEnv('DISCORD_ANNOUNCEMENTS_ENABLED', 'true')
+		vi.stubEnv('DISCORD_ANNOUNCEMENTS_WEBHOOK_URL', 'https://discord.com/api/webhooks/123/test-token')
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const first = await sendToReview(t, foundation, await recordBuild(t, foundation, 7401), '1.0.0')
+		expect(await t.run(ctx => ctx.db.query('discordAnnouncements').take(5))).toHaveLength(0)
+		await approveAndPublish(t, foundation, first, '1.0.0')
+		const row = await t.run(ctx => ctx.db.query('discordAnnouncements').first())
+		expect(await t.mutation(internal.functions.site.discordAnnouncements.prepare, { id: row!._id })).toMatchObject({ content: { category: 'Plugin', path: expect.stringMatching(/^\/plugins\/p_/) } })
+		await t.mutation(internal.functions.site.discordAnnouncements.finish, { id: row!._id, attempt: 1, outcome: 'sent' })
+		const second = await sendToReview(t, foundation, await recordBuild(t, foundation, 7402), '1.1.0')
+		await approveAndPublish(t, foundation, second, '1.1.0')
+		expect(await t.run(ctx => ctx.db.query('discordAnnouncements').take(5))).toHaveLength(1)
+		expect(await t.mutation(internal.functions.site.discordAnnouncements.prepare, { id: row!._id })).toBeNull()
 	})
 })
 

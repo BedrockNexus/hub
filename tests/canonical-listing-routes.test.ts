@@ -90,33 +90,36 @@ describe('canonical listing redirects', () => {
 	it.each([
 		['addon', 'a_', 'addons'],
 		['resource_pack', 'rp_', 'resource-packs'],
-	] as const)('redirects old %s names and version aliases to typed IDs', async (type, prefix, route) => {
-		mocks.query.mockResolvedValue({
-			_id: 'stable123',
-			type,
-			slug: 'old-name',
-		})
-		await expect(
-			ContentPage({
+	] as const)(
+		'redirects old %s names and version aliases to typed IDs',
+		async (type, prefix, route) => {
+			mocks.query.mockResolvedValue({
+				_id: 'stable123',
 				type,
-				params: Promise.resolve({
-					slug: 'old-name',
-					section: ['gallery'],
+				slug: 'old-name',
+			})
+			await expect(
+				ContentPage({
+					type,
+					params: Promise.resolve({
+						slug: 'old-name',
+						section: ['gallery'],
+					}),
 				}),
-			}),
-		).rejects.toThrow(`PERMANENT:/${route}/${prefix}stable123/gallery`)
-		await expect(
-			ContentPage({
-				type,
-				params: Promise.resolve({
-					slug: `${prefix}stable123`,
-					section: ['versions', '1.0.0'],
+			).rejects.toThrow(`PERMANENT:/${route}/${prefix}stable123/gallery`)
+			await expect(
+				ContentPage({
+					type,
+					params: Promise.resolve({
+						slug: `${prefix}stable123`,
+						section: ['versions', '1.0.0'],
+					}),
 				}),
-			}),
-		).rejects.toThrow(
-			`PERMANENT:/${route}/${prefix}stable123/releases/1.0.0`,
-		)
-	})
+			).rejects.toThrow(
+				`PERMANENT:/${route}/${prefix}stable123/releases/1.0.0`,
+			)
+		},
+	)
 	it('returns not found for unpublished or missing listings', async () => {
 		mocks.query.mockResolvedValue(null)
 		await expect(canonicalPlugin('p_1')).rejects.toThrow('NOT_FOUND')

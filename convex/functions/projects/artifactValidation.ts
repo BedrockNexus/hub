@@ -11,6 +11,7 @@ import { isApprovedRelease, isPublicRelease } from '../../lib/projectReleases'
 import { syncProject } from '../../lib/discovery'
 import { cdnR2, uploadsR2 } from '../../lib/r2'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
+import { wakeAnnouncement } from '../../lib/discordAnnouncements'
 
 const MAX_SUPPORTED_GAME_VERSIONS = 200
 
@@ -213,6 +214,7 @@ export const finalizePromotion = internalMutation({
 			publishedAt: version.publishedAt ?? Date.now(),
 		})
 		await uploadsR2.deleteObject(ctx, args.uploadKey)
+		await wakeAnnouncement(ctx, 'project', version.projectId)
 	},
 })
 

@@ -6,6 +6,19 @@ import { v } from 'convex/values'
 // =============================================================================
 
 export const tables = {
+	// One first-publication announcement per listing, including delivery history.
+	discordAnnouncements: defineTable({
+		key: v.string(),
+		kind: v.union(v.literal('server'), v.literal('project'), v.literal('plugin')),
+		targetId: v.string(),
+		status: v.union(v.literal('waiting'), v.literal('pending'), v.literal('sending'), v.literal('sent'), v.literal('failed'), v.literal('skipped')),
+		attempts: v.number(),
+		leaseUntil: v.optional(v.number()),
+		messageId: v.optional(v.string()),
+		lastError: v.optional(v.string()),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	}).index('by_key', ['key']),
 	// ===========================================================================
 	// SITE SETTINGS
 	// ===========================================================================
