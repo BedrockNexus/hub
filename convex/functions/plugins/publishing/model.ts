@@ -1,7 +1,20 @@
+import { submissionStatus } from '../../../schemas/submissions'
+import { moderationStatus } from '../../../schemas/projects'
+import { recordSubmission } from '../../../lib/moderationHistory'
+import {
+	assertReviewRevision,
+	decisionFields,
+	moderationReason,
+	snapshot,
+	snapshotPatch,
+} from '../../../lib/submissions'
 import { ConvexError, v } from 'convex/values'
 
 import { recordAdminAction } from '../../../lib/audit'
-import { stageAnnouncement, wakeAnnouncement } from '../../../lib/discordAnnouncements'
+import {
+	stageAnnouncement,
+	wakeAnnouncement,
+} from '../../../lib/discordAnnouncements'
 import { assertOptionalHttpUrl } from '../../../lib/contentValidation'
 import { parsePluginDashboardId } from '../../../../lib/plugins/plugin-dashboard-id'
 import {
@@ -161,7 +174,7 @@ async function activeReleaseFor(
 	return null
 }
 
-async function assertNotUnderReview(
+export async function assertNotUnderReview(
 	ctx: QueryCtx | MutationCtx,
 	draft: Doc<'pluginPublishingDrafts'>,
 	message: string,
@@ -182,7 +195,8 @@ function validatedMetadata(input: {
 		throw new ConvexError({
 			code: 'INVALID_PROJECT_METADATA',
 			message:
-				result.error.issues[0]?.message ?? 'The plugin details are invalid.',
+				result.error.issues[0]?.message ??
+				'The plugin details are invalid.',
 		})
 	}
 	return result.data
@@ -329,8 +343,7 @@ const linkArgs = {
 }
 
 /**
- * The links on the plugin page. Unlike the other details they apply at once,
- * like project and server links.
+ * Links are reviewed with the next release.
  */
 export const saveLinks = authedMutation({
 	args: { draftId: v.id('pluginPublishingDrafts'), ...linkArgs },
@@ -338,6 +351,11 @@ export const saveLinks = authedMutation({
 	handler: async (ctx, args) => {
 		await enforceRateLimit(ctx, 'publishingEdit', ctx.user._id)
 		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
+		await assertNotUnderReview(
+			ctx,
+			draft,
+			'This submission is awaiting review. Its details are locked.',
+		)
 		const labels = {
 			websiteUrl: 'Website',
 			wikiUrl: 'Wiki',
@@ -345,7 +363,8 @@ export const saveLinks = authedMutation({
 			issuesUrl: 'Issue tracker',
 			donationUrl: 'Donation link',
 		} as const
-		const links: Partial<Record<keyof typeof labels, string | undefined>> = {}
+		const links: Partial<Record<keyof typeof labels, string | undefined>> =
+			{}
 		for (const field of Object.keys(labels) as (keyof typeof labels)[]) {
 			try {
 				assertOptionalHttpUrl(labels[field], args[field])
@@ -364,7 +383,12 @@ export const saveLinks = authedMutation({
 			...links,
 			updatedAt: Date.now(),
 		})
-		if (draft.projectId) {
+		if (
+			draft.projectId &&
+			!(await ctx.db.get('plugins', draft.projectId))?.publishedAt &&
+			(await ctx.db.get('plugins', draft.projectId))?.status !==
+				'published'
+		) {
 			await ctx.db.patch('plugins', draft.projectId, links)
 		}
 		return null
@@ -376,7 +400,7 @@ const LICENSE_CUSTOM_MAX = 2000
 
 /**
  * The license shown on the plugin page. It starts as the repository's license
- * on GitHub; owners can change it, and it applies at once like links.
+ * on GitHub; changes are reviewed with the next release.
  */
 export const saveLicense = authedMutation({
 	args: {
@@ -388,6 +412,11 @@ export const saveLicense = authedMutation({
 	handler: async (ctx, args) => {
 		await enforceRateLimit(ctx, 'publishingEdit', ctx.user._id)
 		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
+		await assertNotUnderReview(
+			ctx,
+			draft,
+			'This submission is awaiting review. Its details are locked.',
+		)
 		const license = args.license?.trim() || undefined
 		const licenseCustom = args.licenseCustom?.trim() || undefined
 		if (license && license.length > LICENSE_MAX) {
@@ -407,7 +436,12 @@ export const saveLicense = authedMutation({
 			licenseCustom,
 			updatedAt: Date.now(),
 		})
-		if (draft.projectId) {
+		if (
+			draft.projectId &&
+			!(await ctx.db.get('plugins', draft.projectId))?.publishedAt &&
+			(await ctx.db.get('plugins', draft.projectId))?.status !==
+				'published'
+		) {
 			await ctx.db.patch('plugins', draft.projectId, {
 				license,
 				licenseCustom,
@@ -420,7 +454,7 @@ export const saveLicense = authedMutation({
 // Like Modrinth: a few categories, so each one means something.
 const MAX_CATEGORIES = 3
 
-/** The plugin's categories. They apply at once, like project categories. */
+/** The plugin's categories are reviewed with the next release. */
 export const saveCategories = authedMutation({
 	args: {
 		draftId: v.id('pluginPublishingDrafts'),
@@ -430,6 +464,11 @@ export const saveCategories = authedMutation({
 	handler: async (ctx, args) => {
 		await enforceRateLimit(ctx, 'publishingEdit', ctx.user._id)
 		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
+		await assertNotUnderReview(
+			ctx,
+			draft,
+			'This submission is awaiting review. Its details are locked.',
+		)
 		const categoryIds = [...new Set(args.categoryIds)]
 		if (categoryIds.length > MAX_CATEGORIES) {
 			throw new ConvexError({
@@ -450,7 +489,12 @@ export const saveCategories = authedMutation({
 			categoryIds,
 			updatedAt: Date.now(),
 		})
-		if (draft.projectId) {
+		if (
+			draft.projectId &&
+			!(await ctx.db.get('plugins', draft.projectId))?.publishedAt &&
+			(await ctx.db.get('plugins', draft.projectId))?.status !==
+				'published'
+		) {
 			await ctx.db.patch('plugins', draft.projectId, { categoryIds })
 		}
 		return null
@@ -852,8 +896,11 @@ function unpublishableReason(build: Doc<'pluginBuilds'>, now: number) {
 	if (build.artifactId === undefined) {
 		return 'The build did not upload a plugin-package artifact.'
 	}
-	if (build.artifactExpiresAt !== undefined && build.artifactExpiresAt <= now) {
-		return 'GitHub has deleted this build’s files.'
+	if (
+		build.artifactExpiresAt !== undefined &&
+		build.artifactExpiresAt <= now
+	) {
+		return 'GitHub has deleted this buildÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢s files.'
 	}
 	return undefined
 }
@@ -955,10 +1002,14 @@ export const submitRelease = authedMutation({
 		if (!project || !draft.workflowInstalled) {
 			throw new ConvexError({
 				code: 'PUBLICATION_NOT_READY',
-				message: 'Install the workflow before sending a build to review.',
+				message:
+					'Install the workflow before sending a build to review.',
 			})
 		}
-		if (draft.rejectedAt && project.status !== 'published') {
+		if (
+			project.moderationStatus === 'rejected' ||
+			(draft.rejectedAt && project.status !== 'published')
+		) {
 			throw new ConvexError({
 				code: 'SUBMISSION_REJECTED',
 				message:
@@ -979,7 +1030,7 @@ export const submitRelease = authedMutation({
 			throw new ConvexError({
 				code: 'ALREADY_IN_REVIEW',
 				message:
-					'Another version is already in review. Wait for the moderator’s decision.',
+					'Another version is already in review. Wait for the moderatorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢s decision.',
 			})
 		}
 
@@ -1011,7 +1062,8 @@ export const submitRelease = authedMutation({
 		) {
 			throw new ConvexError({
 				code: 'BUILD_ALREADY_USED',
-				message: 'This build was already published, rejected, or is in review.',
+				message:
+					'This build was already published, rejected, or is in review.',
 			})
 		}
 
@@ -1023,14 +1075,17 @@ export const submitRelease = authedMutation({
 			throw new ConvexError({
 				code: 'INVALID_RELEASE',
 				message:
-					parsed.error.issues[0]?.message ?? 'The version is invalid.',
+					parsed.error.issues[0]?.message ??
+					'The version is invalid.',
 			})
 		}
 		const { version, changelog } = parsed.data
 		const sameVersion = await ctx.db
 			.query('pluginReleases')
 			.withIndex('by_project_id_and_normalized_version', (query) =>
-				query.eq('projectId', project._id).eq('normalizedVersion', version),
+				query
+					.eq('projectId', project._id)
+					.eq('normalizedVersion', version),
 			)
 			.take(20)
 		if (
@@ -1055,15 +1110,33 @@ export const submitRelease = authedMutation({
 			branch: build.branch,
 			traceable: true,
 			status: 'preparing',
+			submittedDetailsJson: snapshot(draft),
+			submissionRevision: (project.submissionRevision ?? 0) + 1,
 			submittedBy: ctx.user._id,
 			submittedAt: now,
 			createdAt: now,
 			updatedAt: now,
 		})
-		if (project.status !== 'published') {
+		const submittedRelease = await ctx.db.get('pluginReleases', releaseId)
+		await recordSubmission(ctx, {
+			content: project,
+			details: draft,
+			actorId: ctx.user._id,
+			revision: (project.submissionRevision ?? 0) + 1,
+			release: submittedRelease!,
+		})
+		await ctx.db.patch('plugins', project._id, {
+			submissionStatus: 'pending',
+			submissionReason: undefined,
+			submittedAt: now,
+			submissionRevision: (project.submissionRevision ?? 0) + 1,
+		})
+		if (!project.publishedAt && project.status !== 'published') {
 			await patchProject(ctx, project, {
 				visibility: 'draft',
 				status: 'review',
+				moderationStatus: 'pending',
+				moderationReason: undefined,
 				updatedAt: now,
 			})
 		}
@@ -1113,6 +1186,17 @@ export const getReleaseActionContext = internalQuery({
 			ctx.db.get('githubRepositories', release.repositoryId),
 		])
 		if (!project || !repository) {
+			return null
+		}
+		if (
+			release.status === 'publishing' &&
+			(project.visibility === 'hidden' ||
+				project.visibility === 'suspended' ||
+				project.moderationStatus === 'flagged' ||
+				project.moderationStatus === 'rejected' ||
+				(release.approvalModerationRevision ?? 0) !==
+					(project.moderationRevision ?? 0))
+		) {
 			return null
 		}
 		const installation = await ctx.db.get(
@@ -1190,8 +1274,17 @@ export const failPreparation = internalMutation({
 		})
 		const project = await ctx.db.get('plugins', release.projectId)
 		if (project?.status === 'review') {
-			await patchProject(ctx, project, { status: 'draft', updatedAt: now })
+			await patchProject(ctx, project, {
+				status: 'draft',
+				updatedAt: now,
+			})
 		}
+		if (project)
+			await ctx.db.patch(
+				'plugins',
+				project._id,
+				decisionFields(project, 'changes_requested', args.reason),
+			)
 		return null
 	},
 })
@@ -1395,77 +1488,95 @@ export const getReviewFile = internalQuery({
 	},
 })
 
+export async function approvePluginReview(
+	ctx: MutationCtx & { admin: AppUser },
+	args: {
+		releaseId: Id<'pluginReleases'>
+		note?: string
+		expectedRevision?: number
+	},
+): Promise<Id<'plugins'>> {
+	await enforceRateLimit(ctx, 'moderationDecision', ctx.admin._id)
+	const release = await ctx.db.get('pluginReleases', args.releaseId)
+	if (release?.status !== 'inReview' || !release.uploadKey) {
+		throw new ConvexError({
+			code: 'REVIEW_NOT_PENDING',
+			message: 'This version is not waiting for review.',
+		})
+	}
+	const project = await ctx.db.get('plugins', release.projectId)
+	if (
+		!project ||
+		project.visibility === 'hidden' ||
+		project.visibility === 'suspended' ||
+		project.moderationStatus === 'flagged' ||
+		project.moderationStatus === 'rejected'
+	) {
+		throw new ConvexError({
+			code: 'PUBLICATION_BLOCKED',
+			message: 'This plugin cannot currently be published.',
+		})
+	}
+	assertReviewRevision(project, args.expectedRevision)
+	await assertNotOwnSubmission(ctx, project, release, ctx.admin)
+	const repository = await ctx.db.get(
+		'githubRepositories',
+		release.repositoryId,
+	)
+	if (
+		!repository ||
+		repository.isPrivate ||
+		repository.accessStatus !== 'granted'
+	) {
+		throw new ConvexError({
+			code: 'REPOSITORY_INELIGIBLE',
+			message: 'The repository is no longer eligible for publishing.',
+		})
+	}
+	const now = Date.now()
+	const note = args.note?.trim() || undefined
+	await ctx.db.patch('pluginReleases', release._id, {
+		status: 'publishing',
+		approvalModerationRevision: project.moderationRevision ?? 0,
+		submissionRevision: project.submissionRevision,
+		reviewedAt: now,
+		reviewedBy: ctx.admin._id,
+		reviewNotes: note,
+		failureReason: undefined,
+		updatedAt: now,
+	})
+	await recordAdminAction(ctx, ctx.admin._id, {
+		action: 'plugin.approve',
+		targetType: 'pluginRelease',
+		targetId: release._id,
+		targetLabel: `${project.name} ${release.version}`,
+		changes: { previousState: 'inReview', resultingState: 'publishing' },
+		reason: note ?? 'Version approved for publication.',
+	})
+	await ctx.scheduler.runAfter(
+		0,
+		internal.functions.plugins.publishing.actions.publishRelease,
+		{ releaseId: release._id },
+	)
+	return project._id
+}
+
 export const approveReview = adminMutation({
 	args: {
 		releaseId: v.id('pluginReleases'),
 		note: v.optional(v.string()),
+		expectedRevision: v.optional(v.number()),
 	},
 	returns: v.id('plugins'),
-	handler: async (ctx, args) => {
-		await enforceRateLimit(ctx, 'moderationDecision', ctx.admin._id)
-		const release = await ctx.db.get('pluginReleases', args.releaseId)
-		if (release?.status !== 'inReview' || !release.uploadKey) {
-			throw new ConvexError({
-				code: 'REVIEW_NOT_PENDING',
-				message: 'This version is not waiting for review.',
-			})
-		}
-		const project = await ctx.db.get('plugins', release.projectId)
-		if (
-			!project ||
-			project.visibility === 'hidden' ||
-			project.visibility === 'suspended'
-		) {
-			throw new ConvexError({
-				code: 'PUBLICATION_BLOCKED',
-				message: 'This plugin cannot currently be published.',
-			})
-		}
-		await assertNotOwnSubmission(ctx, project, release, ctx.admin)
-		const repository = await ctx.db.get(
-			'githubRepositories',
-			release.repositoryId,
-		)
-		if (
-			!repository ||
-			repository.isPrivate ||
-			repository.accessStatus !== 'granted'
-		) {
-			throw new ConvexError({
-				code: 'REPOSITORY_INELIGIBLE',
-				message: 'The repository is no longer eligible for publishing.',
-			})
-		}
-		const now = Date.now()
-		const note = args.note?.trim() || undefined
-		await ctx.db.patch('pluginReleases', release._id, {
-			status: 'publishing',
-			reviewedAt: now,
-			reviewedBy: ctx.admin._id,
-			reviewNotes: note,
-			failureReason: undefined,
-			updatedAt: now,
-		})
-		await recordAdminAction(ctx, ctx.admin._id, {
-			action: 'plugin.approve',
-			targetType: 'pluginRelease',
-			targetId: release._id,
-			targetLabel: `${project.name} ${release.version}`,
-			changes: { previousState: 'inReview', resultingState: 'publishing' },
-			reason: note ?? 'Version approved for publication.',
-		})
-		await ctx.scheduler.runAfter(
-			0,
-			internal.functions.plugins.publishing.actions.publishRelease,
-			{ releaseId: release._id },
-		)
-		return project._id
-	},
+	handler: approvePluginReview,
 })
 
 /** Retries copying an approved version to the CDN after a failure. */
 export const retryPublishing = adminMutation({
-	args: { releaseId: v.id('pluginReleases') },
+	args: {
+		releaseId: v.id('pluginReleases'),
+		expectedRevision: v.optional(v.number()),
+	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const release = await ctx.db.get('pluginReleases', args.releaseId)
@@ -1475,7 +1586,24 @@ export const retryPublishing = adminMutation({
 				message: 'This version is not waiting to be published.',
 			})
 		}
+		const project = await ctx.db.get('plugins', release.projectId)
+		if (
+			!project ||
+			project.status === 'draft' ||
+			project.visibility === 'hidden' ||
+			project.visibility === 'suspended' ||
+			project.moderationStatus === 'flagged' ||
+			project.moderationStatus === 'rejected'
+		) {
+			throw new ConvexError(
+				'Restore this plugin before retrying publication.',
+			)
+		}
+		assertReviewRevision(project, args.expectedRevision)
+		await assertNotOwnSubmission(ctx, project, release, ctx.admin)
 		await ctx.db.patch('pluginReleases', release._id, {
+			approvalModerationRevision: project.moderationRevision ?? 0,
+			submissionRevision: project.submissionRevision,
 			failureReason: undefined,
 			updatedAt: Date.now(),
 		})
@@ -1514,6 +1642,23 @@ export const finishPublishing = internalMutation({
 		}
 		const project = await ctx.db.get('plugins', release.projectId)
 		if (!project) {
+			return false
+		}
+		if (
+			project.visibility === 'hidden' ||
+			project.visibility === 'suspended' ||
+			project.moderationStatus === 'flagged' ||
+			project.moderationStatus === 'rejected' ||
+			(release.approvalModerationRevision ?? 0) !==
+				(project.moderationRevision ?? 0) ||
+			(release.submissionRevision !== undefined &&
+				release.submissionRevision !== project.submissionRevision)
+		) {
+			await ctx.db.patch('pluginReleases', release._id, {
+				failureReason:
+					'Publication stopped because the listing moderation changed. Restore the listing and review publication again.',
+				updatedAt: Date.now(),
+			})
 			return false
 		}
 		const now = Date.now()
@@ -1555,7 +1700,9 @@ export const finishPublishing = internalMutation({
 				ctx.db.get('pluginBuilds', release.buildId),
 			])
 			isNewest =
-				!latestBuild || !build || build.createdAt >= latestBuild.createdAt
+				!latestBuild ||
+				!build ||
+				build.createdAt >= latestBuild.createdAt
 		}
 		const draft = await ctx.db
 			.query('pluginPublishingDrafts')
@@ -1563,20 +1710,37 @@ export const finishPublishing = internalMutation({
 				query.eq('projectId', project._id),
 			)
 			.first()
-		const details = draft
+		const reviewedDraft =
+			draft && release.submittedDetailsJson
+				? {
+						...draft,
+						...snapshotPatch(draft, release.submittedDetailsJson),
+					}
+				: draft
+		const details = reviewedDraft
 			? {
-					slug: draft.slug,
-					name: draft.name,
-					summary: draft.summary,
-					description: draft.description,
-					license: draft.license,
-					licenseCustom: draft.licenseCustom,
-					iconUrl: draft.iconUrl,
-					searchText: searchTextFor(draft),
+					slug: reviewedDraft.slug,
+					name: reviewedDraft.name,
+					summary: reviewedDraft.summary,
+					description: reviewedDraft.description,
+					license: reviewedDraft.license,
+					licenseCustom: reviewedDraft.licenseCustom,
+					iconUrl: reviewedDraft.iconUrl,
+					searchText: searchTextFor(reviewedDraft),
+					categoryIds: reviewedDraft.categoryIds,
+					websiteUrl: reviewedDraft.websiteUrl,
+					wikiUrl: reviewedDraft.wikiUrl,
+					discordUrl: reviewedDraft.discordUrl,
+					issuesUrl: reviewedDraft.issuesUrl,
+					donationUrl: reviewedDraft.donationUrl,
 				}
 			: {}
 		// The icon the approved details replace is no longer shown anywhere.
-		if (draft && project.iconUrl && project.iconUrl !== draft.iconUrl) {
+		if (
+			draft &&
+			project.iconUrl &&
+			project.iconUrl !== reviewedDraft?.iconUrl
+		) {
 			await deleteIcon(ctx, draft._id, project.iconUrl)
 		}
 		await patchProject(ctx, project, {
@@ -1584,10 +1748,18 @@ export const finishPublishing = internalMutation({
 			...details,
 			visibility: 'public',
 			status: 'published',
+			moderationStatus: 'approved',
+			...decisionFields(project, 'approved'),
+			draftChangesJson: undefined,
+			publishedGalleryJson: undefined,
+			moderationReason: undefined,
+			moderatedAt: now,
+			moderatedBy: release.reviewedBy,
 			publishedAt: project.publishedAt ?? now,
 			updatedAt: now,
 		})
-		if (!project.publishedAt) await stageAnnouncement(ctx, 'plugin', project._id)
+		if (!project.publishedAt)
+			await stageAnnouncement(ctx, 'plugin', project._id)
 		await wakeAnnouncement(ctx, 'plugin', project._id)
 		await ctx.scheduler.runAfter(
 			0,
@@ -1677,15 +1849,20 @@ export const clearUploadKey = internalMutation({
 const reviewDecisionArgs = {
 	releaseId: v.id('pluginReleases'),
 	reason: v.string(),
+	expectedRevision: v.optional(v.number()),
 }
 
 async function recordReviewDecision(
 	ctx: MutationCtx & { admin: AppUser },
-	args: { releaseId: Id<'pluginReleases'>; reason: string },
+	args: {
+		releaseId: Id<'pluginReleases'>
+		reason: string
+		expectedRevision?: number
+	},
 	status: 'changesRequested' | 'rejected',
 ) {
 	await enforceRateLimit(ctx, 'moderationDecision', ctx.admin._id)
-	const reason = args.reason.trim()
+	const reason = moderationReason(args.reason)
 	if (!reason) {
 		throw new ConvexError({
 			code: 'REASON_REQUIRED',
@@ -1706,7 +1883,17 @@ async function recordReviewDecision(
 			message: 'Plugin not found.',
 		})
 	}
+	assertReviewRevision(project, args.expectedRevision)
 	const now = Date.now()
+	await ctx.db.patch(
+		'plugins',
+		project._id,
+		decisionFields(
+			project,
+			status === 'rejected' ? 'rejected' : 'changes_requested',
+			reason,
+		),
+	)
 	await ctx.db.patch('pluginReleases', release._id, {
 		status,
 		reviewedAt: now,
@@ -1714,10 +1901,18 @@ async function recordReviewDecision(
 		reviewNotes: reason,
 		updatedAt: now,
 	})
-	if (project.status !== 'published') {
+	if (
+		project.status !== 'published' &&
+		project.moderationStatus !== 'flagged' &&
+		project.moderationStatus !== 'rejected'
+	) {
 		await patchProject(ctx, project, {
-			visibility: 'draft',
-			status: 'draft',
+			visibility: status === 'rejected' ? 'hidden' : 'draft',
+			status: status === 'rejected' ? 'review' : 'draft',
+			moderationStatus: status === 'rejected' ? 'rejected' : 'pending',
+			moderationReason: reason,
+			moderatedAt: now,
+			moderatedBy: ctx.admin._id,
 			updatedAt: now,
 		})
 		if (status === 'rejected') {
@@ -1742,7 +1937,8 @@ async function recordReviewDecision(
 		)
 	}
 	await recordAdminAction(ctx, ctx.admin._id, {
-		action: status === 'rejected' ? 'plugin.reject' : 'plugin.requestChanges',
+		action:
+			status === 'rejected' ? 'plugin.reject' : 'plugin.requestChanges',
 		targetType: 'pluginRelease',
 		targetId: release._id,
 		targetLabel: `${project.name} ${release.version}`,
@@ -1875,6 +2071,9 @@ export const getMine = authedQuery({
 				status: v.string(),
 				visibility: v.string(),
 				slug: v.string(),
+				moderationStatus: v.optional(moderationStatus),
+				submissionStatus: v.optional(submissionStatus),
+				hasDraftChanges: v.boolean(),
 			}),
 			v.null(),
 		),
@@ -1918,15 +2117,22 @@ export const getMine = authedQuery({
 						status: project.status,
 						visibility: project.visibility,
 						slug: project.slug,
+						moderationStatus: project.moderationStatus,
+						submissionStatus: project.submissionStatus,
+						hasDraftChanges: !!project.draftChangesJson,
 					}
 				: null,
 			softwareName: software?.name,
-			locked: project ? Boolean(await activeReleaseFor(ctx, project._id)) : false,
+			locked: project
+				? Boolean(await activeReleaseFor(ctx, project._id))
+				: false,
 			moderationNote:
-				latestRelease?.status === 'changesRequested' ||
+				project?.submissionReason ??
+				project?.moderationReason ??
+				(latestRelease?.status === 'changesRequested' ||
 				latestRelease?.status === 'rejected'
 					? latestRelease.reviewNotes
-					: undefined,
+					: undefined),
 		}
 	},
 })

@@ -2,13 +2,11 @@
 
 import { Cancel01Icon, CheckmarkCircle01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation, useQuery } from 'convex/react'
-import Link from 'next/link'
+import { useMutation } from 'convex/react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
 	Dialog,
 	DialogContent,
@@ -152,54 +150,5 @@ export function ReleaseReviewActions({
 				</DialogContent>
 			</Dialog>
 		</>
-	)
-}
-
-/** Queue of new releases on public projects that need a moderator. */
-export function AdminPendingReleases() {
-	const releases = useQuery(
-		api.functions.projects.versions.listPendingReleases,
-	)
-
-	if (!releases || releases.length === 0) {
-		return null
-	}
-
-	return (
-		<Card className="mb-6">
-			<CardHeader>
-				<CardTitle className="text-base">
-					Releases awaiting review ({releases.length})
-				</CardTitle>
-			</CardHeader>
-			<CardContent className="divide-y">
-				{releases.map((release) => (
-					<div
-						className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-						key={release._id}
-					>
-						<div className="min-w-0">
-							<Link
-								className="font-medium hover:underline"
-								href={`/admin/projects/${release.project._id}`}
-							>
-								{release.project.name}
-							</Link>
-							<p className="text-muted-foreground text-sm">
-								v{release.version} · {release.fileName}
-								{release.validationStatus === 'valid'
-									? ''
-									: ' · validation pending'}
-							</p>
-						</div>
-						<ReleaseReviewActions
-							canApprove={release.validationStatus === 'valid'}
-							versionId={release._id}
-							versionLabel={`${release.project.name} v${release.version}`}
-						/>
-					</div>
-				))}
-			</CardContent>
-		</Card>
 	)
 }

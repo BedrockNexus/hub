@@ -11,6 +11,7 @@ import { ProjectGeneralSettingsForm } from './edit/general-settings-form'
 import { ProjectLicenseSettingsForm } from './edit/license-settings-form'
 import { ProjectLinksSettingsForm } from './edit/links-settings-form'
 import { ProjectVersionsForm } from './edit/versions-settings-form'
+import { ProjectReviewBoundary } from './project-review-boundary'
 import { ProjectSubmissionReview } from './submission-review'
 import { AddVersionForm } from './versions/add-version-form'
 
@@ -37,40 +38,51 @@ export async function ContentSettingsPage({
 		)
 	}
 	const path = section?.join('/') ?? ''
-	switch (path) {
-		case '':
-			return <ProjectGeneralSettingsForm id={item._id} />
-		case 'description':
-			return <ProjectDescriptionSettingsForm id={item._id} />
-		case 'categories':
-			return <ProjectCategoriesSettingsForm id={item._id} />
-		case 'links':
-			return <ProjectLinksSettingsForm id={item._id} />
-		case 'license':
-			return <ProjectLicenseSettingsForm id={item._id} />
-		case 'gallery':
-			return <ProjectGallerySettingsForm id={item._id} />
-		case 'versions':
-			return (
-				<ProjectVersionsForm projectId={item._id} projectType={type} />
-			)
-		case 'review':
-			return <ProjectSubmissionReview id={item._id} />
-		case 'versions/add':
-			return (
-				<div className="space-y-6">
-					<div>
-						<h2 className="font-semibold text-lg">
-							Publish New Release
-						</h2>
-						<p className="text-muted-foreground text-sm">
-							Upload a new release for {item.name}
-						</p>
+	const content = (() => {
+		switch (path) {
+			case '':
+				return <ProjectGeneralSettingsForm id={item._id} />
+			case 'description':
+				return <ProjectDescriptionSettingsForm id={item._id} />
+			case 'categories':
+				return <ProjectCategoriesSettingsForm id={item._id} />
+			case 'links':
+				return <ProjectLinksSettingsForm id={item._id} />
+			case 'license':
+				return <ProjectLicenseSettingsForm id={item._id} />
+			case 'gallery':
+				return <ProjectGallerySettingsForm id={item._id} />
+			case 'versions':
+				return (
+					<ProjectVersionsForm
+						projectId={item._id}
+						projectType={type}
+					/>
+				)
+			case 'review':
+				return <ProjectSubmissionReview id={item._id} />
+			case 'versions/add':
+				return (
+					<div className="space-y-6">
+						<div>
+							<h2 className="font-semibold text-lg">
+								Publish New Release
+							</h2>
+							<p className="text-muted-foreground text-sm">
+								Upload a new release for {item.name}
+							</p>
+						</div>
+						<AddVersionForm
+							projectId={item._id}
+							projectType={type}
+						/>
 					</div>
-					<AddVersionForm projectId={item._id} projectType={type} />
-				</div>
-			)
-		default:
-			notFound()
-	}
+				)
+			default:
+				notFound()
+		}
+	})()
+	return (
+		<ProjectReviewBoundary id={item._id}>{content}</ProjectReviewBoundary>
+	)
 }

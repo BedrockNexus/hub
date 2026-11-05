@@ -1,3 +1,9 @@
+import { deleteUnretainedMedia } from '../../lib/moderationHistory'
+import {
+	stageGallery,
+	publicGallery,
+	isRetainedGalleryKey,
+} from '../../lib/submissionGallery'
 import { v } from 'convex/values'
 import { components } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
@@ -6,10 +12,7 @@ import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { toPublicGalleryItem } from '../../lib/publicContent'
 import { canEditContent } from '../../lib/permissions'
-import {
-	MAX_GALLERY_IMAGES,
-	normalizeGalleryCaption,
-} from '../../lib/gallery'
+import { MAX_GALLERY_IMAGES, normalizeGalleryCaption } from '../../lib/gallery'
 import { validateEntityImageUpload } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { buildEntityImageR2ObjectKey } from '../../lib/r2Keys'
@@ -29,7 +32,12 @@ async function canModifyServer(
 	userId: string,
 	role?: string | null,
 ) {
-	return canEditContent(ctx, server, { _id: userId, role }, { allowSiteAdmin: true })
+	return canEditContent(
+		ctx,
+		server,
+		{ _id: userId, role },
+		{ allowSiteAdmin: true },
+	)
 }
 
 async function assertCanManageServer(
@@ -52,7 +60,10 @@ async function assertCanManageServer(
 	return { server, user }
 }
 
-async function getServerGallery(ctx: MutationCtx | QueryCtx, serverId: Id<'servers'>) {
+async function getServerGallery(
+	ctx: MutationCtx | QueryCtx,
+	serverId: Id<'servers'>,
+) {
 	return ctx.db
 		.query('serverGallery')
 		.withIndex('by_server_sort', (q) => q.eq('serverId', serverId))
@@ -96,7 +107,7 @@ export const listPublic = query({
 			.collect()
 
 		return Promise.all(
-			items.map(async (item) => {
+			publicGallery(server, items).map(async (item) => {
 				const { url } = await enrichGalleryItem(item)
 				return toPublicGalleryItem(item, url)
 			}),
@@ -126,6 +137,7 @@ export const generateUploadUrl = mutation({
 	returns: v.object({ key: v.string(), url: v.string() }),
 	handler: async (ctx, args) => {
 		const { user } = await assertCanManageServer(ctx, args.serverId)
+		await stageGallery(ctx, args.serverId)
 		await enforceRateLimit(
 			ctx,
 			'uploadUrl',
@@ -153,13 +165,17 @@ export const add = mutation({
 	},
 	handler: async (ctx, args) => {
 		const { user } = await assertCanManageServer(ctx, args.serverId)
+		await stageGallery(ctx, args.serverId)
 		const metadata = await validateEntityImageUpload(ctx, {
 			key: args.r2Key,
 			resourceType: 'servers',
 			entityId: args.serverId,
 			imageKind: 'gallery',
 		})
-		const existing = await assertServerGalleryHasCapacity(ctx, args.serverId)
+		const existing = await assertServerGalleryHasCapacity(
+			ctx,
+			args.serverId,
+		)
 		const now = Date.now()
 
 		return await ctx.db.insert('serverGallery', {
@@ -188,6 +204,7 @@ export const updateCaption = mutation({
 			throw new Error('Gallery image not found')
 		}
 		await assertCanManageServer(ctx, item.serverId)
+		await stageGallery(ctx, item.serverId)
 
 		await ctx.db.patch(args.id, {
 			caption: normalizeGalleryCaption(args.caption),
@@ -203,6 +220,7 @@ export const reorder = mutation({
 	},
 	handler: async (ctx, args) => {
 		await assertCanManageServer(ctx, args.serverId)
+		await stageGallery(ctx, args.serverId)
 		const existing = await getServerGallery(ctx, args.serverId)
 		const expectedIds = new Set(existing.map((item) => item._id))
 		const orderedIds = new Set(args.orderedIds)
@@ -237,8 +255,10 @@ export const remove = mutation({
 			throw new Error('Gallery image not found')
 		}
 		await assertCanManageServer(ctx, item.serverId)
+		await stageGallery(ctx, item.serverId)
 
-		await r2.deleteObject(ctx, item.r2Key)
+		if (!(await isRetainedGalleryKey(ctx, item.serverId, item.r2Key)))
+			await deleteUnretainedMedia(ctx, item.r2Key)
 		await ctx.db.delete(args.id)
 
 		const remaining = (await getServerGallery(ctx, item.serverId)).filter(

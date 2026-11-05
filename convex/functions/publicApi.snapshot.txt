@@ -14,6 +14,8 @@ action   functions/servers/verification:generateCode
 action   functions/servers/verification:verifyOwnership
 action   functions/site/organizations:confirmLogoUpload
 action   functions/site/users:confirmAvatarUpload
+mutation functions/moderation/work:claim
+mutation functions/moderation/work:markRead
 mutation functions/plugins/categories:create
 mutation functions/plugins/categories:remove
 mutation functions/plugins/categories:update
@@ -26,6 +28,7 @@ mutation functions/plugins/gallery:reorder
 mutation functions/plugins/gallery:updateCaption
 mutation functions/plugins/icons:generateUploadUrl
 mutation functions/plugins/icons:remove
+mutation functions/plugins/moderation:moderate
 mutation functions/plugins/publishing/model:approveReview
 mutation functions/plugins/publishing/model:rejectReview
 mutation functions/plugins/publishing/model:requestReviewChanges
@@ -111,6 +114,11 @@ mutation functions/storage:generateImageUploadUrl
 mutation lib/r2:syncMetadata
 mutation lib/r2:syncUploadMetadata
 query    auth:getCurrentUser
+query    functions/moderation/history:getComparison
+query    functions/moderation/history:getCurrentComparison
+query    functions/moderation/history:list
+query    functions/moderation/work:notices
+query    functions/moderation/work:queue
 query    functions/plugins/catalog:explore
 query    functions/plugins/catalog:featured
 query    functions/plugins/catalog:getProject
@@ -129,8 +137,10 @@ query    functions/plugins/organizations:getManagedIdBySlug
 query    functions/plugins/organizations:getManagementAccess
 query    functions/plugins/organizations:getMembershipAccess
 query    functions/plugins/organizations:listPlugins
+query    functions/plugins/projects:getAdminReview
 query    functions/plugins/projects:getBySlug
 query    functions/plugins/projects:getManagementAccess
+query    functions/plugins/projects:listAdmin
 query    functions/plugins/projects:listMine
 query    functions/plugins/publishing/model:getMine
 query    functions/plugins/publishing/model:listAvailableWorkflows

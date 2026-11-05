@@ -59,7 +59,7 @@ export function ServerEditSidebar({
 			await updateServer({ id: server._id, status })
 			toast.success(
 				status === 'published'
-					? `${server.name} is now published`
+					? `${server.name} submitted for review`
 					: `${server.name} moved to draft`,
 			)
 		} catch (error) {
@@ -68,13 +68,23 @@ export function ServerEditSidebar({
 	}
 
 	let action: ListingAction | undefined
-	if (server?.status === 'draft') {
+	if (
+		server?.submissionStatus !== 'pending' &&
+		(server?.status === 'draft' ||
+			(server?.status === 'published' && !!server.draftChangesJson))
+	) {
 		action = {
-			label: 'Publish',
+			label:
+				server?.status === 'published'
+					? 'Submit updates'
+					: 'Submit for review',
 			icon: ViewIcon,
 			onRun: () => setStatus('published'),
 		}
-	} else if (server?.status === 'published') {
+	} else if (
+		server?.status === 'published' &&
+		server.submissionStatus !== 'pending'
+	) {
 		action = {
 			label: 'Move to draft',
 			icon: ViewOffSlashIcon,
@@ -93,7 +103,7 @@ export function ServerEditSidebar({
 							name: server.name,
 							confirmText: server.slug,
 							description:
-								'This permanently deletes the server, its reviews, gallery and stats.',
+								'This permanently deletes the server listing, its reviews, gallery and stats. Recorded submission history and its images are retained.',
 							onDelete: async () => {
 								await deleteServer({ id: server._id })
 								router.push(BASE_PATH)
@@ -125,12 +135,15 @@ export function ServerEditSidebar({
 				/>
 			}
 			id={id}
-			moderationNote={server?.moderationReason}
+			moderationNote={
+				server?.submissionReason ?? server?.moderationReason
+			}
 			publicHref={
 				server?.status === 'published' ? serverHref(server) : undefined
 			}
 			sections={SECTIONS}
 			status={
+				server?.submissionStatus === 'pending' ||
 				server?.status === 'under_review'
 					? 'in_review'
 					: (server?.status ?? undefined)

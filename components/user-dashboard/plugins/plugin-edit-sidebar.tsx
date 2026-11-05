@@ -1,13 +1,13 @@
 'use client'
 
 import {
+	CheckmarkCircle01Icon,
 	GridIcon,
 	Image02Icon,
 	InformationCircleIcon,
 	LicenseIcon,
 	Link04Icon,
 	Package01Icon,
-	SentIcon,
 	TextIcon,
 	WorkflowSquare01Icon,
 } from '@hugeicons/core-free-icons'
@@ -20,10 +20,13 @@ import {
 	type EditSection,
 	type ListingAction,
 	ListingEditSidebar,
-	type ListingStatus,
 } from '@/components/user-dashboard/edit-sidebar/listing-edit-sidebar'
 import { ListingSwitcher } from '@/components/user-dashboard/edit-sidebar/listing-switcher'
 import { api } from '@/convex/_generated/api'
+import {
+	creatorListingState,
+	creatorSidebarStatus,
+} from '@/lib/creator-listing-state'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 
 const BASE_PATH = '/dashboard/plugins'
@@ -37,6 +40,11 @@ const SECTIONS: readonly EditSection[] = [
 	{ id: '/gallery', title: 'Gallery', icon: Image02Icon },
 	{ id: '/workflow', title: 'Workflow', icon: WorkflowSquare01Icon },
 	{ id: '/versions', title: 'Versions', icon: Package01Icon },
+	{
+		id: '/review',
+		title: 'Preview & submission',
+		icon: CheckmarkCircle01Icon,
+	},
 ]
 
 /** `id` is the plugin's dashboard id from the URL (lib/plugins/plugin-dashboard-id). */
@@ -62,30 +70,17 @@ export function PluginEditSidebar({
 		api.functions.plugins.deletion.deleteProject,
 	)
 
-	const published = plugin?.project?.status === 'published'
-	let status: ListingStatus | undefined
-	if (plugin) {
-		status = 'draft'
-		if (plugin.locked) {
-			status = 'in_review'
-		} else if (published) {
-			status = 'published'
-		}
-	}
-	let action: ListingAction | undefined
-	if (plugin && !plugin.locked) {
-		action = plugin.draft.projectId
+	const input = { ...plugin?.project, locked: plugin?.locked }
+	const state = creatorListingState(input)
+	const status = plugin ? creatorSidebarStatus(input) : undefined
+	const action: ListingAction | undefined =
+		plugin && state.canSubmit
 			? {
-					label: 'Send a version to review',
-					icon: SentIcon,
-					href: `${BASE_PATH}/${id}/versions`,
+					label: 'Review & submit',
+					icon: CheckmarkCircle01Icon,
+					href: `${BASE_PATH}/${id}/review`,
 				}
-			: {
-					label: 'Pick a workflow',
-					icon: WorkflowSquare01Icon,
-					href: `${BASE_PATH}/${id}/workflow`,
-				}
-	}
+			: undefined
 
 	return (
 		<ListingEditSidebar
@@ -93,12 +88,12 @@ export function PluginEditSidebar({
 			backLabel="Back to Plugins"
 			basePath={BASE_PATH}
 			deletion={
-				plugin
+				plugin && !state.locked
 					? {
 							name: plugin.draft.name,
 							confirmText: plugin.draft.slug,
 							description:
-								'This permanently removes the plugin, its versions, files, reviews, gallery and download history from BedrockNexus. Your GitHub repository and its releases are not changed.',
+								'This permanently removes the plugin, its versions, files, reviews, gallery and download history from BedrockNexus. Recorded submission history and its images are retained. Your GitHub repository and its releases are not changed.',
 							onDelete: async (confirmation) => {
 								await deletePlugin({
 									draftId: plugin.draft._id,
@@ -139,7 +134,7 @@ export function PluginEditSidebar({
 			id={id}
 			moderationNote={plugin?.moderationNote}
 			publicHref={
-				published && plugin?.project?.visibility === 'public'
+				state.published && plugin
 					? `/plugins/${createPluginDashboardId(plugin.repository.githubRepositoryId)}`
 					: undefined
 			}

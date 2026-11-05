@@ -1,3 +1,9 @@
+import { deleteUnretainedMedia } from '../../lib/moderationHistory'
+import {
+	stageGallery,
+	publicGallery,
+	isRetainedGalleryKey,
+} from '../../lib/submissionGallery'
 import { v } from 'convex/values'
 import { components } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
@@ -7,10 +13,7 @@ import { authComponent } from '../../auth'
 import { toPublicGalleryItem } from '../../lib/publicContent'
 import { canEditContent } from '../../lib/permissions'
 import { isPublicProject } from '../../lib/contentVisibility'
-import {
-	MAX_GALLERY_IMAGES,
-	normalizeGalleryCaption,
-} from '../../lib/gallery'
+import { MAX_GALLERY_IMAGES, normalizeGalleryCaption } from '../../lib/gallery'
 import { validateEntityImageUpload } from '../../lib/media'
 import { r2, resolveCdnObjectUrl } from '../../lib/r2'
 import { buildEntityImageR2ObjectKey } from '../../lib/r2Keys'
@@ -28,7 +31,12 @@ async function canModifyProject(
 	project: { ownerType: 'user' | 'organization'; ownerId: string },
 	userId: string,
 ) {
-	return canEditContent(ctx, project, { _id: userId }, { allowSiteAdmin: false })
+	return canEditContent(
+		ctx,
+		project,
+		{ _id: userId },
+		{ allowSiteAdmin: false },
+	)
 }
 
 async function assertCanManageProject(
@@ -103,7 +111,7 @@ export const listPublic = query({
 			.collect()
 
 		return Promise.all(
-			items.map(async (item) => {
+			publicGallery(project, items).map(async (item) => {
 				const { url } = await enrichGalleryItem(item)
 				return toPublicGalleryItem(item, url)
 			}),
@@ -135,6 +143,7 @@ export const generateUploadUrl = mutation({
 	returns: v.object({ key: v.string(), url: v.string() }),
 	handler: async (ctx, args) => {
 		const { user } = await assertCanManageProject(ctx, args.projectId)
+		await stageGallery(ctx, args.projectId)
 		await enforceRateLimit(
 			ctx,
 			'uploadUrl',
@@ -162,13 +171,17 @@ export const add = mutation({
 	},
 	handler: async (ctx, args) => {
 		const { user } = await assertCanManageProject(ctx, args.projectId)
+		await stageGallery(ctx, args.projectId)
 		const metadata = await validateEntityImageUpload(ctx, {
 			key: args.r2Key,
 			resourceType: 'projects',
 			entityId: args.projectId,
 			imageKind: 'gallery',
 		})
-		const existing = await assertProjectGalleryHasCapacity(ctx, args.projectId)
+		const existing = await assertProjectGalleryHasCapacity(
+			ctx,
+			args.projectId,
+		)
 		const now = Date.now()
 
 		return await ctx.db.insert('projectGallery', {
@@ -197,6 +210,7 @@ export const updateCaption = mutation({
 			throw new Error('Gallery image not found')
 		}
 		await assertCanManageProject(ctx, item.projectId)
+		await stageGallery(ctx, item.projectId)
 
 		await ctx.db.patch(args.id, {
 			caption: normalizeGalleryCaption(args.caption),
@@ -212,6 +226,7 @@ export const reorder = mutation({
 	},
 	handler: async (ctx, args) => {
 		await assertCanManageProject(ctx, args.projectId)
+		await stageGallery(ctx, args.projectId)
 		const existing = await getProjectGallery(ctx, args.projectId)
 		const expectedIds = new Set(existing.map((item) => item._id))
 		const orderedIds = new Set(args.orderedIds)
@@ -246,8 +261,10 @@ export const remove = mutation({
 			throw new Error('Gallery image not found')
 		}
 		await assertCanManageProject(ctx, item.projectId)
+		await stageGallery(ctx, item.projectId)
 
-		await r2.deleteObject(ctx, item.r2Key)
+		if (!(await isRetainedGalleryKey(ctx, item.projectId, item.r2Key)))
+			await deleteUnretainedMedia(ctx, item.r2Key)
 		await ctx.db.delete(args.id)
 
 		const remaining = (await getProjectGallery(ctx, item.projectId)).filter(

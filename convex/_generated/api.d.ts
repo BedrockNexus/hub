@@ -10,7 +10,10 @@
 
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as devSeed from "../devSeed.js";
 import type * as functions_email from "../functions/email.js";
+import type * as functions_moderation_history from "../functions/moderation/history.js";
+import type * as functions_moderation_work from "../functions/moderation/work.js";
 import type * as functions_plugins_accountDeletion from "../functions/plugins/accountDeletion.js";
 import type * as functions_plugins_catalog from "../functions/plugins/catalog.js";
 import type * as functions_plugins_categories from "../functions/plugins/categories.js";
@@ -27,6 +30,7 @@ import type * as functions_plugins_github_webhookSignature from "../functions/pl
 import type * as functions_plugins_github_webhooks from "../functions/plugins/github/webhooks.js";
 import type * as functions_plugins_icons from "../functions/plugins/icons.js";
 import type * as functions_plugins_migrations from "../functions/plugins/migrations.js";
+import type * as functions_plugins_moderation from "../functions/plugins/moderation.js";
 import type * as functions_plugins_organizations from "../functions/plugins/organizations.js";
 import type * as functions_plugins_projects from "../functions/plugins/projects.js";
 import type * as functions_plugins_publishing_actions from "../functions/plugins/publishing/actions.js";
@@ -93,6 +97,7 @@ import type * as lib_editorMedia from "../lib/editorMedia.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_gallery from "../lib/gallery.js";
 import type * as lib_media from "../lib/media.js";
+import type * as lib_moderationHistory from "../lib/moderationHistory.js";
 import type * as lib_ownerPictures from "../lib/ownerPictures.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_plugins_access from "../lib/plugins/access.js";
@@ -108,13 +113,19 @@ import type * as lib_r2 from "../lib/r2.js";
 import type * as lib_r2Keys from "../lib/r2Keys.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_redact from "../lib/redact.js";
+import type * as lib_releaseReviewQueue from "../lib/releaseReviewQueue.js";
+import type * as lib_reviewWork from "../lib/reviewWork.js";
 import type * as lib_serverAddress from "../lib/serverAddress.js";
 import type * as lib_siteAggregates from "../lib/siteAggregates.js";
+import type * as lib_submissionGallery from "../lib/submissionGallery.js";
+import type * as lib_submissions from "../lib/submissions.js";
 import type * as lib_trending from "../lib/trending.js";
+import type * as schemas_moderation from "../schemas/moderation.js";
 import type * as schemas_plugins from "../schemas/plugins.js";
 import type * as schemas_projects from "../schemas/projects.js";
 import type * as schemas_servers from "../schemas/servers.js";
 import type * as schemas_site from "../schemas/site.js";
+import type * as schemas_submissions from "../schemas/submissions.js";
 
 import type {
   ApiFromModules,
@@ -125,7 +136,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
+  devSeed: typeof devSeed;
   "functions/email": typeof functions_email;
+  "functions/moderation/history": typeof functions_moderation_history;
+  "functions/moderation/work": typeof functions_moderation_work;
   "functions/plugins/accountDeletion": typeof functions_plugins_accountDeletion;
   "functions/plugins/catalog": typeof functions_plugins_catalog;
   "functions/plugins/categories": typeof functions_plugins_categories;
@@ -142,6 +156,7 @@ declare const fullApi: ApiFromModules<{
   "functions/plugins/github/webhooks": typeof functions_plugins_github_webhooks;
   "functions/plugins/icons": typeof functions_plugins_icons;
   "functions/plugins/migrations": typeof functions_plugins_migrations;
+  "functions/plugins/moderation": typeof functions_plugins_moderation;
   "functions/plugins/organizations": typeof functions_plugins_organizations;
   "functions/plugins/projects": typeof functions_plugins_projects;
   "functions/plugins/publishing/actions": typeof functions_plugins_publishing_actions;
@@ -208,6 +223,7 @@ declare const fullApi: ApiFromModules<{
   "lib/functions": typeof lib_functions;
   "lib/gallery": typeof lib_gallery;
   "lib/media": typeof lib_media;
+  "lib/moderationHistory": typeof lib_moderationHistory;
   "lib/ownerPictures": typeof lib_ownerPictures;
   "lib/permissions": typeof lib_permissions;
   "lib/plugins/access": typeof lib_plugins_access;
@@ -223,13 +239,19 @@ declare const fullApi: ApiFromModules<{
   "lib/r2Keys": typeof lib_r2Keys;
   "lib/rateLimits": typeof lib_rateLimits;
   "lib/redact": typeof lib_redact;
+  "lib/releaseReviewQueue": typeof lib_releaseReviewQueue;
+  "lib/reviewWork": typeof lib_reviewWork;
   "lib/serverAddress": typeof lib_serverAddress;
   "lib/siteAggregates": typeof lib_siteAggregates;
+  "lib/submissionGallery": typeof lib_submissionGallery;
+  "lib/submissions": typeof lib_submissions;
   "lib/trending": typeof lib_trending;
+  "schemas/moderation": typeof schemas_moderation;
   "schemas/plugins": typeof schemas_plugins;
   "schemas/projects": typeof schemas_projects;
   "schemas/servers": typeof schemas_servers;
   "schemas/site": typeof schemas_site;
+  "schemas/submissions": typeof schemas_submissions;
 }>;
 
 /**

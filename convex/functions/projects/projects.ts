@@ -1,4 +1,18 @@
-﻿import { resolveProjectReference } from '../../lib/contentReferences'
+import {
+	deleteUnretainedMedia,
+	recordSubmission,
+} from '../../lib/moderationHistory'
+import {
+	assertSubmissionEditable,
+	assertReviewRevision,
+	decisionFields,
+	hasApprovedListing,
+	moderationReason,
+	snapshot,
+	snapshotPatch,
+	submissionView,
+} from '../../lib/submissions'
+import { resolveProjectReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
@@ -12,7 +26,10 @@ import {
 	projectType,
 } from '../../schemas/projects'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { canModifyProjectOwner, ownerFromOrganization } from '../../lib/contentOwnership'
+import {
+	canModifyProjectOwner,
+	ownerFromOrganization,
+} from '../../lib/contentOwnership'
 import {
 	isPublicProject,
 	requiresModerationReason,
@@ -84,7 +101,9 @@ async function assertCategoriesMatchProjectType(
 	categoryIds: Id<'projectCategories'>[],
 	type: StoredProjectType,
 ) {
-	const categories = await Promise.all(categoryIds.map((id) => ctx.db.get(id)))
+	const categories = await Promise.all(
+		categoryIds.map((id) => ctx.db.get(id)),
+	)
 	const normalizedType = normalizeProjectType(type)
 
 	if (
@@ -118,7 +137,9 @@ function assertMetadataMatchesProjectType(
 		}
 		for (const dependency of metadata.dependencies) {
 			if (!dependency.name.trim() || dependency.name.length > 80) {
-				throw new Error('Dependency names must be between 1 and 80 characters')
+				throw new Error(
+					'Dependency names must be between 1 and 80 characters',
+				)
 			}
 			if (dependency.url) {
 				let url: URL
@@ -198,8 +219,22 @@ async function enrichProjectListItem(ctx: QueryCtx, item: Doc<'projects'>) {
 
 	const iconUrl = await resolveProjectIconUrl(item)
 
+	const pendingVersion =
+		isPublicProject(item) && item.submissionStatus !== 'pending'
+			? await ctx.db
+					.query('projectVersions')
+					.withIndex(
+						'by_project_and_standalone_review_pending',
+						(q) =>
+							q
+								.eq('projectId', item._id)
+								.eq('standaloneReviewPending', true),
+					)
+					.first()
+			: null
 	return {
 		...item,
+		hasPendingVersions: !!pendingVersion,
 		iconUrl,
 		categories: categories.filter(Boolean),
 		averageRating: stats?.averageRating ?? 0,
@@ -216,7 +251,10 @@ async function projectHasVersion(
 		.query('projectVersions')
 		.withIndex('by_project', (q) => q.eq('projectId', projectId))
 	for await (const version of versions) {
-		if (isValidatedRelease(version) && version.reviewStatus !== 'rejected') {
+		if (
+			isValidatedRelease(version) &&
+			version.reviewStatus !== 'rejected'
+		) {
 			return true
 		}
 	}
@@ -236,7 +274,7 @@ async function assertProjectHasVersion(
 
 async function deleteR2ObjectIfPresent(ctx: MutationCtx, key?: string) {
 	if (key) {
-		await r2.deleteObject(ctx, key)
+		await deleteUnretainedMedia(ctx, key)
 	}
 }
 
@@ -249,7 +287,7 @@ async function deleteProjectFiles(ctx: MutationCtx, project: Doc<'projects'>) {
 		.withIndex('by_project', (q) => q.eq('projectId', project._id))
 		.collect()
 	for (const item of galleryItems) {
-		await r2.deleteObject(ctx, item.r2Key)
+		await deleteUnretainedMedia(ctx, item.r2Key)
 		await ctx.db.delete(item._id)
 	}
 
@@ -294,7 +332,9 @@ async function deleteProjectRelatedRows(
 
 	const days = await ctx.db
 		.query('projectDailyStats')
-		.withIndex('by_projectId_and_dayKey', (q) => q.eq('projectId', projectId))
+		.withIndex('by_projectId_and_dayKey', (q) =>
+			q.eq('projectId', projectId),
+		)
 		.collect()
 	for (const item of days) {
 		await ctx.db.delete(item._id)
@@ -337,7 +377,8 @@ async function projectDetailExtras(ctx: QueryCtx, item: Doc<'projects'>) {
 		.take(50)
 	const latestVersion = recentVersions.find(
 		(release) =>
-			isPublicRelease(release) && Boolean(getPublishedReleaseKey(release)),
+			isPublicRelease(release) &&
+			Boolean(getPublishedReleaseKey(release)),
 	)
 
 	let ownerData:
@@ -356,13 +397,10 @@ async function projectDetailExtras(ctx: QueryCtx, item: Doc<'projects'>) {
 		| null = null
 
 	if (item.ownerType === 'organization') {
-		const org = (await ctx.runQuery(
-			components.betterAuth.adapter.findOne,
-			{
-				model: 'organization',
-				where: [{ field: '_id', value: item.ownerId }],
-			},
-		)) as {
+		const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'organization',
+			where: [{ field: '_id', value: item.ownerId }],
+		})) as {
 			_id: string
 			name: string
 			slug: string
@@ -427,7 +465,12 @@ async function canModifyProject(
 	project: { ownerType: 'user' | 'organization'; ownerId: string },
 	userId: string,
 ): Promise<boolean> {
-	return canEditContent(ctx, project, { _id: userId }, { allowSiteAdmin: false })
+	return canEditContent(
+		ctx,
+		project,
+		{ _id: userId },
+		{ allowSiteAdmin: false },
+	)
 }
 
 async function getUserOrganizationIds(
@@ -477,7 +520,8 @@ export const getForEdit = query({
 		const dayKey = getUtcDayKey(now)
 		const monthKey = getUtcMonthKey(now)
 
-		const item = await resolveProjectReference(ctx, args.id)
+		const stored = await resolveProjectReference(ctx, args.id)
+		const item = stored ? submissionView(stored) : null
 
 		if (!item) {
 			return null
@@ -577,7 +621,7 @@ export const getForEdit = query({
 		}
 
 		return {
-			...item,
+			...submissionView(item),
 			iconUrl,
 			bannerUrl: await resolveProjectBannerUrl(item),
 			categories: categories.filter(Boolean),
@@ -649,7 +693,9 @@ export const listMyContent = query({
 
 		items.sort((a, b) => b._creationTime - a._creationTime)
 
-		return Promise.all(items.map((item) => enrichProjectListItem(ctx, item)))
+		return Promise.all(
+			items.map((item) => enrichProjectListItem(ctx, item)),
+		)
 	},
 })
 
@@ -668,13 +714,17 @@ export const listByOrganization = query({
 				user._id,
 			))
 		) {
-			throw new Error('You do not have permission to view this organization')
+			throw new Error(
+				'You do not have permission to view this organization',
+			)
 		}
 
 		const items = await ctx.db
 			.query('projects')
 			.withIndex('by_owner', (q) =>
-				q.eq('ownerType', 'organization').eq('ownerId', args.organizationId),
+				q
+					.eq('ownerType', 'organization')
+					.eq('ownerId', args.organizationId),
 			)
 			.collect()
 
@@ -726,7 +776,6 @@ export const listAdmin = adminQuery({
 		)
 	},
 })
-
 
 // =============================================================================
 // MUTATIONS
@@ -813,7 +862,12 @@ export const create = mutation({
 		})
 		await afterProjectWrite(ctx, null, await ctx.db.get(projectId))
 
-		await recordEditorMediaReferences(ctx, 'projects', projectId, args.description)
+		await recordEditorMediaReferences(
+			ctx,
+			'projects',
+			projectId,
+			args.description,
+		)
 
 		return { id: projectId, slug }
 	},
@@ -851,7 +905,8 @@ export const update = mutation({
 			throw new Error('You must be logged in to update a project')
 		}
 
-		const item = await ctx.db.get(args.id)
+		const liveItem = await ctx.db.get(args.id)
+		const item = liveItem ? submissionView(liveItem) : null
 		if (!item) {
 			throw new Error('Project not found')
 		}
@@ -860,6 +915,7 @@ export const update = mutation({
 		if (!(await canModifyProject(ctx, item, user._id))) {
 			throw new Error('You do not have permission to edit this project')
 		}
+		assertSubmissionEditable(item)
 		validateProjectFields(args)
 
 		const now = Date.now()
@@ -874,13 +930,16 @@ export const update = mutation({
 		const mediaUpdates = {
 			...(nextIconR2Key !== undefined
 				? {
-						iconR2Key: nextIconR2Key === null ? undefined : nextIconR2Key,
+						iconR2Key:
+							nextIconR2Key === null ? undefined : nextIconR2Key,
 					}
 				: {}),
 			...(nextBannerR2Key !== undefined
 				? {
 						bannerR2Key:
-							nextBannerR2Key === null ? undefined : nextBannerR2Key,
+							nextBannerR2Key === null
+								? undefined
+								: nextBannerR2Key,
 					}
 				: {}),
 		}
@@ -904,7 +963,10 @@ export const update = mutation({
 		const nextType = args.type ?? item.type
 		const nextCategoryIds = args.categoryIds ?? item.categoryIds
 		await assertCategoriesMatchProjectType(ctx, nextCategoryIds, nextType)
-		assertMetadataMatchesProjectType(nextType, args.metadata ?? item.metadata)
+		assertMetadataMatchesProjectType(
+			nextType,
+			args.metadata ?? item.metadata,
+		)
 
 		if (
 			args.type &&
@@ -915,10 +977,16 @@ export const update = mutation({
 				.withIndex('by_project', (q) => q.eq('projectId', item._id))
 				.first()
 			if (existingVersion) {
-				throw new Error('A project type cannot change after a release is added')
+				throw new Error(
+					'A project type cannot change after a release is added',
+				)
 			}
 		}
-		if (status === 'under_review' && item.status !== 'draft') {
+		if (
+			status === 'under_review' &&
+			item.status !== 'draft' &&
+			!hasApprovedListing(item)
+		) {
 			throw new Error('Only draft projects can be submitted for review')
 		}
 		if (status === 'under_review' && item.moderationStatus === 'rejected') {
@@ -945,14 +1013,19 @@ export const update = mutation({
 		const ownerUpdates = shouldUpdateOwner ? nextOwner : {}
 		const ownerChanges =
 			shouldUpdateOwner &&
-			(nextOwner.ownerType !== item.ownerType || nextOwner.ownerId !== item.ownerId)
+			(nextOwner.ownerType !== item.ownerType ||
+				nextOwner.ownerId !== item.ownerId)
 		// Moving a project needs manage rights on its current owner and
 		// membership in the new owner.
 		if (
 			ownerChanges &&
 			!(
-				(await canManageContent(ctx, item, user, { allowSiteAdmin: false })) &&
-				(await canEditContent(ctx, nextOwner, user, { allowSiteAdmin: false }))
+				(await canManageContent(ctx, item, user, {
+					allowSiteAdmin: false,
+				})) &&
+				(await canEditContent(ctx, nextOwner, user, {
+					allowSiteAdmin: false,
+				}))
 			)
 		) {
 			throw new Error(
@@ -973,7 +1046,7 @@ export const update = mutation({
 			}
 		}
 
-		await ctx.db.patch(id, {
+		const changes = {
 			...updates,
 			...(updates.type
 				? { type: normalizeProjectType(updates.type) }
@@ -984,23 +1057,62 @@ export const update = mutation({
 			...ownerUpdates,
 			...(slug ? { slug } : {}),
 			updatedAt: now,
+		}
+		const submittedVersions =
+			status === 'under_review'
+				? (
+						await ctx.db
+							.query('projectVersions')
+							.withIndex('by_project', (q) =>
+								q.eq('projectId', item._id),
+							)
+							.collect()
+					)
+						.filter(isValidatedRelease)
+						.map((version) => version._id)
+				: undefined
+		await ctx.db.patch(id, {
+			...(item.publishedAt || hasApprovedListing(item)
+				? { draftChangesJson: snapshot(item, changes), ...ownerUpdates }
+				: changes),
+			...(status === 'under_review'
+				? {
+						submissionStatus: 'pending' as const,
+						submissionReason: undefined,
+						submittedAt: now,
+						submittedVersionIds: submittedVersions,
+					}
+				: {}),
+			submissionRevision: (item.submissionRevision ?? 0) + 1,
+			updatedAt: now,
 		})
-		await afterProjectWrite(ctx, item, await ctx.db.get(id))
+		if (status === 'under_review')
+			await recordSubmission(ctx, {
+				content: liveItem!,
+				details: { ...item, ...changes },
+				actorId: user._id,
+				revision: (item.submissionRevision ?? 0) + 1,
+			})
+		await afterProjectWrite(ctx, liveItem!, await ctx.db.get(id))
 		await recordEditorMediaReferences(ctx, 'projects', id, args.description)
 
 		if (
+			!item.publishedAt &&
+			!hasApprovedListing(item) &&
 			nextIconR2Key !== undefined &&
 			item.iconR2Key &&
 			nextIconR2Key !== item.iconR2Key
 		) {
-			await r2.deleteObject(ctx, item.iconR2Key)
+			await deleteUnretainedMedia(ctx, item.iconR2Key)
 		}
 		if (
+			!item.publishedAt &&
+			!hasApprovedListing(item) &&
 			nextBannerR2Key !== undefined &&
 			item.bannerR2Key &&
 			nextBannerR2Key !== item.bannerR2Key
 		) {
-			await r2.deleteObject(ctx, item.bannerR2Key)
+			await deleteUnretainedMedia(ctx, item.bannerR2Key)
 		}
 
 		return id
@@ -1010,7 +1122,12 @@ export const update = mutation({
 export const getAdminReview = adminQuery({
 	args: { id: v.id('projects') },
 	handler: async (ctx, args) => {
-		const project = await ctx.db.get(args.id)
+		const stored = await ctx.db.get(args.id)
+		const project = stored
+			? stored.submissionStatus === 'pending'
+				? submissionView(stored)
+				: stored
+			: null
 		if (!project) {
 			return null
 		}
@@ -1028,9 +1145,7 @@ export const getAdminReview = adminQuery({
 				.collect(),
 			ctx.db
 				.query('projectVersions')
-				.withIndex('by_project', (q) =>
-					q.eq('projectId', project._id),
-				)
+				.withIndex('by_project', (q) => q.eq('projectId', project._id))
 				.order('desc')
 				.collect(),
 		])
@@ -1067,7 +1182,11 @@ export const remove = mutation({
 			throw new Error('Project not found')
 		}
 
-		if (!(await canManageContent(ctx, item, user, { allowSiteAdmin: false }))) {
+		if (
+			!(await canManageContent(ctx, item, user, {
+				allowSiteAdmin: false,
+			}))
+		) {
 			throw new Error(
 				'Only the owner or an organization owner/admin can delete this project',
 			)
@@ -1082,26 +1201,46 @@ export const remove = mutation({
 
 /** Return a fixable submission to draft without lifting a final rejection. */
 export const requestChanges = adminMutation({
-	args: { id: v.id('projects'), reason: v.string() },
+	args: {
+		id: v.id('projects'),
+		reason: v.string(),
+		expectedRevision: v.optional(v.number()),
+	},
 	returns: v.id('projects'),
 	handler: async (ctx, args) => {
 		const item = await ctx.db.get(args.id)
 		if (!item) throw new ConvexError('Project not found')
-		if (item.status !== 'under_review' || item.moderationStatus === 'rejected') {
-			throw new ConvexError('Only submissions awaiting review can be returned for changes')
+		assertReviewRevision(item, args.expectedRevision)
+		if (
+			(item.submissionStatus !== 'pending' &&
+				item.status !== 'under_review') ||
+			item.moderationStatus === 'rejected'
+		) {
+			throw new ConvexError(
+				'Only submissions awaiting review can be returned for changes',
+			)
 		}
 		if (await isAffiliatedWithContent(ctx, item, ctx.admin._id)) {
-			throw new ConvexError('Ask another admin to review your own project')
+			throw new ConvexError(
+				'Ask another admin to review your own project',
+			)
 		}
 		const reason = args.reason.trim()
 		if (!reason || reason.length > 500) {
-			throw new ConvexError('Explain the required changes in 1 to 500 characters')
+			throw new ConvexError(
+				'Explain the required changes in 1 to 500 characters',
+			)
 		}
 		const now = Date.now()
 		await ctx.db.patch(item._id, {
-			status: 'draft',
-			moderationStatus: 'pending',
-			moderationReason: reason,
+			...(hasApprovedListing(item)
+				? {}
+				: {
+						status: 'draft' as const,
+						moderationStatus: 'pending' as const,
+						moderationReason: reason,
+					}),
+			...decisionFields(item, 'changes_requested', reason),
 			moderatedAt: now,
 			moderatedBy: ctx.admin._id,
 			updatedAt: now,
@@ -1123,11 +1262,14 @@ export const requestChanges = adminMutation({
 export const adminUpdate = adminMutation({
 	args: {
 		id: v.id('projects'),
-		status: v.optional(v.union(
-			v.literal('draft'),
-			v.literal('published'),
-			v.literal('under_review'),
-		)),
+		expectedRevision: v.optional(v.number()),
+		status: v.optional(
+			v.union(
+				v.literal('draft'),
+				v.literal('published'),
+				v.literal('under_review'),
+			),
+		),
 		moderationStatus: v.optional(projectModerationStatus),
 		moderationReason: v.optional(v.string()),
 	},
@@ -1139,6 +1281,7 @@ export const adminUpdate = adminMutation({
 			throw new Error('Project not found')
 		}
 
+		assertReviewRevision(item, args.expectedRevision)
 		// A rejection is final: the project stays hidden in review and the owner
 		// cannot resubmit it (see `update`). Only another admin decision can
 		// change it.
@@ -1147,7 +1290,8 @@ export const adminUpdate = adminMutation({
 		// Unpublishing sends `approved` with `draft`; that is not an approval.
 		const isApproval =
 			requestedStatus === 'published' ||
-			(args.moderationStatus === 'approved' && requestedStatus !== 'draft')
+			(args.moderationStatus === 'approved' &&
+				requestedStatus !== 'draft')
 		if (
 			isApproval &&
 			(await isAffiliatedWithContent(ctx, item, user._id))
@@ -1157,8 +1301,68 @@ export const adminUpdate = adminMutation({
 			)
 		}
 
+		if (
+			isApproval &&
+			item.submissionRevision !== undefined &&
+			!item.publishedAt &&
+			item.status !== 'published' &&
+			item.submissionStatus !== 'pending'
+		)
+			throw new ConvexError('Only a submitted revision can be approved')
 		const now = Date.now()
-		const patch: Record<string, unknown> = { updatedAt: now }
+		const patch: Record<string, unknown> = {
+			updatedAt: now,
+			submissionRevision: (item.submissionRevision ?? 0) + 1,
+		}
+		if (
+			args.moderationStatus === 'rejected' ||
+			args.moderationStatus === 'flagged' ||
+			requestedStatus === 'draft'
+		)
+			moderationReason(args.moderationReason)
+		if (isApproval && item.submissionStatus === 'pending') {
+			Object.assign(
+				patch,
+				item.draftChangesJson
+					? snapshotPatch(item, item.draftChangesJson)
+					: {},
+				decisionFields(item, 'approved'),
+				{
+					draftChangesJson: undefined,
+					publishedGalleryJson: undefined,
+				},
+			)
+			const reviewed = submissionView(item)
+			const collision = await ctx.db
+				.query('projects')
+				.withIndex('by_slug', (q) => q.eq('slug', reviewed.slug))
+				.first()
+			if (collision && collision._id !== item._id)
+				throw new ConvexError(
+					'This project name is now in use. Request changes before approving.',
+				)
+		}
+		if (
+			args.moderationStatus === 'rejected' &&
+			item.submissionStatus === 'pending'
+		)
+			Object.assign(
+				patch,
+				decisionFields(
+					item,
+					'rejected',
+					moderationReason(args.moderationReason),
+				),
+			)
+		if (args.moderationStatus === 'flagged' || requestedStatus === 'draft')
+			Object.assign(
+				patch,
+				decisionFields(
+					item,
+					'changes_requested',
+					moderationReason(args.moderationReason),
+				),
+			)
 
 		if (requestedStatus !== undefined) {
 			if (requestedStatus === 'published') {
@@ -1194,22 +1398,41 @@ export const adminUpdate = adminMutation({
 		) {
 			throw new Error('A moderation reason is required')
 		}
-		if (requestedStatus === 'published') {
+		if (
+			requestedStatus === 'published' &&
+			(item.submissionStatus === 'pending' ||
+				item.submissionRevision === undefined)
+		) {
 			// Releases submitted with the project are reviewed together with it.
 			const pendingReleases = await ctx.db
 				.query('projectVersions')
 				.withIndex('by_project', (q) => q.eq('projectId', item._id))
 				.collect()
 			for (const release of pendingReleases) {
-				if (release.reviewStatus === 'pending' && isValidatedRelease(release)) {
+				if (
+					release.reviewStatus === 'pending' &&
+					isValidatedRelease(release) &&
+					(!item.submittedVersionIds ||
+						item.submittedVersionIds.includes(release._id))
+				) {
 					await ctx.db.patch(release._id, {
 						reviewStatus: 'approved',
+						standaloneReviewPending: false,
 						reviewedAt: now,
 						reviewedBy: user._id,
 					})
 					await recordReleaseActivity(ctx, item, release)
 				}
 			}
+		}
+		if (
+			args.moderationStatus === 'rejected' &&
+			item.submissionStatus === 'pending' &&
+			hasApprovedListing(item)
+		) {
+			patch.status = item.status
+			patch.moderationStatus = item.moderationStatus
+			patch.moderationReason = item.moderationReason
 		}
 		await ctx.db.patch(args.id, patch)
 		await afterProjectWrite(ctx, item, await ctx.db.get(args.id))
@@ -1225,10 +1448,14 @@ export const adminUpdate = adminMutation({
 			},
 			reason: args.moderationReason,
 		})
-		if (requestedStatus !== undefined || args.moderationStatus !== undefined) {
-			const nextStatus = requestedStatus ?? item.status
+		if (
+			requestedStatus !== undefined ||
+			args.moderationStatus !== undefined
+		) {
+			const current = await ctx.db.get(args.id)
+			const nextStatus = current!.status
 			const nextModerationStatus =
-				args.moderationStatus ??
+				current!.moderationStatus ??
 				(requestedStatus !== undefined
 					? requestedStatus === 'published'
 						? 'approved'
@@ -1236,7 +1463,8 @@ export const adminUpdate = adminMutation({
 					: item.moderationStatus)
 			await ctx.scheduler.runAfter(
 				0,
-				internal.functions.projects.artifactDelivery.syncProjectDelivery,
+				internal.functions.projects.artifactDelivery
+					.syncProjectDelivery,
 				{
 					projectId: args.id,
 					published:
@@ -1260,22 +1488,44 @@ export const listPendingModeration = adminQuery({
 	handler: async (ctx, args) => {
 		const limit = args.limit ?? 50
 
-		const items = await ctx.db
+		const legacyItems = await ctx.db
 			.query('projects')
 			.withIndex('by_moderation_status', (q) =>
 				q.eq('moderationStatus', 'pending'),
 			)
 			.take(limit)
 
+		const pending = await ctx.db
+			.query('projects')
+			.withIndex('by_submission_status', (q) =>
+				q.eq('submissionStatus', 'pending'),
+			)
+			.take(limit)
+		const items = [
+			...new Map(
+				[
+					...pending,
+					...legacyItems.filter((item) => !item.submissionStatus),
+				].map((item) => [item._id, item]),
+			).values(),
+		].slice(0, limit)
 		return Promise.all(
 			items.map(async (item) => {
 				const iconUrl = await resolveProjectIconUrl(item)
 
-				const owner = await authComponent.getAnyUserById(ctx, item.createdBy)
+				const owner = await authComponent.getAnyUserById(
+					ctx,
+					item.createdBy,
+				)
 				const ownerName =
-					((owner as Record<string, unknown> | null)?.displayUsername as string | undefined) ??
-					((owner as Record<string, unknown> | null)?.username as string | undefined) ??
-					((owner as Record<string, unknown> | null)?.email as string | undefined) ??
+					((owner as Record<string, unknown> | null)
+						?.displayUsername as string | undefined) ??
+					((owner as Record<string, unknown> | null)?.username as
+						| string
+						| undefined) ??
+					((owner as Record<string, unknown> | null)?.email as
+						| string
+						| undefined) ??
 					'Unknown'
 
 				return {

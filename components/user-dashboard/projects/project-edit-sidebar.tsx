@@ -22,8 +22,11 @@ import {
 import { ListingSwitcher } from '@/components/user-dashboard/edit-sidebar/listing-switcher'
 import { api } from '@/convex/_generated/api'
 import { projectReference } from '@/lib/content-reference'
-
 import { contentDashboard, contentHref } from '@/lib/content-routes'
+import {
+	creatorListingState,
+	creatorSidebarStatus,
+} from '@/lib/creator-listing-state'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
@@ -57,17 +60,14 @@ export function ProjectEditSidebar({
 	const projects = useQuery(api.functions.projects.projects.listMyContent)
 	const deleteProject = useMutation(api.functions.projects.projects.remove)
 
-	let action: ListingAction | undefined
-	if (
-		project?.status === 'draft' &&
-		project.moderationStatus !== 'rejected'
-	) {
-		action = {
-			label: 'Review & submit',
-			icon: CheckmarkCircle01Icon,
-			href: `${BASE_PATH}/${id}/review`,
-		}
-	}
+	const state = project ? creatorListingState(project) : null
+	const action: ListingAction | undefined = state?.canSubmit
+		? {
+				label: 'Review & submit',
+				icon: CheckmarkCircle01Icon,
+				href: `${BASE_PATH}/${id}/review`,
+			}
+		: undefined
 
 	return (
 		<ListingEditSidebar
@@ -75,12 +75,12 @@ export function ProjectEditSidebar({
 			backLabel={`Back to ${PROJECT_TYPE_PLURAL_LABELS[type]}`}
 			basePath={BASE_PATH}
 			deletion={
-				project
+				project && !state?.locked
 					? {
 							name: project.name,
 							confirmText: project.slug,
 							description:
-								'This permanently deletes the listing, its versions, files, reviews and gallery.',
+								'This permanently deletes the listing, its releases, reviews and gallery. Recorded submission history and its images are retained.',
 							onDelete: async () => {
 								await deleteProject({ id: project._id })
 								router.push(BASE_PATH)
@@ -116,7 +116,9 @@ export function ProjectEditSidebar({
 				/>
 			}
 			id={id}
-			moderationNote={project?.moderationReason}
+			moderationNote={
+				project?.submissionReason ?? project?.moderationReason
+			}
 			publicHref={
 				project?.status === 'published' &&
 				project.moderationStatus === 'approved'
@@ -124,11 +126,7 @@ export function ProjectEditSidebar({
 					: undefined
 			}
 			sections={SECTIONS}
-			status={
-				project?.status === 'under_review'
-					? 'in_review'
-					: (project?.status ?? undefined)
-			}
+			status={project ? creatorSidebarStatus(project) : undefined}
 			{...props}
 		/>
 	)

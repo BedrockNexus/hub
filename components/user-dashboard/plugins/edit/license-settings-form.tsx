@@ -13,6 +13,7 @@ import { LicenseCombobox } from '@/components/user-dashboard/license-combobox'
 import {
 	errorMessage,
 	type PluginForEdit,
+	PluginReviewNotice,
 	usePluginForEdit,
 } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
 import {
@@ -52,7 +53,7 @@ function LicenseForm({ plugin }: { plugin: PluginForEdit }) {
 			description="Set the license shown on your plugin page"
 			footer={
 				<SaveChangesButton
-					disabled={!isDirty}
+					disabled={!isDirty || plugin.locked}
 					isSubmitting={isSubmitting}
 				/>
 			}
@@ -74,6 +75,7 @@ function LicenseForm({ plugin }: { plugin: PluginForEdit }) {
 			}}
 			title="License"
 		>
+			<PluginReviewNotice plugin={plugin} />
 			<FieldGroup>
 				<Field>
 					<FieldLabel htmlFor="plugin-license">License</FieldLabel>
@@ -91,7 +93,7 @@ function LicenseForm({ plugin }: { plugin: PluginForEdit }) {
 						GitHub found in your repository.
 					</FieldDescription>
 					<LicenseCombobox
-						disabled={isSubmitting}
+						disabled={isSubmitting || plugin.locked}
 						id="plugin-license"
 						onChange={setLicense}
 						value={license}

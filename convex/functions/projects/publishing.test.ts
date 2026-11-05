@@ -1,3 +1,4 @@
+import { reviewMutation } from '../../test.setup'
 import { describe, expect, it } from 'vitest'
 import { api, components } from '../../_generated/api'
 import {
@@ -72,10 +73,15 @@ describe.each(['addon', 'resource_pack'] as const)('%s publishing', (type) => {
 			id: draft.id,
 			status: 'under_review',
 		})
-		await admin.mutation(api.functions.projects.projects.requestChanges, {
-			id: draft.id,
-			reason: '  Explain the installation steps.  ',
-		})
+		await reviewMutation(
+			t,
+			admin,
+			api.functions.projects.projects.requestChanges,
+			{
+				id: draft.id,
+				reason: '  Explain the installation steps.  ',
+			},
+		)
 		expect(
 			await creator.query(api.functions.projects.projects.getForEdit, {
 				id: draft.id,
@@ -100,10 +106,15 @@ describe.each(['addon', 'resource_pack'] as const)('%s publishing', (type) => {
 				)
 			)?.moderationReason,
 		).toBeUndefined()
-		await admin.mutation(api.functions.projects.projects.adminUpdate, {
-			id: draft.id,
-			status: 'published',
-		})
+		await reviewMutation(
+			t,
+			admin,
+			api.functions.projects.projects.adminUpdate,
+			{
+				id: draft.id,
+				status: 'published',
+			},
+		)
 		const releases = await t.query(
 			api.functions.projects.versions.listPublic,
 			{ projectId: draft.id },
@@ -190,45 +201,80 @@ describe('request changes authorization and final rejection', () => {
 			createdBy: owner.userId,
 		})
 		await expect(
-			t.mutation(api.functions.projects.projects.requestChanges, {
-				id,
-				reason: 'Fix it',
-			}),
+			reviewMutation(
+				t,
+				t,
+				api.functions.projects.projects.requestChanges,
+				{
+					id,
+					reason: 'Fix it',
+				},
+			),
 		).rejects.toThrow('signed in')
 		await expect(
-			user.mutation(api.functions.projects.projects.requestChanges, {
-				id,
-				reason: 'Fix it',
-			}),
+			reviewMutation(
+				t,
+				user,
+				api.functions.projects.projects.requestChanges,
+				{
+					id,
+					reason: 'Fix it',
+				},
+			),
 		).rejects.toThrow('Admin role')
 		await expect(
-			owner.mutation(api.functions.projects.projects.requestChanges, {
-				id,
-				reason: 'Fix it',
-			}),
+			reviewMutation(
+				t,
+				owner,
+				api.functions.projects.projects.requestChanges,
+				{
+					id,
+					reason: 'Fix it',
+				},
+			),
 		).rejects.toThrow('another admin')
 		await expect(
-			admin.mutation(api.functions.projects.projects.requestChanges, {
-				id,
-				reason: ' ',
-			}),
+			reviewMutation(
+				t,
+				admin,
+				api.functions.projects.projects.requestChanges,
+				{
+					id,
+					reason: ' ',
+				},
+			),
 		).rejects.toThrow('1 to 500')
 		await expect(
-			admin.mutation(api.functions.projects.projects.requestChanges, {
-				id,
-				reason: 'x'.repeat(501),
-			}),
+			reviewMutation(
+				t,
+				admin,
+				api.functions.projects.projects.requestChanges,
+				{
+					id,
+					reason: 'x'.repeat(501),
+				},
+			),
 		).rejects.toThrow('1 to 500')
-		await admin.mutation(api.functions.projects.projects.adminUpdate, {
-			id,
-			moderationStatus: 'rejected',
-			moderationReason: 'Prohibited content',
-		})
-		await expect(
-			admin.mutation(api.functions.projects.projects.requestChanges, {
+		await reviewMutation(
+			t,
+			admin,
+			api.functions.projects.projects.adminUpdate,
+			{
 				id,
-				reason: 'Fix it',
-			}),
+				moderationStatus: 'rejected',
+				moderationReason: 'Prohibited content',
+			},
+		)
+		await expect(
+			reviewMutation(
+				t,
+				admin,
+				api.functions.projects.projects.requestChanges,
+				{
+					id,
+					reason: 'Fix it',
+				},
+			),
 		).rejects.toThrow('awaiting review')
 		await expect(
 			owner.mutation(api.functions.projects.projects.update, {
@@ -238,10 +284,15 @@ describe('request changes authorization and final rejection', () => {
 		).rejects.toThrow()
 		const publishedId = await insertProject(t, { slug: 'published' })
 		await expect(
-			admin.mutation(api.functions.projects.projects.requestChanges, {
-				id: publishedId,
-				reason: 'Fix it',
-			}),
+			reviewMutation(
+				t,
+				admin,
+				api.functions.projects.projects.requestChanges,
+				{
+					id: publishedId,
+					reason: 'Fix it',
+				},
+			),
 		).rejects.toThrow('awaiting review')
 	})
 
@@ -304,10 +355,15 @@ describe('request changes authorization and final rejection', () => {
 			status: 'under_review',
 		})
 		await expect(
-			member.mutation(api.functions.projects.projects.adminUpdate, {
-				id,
-				status: 'published',
-			}),
+			reviewMutation(
+				t,
+				member,
+				api.functions.projects.projects.adminUpdate,
+				{
+					id,
+					status: 'published',
+				},
+			),
 		).rejects.toThrow('own project')
 	})
 })

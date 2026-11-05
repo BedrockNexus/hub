@@ -1,3 +1,4 @@
+import { reviewMutation } from '../test.setup'
 import { createFunctionHandle } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 import { api, components, internal } from '../_generated/api'
@@ -51,10 +52,15 @@ async function publishProject(t: TestClient, slug: string, ownerId: string) {
 		moderationStatus: 'pending',
 	})
 	await insertRelease(t, projectId, '1.0.0', { reviewStatus: 'pending' })
-	await admin.mutation(api.functions.projects.projects.adminUpdate, {
-		id: projectId,
-		status: 'published',
-	})
+	await reviewMutation(
+		t,
+		admin,
+		api.functions.projects.projects.adminUpdate,
+		{
+			id: projectId,
+			status: 'published',
+		},
+	)
 	return { admin, projectId }
 }
 
@@ -87,11 +93,16 @@ describe('creator listings', () => {
 		expect(await search(t, 'lurker')).toEqual([])
 		expect(await search(t, '   ')).toEqual([])
 
-		await admin.mutation(api.functions.projects.projects.adminUpdate, {
-			id: projectId,
-			moderationStatus: 'rejected',
-			moderationReason: 'Not a Bedrock project',
-		})
+		await reviewMutation(
+			t,
+			admin,
+			api.functions.projects.projects.adminUpdate,
+			{
+				id: projectId,
+				moderationStatus: 'rejected',
+				moderationReason: 'Not a Bedrock project',
+			},
+		)
 		expect(await listings(t)).toEqual([])
 	})
 
@@ -408,10 +419,9 @@ describe('creator listings', () => {
 				ownerType: 'user',
 			})
 		// Listed, but unranked until the hourly job has run.
-		expect((await popular()).map((creator) => creator.slug).sort()).toEqual([
-			'host',
-			'modder',
-		])
+		expect((await popular()).map((creator) => creator.slug).sort()).toEqual(
+			['host', 'modder'],
+		)
 
 		await t.mutation(internal.functions.site.creators.recomputeRanks, {})
 		await t.finishAllScheduledFunctions(() => undefined)

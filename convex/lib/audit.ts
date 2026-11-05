@@ -1,3 +1,5 @@
+import { reviewWork } from './reviewWork'
+import { recordDecisionHistory } from './moderationHistory'
 import type { Doc } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 
@@ -29,13 +31,17 @@ export async function recordAdminAction(
 	actorId: string,
 	entry: AdminActionEntry,
 ) {
+	await reviewWork(ctx, actorId, entry)
 	const changes = Object.fromEntries(
 		Object.entries(entry.changes ?? {})
 			.filter(([, value]) => value !== undefined)
-			.map(([field, value]) => [field, String(value).slice(0, CHANGE_VALUE_MAX)]),
+			.map(([field, value]) => [
+				field,
+				String(value).slice(0, CHANGE_VALUE_MAX),
+			]),
 	)
 
-	await ctx.db.insert('adminActions', {
+	const auditId = await ctx.db.insert('adminActions', {
 		actorId,
 		action: entry.action,
 		targetType: entry.targetType,
@@ -45,4 +51,6 @@ export async function recordAdminAction(
 		reason: entry.reason?.trim() || undefined,
 		createdAt: Date.now(),
 	})
+	const audit = await ctx.db.get('adminActions', auditId)
+	if (audit) await recordDecisionHistory(ctx, audit)
 }

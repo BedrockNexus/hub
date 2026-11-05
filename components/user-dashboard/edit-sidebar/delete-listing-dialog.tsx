@@ -44,6 +44,9 @@ export function DeleteListingDialog({
 		try {
 			await deletion.onDelete(confirmation.trim())
 			toast.success(`${deletion.name} deleted.`)
+			onOpenChange(false)
+			setConfirmation('')
+			setIsDeleting(false)
 		} catch (error) {
 			toast.error(
 				error instanceof Error

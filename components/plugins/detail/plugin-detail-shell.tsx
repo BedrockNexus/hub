@@ -26,6 +26,8 @@ import {
 	SideCard,
 } from '@/components/detail/detail-parts'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
+import { ReleaseHistory } from '@/components/detail/release-history'
+import { VersionActions } from '@/components/detail/version-actions'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { OwnerCard } from '@/components/owner/owner-card'
 import { PluginReviews } from '@/components/plugins/detail/plugin-reviews'
@@ -210,105 +212,124 @@ function PluginHero({
 	)
 }
 
-function PluginVersions({ detail }: { detail: PluginDetail }) {
-	const { project, versions } = detail
-	if (versions.length === 0) {
-		return (
-			<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
-				No public versions are available.
-			</p>
+function PluginVersions({
+	detail,
+	selectedVersion,
+}: {
+	detail: PluginDetail
+	selectedVersion?: string
+}) {
+	const { project } = detail
+	const entries = detail.versions
+		.filter(
+			(version) =>
+				!selectedVersion ||
+				version.normalizedVersion === selectedVersion,
 		)
-	}
-	return (
-		<div className="flex flex-col gap-3">
-			<p className="text-muted-foreground text-sm">
-				Each version is the exact build a moderator reviewed, downloaded
-				from BedrockNexus.
-			</p>
-			<div className="divide-y overflow-hidden rounded-md border bg-card">
-				{versions.map((version) => (
-					<article
-						className="p-4 sm:p-5"
-						key={version.normalizedVersion}
-					>
-						<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-							<div className="min-w-0 flex-1">
-								<h3 className="font-mono font-semibold">
-									v{version.version}
-								</h3>
-								<p className="mt-1 text-muted-foreground text-sm">
-									{[
-										version.publishedAt
-											? format(
-													new Date(
-														version.publishedAt,
-													),
-													'MMM d, yyyy',
-												)
-											: null,
-										version.release?.asset
-											? formatBytes(
-													version.release.asset.size,
-												)
-											: null,
-									]
-										.filter(Boolean)
-										.join(' · ')}
-									{version.release?.build?.branch ? (
-										<>
-											{' · from '}
-											{version.release.build.branch}{' '}
-											<a
-												className="font-mono hover:text-foreground hover:underline"
-												href={`${detail.repository.htmlUrl}/commit/${version.release.commitSha}`}
-												rel="noreferrer"
-												target="_blank"
-											>
-												{version.release.commitSha.slice(
-													0,
-													7,
-												)}
-											</a>
-										</>
-									) : null}
-								</p>
-							</div>
-							{version.release?.asset ? (
-								<Link
-									className={buttonVariants({
-										size: 'sm',
-										variant: 'outline',
-									})}
-									data-track="download_clicked"
-									href={downloadHref(
-										project.publicId,
-										version,
-									)}
-									prefetch={false}
-									rel="nofollow"
-								>
-									<HugeiconsIcon
-										data-icon="inline-start"
-										icon={Download01Icon}
-									/>
-									Download
-								</Link>
-							) : null}
-						</div>
-						{version.changelog?.trim() ? (
-							<div className="mt-3 border-primary border-l-2 pl-4">
-								<RichTextViewer
-									className="text-sm"
-									content={version.changelog}
-									relativeUrlBase={relativeUrlBase(
-										detail.repository,
-									)}
-								/>
-							</div>
+		.map((version) => ({
+			id: version.normalizedVersion,
+			version: version.version,
+			title: `${project.name} ${version.version}`,
+			href: `/plugins/${project.publicId}/versions/${encodeURIComponent(version.normalizedVersion)}`,
+			gameVersions: version.minecraftVersion
+				? [version.minecraftVersion]
+				: [],
+			platform: project.software.name,
+			publishedAt: version.publishedAt,
+			size: version.release?.asset
+				? formatBytes(version.release.asset.size)
+				: undefined,
+			notes: (
+				<div className="space-y-5">
+					<section className="space-y-3">
+						{selectedVersion ? (
+							<h2 className="font-semibold text-lg">Changelog</h2>
 						) : null}
-					</article>
-				))}
-			</div>
+						{version.changelog?.trim() ? (
+							<RichTextViewer
+								content={version.changelog}
+								relativeUrlBase={relativeUrlBase(
+									detail.repository,
+								)}
+							/>
+						) : (
+							<p className="text-muted-foreground text-sm">
+								No changelog was provided for this release.
+							</p>
+						)}
+					</section>
+					{selectedVersion && version.release ? (
+						<div className="space-y-2 border-t pt-4 text-sm">
+							{version.release.asset ? (
+								<p>
+									{version.release.asset.name} -{' '}
+									{formatBytes(version.release.asset.size)}
+								</p>
+							) : null}
+							<p>
+								{project.software.name}
+								{version.minecraftVersion
+									? ` - Minecraft ${version.minecraftVersion}`
+									: ''}
+							</p>
+							<a
+								className="font-mono hover:underline"
+								href={`${detail.repository.htmlUrl}/commit/${version.release.commitSha}`}
+								rel="noreferrer"
+								target="_blank"
+							>
+								Commit {version.release.commitSha.slice(0, 7)}
+							</a>
+						</div>
+					) : null}
+				</div>
+			),
+			actions: (
+				<VersionActions
+					detailsHref={`/plugins/${project.publicId}/versions/${encodeURIComponent(version.normalizedVersion)}`}
+					downloadUrl={
+						version.release?.asset
+							? downloadHref(project.publicId, version)
+							: undefined
+					}
+					fileName={version.release?.asset?.name}
+					version={version.version}
+				/>
+			),
+		}))
+	return (
+		<div className="space-y-4">
+			{selectedVersion ? (
+				<Link
+					className="text-muted-foreground text-sm hover:underline"
+					href={`/plugins/${project.publicId}/versions`}
+				>
+					Back to all versions
+				</Link>
+			) : null}
+			{selectedVersion && entries[0] ? (
+				<article className="overflow-hidden rounded-md border bg-card">
+					<header className="flex flex-wrap items-start justify-between gap-4 border-b bg-muted/25 p-5 sm:p-6">
+						<div>
+							<h2 className="font-semibold text-2xl">
+								{entries[0].title}
+							</h2>
+							<p className="mt-1 text-muted-foreground text-sm">
+								{entries[0].publishedAt
+									? format(
+											entries[0].publishedAt,
+											'MMM d, yyyy',
+										)
+									: 'Publication date unavailable'}
+							</p>
+						</div>
+						{entries[0].actions}
+					</header>
+					<div className="p-5 sm:p-6">{entries[0].notes}</div>
+				</article>
+			) : (
+				<ReleaseHistory entries={entries} />
+			)}
 		</div>
 	)
 }
@@ -449,9 +470,11 @@ function PluginSidebar({ detail }: { detail: PluginDetail }) {
 export function PluginDetailShell({
 	activeTab,
 	slug,
+	releaseVersion,
 }: {
 	activeTab: PluginDetailTab
 	slug: string
+	releaseVersion?: string
 }) {
 	const detail = useQuery(api.functions.plugins.catalog.getProject, { slug })
 	const gallery = useQuery(
@@ -496,7 +519,12 @@ export function PluginDetailShell({
 					/>
 				)
 			case 'versions':
-				return <PluginVersions detail={detail} />
+				return (
+					<PluginVersions
+						detail={detail}
+						selectedVersion={releaseVersion}
+					/>
+				)
 			case 'reviews':
 				return (
 					<PluginReviews
@@ -548,6 +576,7 @@ export function PluginDetailShell({
 								href: tabHref(slug, 'gallery'),
 								count: gallery?.length,
 							},
+
 							{
 								value: 'versions',
 								label: 'Versions',

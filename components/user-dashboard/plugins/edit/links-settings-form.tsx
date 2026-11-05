@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import {
 	errorMessage,
 	type PluginForEdit,
+	PluginReviewNotice,
 	usePluginForEdit,
 } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
 import {
@@ -75,7 +76,7 @@ function LinksForm({ plugin }: { plugin: PluginForEdit }) {
 			description="Shown on your plugin page next to the source code. Empty links are hidden"
 			footer={
 				<SaveChangesButton
-					disabled={!isDirty}
+					disabled={!isDirty || plugin.locked}
 					isSubmitting={isSubmitting}
 				/>
 			}
@@ -101,6 +102,7 @@ function LinksForm({ plugin }: { plugin: PluginForEdit }) {
 			}}
 			title="Links"
 		>
+			<PluginReviewNotice plugin={plugin} />
 			<FieldGroup>
 				{LINK_FIELDS.map((link) => (
 					<Field key={link.field}>
@@ -113,7 +115,7 @@ function LinksForm({ plugin }: { plugin: PluginForEdit }) {
 							</FieldDescription>
 						) : null}
 						<Input
-							disabled={isSubmitting}
+							disabled={isSubmitting || plugin.locked}
 							id={`plugin-${link.field}`}
 							onChange={(event) =>
 								setLinks((current) => ({

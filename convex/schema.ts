@@ -1,3 +1,4 @@
+import { tables as moderationTables } from './schemas/moderation'
 import { defineSchema } from 'convex/server'
 // Import table definitions from split files
 import { tables as pluginTables } from './schemas/plugins'
@@ -10,6 +11,7 @@ import { tables as siteTables } from './schemas/site'
 // =============================================================================
 
 export default defineSchema({
+	...moderationTables,
 	// Project-related tables
 	...projectTables,
 

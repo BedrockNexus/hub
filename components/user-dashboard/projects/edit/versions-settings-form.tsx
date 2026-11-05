@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
+import { ListingReviewBadge } from '@/components/user-dashboard/listing-review-state'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { contentEditHref } from '@/lib/content-routes'
@@ -223,9 +224,7 @@ export function ProjectVersionsForm({
 									status={version.validationStatus}
 								/>
 								{version.reviewStatus === 'pending' ? (
-									<Badge variant="outline">
-										Awaiting review
-									</Badge>
+									<ListingReviewBadge status="pending" />
 								) : null}
 								{version.reviewStatus === 'rejected' ? (
 									<Badge
@@ -353,7 +352,8 @@ export function ProjectVersionsForm({
 				<div>
 					<h2 className="font-semibold text-lg">Releases</h2>
 					<p className="text-muted-foreground text-sm">
-						Manage downloadable files for your listing
+						Upload versions and track validation and moderator
+						review
 					</p>
 				</div>
 				<Button
@@ -365,7 +365,7 @@ export function ProjectVersionsForm({
 					}
 				>
 					<HugeiconsIcon className="size-4" icon={Package01Icon} />
-					Publish New Release
+					Add version
 				</Button>
 			</div>
 

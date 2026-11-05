@@ -1,3 +1,9 @@
+import { deleteUnretainedMedia } from '../../lib/moderationHistory'
+import {
+	stageGallery,
+	publicGallery,
+	isRetainedGalleryKey,
+} from '../../lib/submissionGallery'
 import { ConvexError, v } from 'convex/values'
 
 import type { Doc, Id } from '../../_generated/dataModel'
@@ -12,8 +18,7 @@ import { enforceRateLimit } from '../../lib/rateLimits'
 import { requireOwnedDraft } from './publishing/model'
 
 /**
- * Screenshots on a plugin's page, managed from its dashboard. Like project
- * galleries they change at once, without waiting for a version review. The
+ * Screenshots on a plugin's page, managed from its dashboard. Gallery changes are staged until the next submitted release is approved. The
  * dashboard addresses the plugin by its draft, which carries ownership.
  */
 
@@ -68,6 +73,7 @@ async function requireManagedItem(
 		})
 	}
 	await requireOwnedDraft(ctx, draft._id, user)
+	await stageGallery(ctx, item.pluginId)
 	return item
 }
 
@@ -131,7 +137,9 @@ export const listPublic = query({
 		if (plugin?.visibility !== 'public' || plugin.status !== 'published') {
 			return []
 		}
-		return await withUrls(await listGallery(ctx, args.pluginId))
+		return await withUrls(
+			publicGallery(plugin, await listGallery(ctx, args.pluginId)),
+		)
 	},
 })
 
@@ -157,6 +165,7 @@ export const generateUploadUrl = authedMutation({
 			'Too many upload requests. Please wait before uploading again.',
 		)
 		const pluginId = await requireManagedPlugin(ctx, args.draftId, ctx.user)
+		await stageGallery(ctx, pluginId)
 		await requireCapacity(ctx, pluginId)
 		const key = buildEntityImageR2ObjectKey({
 			resourceType: 'plugins',
@@ -178,6 +187,7 @@ export const add = authedMutation({
 	returns: v.id('pluginGallery'),
 	handler: async (ctx, args) => {
 		const pluginId = await requireManagedPlugin(ctx, args.draftId, ctx.user)
+		await stageGallery(ctx, pluginId)
 		const metadata = await validateEntityImageUpload(ctx, {
 			key: args.r2Key,
 			resourceType: 'plugins',
@@ -222,6 +232,7 @@ export const reorder = authedMutation({
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const pluginId = await requireManagedPlugin(ctx, args.draftId, ctx.user)
+		await stageGallery(ctx, pluginId)
 		const existing = await listGallery(ctx, pluginId)
 		const expected = new Set(existing.map((item) => item._id))
 		if (
@@ -231,7 +242,8 @@ export const reorder = authedMutation({
 		) {
 			throw new ConvexError({
 				code: 'INVALID_ORDER',
-				message: 'Reorder must include every gallery image exactly once.',
+				message:
+					'Reorder must include every gallery image exactly once.',
 			})
 		}
 		const now = Date.now()
@@ -252,7 +264,8 @@ export const remove = authedMutation({
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const item = await requireManagedItem(ctx, args.id, ctx.user)
-		await r2.deleteObject(ctx, item.r2Key)
+		if (!(await isRetainedGalleryKey(ctx, item.pluginId, item.r2Key)))
+			await deleteUnretainedMedia(ctx, item.r2Key)
 		await ctx.db.delete('pluginGallery', item._id)
 		await renumber(ctx, item.pluginId)
 		return null

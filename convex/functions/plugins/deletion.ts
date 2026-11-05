@@ -1,3 +1,4 @@
+import { deleteUnretainedMedia } from '../../lib/moderationHistory'
 import { ConvexError, v } from 'convex/values'
 
 import { recordAdminAction } from '../../lib/audit'
@@ -254,7 +255,7 @@ async function purgeStage(
 				.withIndex('by_plugin', (q) => q.eq('pluginId', projectId))
 				.take(PURGE_BATCH_SIZE)
 			for (const row of rows) {
-				await r2.deleteObject(ctx, row.r2Key)
+				await deleteUnretainedMedia(ctx, row.r2Key)
 				await ctx.db.delete('pluginGallery', row._id)
 			}
 			return rows.length

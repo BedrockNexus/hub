@@ -1,20 +1,12 @@
 ﻿'use client'
 
-import {
-	Copy01Icon,
-	Delete02Icon,
-	MoreHorizontalIcon,
-	PencilEdit01Icon,
-	PuzzleIcon,
-	StarIcon,
-} from '@hugeicons/core-free-icons'
+import { PuzzleIcon, StarIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { Column, ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useCallback, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { useCallback, useMemo } from 'react'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar'
@@ -24,33 +16,24 @@ import {
 	StatLabel,
 	StatValue,
 } from '@/components/dice-ui/stat'
-import { Status, StatusLabel } from '@/components/dice-ui/status'
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Spinner } from '@/components/ui/spinner'
 import { DashboardEmptyState } from '@/components/user-dashboard/dashboard-empty-state'
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
+import {
+	ListingPublicationBadge,
+	ListingReviewBadge,
+} from '@/components/user-dashboard/listing-review-state'
+import { ListingRowActions } from '@/components/user-dashboard/listing-row-actions'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
 import { contentEditHref, contentHref } from '@/lib/content-routes'
+import {
+	type CreatorListingInput,
+	creatorListingState,
+	PUBLICATION_LABELS,
+	REVIEW_LABELS,
+} from '@/lib/creator-listing-state'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import {
 	normalizeProjectType,
@@ -69,7 +52,7 @@ interface ProjectCategory {
 
 type ProjectLifecycleStatus = 'draft' | 'published' | 'under_review'
 
-interface ProjectRow {
+interface ProjectRow extends CreatorListingInput {
 	_id: Id<'projects'>
 	name: string
 	slug: string
@@ -86,173 +69,6 @@ interface ProjectRow {
 	latestVersionString?: string
 }
 
-const STATUS_VARIANTS: Record<
-	ProjectLifecycleStatus,
-	'success' | 'warning' | 'error' | 'default'
-> = {
-	published: 'success',
-	under_review: 'warning',
-	draft: 'default',
-}
-
-const STATUS_LABELS: Record<ProjectLifecycleStatus, string> = {
-	published: 'Published',
-	under_review: 'Under Review',
-	draft: 'Draft',
-}
-
-function ProjectRowActionsCell({
-	content,
-	onDelete,
-}: {
-	content: ProjectRow
-	onDelete: () => Promise<void>
-}) {
-	const [isDeleting, setIsDeleting] = useState(false)
-
-	const handleDelete = async () => {
-		setIsDeleting(true)
-		try {
-			await onDelete()
-		} finally {
-			setIsDeleting(false)
-		}
-	}
-
-	const handleCopyId = async () => {
-		try {
-			await navigator.clipboard.writeText(content._id)
-			toast.success('Listing ID copied')
-		} catch {
-			toast.error('Failed to copy listing ID')
-		}
-	}
-
-	return (
-		<AlertDialog>
-			<DropdownMenu>
-				<DropdownMenuTrigger
-					render={(props) => (
-						<Button {...props} size="icon" variant="ghost">
-							<HugeiconsIcon
-								className="size-4"
-								icon={MoreHorizontalIcon}
-							/>
-							<span className="sr-only">Open menu</span>
-						</Button>
-					)}
-				/>
-				<DropdownMenuContent align="end" className="w-full">
-					<DropdownMenuItem onClick={handleCopyId}>
-						<HugeiconsIcon className="size-4" icon={Copy01Icon} />
-						Copy Listing ID
-					</DropdownMenuItem>
-					<DropdownMenuItem
-						nativeButton={false}
-						render={(props) => (
-							<Link
-								{...props}
-								href={contentEditHref(
-									content.type,
-									content._id,
-								)}
-							>
-								<HugeiconsIcon
-									className="size-4"
-									icon={PencilEdit01Icon}
-								/>
-								Edit
-							</Link>
-						)}
-					/>
-					<DropdownMenuItem
-						nativeButton={false}
-						render={(props) => (
-							<Link
-								{...props}
-								href={contentHref(
-									content.type,
-									content.slug,
-									content._id,
-								)}
-							>
-								<HugeiconsIcon
-									className="size-4"
-									icon={PuzzleIcon}
-								/>
-								View Public Page
-							</Link>
-						)}
-					/>
-					<AlertDialogTrigger
-						nativeButton={false}
-						render={(props) => (
-							<DropdownMenuItem
-								{...props}
-								onSelect={(e) => e.preventDefault()}
-								variant="destructive"
-							>
-								<HugeiconsIcon
-									className="size-4"
-									icon={Delete02Icon}
-								/>
-								Delete
-							</DropdownMenuItem>
-						)}
-					/>
-				</DropdownMenuContent>
-			</DropdownMenu>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Are you sure?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This will permanently delete{' '}
-						<strong>{content.name}</strong>. This action cannot be
-						undone.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Cancel</AlertDialogCancel>
-					<AlertDialogAction
-						className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-						disabled={isDeleting}
-						onClick={handleDelete}
-					>
-						{isDeleting ? (
-							<>
-								<Spinner className="mr-2 size-4" />
-								Deleting...
-							</>
-						) : (
-							'Delete'
-						)}
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
-	)
-}
-
-// ─── Status Badge ──────────────────────────────────────────────────────────
-
-function ProjectStatusBadge({ status }: { status?: ProjectLifecycleStatus }) {
-	if (!status) {
-		return (
-			<Status variant="default">
-				<StatusLabel>Unknown</StatusLabel>
-			</Status>
-		)
-	}
-
-	return (
-		<Status variant={STATUS_VARIANTS[status]}>
-			<StatusLabel>{STATUS_LABELS[status]}</StatusLabel>
-		</Status>
-	)
-}
-
-// ─── Stats Bar ─────────────────────────────────────────────────────────────
-
 function ProjectStatsBar({
 	items,
 	type,
@@ -262,7 +78,9 @@ function ProjectStatsBar({
 }) {
 	const plural = type ? PROJECT_TYPE_PLURAL_LABELS[type] : 'Listings'
 	const totalItems = items.length
-	const publishedItems = items.filter((i) => i.status === 'published').length
+	const publishedItems = items.filter(
+		(i) => creatorListingState(i).published,
+	).length
 	const totalDownloads = items.reduce((sum, a) => sum + a.totalDownloads, 0)
 	const ratedItems = items.filter((i) => i.reviewCount > 0)
 	const avgRating =
@@ -358,17 +176,8 @@ export function ProjectListTable({
 	}, [categories])
 
 	const handleDelete = useCallback(
-		async (contentId: Id<'projects'>, contentName: string) => {
-			try {
-				await deleteContent({ id: contentId })
-				toast.success(`${contentName} has been deleted`)
-			} catch (error) {
-				toast.error(
-					error instanceof Error
-						? error.message
-						: 'Failed to delete project',
-				)
-			}
+		async (contentId: Id<'projects'>) => {
+			await deleteContent({ id: contentId })
 		},
 		[deleteContent],
 	)
@@ -425,23 +234,53 @@ export function ProjectListTable({
 			},
 			{
 				id: 'status',
-				accessorKey: 'status',
+				accessorFn: (row) => creatorListingState(row).publication,
 				header: ({
 					column,
 				}: {
 					column: Column<DataTableFeatures, ProjectRow, unknown>
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => (
-					<ProjectStatusBadge status={row.original.status} />
+					<ListingPublicationBadge
+						status={creatorListingState(row.original).publication}
+					/>
 				),
 				meta: {
 					label: 'Status',
 					variant: 'multiSelect',
-					options: [
-						{ label: 'Published', value: 'published' },
-						{ label: 'Draft', value: 'draft' },
-						{ label: 'Under Review', value: 'under_review' },
-					],
+					options: Object.entries(PUBLICATION_LABELS).map(
+						([value, label]) => ({ value, label }),
+					),
+				},
+				enableColumnFilter: true,
+			},
+			{
+				id: 'review',
+				accessorFn: (row) => creatorListingState(row).review,
+				header: ({ column }) => (
+					<DataTableColumnHeader
+						column={column}
+						label="Review status"
+					/>
+				),
+				cell: ({ row }) => (
+					<div className="space-y-1">
+						<ListingReviewBadge
+							status={creatorListingState(row.original).review}
+						/>
+						{row.original.hasPendingVersions ? (
+							<p className="text-muted-foreground text-xs">
+								Version submission
+							</p>
+						) : null}
+					</div>
+				),
+				meta: {
+					label: 'Review status',
+					variant: 'multiSelect',
+					options: Object.entries(REVIEW_LABELS).map(
+						([value, label]) => ({ value, label }),
+					),
 				},
 				enableColumnFilter: true,
 			},
@@ -626,13 +465,36 @@ export function ProjectListTable({
 			{
 				id: 'actions',
 				cell: ({ row }) => {
-					const contentItem = row.original
+					const item = row.original
+					const state = creatorListingState(item)
+					const editHref = contentEditHref(item.type, item._id)
 					return (
-						<ProjectRowActionsCell
-							content={contentItem}
-							onDelete={() =>
-								handleDelete(contentItem._id, contentItem.name)
+						<ListingRowActions
+							deletion={
+								state.locked
+									? undefined
+									: {
+											name: item.name,
+											confirmText: item.slug,
+											description:
+												'This permanently deletes the listing, its releases, reviews and gallery. Recorded submission history and its images are retained.',
+											onDelete: () =>
+												handleDelete(item._id),
+										}
 							}
+							editHref={editHref}
+							id={item._id}
+							name={item.name}
+							publicHref={
+								state.published
+									? contentHref(
+											item.type,
+											item.slug,
+											item._id,
+										)
+									: undefined
+							}
+							reviewHref={`${editHref}/${item.hasPendingVersions && state.review === 'pending' ? 'versions' : 'review'}`}
 						/>
 					)
 				},

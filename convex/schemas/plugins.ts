@@ -1,5 +1,7 @@
+import { submissionFields } from './submissions'
 import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
+import { moderationStatus } from './projects'
 
 export const organizationRoleValidator = v.union(
 	v.literal('owner'),
@@ -110,7 +112,7 @@ const draftFields = {
 	licenseCustom: v.optional(v.string()),
 	// CDN URL of the plugin's icon (functions/plugins/icons.ts).
 	iconUrl: v.optional(v.string()),
-	// Chosen in the dashboard (publishing/model:saveCategories); apply at once.
+	// Chosen in the dashboard (publishing/model:saveCategories); reviewed with the next release.
 	categoryIds: v.optional(v.array(v.id('pluginCategories'))),
 	// Links shown on the plugin page (functions/plugins/publishing/model:saveLinks).
 	// Source code is always the repository; issues default to its issue tracker.
@@ -253,6 +255,12 @@ export const projectValidator = v.object({
 	donationUrl: v.optional(v.string()),
 	visibility: projectVisibilityValidator,
 	status: projectStatusValidator,
+	moderationStatus: v.optional(moderationStatus),
+	moderationReason: v.optional(v.string()),
+	moderatedAt: v.optional(v.number()),
+	moderatedBy: v.optional(v.string()),
+	moderationRevision: v.optional(v.number()),
+	...submissionFields,
 	latestVersionId: v.optional(v.id('pluginVersions')),
 	downloadCount: v.number(),
 	downloadCounterReadyAt: v.optional(v.number()),
@@ -271,6 +279,12 @@ export const publicProjectValidator = projectValidator.omit(
 	'searchText',
 	'downloadCounterReadyAt',
 	'downloadCountRefreshScheduledAt',
+	'submissionStatus',
+	'submissionRevision',
+	'submissionReason',
+	'submittedAt',
+	'draftChangesJson',
+	'publishedGalleryJson',
 )
 
 export const tables = {
@@ -423,6 +437,12 @@ export const tables = {
 		donationUrl: v.optional(v.string()),
 		visibility: projectVisibilityValidator,
 		status: projectStatusValidator,
+		moderationStatus: v.optional(moderationStatus),
+		moderationReason: v.optional(v.string()),
+		moderatedAt: v.optional(v.number()),
+		moderatedBy: v.optional(v.string()),
+		moderationRevision: v.optional(v.number()),
+		...submissionFields,
 		latestVersionId: v.optional(v.id('pluginVersions')),
 		downloadCount: v.number(),
 		downloadCounterReadyAt: v.optional(v.number()),
@@ -433,6 +453,7 @@ export const tables = {
 		createdAt: v.number(),
 		updatedAt: v.number(),
 	})
+		.index('by_submission_status',['submissionStatus','submittedAt'])
 		.index('by_slug', ['slug'])
 		.index('by_repository_id', ['repositoryId'])
 		.index('by_owner_type_and_owner_id', ['ownerType', 'ownerId'])
@@ -562,6 +583,9 @@ export const tables = {
 		branch: v.optional(v.string()),
 		traceable: v.boolean(),
 		status: releaseStatusValidator,
+		approvalModerationRevision: v.optional(v.number()),
+		submissionRevision: v.optional(v.number()),
+		submittedDetailsJson: v.optional(v.string()),
 		failureReason: v.optional(v.string()),
 		fileName: v.optional(v.string()),
 		size: v.optional(v.number()),
@@ -598,7 +622,7 @@ export const tables = {
 	// One per user and plugin (functions/plugins/reviews.ts). Deleting a review
 	// deactivates it; plugins.ratingAverage/ratingCount follow the active ones.
 	// Screenshots on the plugin page (functions/plugins/gallery.ts), managed
-	// from the dashboard and shown at once, like project galleries.
+	// from the dashboard and reviewed with the next release.
 	pluginGallery: defineTable({
 		pluginId: v.id('plugins'),
 		ownerId: v.string(),

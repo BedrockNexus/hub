@@ -1,3 +1,4 @@
+import { reviewMutation } from '../../test.setup'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TEST_WORKFLOW_TEMPLATE } from '../../../lib/plugins/workflow-templates.fixtures'
@@ -20,7 +21,11 @@ afterEach(() => {
 	vi.useRealTimers()
 })
 
-async function insertUser(t: TestClient, label: string, role: 'user' | 'admin') {
+async function insertUser(
+	t: TestClient,
+	label: string,
+	role: 'user' | 'admin',
+) {
 	const now = Date.now()
 	const user = await t.mutation(components.betterAuth.adapter.create, {
 		input: {
@@ -174,7 +179,11 @@ async function createFoundation(
 
 type Foundation = Awaited<ReturnType<typeof createFoundation>>
 
-const POCKETMINE = { slug: 'pocketmine-mp', name: 'PocketMine-MP', extension: 'phar' }
+const POCKETMINE = {
+	slug: 'pocketmine-mp',
+	name: 'PocketMine-MP',
+	extension: 'phar',
+}
 
 async function recordBuild(
 	t: TestClient,
@@ -209,7 +218,10 @@ async function recordBuild(
 							artifactId: overrides.artifactId ?? runId + 1,
 							artifactSize: 2048,
 							...(overrides.artifactExpiresAt
-								? { artifactExpiresAt: overrides.artifactExpiresAt }
+								? {
+										artifactExpiresAt:
+											overrides.artifactExpiresAt,
+									}
 								: {}),
 						}),
 				workflowBlobSha: overrides.workflowBlobSha ?? WORKFLOW_BLOB_SHA,
@@ -221,7 +233,9 @@ async function recordBuild(
 	const build = await t.run((ctx) =>
 		ctx.db
 			.query('pluginBuilds')
-			.withIndex('by_workflow_run_id', (q) => q.eq('workflowRunId', runId))
+			.withIndex('by_workflow_run_id', (q) =>
+				q.eq('workflowRunId', runId),
+			)
 			.unique(),
 	)
 	if (!build) throw new Error('The build was not recorded.')
@@ -263,7 +277,9 @@ async function approveAndPublish(
 	releaseId: Id<'pluginReleases'>,
 	version: string,
 ) {
-	await foundation.moderator.client.mutation(
+	await reviewMutation(
+		t,
+		foundation.moderator.client,
 		api.functions.plugins.publishing.model.approveReview,
 		{ releaseId },
 	)
@@ -399,13 +415,36 @@ describe('builds', () => {
 		const foundation = await createFoundation(t, POCKETMINE)
 		const now = Date.now()
 		const cases = [
-			[await recordBuild(t, foundation, 7101, { event: 'pull_request' }), 'pull requests'],
-			[await recordBuild(t, foundation, 7102, { conclusion: 'failure' }), 'did not succeed'],
-			[await recordBuild(t, foundation, 7103, { workflowBlobSha: 'edited' }), 'not traceable'],
-			[await recordBuild(t, foundation, 7104, { workflowBlobSha: '' }), 'not traceable'],
-			[await recordBuild(t, foundation, 7105, { artifactId: null }), 'plugin-package'],
 			[
-				await recordBuild(t, foundation, 7106, { artifactExpiresAt: now - 1 }),
+				await recordBuild(t, foundation, 7101, {
+					event: 'pull_request',
+				}),
+				'pull requests',
+			],
+			[
+				await recordBuild(t, foundation, 7102, {
+					conclusion: 'failure',
+				}),
+				'did not succeed',
+			],
+			[
+				await recordBuild(t, foundation, 7103, {
+					workflowBlobSha: 'edited',
+				}),
+				'not traceable',
+			],
+			[
+				await recordBuild(t, foundation, 7104, { workflowBlobSha: '' }),
+				'not traceable',
+			],
+			[
+				await recordBuild(t, foundation, 7105, { artifactId: null }),
+				'plugin-package',
+			],
+			[
+				await recordBuild(t, foundation, 7106, {
+					artifactExpiresAt: now - 1,
+				}),
 				'deleted',
 			],
 		] as const
@@ -448,7 +487,8 @@ describe('builds', () => {
 		)
 		await recordBuild(t, foundation, 7201)
 		expect(
-			(await t.run((ctx) => ctx.db.get('pluginBuilds', buildId)))?.traceable,
+			(await t.run((ctx) => ctx.db.get('pluginBuilds', buildId)))
+				?.traceable,
 		).toBe(true)
 	})
 })
@@ -513,8 +553,12 @@ describe('version rules', () => {
 	it('keeps the newest build as latest when an older build is approved later', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
-		const older = await recordBuild(t, foundation, 7401, { createdAt: 1_000 })
-		const newer = await recordBuild(t, foundation, 7402, { createdAt: 2_000 })
+		const older = await recordBuild(t, foundation, 7401, {
+			createdAt: 1_000,
+		})
+		const newer = await recordBuild(t, foundation, 7402, {
+			createdAt: 2_000,
+		})
 
 		await approveAndPublish(
 			t,
@@ -529,13 +573,16 @@ describe('version rules', () => {
 			'1.5.0',
 		)
 
-		const project = await t.query(api.functions.plugins.catalog.getProject, {
-			slug: foundation.slug,
-		})
-		expect(project?.project.latestVersion?.version).toBe('2.0.0')
-		expect(project?.versions.map((version) => version.version).sort()).toEqual(
-			['1.5.0', '2.0.0'],
+		const project = await t.query(
+			api.functions.plugins.catalog.getProject,
+			{
+				slug: foundation.slug,
+			},
 		)
+		expect(project?.project.latestVersion?.version).toBe('2.0.0')
+		expect(
+			project?.versions.map((version) => version.version).sort(),
+		).toEqual(['1.5.0', '2.0.0'])
 	})
 })
 
@@ -547,12 +594,16 @@ describe('review decisions', () => {
 		const releaseId = await sendToReview(t, foundation, buildId, '1.0.0')
 
 		await expect(
-			foundation.moderator.client.mutation(
+			reviewMutation(
+				t,
+				foundation.moderator.client,
 				api.functions.plugins.publishing.model.requestReviewChanges,
 				{ releaseId, reason: '  ' },
 			),
-		).rejects.toThrow('reason is required')
-		await foundation.moderator.client.mutation(
+		).rejects.toThrow('reason')
+		await reviewMutation(
+			t,
+			foundation.moderator.client,
 			api.functions.plugins.publishing.model.requestReviewChanges,
 			{ releaseId, reason: 'Add a config example to the README.' },
 		)
@@ -582,7 +633,9 @@ describe('review decisions', () => {
 			await recordBuild(t, foundation, 7601),
 			'1.0.0',
 		)
-		await foundation.moderator.client.mutation(
+		await reviewMutation(
+			t,
+			foundation.moderator.client,
 			api.functions.plugins.publishing.model.rejectReview,
 			{ releaseId, reason: 'Not a Minecraft plugin.' },
 		)
@@ -616,7 +669,9 @@ describe('review decisions', () => {
 			},
 		})
 		await expect(
-			foundation.developer.client.mutation(
+			reviewMutation(
+				t,
+				foundation.developer.client,
 				api.functions.plugins.publishing.model.approveReview,
 				{ releaseId },
 			),
@@ -638,7 +693,10 @@ describe('review decisions', () => {
 		)
 		await t.mutation(
 			internal.functions.plugins.publishing.model.failPreparation,
-			{ releaseId, reason: 'The build must contain exactly one .phar file.' },
+			{
+				releaseId,
+				reason: 'The build must contain exactly one .phar file.',
+			},
 		)
 		const state = await t.run(async (ctx) => ({
 			release: await ctx.db.get('pluginReleases', releaseId),
@@ -740,19 +798,57 @@ describe('workflow selection', () => {
 describe('plugin Discord announcements', () => {
 	it('stages the first public release once and ignores subsequent versions', async () => {
 		vi.stubEnv('DISCORD_ANNOUNCEMENTS_ENABLED', 'true')
-		vi.stubEnv('DISCORD_ANNOUNCEMENTS_WEBHOOK_URL', 'https://discord.com/api/webhooks/123/test-token')
+		vi.stubEnv(
+			'DISCORD_ANNOUNCEMENTS_WEBHOOK_URL',
+			'https://discord.com/api/webhooks/123/test-token',
+		)
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
-		const first = await sendToReview(t, foundation, await recordBuild(t, foundation, 7401), '1.0.0')
-		expect(await t.run(ctx => ctx.db.query('discordAnnouncements').take(5))).toHaveLength(0)
+		const first = await sendToReview(
+			t,
+			foundation,
+			await recordBuild(t, foundation, 7401),
+			'1.0.0',
+		)
+		expect(
+			await t.run((ctx) => ctx.db.query('discordAnnouncements').take(5)),
+		).toHaveLength(0)
 		await approveAndPublish(t, foundation, first, '1.0.0')
-		const row = await t.run(ctx => ctx.db.query('discordAnnouncements').first())
-		expect(await t.mutation(internal.functions.site.discordAnnouncements.prepare, { id: row!._id })).toMatchObject({ content: { category: 'Plugin', path: expect.stringMatching(/^\/plugins\/p_/) } })
-		await t.mutation(internal.functions.site.discordAnnouncements.finish, { id: row!._id, attempt: 1, outcome: 'sent' })
-		const second = await sendToReview(t, foundation, await recordBuild(t, foundation, 7402), '1.1.0')
+		const row = await t.run((ctx) =>
+			ctx.db.query('discordAnnouncements').first(),
+		)
+		expect(
+			await t.mutation(
+				internal.functions.site.discordAnnouncements.prepare,
+				{ id: row!._id },
+			),
+		).toMatchObject({
+			content: {
+				category: 'Plugin',
+				path: expect.stringMatching(/^\/plugins\/p_/),
+			},
+		})
+		await t.mutation(internal.functions.site.discordAnnouncements.finish, {
+			id: row!._id,
+			attempt: 1,
+			outcome: 'sent',
+		})
+		const second = await sendToReview(
+			t,
+			foundation,
+			await recordBuild(t, foundation, 7402),
+			'1.1.0',
+		)
 		await approveAndPublish(t, foundation, second, '1.1.0')
-		expect(await t.run(ctx => ctx.db.query('discordAnnouncements').take(5))).toHaveLength(1)
-		expect(await t.mutation(internal.functions.site.discordAnnouncements.prepare, { id: row!._id })).toBeNull()
+		expect(
+			await t.run((ctx) => ctx.db.query('discordAnnouncements').take(5)),
+		).toHaveLength(1)
+		expect(
+			await t.mutation(
+				internal.functions.site.discordAnnouncements.prepare,
+				{ id: row!._id },
+			),
+		).toBeNull()
 	})
 })
 
@@ -798,7 +894,10 @@ describe('project deletion', () => {
 		const projectId = foundation.projectId
 		const remaining = await t.run(async (ctx) => ({
 			project: await ctx.db.get('plugins', projectId),
-			draft: await ctx.db.get('pluginPublishingDrafts', foundation.draftId),
+			draft: await ctx.db.get(
+				'pluginPublishingDrafts',
+				foundation.draftId,
+			),
 			versions: await ctx.db
 				.query('pluginVersions')
 				.withIndex('by_project_id', (q) => q.eq('projectId', projectId))
@@ -831,9 +930,12 @@ describe('project deletion', () => {
 		// self-service account deletion.
 		const userId = foundation.developer.userId
 		expect(
-			await t.mutation(internal.functions.plugins.accountDeletion.prepare, {
-				userId,
-			}),
+			await t.mutation(
+				internal.functions.plugins.accountDeletion.prepare,
+				{
+					userId,
+				},
+			),
 		).toContain('Uninstall the BedrockNexus GitHub App')
 		await t.run(async (ctx) => {
 			for (const installation of await ctx.db
@@ -845,9 +947,12 @@ describe('project deletion', () => {
 			}
 		})
 		expect(
-			await t.mutation(internal.functions.plugins.accountDeletion.prepare, {
-				userId,
-			}),
+			await t.mutation(
+				internal.functions.plugins.accountDeletion.prepare,
+				{
+					userId,
+				},
+			),
 		).toBeNull()
 	})
 
@@ -857,11 +962,16 @@ describe('project deletion', () => {
 		const stranger = await insertUser(t, 'stranger', 'user')
 
 		await expect(
-			stranger.client.mutation(api.functions.plugins.deletion.deleteProject, {
-				draftId: foundation.draftId,
-				confirmSlug: foundation.slug,
-			}),
-		).rejects.toThrow('Plugin owner or organization manager access is required')
+			stranger.client.mutation(
+				api.functions.plugins.deletion.deleteProject,
+				{
+					draftId: foundation.draftId,
+					confirmSlug: foundation.slug,
+				},
+			),
+		).rejects.toThrow(
+			'Plugin owner or organization manager access is required',
+		)
 		expect(
 			await t.run((ctx) => ctx.db.get('plugins', foundation.projectId)),
 		).not.toBeNull()
@@ -879,7 +989,9 @@ describe('project deletion', () => {
 			ctx.db
 				.query('adminActions')
 				.withIndex('by_targetType_and_targetId', (q) =>
-					q.eq('targetType', 'plugin').eq('targetId', foundation.projectId),
+					q
+						.eq('targetType', 'plugin')
+						.eq('targetId', foundation.projectId),
 				)
 				.collect(),
 		)
@@ -893,7 +1005,7 @@ describe('project deletion', () => {
 })
 
 describe('plugin icons and links', () => {
-	it('shows a new icon at once, published or not', async () => {
+	it('stages icon changes after publication', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
 		const setIcon = (iconUrl: string) =>
@@ -905,7 +1017,10 @@ describe('plugin icons and links', () => {
 		const icons = () =>
 			t.run(async (ctx) => ({
 				draft: (
-					await ctx.db.get('pluginPublishingDrafts', foundation.draftId)
+					await ctx.db.get(
+						'pluginPublishingDrafts',
+						foundation.draftId,
+					)
 				)?.iconUrl,
 				plugin: (await ctx.db.get('plugins', foundation.projectId))
 					?.iconUrl,
@@ -931,18 +1046,35 @@ describe('plugin icons and links', () => {
 		await setIcon('https://cdn.example.com/second.webp')
 		expect(await icons()).toEqual({
 			draft: 'https://cdn.example.com/second.webp',
-			plugin: 'https://cdn.example.com/second.webp',
+			plugin: 'https://cdn.example.com/first.webp',
 		})
 		const card = await t.query(api.functions.plugins.catalog.getProject, {
 			slug: foundation.slug,
 		})
-		expect(card?.project.iconUrl).toBe('https://cdn.example.com/second.webp')
+		expect(card?.project.iconUrl).toBe('https://cdn.example.com/first.webp')
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 8102),
+				'1.1.0',
+			),
+			'1.1.0',
+		)
+		expect((await icons()).plugin).toBe(
+			'https://cdn.example.com/second.webp',
+		)
 
 		await foundation.developer.client.mutation(
 			api.functions.plugins.icons.remove,
 			{ draftId: foundation.draftId },
 		)
-		expect(await icons()).toEqual({ draft: undefined, plugin: undefined })
+		expect(await icons()).toEqual({
+			draft: undefined,
+			plugin: 'https://cdn.example.com/second.webp',
+		})
 	})
 
 	it('copies icons saved before they applied at once', async () => {
@@ -962,7 +1094,7 @@ describe('plugin icons and links', () => {
 		).toBe('https://cdn.example.com/waiting.webp')
 	})
 
-	it('saves links at once and checks them', async () => {
+	it('validates links and publishes them with the reviewed release', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
 		await approveAndPublish(
@@ -990,6 +1122,24 @@ describe('plugin icons and links', () => {
 				discordUrl: 'https://discord.gg/example',
 			},
 		)
+		expect(
+			(
+				await t.query(api.functions.plugins.catalog.getProject, {
+					slug: foundation.slug,
+				})
+			)?.links,
+		).toEqual({})
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 8302),
+				'1.1.0',
+			),
+			'1.1.0',
+		)
 		const page = await t.query(api.functions.plugins.catalog.getProject, {
 			slug: foundation.slug,
 		})
@@ -999,7 +1149,7 @@ describe('plugin icons and links', () => {
 		})
 	})
 
-	it('saves categories at once and filters listings by them', async () => {
+	it('publishes category changes only after release approval', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
 		await approveAndPublish(
@@ -1015,15 +1165,16 @@ describe('plugin icons and links', () => {
 		)
 		const [economy, chat, tools, admin, retired] = await t.run((ctx) =>
 			Promise.all(
-				['Economy', 'Chat', 'Tools', 'Admin', 'Retired'].map((name, index) =>
-					ctx.db.insert('pluginCategories', {
-						name,
-						slug: name.toLowerCase(),
-						sortOrder: index,
-						isActive: name !== 'Retired',
-						createdAt: 0,
-						updatedAt: 0,
-					}),
+				['Economy', 'Chat', 'Tools', 'Admin', 'Retired'].map(
+					(name, index) =>
+						ctx.db.insert('pluginCategories', {
+							name,
+							slug: name.toLowerCase(),
+							sortOrder: index,
+							isActive: name !== 'Retired',
+							createdAt: 0,
+							updatedAt: 0,
+						}),
 				),
 			),
 		)
@@ -1044,6 +1195,18 @@ describe('plugin icons and links', () => {
 				categorySlugs,
 				sort: 'latest',
 			})
+		expect((await explore('economy')).page).toEqual([])
+		await approveAndPublish(
+			t,
+			foundation,
+			await sendToReview(
+				t,
+				foundation,
+				await recordBuild(t, foundation, 8402),
+				'1.1.0',
+			),
+			'1.1.0',
+		)
 		const economyPage = await explore('economy')
 		expect(economyPage.page.map((plugin) => plugin.slug)).toEqual([
 			foundation.slug,
@@ -1073,7 +1236,10 @@ describe('plugin settings pages', () => {
 		await expect(save('x'.repeat(81))).rejects.toThrow('at most 80')
 		await save(' MIT ', ' Credit the original author. ')
 		const saved = await t.run(async (ctx) => ({
-			draft: await ctx.db.get('pluginPublishingDrafts', foundation.draftId),
+			draft: await ctx.db.get(
+				'pluginPublishingDrafts',
+				foundation.draftId,
+			),
 			plugin: await ctx.db.get('plugins', foundation.projectId),
 		}))
 		for (const row of [saved.draft, saved.plugin]) {
@@ -1084,7 +1250,7 @@ describe('plugin settings pages', () => {
 		}
 	})
 
-	it('shows the moderator’s note when a version is sent back', async () => {
+	it('shows the moderatorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢s note when a version is sent back', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
 		const getMine = () =>
@@ -1099,7 +1265,9 @@ describe('plugin settings pages', () => {
 			'1.0.0',
 		)
 		expect((await getMine()).moderationNote).toBeUndefined()
-		await foundation.moderator.client.mutation(
+		await reviewMutation(
+			t,
+			foundation.moderator.client,
 			api.functions.plugins.publishing.model.rejectReview,
 			{ releaseId, reason: 'Not a Minecraft plugin.' },
 		)
@@ -1138,7 +1306,9 @@ describe('plugin settings pages', () => {
 
 		expect(await names()).toEqual(['first.png', 'second.png'])
 		await expect(
-			stranger.client.query(gallery.listMine, { draftId: foundation.draftId }),
+			stranger.client.query(gallery.listMine, {
+				draftId: foundation.draftId,
+			}),
 		).rejects.toThrow('not found')
 		await expect(
 			stranger.client.mutation(gallery.updateCaption, {
@@ -1161,7 +1331,9 @@ describe('plugin settings pages', () => {
 
 		// Not public until the plugin is.
 		expect(
-			await t.query(gallery.listPublic, { pluginId: foundation.projectId }),
+			await t.query(gallery.listPublic, {
+				pluginId: foundation.projectId,
+			}),
 		).toEqual([])
 		await approveAndPublish(
 			t,
@@ -1176,7 +1348,9 @@ describe('plugin settings pages', () => {
 		)
 		expect(
 			(
-				await t.query(gallery.listPublic, { pluginId: foundation.projectId })
+				await t.query(gallery.listPublic, {
+					pluginId: foundation.projectId,
+				})
 			).map((item) => item.url),
 		).toEqual([
 			`https://cdn.example.com/media/plugins/${foundation.projectId}/gallery/second.png`,
@@ -1260,22 +1434,791 @@ describe('plugin reviews', () => {
 	})
 })
 
-
 describe('selected workflow metadata', () => {
 	it('preserves installed provenance when the repository catalog changes or retires the template', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
 		const key = `${POCKETMINE.slug}:default`
-		await t.mutation(internal.functions.plugins.publishing.model.recordWorkflowCommit, {
-			tokenIdentifier: foundation.developer.tokenIdentifier, draftId: foundation.draftId,
-			branch: 'main', commitSha: 'installed-commit', workflowBlobSha: WORKFLOW_BLOB_SHA,
-			templateKey: key, templateVersion: 1, sourceCommit: 'a'.repeat(40), sourcePath: 'templates/pmmp.yml',
+		await t.mutation(
+			internal.functions.plugins.publishing.model.recordWorkflowCommit,
+			{
+				tokenIdentifier: foundation.developer.tokenIdentifier,
+				draftId: foundation.draftId,
+				branch: 'main',
+				commitSha: 'installed-commit',
+				workflowBlobSha: WORKFLOW_BLOB_SHA,
+				templateKey: key,
+				templateVersion: 1,
+				sourceCommit: 'a'.repeat(40),
+				sourcePath: 'templates/pmmp.yml',
+			},
+		)
+		const before = await t.run((ctx) =>
+			ctx.db.get('pluginPublishingDrafts', foundation.draftId),
+		)
+		const generation = await t.mutation(
+			internal.functions.plugins.workflowTemplates.beginRefresh,
+			{},
+		)
+		await t.mutation(
+			internal.functions.plugins.workflowTemplates.applyCatalog,
+			{ generation: generation!, commit: 'b'.repeat(40), templates: [] },
+		)
+		expect(
+			await t.query(
+				internal.functions.plugins.workflowTemplates.getTemplate,
+				{ key },
+			),
+		).toBeNull()
+		expect(
+			await t.run((ctx) =>
+				ctx.db.get('pluginPublishingDrafts', foundation.draftId),
+			),
+		).toEqual(before)
+		expect(before).toMatchObject({
+			workflowBlobSha: WORKFLOW_BLOB_SHA,
+			workflowTemplateSourceCommit: 'a'.repeat(40),
+			workflowTemplateSourcePath: 'templates/pmmp.yml',
 		})
-		const before = await t.run((ctx) => ctx.db.get('pluginPublishingDrafts', foundation.draftId))
-		const generation = await t.mutation(internal.functions.plugins.workflowTemplates.beginRefresh, {})
-		await t.mutation(internal.functions.plugins.workflowTemplates.applyCatalog, { generation: generation!, commit: 'b'.repeat(40), templates: [] })
-		expect(await t.query(internal.functions.plugins.workflowTemplates.getTemplate, { key })).toBeNull()
-		expect(await t.run((ctx) => ctx.db.get('pluginPublishingDrafts', foundation.draftId))).toEqual(before)
-		expect(before).toMatchObject({ workflowBlobSha: WORKFLOW_BLOB_SHA, workflowTemplateSourceCommit: 'a'.repeat(40), workflowTemplateSourcePath: 'templates/pmmp.yml' })
 	})
+})
+
+describe('admin plugin catalog', () => {
+	it('requires an admin and includes plugins outside the review queue', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		await expect(
+			t.query(api.functions.plugins.projects.listAdmin, {}),
+		).rejects.toThrow('signed in')
+		await expect(
+			foundation.developer.client.query(
+				api.functions.plugins.projects.listAdmin,
+				{},
+			),
+		).rejects.toThrow('Admin role required')
+		for (const status of [
+			'draft',
+			'review',
+			'published',
+			'archived',
+		] as const) {
+			await t.run(async (ctx) => {
+				await ctx.db.patch('plugins', foundation.projectId, { status })
+			})
+			const rows = await foundation.moderator.client.query(
+				api.functions.plugins.projects.listAdmin,
+				{},
+			)
+			expect(rows).toEqual([
+				expect.objectContaining({
+					projectId: foundation.projectId,
+					status,
+					software: POCKETMINE.name,
+				}),
+			])
+		}
+	})
+})
+
+describe('admin plugin review status', () => {
+	it('shows the latest submission even when an older version is published', async () => {
+		const t = createTest()
+		const foundation = await createFoundation(t, POCKETMINE)
+		const list = () =>
+			foundation.moderator.client.query(
+				api.functions.plugins.projects.listAdmin,
+				{},
+			)
+		expect((await list())[0]).toMatchObject({
+			reviewStatus: 'notSubmitted',
+		})
+		const firstBuild = await recordBuild(t, foundation, 98001)
+		const firstRelease = await sendToReview(
+			t,
+			foundation,
+			firstBuild,
+			'1.0.0',
+		)
+		await approveAndPublish(t, foundation, firstRelease, '1.0.0')
+		expect((await list())[0]).toMatchObject({
+			status: 'published',
+			reviewStatus: 'published',
+			reviewVersion: '1.0.0',
+		})
+		const secondBuild = await recordBuild(t, foundation, 98002)
+		const update = await sendToReview(t, foundation, secondBuild, '1.1.0')
+		expect((await list())[0]).toMatchObject({
+			status: 'published',
+			latestVersion: '1.0.0',
+			reviewStatus: 'inReview',
+			reviewVersion: '1.1.0',
+		})
+		for (const status of [
+			'changesRequested',
+			'rejected',
+			'preparing',
+			'preparationFailed',
+			'publishing',
+			'published',
+		] as const) {
+			await t.run(async (ctx) => {
+				await ctx.db.patch('pluginReleases', update, { status })
+			})
+			expect((await list())[0]).toMatchObject({
+				reviewStatus: status,
+				reviewVersion: '1.1.0',
+			})
+		}
+	})
+})
+
+describe('per-plugin admin submission review', () => {
+	it('protects private submissions and keeps release history scoped to the selected plugin', async () => {
+		const t = createTest()
+		const first = await createFoundation(t, POCKETMINE)
+		const second = await createFoundation(t, {
+			slug: 'powernukkitx',
+			name: 'PowerNukkitX',
+			extension: 'jar',
+		})
+		const args = { id: first.projectId }
+		await expect(
+			t.query(api.functions.plugins.projects.getAdminReview, args),
+		).rejects.toThrow('signed in')
+		await expect(
+			first.developer.client.query(
+				api.functions.plugins.projects.getAdminReview,
+				args,
+			),
+		).rejects.toThrow('Admin role required')
+		const read = () =>
+			first.moderator.client.query(
+				api.functions.plugins.projects.getAdminReview,
+				args,
+			)
+		expect(
+			await first.moderator.client.query(
+				api.functions.plugins.projects.getAdminReview,
+				{ id: 'not-an-id' },
+			),
+		).toBeNull()
+		expect((await read())?.releases).toEqual([])
+		const firstBuild = await recordBuild(t, first, 99001)
+		const secondBuild = await recordBuild(t, second, 99002)
+		const releaseId = await sendToReview(t, first, firstBuild, '1.0.0')
+		await sendToReview(t, second, secondBuild, '2.0.0')
+		await t.run((ctx) =>
+			ctx.db.patch('pluginPublishingDrafts', first.draftId, {
+				name: 'Submitted plugin name',
+				description: 'Private submitted description.',
+			}),
+		)
+		const review = await read()
+		expect(review?.draft).toMatchObject({
+			name: 'PocketMine-MP Fixture',
+			description: '# Fixture\n\nThe README.',
+		})
+		expect(review?.releases).toHaveLength(1)
+		expect(review?.releases[0]).toMatchObject({
+			_id: releaseId,
+			status: 'inReview',
+			version: '1.0.0',
+			logsUrl:
+				'https://github.com/BedrockNexus/fixture/actions/runs/99001',
+		})
+		await reviewMutation(
+			t,
+			first.moderator.client,
+			api.functions.plugins.publishing.model.requestReviewChanges,
+			{ releaseId, reason: 'Please improve the setup instructions.' },
+		)
+		expect((await read())?.releases[0]).toMatchObject({
+			status: 'changesRequested',
+			reviewNotes: 'Please improve the setup instructions.',
+		})
+	})
+})
+
+describe('shared plugin listing moderation', () => {
+	async function published(t: TestClient) {
+		const foundation = await createFoundation(t, POCKETMINE)
+		const build = await recordBuild(t, foundation, 88001)
+		const release = await sendToReview(t, foundation, build, '1.0.0')
+		await approveAndPublish(t, foundation, release, '1.0.0')
+		return foundation
+	}
+	it('flags, unpublishes, and restores a listing with notes, public access checks, counts, and audit records', async () => {
+		const t = createTest()
+		const f = await published(t)
+		const moderate = (
+			action: 'approve' | 'flag' | 'unpublish',
+			reason?: string,
+		) =>
+			reviewMutation(
+				t,
+				f.moderator.client,
+				api.functions.plugins.moderation.moderate,
+				{
+					id: f.projectId,
+					action,
+					reason:
+						action === 'unpublish'
+							? 'Removed by moderator.'
+							: reason,
+				},
+			)
+		await expect(
+			reviewMutation(
+				t,
+				f.developer.client,
+				api.functions.plugins.moderation.moderate,
+				{ id: f.projectId, action: 'flag', reason: 'test' },
+			),
+		).rejects.toThrow('Admin role required')
+		await expect(moderate('flag', ' ')).rejects.toThrow('reason')
+		vi.stubEnv('DOWNLOAD_REDIRECT_SECRET', 'moderation-test-secret')
+		vi.stubEnv('R2_CDN_PUBLIC_URL', 'https://cdn.example.com')
+		await t.run(async (ctx) => {
+			await ctx.db.insert('siteSettings', {
+				key: 'features',
+				value: { pluginsEnabled: true },
+				updatedAt: Date.now(),
+			})
+		})
+		const downloadArgs = {
+			projectSlug: f.slug,
+			version: '1.0.0',
+			anonymousIdHash: 'a'.repeat(64),
+			redirectSecret: 'moderation-test-secret',
+		}
+		await expect(
+			t.mutation(
+				api.functions.plugins.downloads.resolveAndRecord,
+				downloadArgs,
+			),
+		).resolves.toHaveProperty('url')
+		await moderate('flag', 'Please correct the listing.')
+		expect(
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: f.slug,
+			}),
+		).toBeNull()
+		await expect(
+			t.mutation(
+				api.functions.plugins.downloads.resolveAndRecord,
+				downloadArgs,
+			),
+		).rejects.toThrow('Download not found')
+		const mine = await f.developer.client.query(
+			api.functions.plugins.publishing.model.getMine,
+			{ draftId: f.draftId },
+		)
+		expect(mine.moderationNote).toBe('Please correct the listing.')
+		const software = await t.query(
+			api.functions.plugins.catalog.listSoftware,
+			{},
+		)
+		expect(
+			software.find((item) => item.slug === POCKETMINE.slug)
+				?.projectCount ?? 0,
+		).toBe(0)
+		await moderate('approve')
+		expect(
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: f.slug,
+			}),
+		).not.toBeNull()
+		await moderate('unpublish')
+		expect(
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: f.slug,
+			}),
+		).toBeNull()
+		await moderate('approve')
+		expect(
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: f.slug,
+			}),
+		).not.toBeNull()
+		const audits = await t.run((ctx) =>
+			ctx.db
+				.query('adminActions')
+				.withIndex('by_targetType_and_targetId', (q) =>
+					q.eq('targetType', 'plugin').eq('targetId', f.projectId),
+				)
+				.collect(),
+		)
+		expect(audits.map((item) => item.action)).toEqual([
+			'plugin.flag',
+			'plugin.approve',
+			'plugin.unpublish',
+			'plugin.approve',
+		])
+	})
+	it.each(['flag', 'unpublish'] as const)(
+		'prevents an already-approved update from undoing %s, even after a restore',
+		async (action) => {
+			const t = createTest()
+			const f = await published(t)
+			const build = await recordBuild(t, f, 88002)
+			const releaseId = await sendToReview(t, f, build, '1.1.0')
+			await reviewMutation(
+				t,
+				f.moderator.client,
+				api.functions.plugins.publishing.model.approveReview,
+				{ releaseId },
+			)
+			await reviewMutation(
+				t,
+				f.moderator.client,
+				api.functions.plugins.moderation.moderate,
+				{
+					id: f.projectId,
+					action,
+					reason: 'Moderator changed the listing.',
+				},
+			)
+			const finish = () =>
+				t.mutation(
+					internal.functions.plugins.publishing.model
+						.finishPublishing,
+					{ releaseId, cdnKey: 'plugins/demo/1.1.0.jar' },
+				)
+			expect(await finish()).toBe(false)
+			expect(
+				await t.query(
+					internal.functions.plugins.publishing.model
+						.getReleaseActionContext,
+					{ releaseId },
+				),
+			).toBeNull()
+			expect(
+				await t.query(api.functions.plugins.catalog.getProject, {
+					slug: f.slug,
+				}),
+			).toBeNull()
+			await reviewMutation(
+				t,
+				f.moderator.client,
+				api.functions.plugins.moderation.moderate,
+				{ id: f.projectId, action: 'approve' },
+			)
+			expect(await finish()).toBe(false)
+			const visible = await t.query(
+				api.functions.plugins.catalog.getProject,
+				{ slug: f.slug },
+			)
+			expect(visible?.versions.map((version) => version.version)).toEqual(
+				['1.0.0'],
+			)
+			await reviewMutation(
+				t,
+				f.moderator.client,
+				api.functions.plugins.publishing.model.retryPublishing,
+				{ releaseId },
+			)
+			expect(await finish()).toBe(true)
+		},
+	)
+	it('supports initial approval through the shared listing action and disallows publishing without a reviewed file', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		const args = { id: f.projectId, action: 'approve' as const }
+		await expect(
+			reviewMutation(
+				t,
+				f.moderator.client,
+				api.functions.plugins.moderation.moderate,
+				args,
+			),
+		).rejects.toThrow('release file')
+		const build = await recordBuild(t, f, 88003)
+		const releaseId = await sendToReview(t, f, build, '1.0.0')
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.moderation.moderate,
+			args,
+		)
+		expect(
+			await t.mutation(
+				internal.functions.plugins.publishing.model.finishPublishing,
+				{ releaseId, cdnKey: 'plugins/demo/1.0.0.jar' },
+			),
+		).toBe(true)
+		expect(
+			(await t.run((ctx) => ctx.db.get('plugins', f.projectId)))
+				?.moderationStatus,
+		).toBe('approved')
+	})
+	it('requires moderator restoration after rejection and prevents self approval', async () => {
+		const t = createTest()
+		const f = await published(t)
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.moderation.moderate,
+			{ id: f.projectId, action: 'reject', reason: 'Rejected content.' },
+		)
+		const build = await recordBuild(t, f, 88004)
+		await expect(
+			f.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitRelease,
+				{
+					draftId: f.draftId,
+					buildId: build,
+					version: '1.1.0',
+					changelog: 'Update',
+				},
+			),
+		).rejects.toThrow('rejected')
+		await t.run((ctx) =>
+			ctx.db.patch('plugins', f.projectId, {
+				createdBy: f.moderator.userId,
+			}),
+		)
+		await expect(
+			reviewMutation(
+				t,
+				f.moderator.client,
+				api.functions.plugins.moderation.moderate,
+				{ id: f.projectId, action: 'approve' },
+			),
+		).rejects.toThrow('own plugin')
+	})
+})
+
+describe('moderation during first plugin publication', () => {
+	it('lets a moderator restore an approved first release after it was flagged during publication', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		const build = await recordBuild(t, f, 88101)
+		const releaseId = await sendToReview(t, f, build, '1.0.0')
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.publishing.model.approveReview,
+			{ releaseId },
+		)
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.moderation.moderate,
+			{ id: f.projectId, action: 'flag', reason: 'Needs another look.' },
+		)
+		const finish = () =>
+			t.mutation(
+				internal.functions.plugins.publishing.model.finishPublishing,
+				{ releaseId, cdnKey: 'plugins/demo/first.jar' },
+			)
+		expect(await finish()).toBe(false)
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.moderation.moderate,
+			{ id: f.projectId, action: 'approve' },
+		)
+		expect(await finish()).toBe(true)
+		expect(
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: f.slug,
+			}),
+		).not.toBeNull()
+	})
+})
+
+describe('fixed plugin submissions', () => {
+	it('locks every editable detail and rejects a stale decision after resubmission', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		const build = await recordBuild(t, f, 89101)
+		const releaseId = await sendToReview(t, f, build, '1.0.0')
+		const revision = (await t.run((ctx) =>
+			ctx.db.get('plugins', f.projectId),
+		))!.submissionRevision!
+		for (const operation of [
+			() =>
+				f.developer.client.mutation(
+					api.functions.plugins.publishing.model.saveLinks,
+					{ draftId: f.draftId, wikiUrl: 'https://example.com' },
+				),
+			() =>
+				f.developer.client.mutation(
+					api.functions.plugins.publishing.model.saveLicense,
+					{ draftId: f.draftId, license: 'MIT' },
+				),
+			() =>
+				f.developer.client.mutation(
+					api.functions.plugins.publishing.model.saveCategories,
+					{ draftId: f.draftId, categoryIds: [] },
+				),
+			() =>
+				f.developer.client.mutation(
+					api.functions.plugins.icons.remove,
+					{ draftId: f.draftId },
+				),
+			() =>
+				f.developer.client.mutation(
+					api.functions.plugins.gallery.reorder,
+					{ draftId: f.draftId, orderedIds: [] },
+				),
+		])
+			await expect(operation()).rejects.toThrow(/locked|awaiting review/)
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.publishing.model.requestReviewChanges,
+			{ releaseId, reason: 'Improve the setup guide.' },
+		)
+		const replacement = await sendToReview(t, f, build, '1.0.0')
+		await expect(
+			f.moderator.client.mutation(
+				api.functions.plugins.publishing.model.approveReview,
+				{ releaseId: replacement, expectedRevision: revision },
+			),
+		).rejects.toThrow('changed since')
+		await expect(
+			f.moderator.client.mutation(
+				api.functions.plugins.publishing.model.approveReview,
+				{ releaseId: replacement },
+			),
+		).rejects.toThrow('changed since')
+	})
+	it('rejects a proposed update without hiding the approved version', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		await approveAndPublish(
+			t,
+			f,
+			await sendToReview(t, f, await recordBuild(t, f, 89201), '1.0.0'),
+			'1.0.0',
+		)
+		await f.developer.client.mutation(
+			api.functions.plugins.publishing.model.saveLinks,
+			{ draftId: f.draftId, wikiUrl: 'https://unreviewed.example.com' },
+		)
+		await sendToReview(t, f, await recordBuild(t, f, 89202), '1.1.0')
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.moderation.moderate,
+			{
+				id: f.projectId,
+				action: 'reject',
+				reason: 'The proposed update is unsuitable.',
+			},
+		)
+		const page = await t.query(api.functions.plugins.catalog.getProject, {
+			slug: f.slug,
+		})
+		expect(page?.versions.map((version) => version.version)).toEqual([
+			'1.0.0',
+		])
+		expect(page?.links).toEqual({})
+		expect(
+			await t.run((ctx) => ctx.db.get('plugins', f.projectId)),
+		).toMatchObject({
+			status: 'published',
+			visibility: 'public',
+			moderationStatus: 'approved',
+			submissionStatus: 'rejected',
+		})
+	})
+})
+
+it('keeps the current plugin public while a shared approval publishes an update', async () => {
+	const t = createTest()
+	const f = await createFoundation(t, POCKETMINE)
+	await approveAndPublish(
+		t,
+		f,
+		await sendToReview(t, f, await recordBuild(t, f, 89301), '1.0.0'),
+		'1.0.0',
+	)
+	const releaseId = await sendToReview(
+		t,
+		f,
+		await recordBuild(t, f, 89302),
+		'1.1.0',
+	)
+	await reviewMutation(
+		t,
+		f.moderator.client,
+		api.functions.plugins.moderation.moderate,
+		{ id: f.projectId, action: 'approve' },
+	)
+	expect(
+		(
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: f.slug,
+			})
+		)?.versions.map((version) => version.version),
+	).toEqual(['1.0.0'])
+	expect(
+		await t.mutation(
+			internal.functions.plugins.publishing.model.finishPublishing,
+			{ releaseId, cdnKey: 'plugins/demo/approved-update.jar' },
+		),
+	).toBe(true)
+	expect(
+		(
+			await t.query(api.functions.plugins.catalog.getProject, {
+				slug: f.slug,
+			})
+		)?.versions.map((version) => version.version),
+	).toContain('1.1.0')
+})
+
+describe('plugin moderation history', () => {
+	it('preserves submitted plugin details and commit information after publication and later edits', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		await approveAndPublish(
+			t,
+			f,
+			await sendToReview(t, f, await recordBuild(t, f, 89401), '1.0.0'),
+			'1.0.0',
+		)
+		await f.developer.client.mutation(
+			api.functions.plugins.publishing.model.saveLinks,
+			{ draftId: f.draftId, wikiUrl: 'https://reviewed.example.com' },
+		)
+		const releaseId = await sendToReview(
+			t,
+			f,
+			await recordBuild(t, f, 89402),
+			'1.1.0',
+		)
+		const scope = { contentId: f.projectId, contentType: 'plugin' as const }
+		const current = await f.moderator.client.query(
+			api.functions.moderation.history.getCurrentComparison,
+			scope,
+		)
+		expect(
+			current?.fields.find((field) => field.key === 'wikiUrl'),
+		).toMatchObject({ before: null, after: 'https://reviewed.example.com' })
+		const release = JSON.parse(
+			current!.fields.find((field) => field.key === 'release')!.after!,
+		)
+		expect(release).toMatchObject({
+			version: '1.1.0',
+			changelog: 'Changes in 1.1.0.',
+		})
+		expect(release.commitSha).toBeTruthy()
+		const events = await f.moderator.client.query(
+			api.functions.moderation.history.list,
+			{ ...scope, paginationOpts: { cursor: null, numItems: 25 } },
+		)
+		const event = events.page.find(
+			(row) => row.kind === 'submission' && row.label === 'Version 1.1.0',
+		)!
+		await approveAndPublish(t, f, releaseId, '1.1.0')
+		await f.developer.client.mutation(
+			api.functions.plugins.publishing.model.saveLinks,
+			{ draftId: f.draftId, wikiUrl: 'https://later.example.com' },
+		)
+		expect(
+			await f.moderator.client.query(
+				api.functions.moderation.history.getCurrentComparison,
+				scope,
+			),
+		).toBeNull()
+		const saved = await f.moderator.client.query(
+			api.functions.moderation.history.getComparison,
+			{ ...scope, eventId: event._id },
+		)
+		expect(
+			saved?.fields.find((field) => field.key === 'wikiUrl')?.after,
+		).toBe('https://reviewed.example.com')
+		const latest = await f.moderator.client.query(
+			api.functions.moderation.history.list,
+			{ ...scope, paginationOpts: { cursor: null, numItems: 25 } },
+		)
+		expect(
+			latest.page.some(
+				(row) =>
+					row.title === 'Approved for publication' &&
+					row.label?.includes('1.1.0'),
+			),
+		).toBe(true)
+	})
+	it('shows a first submission as additions and keeps it separate from another plugin history', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		await sendToReview(t, f, await recordBuild(t, f, 89403), '1.0.0')
+		const scope = { contentId: f.projectId, contentType: 'plugin' as const }
+		const current = await f.moderator.client.query(
+			api.functions.moderation.history.getCurrentComparison,
+			scope,
+		)
+		expect(current?.firstSubmission).toBe(true)
+		expect(
+			current?.fields.find((field) => field.key === 'name'),
+		).toMatchObject({ before: null, after: 'PocketMine-MP Fixture' })
+		expect(
+			(
+				await f.moderator.client.query(
+					api.functions.moderation.history.list,
+					{
+						contentId: 'another-plugin',
+						contentType: 'plugin',
+						paginationOpts: { cursor: null, numItems: 10 },
+					},
+				)
+			).page,
+		).toEqual([])
+	})
+})
+
+it('provides creator review states on owned plugin lists and settings without exposing private snapshots', async () => {
+	const t = createTest()
+	const f = await createFoundation(t, POCKETMINE)
+	const stranger = await insertUser(t, 'dashboard-stranger', 'user')
+	await t.run((ctx) =>
+		ctx.db.patch(f.projectId, {
+			submissionStatus: 'changes_requested',
+			submissionReason: 'Add installation instructions.',
+			moderationStatus: 'approved',
+			status: 'published',
+			visibility: 'public',
+			draftChangesJson: JSON.stringify({ name: 'Private draft name' }),
+		}),
+	)
+	const mine = await f.developer.client.query(
+		api.functions.plugins.projects.listMine,
+		{},
+	)
+	expect(mine[0]).toMatchObject({
+		submissionStatus: 'changes_requested',
+		submissionReason: 'Add installation instructions.',
+		hasDraftChanges: true,
+		moderationStatus: 'approved',
+	})
+	expect(mine[0]).not.toHaveProperty('draftChangesJson')
+	const settings = await f.developer.client.query(
+		api.functions.plugins.publishing.model.getMine,
+		{ draftId: f.draftId },
+	)
+	expect(settings.project).toMatchObject({
+		submissionStatus: 'changes_requested',
+		hasDraftChanges: true,
+		moderationStatus: 'approved',
+	})
+	expect(settings.moderationNote).toBe('Add installation instructions.')
+	expect(
+		await stranger.client.query(
+			api.functions.plugins.projects.listMine,
+			{},
+		),
+	).toEqual([])
+	await expect(
+		stranger.client.query(api.functions.plugins.publishing.model.getMine, {
+			draftId: f.draftId,
+		}),
+	).rejects.toThrow()
+	const publicPage = await t.query(api.functions.plugins.projects.getBySlug, {
+		slug: f.slug,
+	})
+	expect(publicPage).not.toHaveProperty('submissionReason')
+	expect(publicPage).not.toHaveProperty('draftChangesJson')
 })

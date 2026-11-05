@@ -1,10 +1,10 @@
 import { AdminProjectsTable } from '@/components/admin-dashboard/admin-projects-table'
-import { AdminPendingReleases } from '@/components/admin-dashboard/admin-release-review'
+import { ReviewQueue } from '@/components/admin-dashboard/review-queue'
 
 export default function AdminProjectsPage() {
 	return (
 		<>
-			<AdminPendingReleases />
+			<ReviewQueue />
 			<AdminProjectsTable />
 		</>
 	)

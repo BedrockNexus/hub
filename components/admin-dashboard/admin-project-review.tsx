@@ -32,6 +32,9 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { AdminSubmissionHistory } from './admin-submission-history'
+import { SubmissionMetadata } from './submission-metadata'
+import { SubmissionStatusBadge } from './submission-status'
 
 function formatBytes(bytes: number) {
 	if (bytes < 1024) {
@@ -73,6 +76,15 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 
 	return (
 		<div className="space-y-6">
+			{project.bannerUrl ? (
+				<Image
+					alt={`${project.name} banner`}
+					className="max-h-64 w-full rounded-md border object-cover"
+					height={400}
+					src={project.bannerUrl}
+					width={1200}
+				/>
+			) : null}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 				<div className="space-y-3">
 					<Button
@@ -115,6 +127,7 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 						</Badge>
 					</div>
 				</div>
+				<SubmissionStatusBadge status={project.submissionStatus} />
 				<AdminModerationActions
 					approveDisabledReason={
 						hasVersionFiles ? undefined : versionApprovalMessage
@@ -125,10 +138,13 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 					contentType="project"
 					moderationStatus={project.moderationStatus}
 					status={project.status}
+					submissionRevision={project.submissionRevision}
+					submissionStatus={project.submissionStatus}
+					wasPublished={Boolean(project.publishedAt)}
 				/>
 			</div>
 
-			{project.moderationReason ? (
+			{(project.submissionReason ?? project.moderationReason) ? (
 				<Card className="border-destructive/40">
 					<CardHeader>
 						<CardTitle className="text-base">
@@ -136,7 +152,7 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="text-sm">
-						{project.moderationReason}
+						{project.submissionReason ?? project.moderationReason}
 					</CardContent>
 				</Card>
 			) : null}
@@ -151,6 +167,25 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 				</Alert>
 			)}
 
+			<AdminSubmissionHistory
+				contentId={project._id}
+				contentType="project"
+				revision={project.submissionRevision}
+			/>
+			<SubmissionMetadata
+				fields={[
+					['Tags', project.tags?.join(', ')],
+					['License notes', project.licenseCustom],
+				]}
+				links={[
+					['Source', project.sourceUrl],
+					['Website', project.websiteUrl],
+					['Issue tracker', project.issueTrackerUrl],
+					['Wiki', project.wikiUrl],
+					['Discord', project.discordUrl],
+					['Donations', project.donationUrl],
+				]}
+			/>
 			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="space-y-6">
 					<Card>
@@ -189,7 +224,10 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 								</TableHeader>
 								<TableBody>
 									{project.versions.map((version) => (
-										<TableRow key={version._id}>
+										<TableRow
+											id={`release-${version._id}`}
+											key={version._id}
+										>
 											<TableCell className="font-medium">
 												{version.version}
 											</TableCell>
@@ -209,8 +247,13 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 											<TableCell>
 												{version.reviewStatus ===
 													'pending' &&
+												project.submissionStatus !==
+													'pending' &&
 												project.status ===
-													'published' ? (
+													'published' &&
+												project.moderationStatus ===
+													'approved' &&
+												!version.deletionRequestedAt ? (
 													<ReleaseReviewActions
 														canApprove={
 															version.validationStatus ===

@@ -8,6 +8,7 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import {
 	errorMessage,
 	type PluginForEdit,
+	PluginReviewNotice,
 	usePluginForEdit,
 } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
 import {
@@ -76,7 +77,7 @@ function CategoriesForm({
 			description="Help people find your plugin in listings"
 			footer={
 				<SaveChangesButton
-					disabled={!isDirty}
+					disabled={!isDirty || plugin.locked}
 					isSubmitting={isSubmitting}
 				/>
 			}
@@ -97,10 +98,12 @@ function CategoriesForm({
 			}}
 			title="Categories"
 		>
+			<PluginReviewNotice plugin={plugin} />
 			<Field>
 				<FieldLabel>Categories</FieldLabel>
 				<FieldDescription>
-					Pick up to {MAX_CATEGORIES}. They apply as soon as you save.
+					Pick up to {MAX_CATEGORIES}. Changes go live with your next
+					approved version.
 				</FieldDescription>
 				{categories.length === 0 ? (
 					<p className="text-muted-foreground text-sm">
@@ -115,6 +118,7 @@ function CategoriesForm({
 									aria-pressed={active}
 									disabled={
 										isSubmitting ||
+										plugin.locked ||
 										(!active &&
 											selected.length >= MAX_CATEGORIES)
 									}

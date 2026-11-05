@@ -1,3 +1,9 @@
+import { isStandaloneReleaseReview } from '../../lib/releaseReviewQueue'
+import { recordSubmission } from '../../lib/moderationHistory'
+import {
+	assertSubmissionEditable,
+	moderationReason,
+} from '../../lib/submissions'
 import { contentDownloadHref } from '../../../lib/content-routes'
 import { projectReference } from '../../../lib/content-reference'
 import { scheduleDownloadEvent } from '../../lib/downloadAnalytics'
@@ -6,17 +12,10 @@ import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import {
-	internalMutation,
-	mutation,
-	query,
-} from '../../_generated/server'
+import { internalMutation, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { adminMutation, adminQuery } from '../../lib/functions'
-import {
-	canEditContent,
-	isAffiliatedWithContent,
-} from '../../lib/permissions'
+import { canEditContent, isAffiliatedWithContent } from '../../lib/permissions'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
 	getPublishedReleaseKey,
@@ -66,7 +65,10 @@ function getUtcMonthKey(epoch: number): string {
 	return new Date(epoch).toISOString().slice(0, 7)
 }
 
-function toPublicRelease(version: Doc<'projectVersions'>, project: Doc<'projects'>) {
+function toPublicRelease(
+	version: Doc<'projectVersions'>,
+	project: Doc<'projects'>,
+) {
 	return {
 		_id: version._id,
 		version: version.version,
@@ -77,11 +79,18 @@ function toPublicRelease(version: Doc<'projectVersions'>, project: Doc<'projects
 		gameVersions: version.gameVersions,
 		downloads: version.downloads,
 		createdAt: version.createdAt,
-		downloadUrl: contentDownloadHref(project.type, projectReference(project.type, project._id), version.version),
+		downloadUrl: contentDownloadHref(
+			project.type,
+			projectReference(project.type, project._id),
+			version.version,
+		),
 	}
 }
 
-function toCreatorRelease(version: Doc<'projectVersions'>, project: Doc<'projects'>) {
+function toCreatorRelease(
+	version: Doc<'projectVersions'>,
+	project: Doc<'projects'>,
+) {
 	return {
 		_id: version._id,
 		version: version.version,
@@ -97,7 +106,11 @@ function toCreatorRelease(version: Doc<'projectVersions'>, project: Doc<'project
 		reviewStatus: version.reviewStatus,
 		reviewReason: version.reviewReason,
 		downloadUrl: isValidatedRelease(version)
-			? contentDownloadHref(project.type, projectReference(project.type, project._id), version.version)
+			? contentDownloadHref(
+					project.type,
+					projectReference(project.type, project._id),
+					version.version,
+				)
 			: undefined,
 	}
 }
@@ -107,7 +120,12 @@ async function canModifyProject(
 	project: { ownerType: 'user' | 'organization'; ownerId: string },
 	userId: string,
 ) {
-	return canEditContent(ctx, project, { _id: userId }, { allowSiteAdmin: false })
+	return canEditContent(
+		ctx,
+		project,
+		{ _id: userId },
+		{ allowSiteAdmin: false },
+	)
 }
 
 async function assertCanManageProject(
@@ -191,10 +209,19 @@ export const getDownloadPath = query({
 		const versionId = ctx.db.normalizeId('projectVersions', args.versionId)
 		if (!versionId) return null
 		const version = await ctx.db.get(versionId)
-		if (!version || !isPublicRelease(version) || !getPublishedReleaseKey(version)) return null
+		if (
+			!version ||
+			!isPublicRelease(version) ||
+			!getPublishedReleaseKey(version)
+		)
+			return null
 		const project = await ctx.db.get(version.projectId)
 		if (!project || !isPublicProject(project)) return null
-		return contentDownloadHref(project.type, projectReference(project.type, project._id), version.version)
+		return contentDownloadHref(
+			project.type,
+			projectReference(project.type, project._id),
+			version.version,
+		)
 	},
 })
 
@@ -213,7 +240,8 @@ export const getPublicByVersion = query({
 			!version ||
 			!isPublicRelease(version) ||
 			!getPublishedReleaseKey(version)
-		) return null
+		)
+			return null
 		return {
 			...toPublicRelease(version, project),
 			project: {
@@ -240,7 +268,8 @@ export const getLatest = query({
 			.take(50)
 		const version = recent.find(
 			(release) =>
-				isPublicRelease(release) && Boolean(getPublishedReleaseKey(release)),
+				isPublicRelease(release) &&
+				Boolean(getPublishedReleaseKey(release)),
 		)
 
 		return version ? toPublicRelease(version, project) : null
@@ -263,7 +292,9 @@ export const getByVersion = query({
 		const version = await ctx.db
 			.query('projectVersions')
 			.withIndex('by_project_version', (q) =>
-				q.eq('projectId', args.projectId).eq('version', requestedVersion),
+				q
+					.eq('projectId', args.projectId)
+					.eq('version', requestedVersion),
 			)
 			.first()
 
@@ -281,16 +312,55 @@ export const getByVersion = query({
  */
 export const listPendingReleases = adminQuery({
 	args: {},
+	returns: v.array(
+		v.object({
+			_id: v.id('projectVersions'),
+			version: v.string(),
+			changelog: v.optional(v.string()),
+			fileName: v.string(),
+			fileSize: v.number(),
+			gameVersions: v.optional(v.array(v.string())),
+			downloads: v.number(),
+			createdAt: v.number(),
+			validationStatus: v.optional(
+				v.union(
+					v.literal('pending'),
+					v.literal('validating'),
+					v.literal('valid'),
+					v.literal('invalid'),
+				),
+			),
+			validationCode: v.optional(v.string()),
+			validationError: v.optional(v.string()),
+			reviewStatus: v.optional(
+				v.union(
+					v.literal('pending'),
+					v.literal('approved'),
+					v.literal('rejected'),
+				),
+			),
+			reviewReason: v.optional(v.string()),
+			downloadUrl: v.optional(v.string()),
+			project: v.object({
+				_id: v.id('projects'),
+				name: v.string(),
+				slug: v.string(),
+			}),
+		}),
+	),
 	handler: async (ctx) => {
 		const pending = await ctx.db
 			.query('projectVersions')
-			.withIndex('by_review_status', (q) => q.eq('reviewStatus', 'pending'))
+			.withIndex('by_standalone_review_pending', (q) =>
+				q.eq('standaloneReviewPending', true),
+			)
 			.take(100)
 
 		const result = []
 		for (const version of pending) {
 			const project = await ctx.db.get(version.projectId)
-			if (!project || !isPublicProject(project)) continue
+			if (!project || !isStandaloneReleaseReview(project, version))
+				continue
 			result.push({
 				...toCreatorRelease(version, project),
 				project: {
@@ -315,6 +385,7 @@ export const reviewRelease = adminMutation({
 		decision: v.union(v.literal('approved'), v.literal('rejected')),
 		reason: v.optional(v.string()),
 	},
+	returns: v.id('projectVersions'),
 	handler: async (ctx, args) => {
 		const user = ctx.admin
 
@@ -331,19 +402,34 @@ export const reviewRelease = adminMutation({
 				'You cannot review releases of your own project. Ask another admin.',
 			)
 		}
-		if (version.reviewStatus !== 'pending') {
+		if (version.reviewStatus !== 'pending' || version.deletionRequestedAt) {
 			throw new ConvexError('This release is not waiting for review')
 		}
-		const reason = args.reason?.trim()
+		if (project.submissionStatus === 'pending')
+			throw new ConvexError(
+				'Review this release together with the pending listing submission',
+			)
+		if (!isPublicProject(project))
+			throw new ConvexError(
+				'Only releases of approved public projects can be reviewed separately',
+			)
+		const reason =
+			args.decision === 'rejected'
+				? moderationReason(args.reason)
+				: args.reason?.trim()
 		if (args.decision === 'rejected' && !reason) {
 			throw new ConvexError('A reason is required to reject a release')
 		}
-		if (args.decision === 'approved' && version.validationStatus !== 'valid') {
+		if (
+			args.decision === 'approved' &&
+			version.validationStatus !== 'valid'
+		) {
 			throw new ConvexError('Only validated releases can be approved')
 		}
 
 		await ctx.db.patch(version._id, {
 			reviewStatus: args.decision,
+			standaloneReviewPending: false,
 			reviewReason: args.decision === 'rejected' ? reason : undefined,
 			reviewedAt: Date.now(),
 			reviewedBy: user._id,
@@ -395,6 +481,7 @@ export const generateVersionUploadUrl = mutation({
 			args.projectId,
 			'You must be logged in to upload version files',
 		)
+		assertSubmissionEditable(project)
 		const version = args.version.trim()
 		if (!version) {
 			throw new Error('Enter a release version before uploading')
@@ -466,6 +553,7 @@ export const create = mutation({
 			args.projectId,
 			'You must be logged in to publish releases',
 		)
+		assertSubmissionEditable(project)
 
 		const upload = await ctx.db.get(args.uploadId)
 		if (
@@ -483,7 +571,9 @@ export const create = mutation({
 			normalizeProjectType(upload.projectType) !==
 			normalizeProjectType(project.type)
 		) {
-			throw new Error('The project type changed after this artifact was uploaded')
+			throw new Error(
+				'The project type changed after this artifact was uploaded',
+			)
 		}
 		const releasePolicy = getProjectReleasePolicy(project.type)
 		const version = upload.version
@@ -492,7 +582,9 @@ export const create = mutation({
 			releasePolicy.requireCreatorVersion &&
 			args.version?.trim() !== version
 		) {
-			throw new Error('The release version changed after the artifact was uploaded')
+			throw new Error(
+				'The release version changed after the artifact was uploaded',
+			)
 		}
 
 		const existing = await ctx.db
@@ -506,7 +598,9 @@ export const create = mutation({
 		}
 
 		const gameVersions = Array.from(
-			new Set(args.gameVersions?.map((value) => value.trim()).filter(Boolean)),
+			new Set(
+				args.gameVersions?.map((value) => value.trim()).filter(Boolean),
+			),
 		)
 		if (releasePolicy.requireGameVersions && gameVersions.length === 0) {
 			throw new Error('Select at least one supported Minecraft version')
@@ -516,7 +610,9 @@ export const create = mutation({
 		const metadata = await uploadsR2.getMetadata(ctx, upload.r2Key)
 		const fileSize = metadata?.size
 		if (!metadata || fileSize === undefined) {
-			throw new Error('The uploaded artifact could not be found in storage')
+			throw new Error(
+				'The uploaded artifact could not be found in storage',
+			)
 		}
 		const validationError = validateProjectArtifactFile({
 			type: project.type,
@@ -524,7 +620,9 @@ export const create = mutation({
 			fileSize,
 		})
 		if (validationError || fileSize !== upload.declaredFileSize) {
-			const error = validationError ?? 'The uploaded file size does not match the reserved artifact'
+			const error =
+				validationError ??
+				'The uploaded file size does not match the reserved artifact'
 			await ctx.db.patch(upload._id, { status: 'rejected', error })
 			await uploadsR2.deleteObject(ctx, upload.r2Key)
 			return { ok: false as const, error }
@@ -541,15 +639,26 @@ export const create = mutation({
 			fileName: upload.fileName,
 			fileSize,
 			artifactId: upload.artifactId,
-			gameVersions:
-				gameVersions.length > 0 ? gameVersions : undefined,
+			gameVersions: gameVersions.length > 0 ? gameVersions : undefined,
 			downloads: 0,
 			validationStatus: 'pending',
 			validationAttempts: 0,
 			// Every release is reviewed. Releases of a project that is not yet
 			// public are approved together with the project.
 			reviewStatus: 'pending',
+			standaloneReviewPending:
+				isPublicProject(project) &&
+				project.submissionStatus !== 'pending',
 			createdAt: now,
+		})
+		const submittedRelease = await ctx.db.get('projectVersions', versionId)
+		await recordSubmission(ctx, {
+			content: project,
+			details: project,
+			actorId: user._id,
+			revision: project.submissionRevision ?? 0,
+			scope: 'release',
+			release: submittedRelease!,
 		})
 		await ctx.db.patch(upload._id, { status: 'consumed' })
 		await recordEditorMediaReferences(
@@ -603,16 +712,30 @@ export const createDownloadUrl = mutation({
 		source: v.optional(v.union(v.literal('website'), v.literal('api'))),
 	},
 	returns: v.union(
-		v.object({ ok: v.literal(true), fileName: v.string(), url: v.string(), expiresIn: v.number() }),
 		v.object({
-			ok: v.literal(false), message: v.string(),
-			code: v.union(v.literal('VERSION_NOT_FOUND'), v.literal('VERSION_NOT_VALIDATED'), v.literal('VERSION_UNAVAILABLE'), v.literal('VERSION_PROCESSING'), v.literal('FILE_MISSING')),
+			ok: v.literal(true),
+			fileName: v.string(),
+			url: v.string(),
+			expiresIn: v.number(),
+		}),
+		v.object({
+			ok: v.literal(false),
+			message: v.string(),
+			code: v.union(
+				v.literal('VERSION_NOT_FOUND'),
+				v.literal('VERSION_NOT_VALIDATED'),
+				v.literal('VERSION_UNAVAILABLE'),
+				v.literal('VERSION_PROCESSING'),
+				v.literal('FILE_MISSING'),
+			),
 		}),
 	),
 	handler: async (ctx, args) => {
 		const expectedSecret = process.env.DOWNLOAD_REDIRECT_SECRET
 		if (!expectedSecret || args.downloadSecret !== expectedSecret) {
-			throw new ConvexError('Downloads must be requested through the download route')
+			throw new ConvexError(
+				'Downloads must be requested through the download route',
+			)
 		}
 		if (!/^[a-f0-9]{64}$/.test(args.clientKey)) {
 			throw new ConvexError('Invalid download client key')
@@ -702,9 +825,15 @@ export const createDownloadUrl = mutation({
 		}
 
 		await scheduleDownloadEvent(ctx, {
-			section: normalizeProjectType(project.type) === 'addon' ? 'addons' : 'resource-packs',
+			section:
+				normalizeProjectType(project.type) === 'addon'
+					? 'addons'
+					: 'resource-packs',
 			reference: projectReference(project.type, project._id),
-			version: version.version, requesterKey, counted: countResult.ok, source: args.source ?? 'website',
+			version: version.version,
+			requesterKey,
+			counted: countResult.ok,
+			source: args.source ?? 'website',
 		})
 
 		return {
@@ -721,11 +850,12 @@ export const retryValidation = mutation({
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.versionId)
 		if (!version) throw new Error('Version not found')
-		await assertCanManageProject(
+		const { project } = await assertCanManageProject(
 			ctx,
 			version.projectId,
 			'You must be logged in to retry artifact validation',
 		)
+		assertSubmissionEditable(project)
 		if (version.validationCode !== 'VALIDATOR_UNAVAILABLE') {
 			throw new Error('Upload a replacement for this rejected artifact')
 		}
@@ -733,7 +863,8 @@ export const retryValidation = mutation({
 		const metadata = version.uploadR2Key
 			? await uploadsR2.getMetadata(ctx, sourceKey)
 			: await cdnR2.getMetadata(ctx, sourceKey)
-		if (!metadata) throw new Error('The artifact file is no longer in storage')
+		if (!metadata)
+			throw new Error('The artifact file is no longer in storage')
 		await ctx.db.patch(version._id, {
 			validationStatus: 'pending',
 			validationCode: undefined,
@@ -755,12 +886,16 @@ export const prepareVersionRemoval = internalMutation({
 			throw new Error('Version not found')
 		}
 
-		await assertCanManageProject(
+		const { project } = await assertCanManageProject(
 			ctx,
 			version.projectId,
 			'You must be logged in to delete versions',
 		)
-		await ctx.db.patch(version._id, { deletionRequestedAt: Date.now() })
+		assertSubmissionEditable(project)
+		await ctx.db.patch(version._id, {
+			deletionRequestedAt: Date.now(),
+			standaloneReviewPending: false,
+		})
 		return version
 	},
 })
@@ -774,11 +909,12 @@ export const finalizeVersionRemoval = internalMutation({
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.id)
 		if (!version) return
-		await assertCanManageProject(
+		const { project } = await assertCanManageProject(
 			ctx,
 			version.projectId,
 			'You must be logged in to delete versions',
 		)
+		assertSubmissionEditable(project)
 		if (!version.deletionRequestedAt) {
 			throw new Error('Version deletion was not prepared')
 		}
@@ -792,7 +928,9 @@ export const finalizeVersionRemoval = internalMutation({
 
 		const uploadReservations = await ctx.db
 			.query('projectArtifactUploads')
-			.withIndex('by_project', (q) => q.eq('projectId', version.projectId))
+			.withIndex('by_project', (q) =>
+				q.eq('projectId', version.projectId),
+			)
 			.collect()
 		for (const upload of uploadReservations) {
 			if (

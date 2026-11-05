@@ -1,3 +1,4 @@
+import { isReviewMediaRetained } from '../lib/moderationHistory'
 import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../_generated/api'
 import type { Doc } from '../_generated/dataModel'
@@ -101,6 +102,7 @@ async function isManagedKeyReferenced(
 	key: string,
 	options: { editorMediaIndexed: boolean },
 ): Promise<boolean> {
+	if (await isReviewMediaRetained(ctx, key)) return true
 	if (isTemporaryR2Key(key)) {
 		return false
 	}
@@ -322,6 +324,9 @@ export const deleteR2Object = mutation({
 			throw new ConvexError('You can only delete your own managed uploads')
 		}
 
+		if (await isReviewMediaRetained(ctx, args.key)) {
+			throw new ConvexError('This image is retained for submission review history')
+		}
 		const target = isPrivateUploadR2Key(args.key) ? uploadsR2 : r2
 		await target.deleteObject(ctx, args.key)
 		return { success: true }

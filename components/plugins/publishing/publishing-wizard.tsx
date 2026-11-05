@@ -13,7 +13,7 @@ import type { FunctionReturnType } from 'convex/server'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { MarkdownEditor } from '@/components/editor/markdown-editor'
 import { PluginIconField } from '@/components/plugins/publishing/plugin-icon-field'
@@ -30,9 +30,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
+import { PluginReviewNotice } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
 import { SettingsSection } from '@/components/user-dashboard/settings-section'
 import { api } from '@/convex/_generated/api'
 import type { Doc, Id } from '@/convex/_generated/dataModel'
+import { useMinute } from '@/hooks/use-minute'
 import { formatBytes, formatRegistryDate } from '@/lib/plugins/format-registry'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 import {
@@ -49,7 +51,7 @@ type ReleaseStatus = Doc<'pluginReleases'>['status']
 const releaseStatusLabels: Record<ReleaseStatus, string> = {
 	preparing: 'Copying build',
 	preparationFailed: 'Copy failed',
-	inReview: 'In review',
+	inReview: 'Awaiting review',
 	changesRequested: 'Changes requested',
 	rejected: 'Rejected',
 	publishing: 'Publishing',
@@ -90,21 +92,6 @@ function useBusy() {
 		}
 	}
 	return { busy, run }
-}
-
-/** The current time, refreshed every minute, for queries that compare dates. */
-function useMinute() {
-	const [now, setNow] = useState(
-		() => Math.floor(Date.now() / 60_000) * 60_000,
-	)
-	useEffect(() => {
-		const timer = setInterval(
-			() => setNow(Math.floor(Date.now() / 60_000) * 60_000),
-			60_000,
-		)
-		return () => clearInterval(timer)
-	}, [])
-	return now
 }
 
 /** The details of a new plugin, prefilled from its repository. */
@@ -465,6 +452,7 @@ export function PluginWorkflowManager({
 			description={`Pick the workflow for your plugin’s server software. BedrockNexus commits it to ${repository.defaultBranch}, and from then on every push builds your plugin on GitHub. Installing again updates it to the newest version`}
 			title="Workflow"
 		>
+			<PluginReviewNotice plugin={project} />
 			<div className="space-y-5">
 				{workflows.length === 0 ? (
 					<p className="rounded-md border border-dashed p-4 text-muted-foreground text-sm">
@@ -752,6 +740,7 @@ export function PluginBuildsManager({
 			description="Every push builds your plugin. Pick a build, give it a version and write what changed, then send it to moderator review"
 			title="Versions"
 		>
+			<PluginReviewNotice plugin={project} />
 			<ol className="list-decimal space-y-1 pl-5 text-muted-foreground text-sm">
 				<li>
 					Pick a build, give it a version number and write what
@@ -902,7 +891,7 @@ export function PluginBuildsManager({
 											size="sm"
 											title={build.unpublishableReason}
 										>
-											Publish
+											Review &amp; submit
 										</Button>
 									</div>
 								</div>

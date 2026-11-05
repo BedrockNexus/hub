@@ -1,3 +1,4 @@
+import { submissionFields } from './submissions'
 import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -83,6 +84,7 @@ export const tables = {
 	// SERVERS
 	// ===========================================================================
 	servers: defineTable({
+		...submissionFields,
 		// Basic Info
 		name: v.string(),
 		slug: v.string(),
@@ -148,6 +150,7 @@ export const tables = {
 		.index('by_owner', ['ownerType', 'ownerId'])
 		.index('by_registered_by', ['registeredBy'])
 		.index('by_status', ['status'])
+		.index('by_submission_status', ['submissionStatus', 'submittedAt'])
 		.index('by_address_key', ['addressKey'])
 		.index('by_ipAddress_and_port', ['ipAddress', 'port'])
 		.index('by_softwareId', ['softwareId'])

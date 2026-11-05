@@ -4,9 +4,8 @@ import { internalMutation } from '../../_generated/server'
 import { replaceProjectAggregates } from '../../lib/plugins/aggregates'
 
 /**
- * Icons used to reach a published plugin only with its next approved version;
- * they now apply at once. Copies each draft's icon to its plugin so icons
- * saved before the change show up. Idempotent.
+ * Backfills icons for unpublished drafts only. Approved listings and pending
+ * submissions keep their reviewed icon. Idempotent.
  *
  * Run: npx convex run functions/plugins/migrations:syncIconsToPlugins
  */
@@ -22,10 +21,18 @@ export const syncIconsToPlugins = internalMutation({
 				continue
 			}
 			const plugin = await ctx.db.get('plugins', draft.projectId)
-			if (!plugin || plugin.iconUrl === draft.iconUrl) {
+			if (
+				!plugin ||
+				plugin.publishedAt ||
+				plugin.status === 'published' ||
+				plugin.submissionStatus === 'pending' ||
+				plugin.iconUrl === draft.iconUrl
+			) {
 				continue
 			}
-			await ctx.db.patch('plugins', plugin._id, { iconUrl: draft.iconUrl })
+			await ctx.db.patch('plugins', plugin._id, {
+				iconUrl: draft.iconUrl,
+			})
 			const updated = await ctx.db.get('plugins', plugin._id)
 			if (updated) {
 				await replaceProjectAggregates(ctx, plugin, updated)

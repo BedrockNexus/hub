@@ -2,7 +2,7 @@
 
 import { useConvexAuth, useQuery } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { ListingReviewNotice } from '@/components/user-dashboard/listing-review-state'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 
@@ -21,30 +21,15 @@ export function usePluginForEdit(draftId: Id<'pluginPublishingDrafts'>) {
 
 /** Shown above the name, summary and description settings. */
 export function PluginReviewNotice({ plugin }: { plugin: PluginForEdit }) {
-	if (plugin.locked) {
-		return (
-			<Alert>
-				<AlertTitle>Locked while a version is in review</AlertTitle>
-				<AlertDescription>
-					You can edit these settings again once a moderator has
-					decided.
-				</AlertDescription>
-			</Alert>
-		)
-	}
-	if (plugin.project?.status === 'published') {
-		return (
-			<Alert>
-				<AlertTitle>Reviewed with your next version</AlertTitle>
-				<AlertDescription>
-					Changes to the name, summary and description go live when
-					your next version is approved. Everything else updates right
-					away.
-				</AlertDescription>
-			</Alert>
-		)
-	}
-	return null
+	return (
+		<ListingReviewNotice
+			listing={{
+				...plugin.project,
+				locked: plugin.locked,
+				moderationReason: plugin.moderationNote,
+			}}
+		/>
+	)
 }
 
 /** README-style links in the description point into the repository. */

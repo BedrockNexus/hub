@@ -48,6 +48,7 @@ import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import { serverHref } from '@/lib/server-routes'
+import { SubmissionStatusBadge } from './submission-status'
 
 interface AdminServerCategory {
 	_id: Id<'serverCategories'>
@@ -65,6 +66,7 @@ interface AdminServerRow {
 	ipAddress: string
 	port: number
 	status?: ServerLifecycleStatus
+	submissionStatus?: 'pending' | 'changes_requested' | 'approved' | 'rejected'
 	moderationStatus?: ModerationStatus
 	ownerType: 'user' | 'organization'
 	ownerName: string
@@ -100,6 +102,7 @@ function AdminServerStats({ servers }: { servers: AdminServerRow[] }) {
 	).length
 	const reviewCount = servers.filter(
 		(server) =>
+			server.submissionStatus === 'pending' ||
 			server.status === 'under_review' ||
 			(server.status === 'published' &&
 				server.moderationStatus !== 'approved'),
@@ -267,6 +270,26 @@ export function AdminServersTable() {
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => (
 					<LifecycleStatusBadge status={row.original.status} />
+				),
+				enableColumnFilter: false,
+			},
+			{
+				id: 'submissionStatus',
+				accessorKey: 'submissionStatus',
+				header: ({
+					column,
+				}: {
+					column: Column<DataTableFeatures, AdminServerRow, unknown>
+				}) => (
+					<DataTableColumnHeader
+						column={column}
+						label="Review status"
+					/>
+				),
+				cell: ({ row }) => (
+					<SubmissionStatusBadge
+						status={row.original.submissionStatus}
+					/>
 				),
 				enableColumnFilter: false,
 			},

@@ -294,6 +294,12 @@ export function ProjectDetailShell({
 							(version) => version.version === releaseVersion,
 						)
 					: undefined
+				if (releaseVersion && versions === undefined) {
+					return <Skeleton className="h-64" />
+				}
+				if (releaseVersion && !selected) {
+					return <p>This release is no longer available.</p>
+				}
 				return releaseVersion && selected ? (
 					<ProjectReleaseDetails
 						projectName={content.name}
@@ -343,6 +349,7 @@ export function ProjectDetailShell({
 								href: tabHref(projectType, slug, 'gallery'),
 								count: gallery?.length,
 							},
+
 							{
 								value: 'releases',
 								label: 'Versions',

@@ -11,6 +11,13 @@ import { createTest, signIn, type TestClient } from '../test.setup'
 
 /** Public queries can be called by anyone, not only by this site's pages. */
 const PRIVATE_FIELDS = [
+	'draftChangesJson',
+	'publishedGalleryJson',
+	'submittedVersionIds',
+	'submissionStatus',
+	'submissionRevision',
+	'submissionReason',
+	'submittedAt',
 	'addressKey',
 	'bannerR2Key',
 	'createdBy',
@@ -63,6 +70,11 @@ async function seed(t: TestClient, ownerId: string) {
 			logoR2Key: 'servers/logo.webp',
 			moderatedBy: SECRET,
 			moderationReason: SECRET,
+			draftChangesJson: JSON.stringify({ summary: SECRET }),
+			submissionReason: SECRET,
+			submissionStatus: 'pending',
+			submissionRevision: 1,
+			submittedAt: 1,
 			moderationStatus: 'approved',
 			name: 'Server',
 			ownerId,
@@ -117,6 +129,11 @@ async function seed(t: TestClient, ownerId: string) {
 			iconR2Key: 'projects/icon.webp',
 			moderatedBy: SECRET,
 			moderationReason: SECRET,
+			draftChangesJson: JSON.stringify({ summary: SECRET }),
+			submissionReason: SECRET,
+			submissionStatus: 'pending',
+			submissionRevision: 1,
+			submittedAt: 1,
 			moderationStatus: 'approved',
 			name: 'Project',
 			ownerId,
@@ -185,9 +202,12 @@ describe('public queries', () => {
 			online: true,
 			verifiedAt: 1,
 		})
-		const gallery = await t.query(api.functions.servers.gallery.listPublic, {
-			serverId,
-		})
+		const gallery = await t.query(
+			api.functions.servers.gallery.listPublic,
+			{
+				serverId,
+			},
+		)
 		expect(gallery[0].url).toBe('https://cdn.example.com/servers/shot.webp')
 		const reviews = await t.query(api.functions.servers.reviews.list, {
 			serverId,
@@ -217,10 +237,15 @@ describe('public queries', () => {
 			iconUrl: 'https://cdn.example.com/projects/icon.webp',
 			owner: { type: 'user', username: 'owner' },
 		})
-		const gallery = await t.query(api.functions.projects.gallery.listPublic, {
-			projectId,
-		})
-		expect(gallery[0].url).toBe('https://cdn.example.com/projects/shot.webp')
+		const gallery = await t.query(
+			api.functions.projects.gallery.listPublic,
+			{
+				projectId,
+			},
+		)
+		expect(gallery[0].url).toBe(
+			'https://cdn.example.com/projects/shot.webp',
+		)
 		const reviews = await t.query(api.functions.projects.reviews.list, {
 			projectId,
 		})
@@ -241,7 +266,9 @@ describe('public queries', () => {
 			{ username: 'owner' },
 		)
 		expect(profile?.servers.map((server) => server._id)).toEqual([serverId])
-		expect(profile?.projects.map((project) => project._id)).toEqual([projectId])
+		expect(profile?.projects.map((project) => project._id)).toEqual([
+			projectId,
+		])
 		expectNothingPrivate(profile?.servers)
 		expectNothingPrivate(profile?.projects)
 
@@ -273,12 +300,14 @@ describe('public queries', () => {
 			{ slug: 'org' },
 		)
 		expect(page?.servers.map((server) => server._id)).toEqual([serverId])
-		expect(page?.projects.map((project) => project._id)).toEqual([projectId])
+		expect(page?.projects.map((project) => project._id)).toEqual([
+			projectId,
+		])
 		expectNothingPrivate(page?.servers)
 		expectNothingPrivate(page?.projects)
 	})
 
-	it('return nothing private in a member\'s saved list', async () => {
+	it("return nothing private in a member's saved list", async () => {
 		const t = createTest()
 		const owner = await signIn(t, 'owner')
 		const member = await signIn(t, 'member')
@@ -298,7 +327,10 @@ describe('public queries', () => {
 			})
 		})
 
-		const saved = await member.query(api.functions.site.favourites.listMine, {})
+		const saved = await member.query(
+			api.functions.site.favourites.listMine,
+			{},
+		)
 
 		expect(saved.servers).toHaveLength(1)
 		expect(saved.projects).toHaveLength(1)
@@ -310,15 +342,24 @@ describe('public queries', () => {
 		const owner = await signIn(t, 'owner')
 		await seed(t, owner.userId)
 
-		const server = await owner.query(api.functions.servers.servers.getForEdit, {
-			id: 'server',
-		})
+		const server = await owner.query(
+			api.functions.servers.servers.getForEdit,
+			{
+				id: 'server',
+			},
+		)
 		const project = await owner.query(
 			api.functions.projects.projects.getForEdit,
 			{ id: 'project' },
 		)
 
-		expect(server).toMatchObject({ ownerId: owner.userId, logoR2Key: expect.any(String) })
-		expect(project).toMatchObject({ ownerId: owner.userId, moderationReason: SECRET })
+		expect(server).toMatchObject({
+			ownerId: owner.userId,
+			logoR2Key: expect.any(String),
+		})
+		expect(project).toMatchObject({
+			ownerId: owner.userId,
+			moderationReason: SECRET,
+		})
 	})
 })

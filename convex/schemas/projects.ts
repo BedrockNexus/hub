@@ -1,3 +1,4 @@
+import { submissionFields } from './submissions'
 import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -98,6 +99,8 @@ export const tables = {
 		.index('by_sort_order', ['sortOrder']),
 
 	projects: defineTable({
+		...submissionFields,
+		submittedVersionIds: v.optional(v.array(v.id('projectVersions'))),
 		// Type
 		type: projectType,
 
@@ -165,6 +168,7 @@ export const tables = {
 		// Timestamps (epoch ms)
 		updatedAt: v.number(),
 	})
+		.index('by_submission_status', ['submissionStatus', 'submittedAt'])
 		.index('by_slug', ['slug'])
 		.index('by_status', ['status'])
 		.index('by_type_status', ['type', 'status'])
@@ -245,6 +249,7 @@ export const tables = {
 				v.literal('rejected'),
 			),
 		),
+		standaloneReviewPending: v.optional(v.boolean()),
 		reviewReason: v.optional(v.string()),
 		reviewedAt: v.optional(v.number()),
 		reviewedBy: v.optional(v.string()),
@@ -260,7 +265,16 @@ export const tables = {
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_version', ['projectId', 'version'])
-		.index('by_review_status', ['reviewStatus']),
+		.index('by_review_status', ['reviewStatus'])
+		.index('by_project_and_review_status', ['projectId', 'reviewStatus'])
+		.index('by_project_and_standalone_review_pending', [
+			'projectId',
+			'standaloneReviewPending',
+		])
+		.index('by_standalone_review_pending', [
+			'standaloneReviewPending',
+			'createdAt',
+		]),
 
 	projectArtifactUploads: defineTable({
 		projectId: v.id('projects'),

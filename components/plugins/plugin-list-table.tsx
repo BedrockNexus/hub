@@ -1,121 +1,52 @@
 'use client'
 
-import {
-	Edit02Icon,
-	GithubIcon,
-	MoreHorizontalIcon,
-	ViewIcon,
-} from '@hugeicons/core-free-icons'
+import { GithubIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { ColumnDef } from '@tanstack/react-table'
+import { useMutation } from 'convex/react'
 import type { Route } from 'next'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useMemo } from 'react'
 import { DataTable } from '@/components/data-table/data-table'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+	ListingPublicationBadge,
+	ListingReviewBadge,
+} from '@/components/user-dashboard/listing-review-state'
+import { ListingRowActions } from '@/components/user-dashboard/listing-row-actions'
+import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
+import {
+	type CreatorListingInput,
+	creatorListingState,
+	PUBLICATION_LABELS,
+	REVIEW_LABELS,
+} from '@/lib/creator-listing-state'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import { formatRegistryDate } from '@/lib/plugins/format-registry'
 
-export interface PluginListRow {
+export interface PluginListRow extends CreatorListingInput {
+	listingId: string
+	draftId?: Id<'pluginPublishingDrafts'>
+	slug: string
 	key: string
 	name: string
 	dashboardKey: string | null
 	repository: { fullName: string; htmlUrl: string } | null
 	version: string | null
-	status: string
-	statusLabel: string
-	tone: 'default' | 'destructive' | 'outline'
 	updatedAt: number
 	manageHref: string | null
 	publicHref: string | null
 }
 
-function PluginActions({ plugin }: { plugin: PluginListRow }) {
-	if (!(plugin.manageHref || plugin.publicHref || plugin.repository)) {
-		return null
-	}
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={(props) => (
-					<Button {...props} size="icon-sm" variant="ghost">
-						<HugeiconsIcon icon={MoreHorizontalIcon} />
-						<span className="sr-only">
-							Open menu for {plugin.name}
-						</span>
-					</Button>
-				)}
-			/>
-			<DropdownMenuContent align="end" className="w-48">
-				<DropdownMenuGroup>
-					{plugin.manageHref ? (
-						<DropdownMenuItem
-							nativeButton={false}
-							render={(props) => (
-								<Link
-									{...props}
-									href={plugin.manageHref as Route}
-								/>
-							)}
-						>
-							<HugeiconsIcon icon={Edit02Icon} />
-							Manage plugin
-						</DropdownMenuItem>
-					) : null}
-					{plugin.publicHref ? (
-						<DropdownMenuItem
-							nativeButton={false}
-							render={(props) => (
-								<Link
-									{...props}
-									href={plugin.publicHref as Route}
-								/>
-							)}
-						>
-							<HugeiconsIcon icon={ViewIcon} />
-							View public page
-						</DropdownMenuItem>
-					) : null}
-					{plugin.repository ? (
-						<DropdownMenuItem
-							nativeButton={false}
-							render={(props) => (
-								<a
-									{...props}
-									href={plugin.repository?.htmlUrl}
-									rel="noreferrer"
-									target="_blank"
-								/>
-							)}
-						>
-							<HugeiconsIcon icon={GithubIcon} />
-							Open repository
-						</DropdownMenuItem>
-					) : null}
-				</DropdownMenuGroup>
-			</DropdownMenuContent>
-		</DropdownMenu>
-	)
-}
-
 export function PluginListTable({ rows }: { rows: PluginListRow[] }) {
-	const statusOptions = useMemo(
-		() =>
-			[...new Map(rows.map((row) => [row.status, row.statusLabel]))].map(
-				([value, label]) => ({ value, label }),
-			),
-		[rows],
+	const router = useRouter()
+	const deletePlugin = useMutation(
+		api.functions.plugins.deletion.deleteProject,
 	)
 
 	const columns = useMemo<ColumnDef<DataTableFeatures, PluginListRow>[]>(
@@ -194,19 +125,44 @@ export function PluginListTable({ rows }: { rows: PluginListRow[] }) {
 			},
 			{
 				id: 'status',
-				accessorKey: 'status',
+				accessorFn: (row) => creatorListingState(row).publication,
 				header: ({ column }) => (
 					<DataTableColumnHeader column={column} label="Status" />
 				),
 				cell: ({ row }) => (
-					<Badge variant={row.original.tone}>
-						{row.original.statusLabel}
-					</Badge>
+					<ListingPublicationBadge
+						status={creatorListingState(row.original).publication}
+					/>
 				),
 				meta: {
 					label: 'Status',
 					variant: 'select',
-					options: statusOptions,
+					options: Object.entries(PUBLICATION_LABELS).map(
+						([value, label]) => ({ value, label }),
+					),
+				},
+				enableColumnFilter: true,
+			},
+			{
+				id: 'review',
+				accessorFn: (row) => creatorListingState(row).review,
+				header: ({ column }) => (
+					<DataTableColumnHeader
+						column={column}
+						label="Review status"
+					/>
+				),
+				cell: ({ row }) => (
+					<ListingReviewBadge
+						status={creatorListingState(row.original).review}
+					/>
+				),
+				meta: {
+					label: 'Review status',
+					variant: 'multiSelect',
+					options: Object.entries(REVIEW_LABELS).map(
+						([value, label]) => ({ value, label }),
+					),
 				},
 				enableColumnFilter: true,
 			},
@@ -224,13 +180,47 @@ export function PluginListTable({ rows }: { rows: PluginListRow[] }) {
 			},
 			{
 				id: 'actions',
-				cell: ({ row }) => <PluginActions plugin={row.original} />,
+				cell: ({ row }) => {
+					const plugin = row.original
+					const draftId = plugin.draftId
+					return (
+						<ListingRowActions
+							deletion={
+								!creatorListingState(plugin).locked && draftId
+									? {
+											name: plugin.name,
+											confirmText: plugin.slug,
+											description:
+												'This permanently deletes the plugin, its versions, files, reviews and gallery. Recorded submission history and its images are retained. Your GitHub repository is unchanged.',
+											onDelete: async (confirmation) => {
+												await deletePlugin({
+													draftId,
+													confirmSlug: confirmation,
+												})
+												router.refresh()
+											},
+										}
+									: undefined
+							}
+							editHref={plugin.manageHref}
+							id={plugin.listingId}
+							name={plugin.name}
+							publicHref={plugin.publicHref}
+							repositoryHref={plugin.repository?.htmlUrl}
+							reviewHref={
+								plugin.manageHref
+									? `${plugin.manageHref}/review`
+									: undefined
+							}
+						/>
+					)
+				},
 				enableSorting: false,
 				enableHiding: false,
 				size: 32,
 			},
 		],
-		[statusOptions],
+		[deletePlugin, router],
 	)
 
 	const { table } = useDataTable({

@@ -1,3 +1,4 @@
+import type { FunctionReference } from 'convex/server'
 /// <reference types="vite/client" />
 
 import aggregate from '@convex-dev/aggregate/test'
@@ -149,4 +150,33 @@ export async function insertServer(
 			region: overrides.region,
 		}),
 	)
+}
+
+/** Simulate a moderator deciding on the revision they just loaded. */
+export async function reviewMutation(
+	t: TestClient,
+	client: Pick<TestClient, 'mutation'>,
+	fn: FunctionReference<'mutation', 'public'>,
+	args: Record<string, unknown>,
+) {
+	const input = args as {
+		id?: string
+		releaseId?: Id<'pluginReleases'>
+		expectedRevision?: number
+	}
+	const revision = await t.run(async (ctx) => {
+		if (input.releaseId) {
+			const release = await ctx.db.get('pluginReleases', input.releaseId)
+			return release
+				? (await ctx.db.get('plugins', release.projectId))
+						?.submissionRevision
+				: undefined
+		}
+		for (const table of ['projects', 'servers', 'plugins'] as const) {
+			const id = ctx.db.normalizeId(table, input.id ?? '')
+			if (id) return (await ctx.db.get(id))?.submissionRevision
+		}
+		return undefined
+	})
+	return client.mutation(fn, { expectedRevision: revision ?? 0, ...args })
 }

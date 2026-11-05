@@ -1,3 +1,17 @@
+import {
+	deleteUnretainedMedia,
+	recordSubmission,
+} from '../../lib/moderationHistory'
+import {
+	assertSubmissionEditable,
+	assertReviewRevision,
+	decisionFields,
+	hasApprovedListing,
+	moderationReason,
+	snapshot,
+	snapshotPatch,
+	submissionView,
+} from '../../lib/submissions'
 import { toPublicServer } from '../../lib/publicContent'
 import { resolveServerReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
@@ -53,10 +67,7 @@ type ServerOwnerRef = {
 
 const R2_IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
 
-const serverOwnerStatus = v.union(
-	v.literal('draft'),
-	v.literal('published'),
-)
+const serverOwnerStatus = v.union(v.literal('draft'), v.literal('published'))
 
 const serverAdminStatus = v.union(
 	v.literal('draft'),
@@ -64,7 +75,9 @@ const serverAdminStatus = v.union(
 	v.literal('under_review'),
 )
 
-async function resolveServerLogoUrl(server: Doc<'servers'>): Promise<string | undefined> {
+async function resolveServerLogoUrl(
+	server: Doc<'servers'>,
+): Promise<string | undefined> {
 	if (server.logoR2Key) {
 		return resolveCdnObjectUrl(server.logoR2Key, R2_IMAGE_URL_EXPIRES_IN)
 	}
@@ -72,7 +85,9 @@ async function resolveServerLogoUrl(server: Doc<'servers'>): Promise<string | un
 	return undefined
 }
 
-async function resolveServerBannerUrl(server: Doc<'servers'>): Promise<string | undefined> {
+async function resolveServerBannerUrl(
+	server: Doc<'servers'>,
+): Promise<string | undefined> {
 	if (server.bannerR2Key) {
 		return resolveCdnObjectUrl(server.bannerR2Key, R2_IMAGE_URL_EXPIRES_IN)
 	}
@@ -175,7 +190,9 @@ async function consumeVerificationProof(
 	return proof
 }
 
-function currentAddressKey(server: Pick<Doc<'servers'>, 'ipAddress' | 'port' | 'addressKey'>) {
+function currentAddressKey(
+	server: Pick<Doc<'servers'>, 'ipAddress' | 'port' | 'addressKey'>,
+) {
 	if (server.addressKey) return server.addressKey
 	try {
 		return normalizeServerAddress(server.ipAddress, server.port).key
@@ -263,12 +280,17 @@ async function canModifyServer(
 	userId: string,
 	role?: string,
 ) {
-	return canEditContent(ctx, server, { _id: userId, role }, { allowSiteAdmin: true })
+	return canEditContent(
+		ctx,
+		server,
+		{ _id: userId, role },
+		{ allowSiteAdmin: true },
+	)
 }
 
 async function deleteR2ObjectIfPresent(ctx: MutationCtx, key?: string) {
 	if (key) {
-		await r2.deleteObject(ctx, key)
+		await deleteUnretainedMedia(ctx, key)
 	}
 }
 
@@ -282,7 +304,7 @@ async function deleteServerFiles(ctx: MutationCtx, server: Doc<'servers'>) {
 		.collect()
 
 	for (const item of galleryItems) {
-		await r2.deleteObject(ctx, item.r2Key)
+		await deleteUnretainedMedia(ctx, item.r2Key)
 		await ctx.db.delete(item._id)
 	}
 }
@@ -350,9 +372,7 @@ async function serverDetailExtras(ctx: QueryCtx, server: Doc<'servers'>) {
 		: null
 
 	const totalIpCopiesToday =
-		stats && stats.dailyKey === dayKey
-			? (stats.totalIpCopiesToday ?? 0)
-			: 0
+		stats && stats.dailyKey === dayKey ? (stats.totalIpCopiesToday ?? 0) : 0
 	const totalIpCopiesThisMonth =
 		stats && stats.monthlyKey === monthKey
 			? (stats.totalIpCopiesThisMonth ?? 0)
@@ -383,13 +403,10 @@ async function serverDetailExtras(ctx: QueryCtx, server: Doc<'servers'>) {
 		| null = null
 
 	if (server.ownerType === 'organization') {
-		const org = (await ctx.runQuery(
-			components.betterAuth.adapter.findOne,
-			{
-				model: 'organization',
-				where: [{ field: '_id', value: server.ownerId }],
-			},
-		)) as {
+		const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'organization',
+			where: [{ field: '_id', value: server.ownerId }],
+		})) as {
 			_id: string
 			name: string
 			slug: string
@@ -413,8 +430,9 @@ async function serverDetailExtras(ctx: QueryCtx, server: Doc<'servers'>) {
 						member.userId,
 					)
 					return {
-						username: (user as Record<string, unknown>)
-							?.username as string | undefined,
+						username: (user as Record<string, unknown>)?.username as
+							| string
+							| undefined,
 						displayUsername: (user as Record<string, unknown>)
 							?.displayUsername as string | undefined,
 						image: (user as Record<string, unknown>)?.image as
@@ -466,7 +484,9 @@ async function serverDetailExtras(ctx: QueryCtx, server: Doc<'servers'>) {
 		playerCount: status?.playerCount ?? 0,
 		maxPlayers: status?.maxPlayers,
 		// Declared by the owner; a status ping cannot confirm it.
-		software: software ? { name: software.name, slug: software.slug } : null,
+		software: software
+			? { name: software.name, slug: software.slug }
+			: null,
 		owner: ownerData,
 	}
 }
@@ -512,7 +532,8 @@ export const getForEdit = query({
 		const dayKey = getUtcDayKey(now)
 		const monthKey = getUtcMonthKey(now)
 
-		const server = await resolveServerReference(ctx, args.id)
+		const stored = await resolveServerReference(ctx, args.id)
+		const server = stored ? submissionView(stored) : null
 
 		if (!server) {
 			return null
@@ -521,7 +542,12 @@ export const getForEdit = query({
 		const user = await authComponent.getAuthUser(ctx)
 		if (
 			!user ||
-			!(await canModifyServer(ctx, server, user._id, user.role ?? undefined))
+			!(await canModifyServer(
+				ctx,
+				server,
+				user._id,
+				user.role ?? undefined,
+			))
 		) {
 			return null
 		}
@@ -642,7 +668,7 @@ export const getForEdit = query({
 		}
 
 		return {
-			...server,
+			...submissionView(server),
 			logoUrl,
 			bannerUrl,
 			categories: categories.filter(Boolean),
@@ -721,13 +747,17 @@ export const listByOrganization = query({
 				user.role ?? undefined,
 			))
 		) {
-			throw new Error('You do not have permission to view this organization')
+			throw new Error(
+				'You do not have permission to view this organization',
+			)
 		}
 
 		const servers = await ctx.db
 			.query('servers')
 			.withIndex('by_owner', (q) =>
-				q.eq('ownerType', 'organization').eq('ownerId', args.organizationId),
+				q
+					.eq('ownerType', 'organization')
+					.eq('ownerId', args.organizationId),
 			)
 			.collect()
 
@@ -806,7 +836,12 @@ export const listAdmin = adminQuery({
 export const getAdminReview = adminQuery({
 	args: { id: v.id('servers') },
 	handler: async (ctx, args) => {
-		const server = await ctx.db.get(args.id)
+		const stored = await ctx.db.get(args.id)
+		const server = stored
+			? stored.submissionStatus === 'pending'
+				? submissionView(stored)
+				: stored
+			: null
 		if (!server) {
 			return null
 		}
@@ -881,7 +916,9 @@ export const create = mutation({
 		}
 
 		// Determine ownership
-		const ownerType = args.organizationId ? 'organization' as const : 'user' as const
+		const ownerType = args.organizationId
+			? ('organization' as const)
+			: ('user' as const)
 		const ownerId = args.organizationId ?? user._id
 		if (!(await canModifyServer(ctx, { ownerType, ownerId }, user._id))) {
 			throw new Error(
@@ -945,7 +982,12 @@ export const create = mutation({
 		})
 		await afterServerWrite(ctx, null, await ctx.db.get(serverId))
 
-		await recordEditorMediaReferences(ctx, 'servers', serverId, args.description)
+		await recordEditorMediaReferences(
+			ctx,
+			'servers',
+			serverId,
+			args.description,
+		)
 
 		return serverId
 	},
@@ -982,16 +1024,23 @@ export const update = mutation({
 			throw new Error('You must be logged in to update a server')
 		}
 
-		const server = await ctx.db.get(args.id)
+		const liveServer = await ctx.db.get(args.id)
+		const server = liveServer ? submissionView(liveServer) : null
 		if (!server) {
 			throw new Error('Server not found')
 		}
 
 		if (
-			!(await canModifyServer(ctx, server, user._id, user.role ?? undefined))
+			!(await canModifyServer(
+				ctx,
+				server,
+				user._id,
+				user.role ?? undefined,
+			))
 		) {
 			throw new Error('You do not have permission to edit this server')
 		}
+		assertSubmissionEditable(server)
 		validateServerFields(args)
 
 		if (args.status && server.status === 'under_review') {
@@ -1000,16 +1049,25 @@ export const update = mutation({
 			)
 		}
 
-		if (args.status === 'published' && server.status !== 'draft') {
+		if (
+			args.status === 'published' &&
+			server.status !== 'draft' &&
+			!hasApprovedListing(server)
+		) {
 			throw new Error('Only draft servers can be published')
 		}
-		if (args.status === 'published' && server.moderationStatus === 'rejected') {
+		if (
+			args.status === 'published' &&
+			server.moderationStatus === 'rejected'
+		) {
 			throw new Error(
 				'This server was rejected by a moderator and cannot be republished. Contact the moderators.',
 			)
 		}
 		if (args.status === 'published' && !server.verifiedAt) {
-			throw new Error('Server ownership must be verified before publishing')
+			throw new Error(
+				'Server ownership must be verified before publishing',
+			)
 		}
 
 		if (args.status === 'draft' && server.status !== 'published') {
@@ -1045,8 +1103,12 @@ export const update = mutation({
 		if (
 			ownerChanges &&
 			!(
-				(await canManageContent(ctx, server, user, { allowSiteAdmin: true })) &&
-				(await canEditContent(ctx, nextOwner, user, { allowSiteAdmin: true }))
+				(await canManageContent(ctx, server, user, {
+					allowSiteAdmin: true,
+				})) &&
+				(await canEditContent(ctx, nextOwner, user, {
+					allowSiteAdmin: true,
+				}))
 			)
 		) {
 			throw new Error(
@@ -1056,13 +1118,16 @@ export const update = mutation({
 		const mediaUpdates = {
 			...(nextLogoR2Key !== undefined
 				? {
-						logoR2Key: nextLogoR2Key === null ? undefined : nextLogoR2Key,
+						logoR2Key:
+							nextLogoR2Key === null ? undefined : nextLogoR2Key,
 					}
 				: {}),
 			...(nextBannerR2Key !== undefined
 				? {
 						bannerR2Key:
-							nextBannerR2Key === null ? undefined : nextBannerR2Key,
+							nextBannerR2Key === null
+								? undefined
+								: nextBannerR2Key,
 					}
 				: {}),
 		}
@@ -1101,7 +1166,6 @@ export const update = mutation({
 		const publicationUpdates =
 			updates.status === 'published'
 				? {
-						...(!server.publishedAt ? { publishedAt: now } : {}),
 						moderationStatus: 'pending' as const,
 						moderationReason: undefined,
 						moderatedAt: undefined,
@@ -1109,7 +1173,7 @@ export const update = mutation({
 					}
 				: {}
 
-		await ctx.db.patch(args.id, {
+		const changes = {
 			...updates,
 			...mediaUpdates,
 			...ownerUpdates,
@@ -1118,10 +1182,57 @@ export const update = mutation({
 			...publicationUpdates,
 			slug,
 			updatedAt: now,
+		}
+		await ctx.db.patch(args.id, {
+			...(server.publishedAt || hasApprovedListing(server)
+				? {
+						draftChangesJson: snapshot(server, changes),
+						...ownerUpdates,
+					}
+				: changes),
+			...(args.status === 'published'
+				? {
+						...(hasApprovedListing(server)
+							? {}
+							: {
+									status: 'under_review' as const,
+									moderationStatus: 'pending' as const,
+								}),
+						submissionStatus: 'pending' as const,
+						submissionReason: undefined,
+						submittedAt: now,
+					}
+				: {}),
+			...(args.status === 'draft' ? { status: 'draft' as const } : {}),
+			submissionRevision: (server.submissionRevision ?? 0) + 1,
+			updatedAt: now,
 		})
-		await afterServerWrite(ctx, server, await ctx.db.get(args.id))
+		if (args.status === 'draft')
+			await ctx.db.insert('moderationEvents', {
+				contentId: server._id,
+				contentType: 'server',
+				kind: 'decision',
+				scope: 'listing',
+				action: 'server.unpublish',
+				actorId: user._id,
+				label: server.name,
+				createdAt: now,
+			})
+		if (args.status === 'published')
+			await recordSubmission(ctx, {
+				content: liveServer!,
+				details: { ...server, ...changes },
+				actorId: user._id,
+				revision: (server.submissionRevision ?? 0) + 1,
+			})
+		await afterServerWrite(ctx, liveServer!, await ctx.db.get(args.id))
 
-		await recordEditorMediaReferences(ctx, 'servers', args.id, args.description)
+		await recordEditorMediaReferences(
+			ctx,
+			'servers',
+			args.id,
+			args.description,
+		)
 
 		if (
 			updates.status === 'published' ||
@@ -1135,18 +1246,22 @@ export const update = mutation({
 		}
 
 		if (
+			!server.publishedAt &&
+			!hasApprovedListing(server) &&
 			nextLogoR2Key !== undefined &&
 			server.logoR2Key &&
 			nextLogoR2Key !== server.logoR2Key
 		) {
-			await r2.deleteObject(ctx, server.logoR2Key)
+			await deleteUnretainedMedia(ctx, server.logoR2Key)
 		}
 		if (
+			!server.publishedAt &&
+			!hasApprovedListing(server) &&
 			nextBannerR2Key !== undefined &&
 			server.bannerR2Key &&
 			nextBannerR2Key !== server.bannerR2Key
 		) {
-			await r2.deleteObject(ctx, server.bannerR2Key)
+			await deleteUnretainedMedia(ctx, server.bannerR2Key)
 		}
 
 		return args.id
@@ -1159,6 +1274,7 @@ export const update = mutation({
 export const updateAdmin = adminMutation({
 	args: {
 		id: v.id('servers'),
+		expectedRevision: v.optional(v.number()),
 		name: v.optional(v.string()),
 		smallDescription: v.optional(v.string()),
 		description: v.optional(v.string()),
@@ -1186,14 +1302,17 @@ export const updateAdmin = adminMutation({
 		if (!server) {
 			throw new Error('Server not found')
 		}
+		if (args.status !== undefined || args.moderationStatus !== undefined)
+			assertReviewRevision(server, args.expectedRevision)
 		validateServerFields(args)
 
 		const {
 			id,
+			expectedRevision,
 			logoR2Key: nextLogoR2Key,
 			bannerR2Key: nextBannerR2Key,
 			moderationStatus,
-			moderationReason,
+			moderationReason: moderationReasonValue,
 			ipAddress,
 			port,
 			softwareId: nextSoftwareId,
@@ -1215,6 +1334,14 @@ export const updateAdmin = adminMutation({
 				'You cannot approve your own server. Ask another admin to review it.',
 			)
 		}
+		if (
+			isApproval &&
+			server.submissionRevision !== undefined &&
+			!server.publishedAt &&
+			server.status !== 'published' &&
+			server.submissionStatus !== 'pending'
+		)
+			throw new ConvexError('Only a submitted revision can be approved')
 		const addressUpdates = await resolveAddressUpdate(
 			ctx,
 			server,
@@ -1224,13 +1351,16 @@ export const updateAdmin = adminMutation({
 		const mediaUpdates = {
 			...(nextLogoR2Key !== undefined
 				? {
-						logoR2Key: nextLogoR2Key === null ? undefined : nextLogoR2Key,
+						logoR2Key:
+							nextLogoR2Key === null ? undefined : nextLogoR2Key,
 					}
 				: {}),
 			...(nextBannerR2Key !== undefined
 				? {
 						bannerR2Key:
-							nextBannerR2Key === null ? undefined : nextBannerR2Key,
+							nextBannerR2Key === null
+								? undefined
+								: nextBannerR2Key,
 					}
 				: {}),
 		}
@@ -1279,7 +1409,7 @@ export const updateAdmin = adminMutation({
 						moderationReason:
 							moderationStatus === 'approved'
 								? undefined
-								: moderationReason?.trim() || undefined,
+								: moderationReasonValue?.trim() || undefined,
 					}
 				: updates.status === 'published'
 					? {
@@ -1298,10 +1428,88 @@ export const updateAdmin = adminMutation({
 
 		if (
 			requiresModerationReason(moderationStatus) &&
-			!moderationReason?.trim()
+			!moderationReasonValue?.trim()
 		) {
 			throw new Error('A moderation reason is required')
 		}
+
+		const requestsChanges =
+			updates.status === 'draft' && moderationStatus === 'pending'
+		if (
+			requestsChanges &&
+			server.submissionStatus !== 'pending' &&
+			server.status !== 'under_review'
+		)
+			throw new ConvexError(
+				'Only submissions awaiting review can be returned for changes',
+			)
+		const rejectsUpdate =
+			moderationStatus === 'rejected' &&
+			server.submissionStatus === 'pending' &&
+			hasApprovedListing(server)
+		if (
+			moderationStatus === 'flagged' ||
+			moderationStatus === 'rejected' ||
+			updates.status === 'draft'
+		)
+			moderationReason(moderationReasonValue)
+		let submissionUpdates: Record<string, unknown> = {
+			submissionRevision: (server.submissionRevision ?? 0) + 1,
+		}
+		if (isApproval && server.submissionStatus === 'pending') {
+			submissionUpdates = {
+				...submissionUpdates,
+				...(server.draftChangesJson
+					? snapshotPatch(server, server.draftChangesJson)
+					: {}),
+				...decisionFields(server, 'approved'),
+				draftChangesJson: undefined,
+				publishedGalleryJson: undefined,
+			}
+			const reviewed = submissionView(server)
+			const collision = await ctx.db
+				.query('servers')
+				.withIndex('by_slug', (q) => q.eq('slug', reviewed.slug))
+				.first()
+			if (collision && collision._id !== server._id)
+				throw new ConvexError(
+					'This server name is now in use. Request changes before approving.',
+				)
+			await resolveAddressUpdate(
+				ctx,
+				server,
+				{ ipAddress: reviewed.ipAddress, port: reviewed.port },
+				{ userId: user._id, isAdmin: true },
+			)
+		}
+		if (
+			requestsChanges ||
+			moderationStatus === 'flagged' ||
+			updates.status === 'draft'
+		)
+			Object.assign(
+				submissionUpdates,
+				decisionFields(
+					server,
+					'changes_requested',
+					moderationReasonValue?.trim(),
+				),
+			)
+		if (moderationStatus === 'rejected')
+			Object.assign(
+				submissionUpdates,
+				decisionFields(
+					server,
+					'rejected',
+					moderationReasonValue?.trim(),
+				),
+			)
+		if ((requestsChanges || rejectsUpdate) && hasApprovedListing(server))
+			Object.assign(submissionUpdates, {
+				status: server.status,
+				moderationStatus: server.moderationStatus,
+				moderationReason: server.moderationReason,
+			})
 
 		await ctx.db.patch(args.id, {
 			...updates,
@@ -1311,6 +1519,7 @@ export const updateAdmin = adminMutation({
 			...publicationUpdates,
 			...moderationUpdates,
 			slug,
+			...submissionUpdates,
 			updatedAt: now,
 		})
 		await afterServerWrite(ctx, server, await ctx.db.get(args.id))
@@ -1333,10 +1542,15 @@ export const updateAdmin = adminMutation({
 						.filter((field) => field !== 'status')
 						.join(', ') || undefined,
 			},
-			reason: moderationReason,
+			reason: moderationReasonValue,
 		})
 
-		await recordEditorMediaReferences(ctx, 'servers', args.id, args.description)
+		await recordEditorMediaReferences(
+			ctx,
+			'servers',
+			args.id,
+			args.description,
+		)
 
 		if (
 			updates.status === 'published' ||
@@ -1354,14 +1568,14 @@ export const updateAdmin = adminMutation({
 			server.logoR2Key &&
 			nextLogoR2Key !== server.logoR2Key
 		) {
-			await r2.deleteObject(ctx, server.logoR2Key)
+			await deleteUnretainedMedia(ctx, server.logoR2Key)
 		}
 		if (
 			nextBannerR2Key !== undefined &&
 			server.bannerR2Key &&
 			nextBannerR2Key !== server.bannerR2Key
 		) {
-			await r2.deleteObject(ctx, server.bannerR2Key)
+			await deleteUnretainedMedia(ctx, server.bannerR2Key)
 		}
 
 		return args.id
@@ -1384,7 +1598,11 @@ export const remove = mutation({
 			throw new Error('Server not found')
 		}
 
-		if (!(await canManageContent(ctx, server, user, { allowSiteAdmin: true }))) {
+		if (
+			!(await canManageContent(ctx, server, user, {
+				allowSiteAdmin: true,
+			}))
+		) {
 			throw new Error(
 				'Only the owner or an organization owner/admin can delete this server',
 			)

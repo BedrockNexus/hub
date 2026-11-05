@@ -21,6 +21,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { AdminSubmissionHistory } from './admin-submission-history'
+import { SubmissionMetadata } from './submission-metadata'
+import { SubmissionStatusBadge } from './submission-status'
 
 export function AdminServerReview({ serverId }: { serverId: string }) {
 	const server = useQuery(api.functions.servers.servers.getAdminReview, {
@@ -93,16 +96,20 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 						)}
 					</div>
 				</div>
+				<SubmissionStatusBadge status={server.submissionStatus} />
 				<AdminModerationActions
 					contentId={server._id}
 					contentName={server.name}
 					contentType="server"
 					moderationStatus={server.moderationStatus}
 					status={server.status}
+					submissionRevision={server.submissionRevision}
+					submissionStatus={server.submissionStatus}
+					wasPublished={Boolean(server.publishedAt)}
 				/>
 			</div>
 
-			{server.moderationReason ? (
+			{(server.submissionReason ?? server.moderationReason) ? (
 				<Card className="border-destructive/40">
 					<CardHeader>
 						<CardTitle className="text-base">
@@ -110,11 +117,36 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="text-sm">
-						{server.moderationReason}
+						{server.submissionReason ?? server.moderationReason}
 					</CardContent>
 				</Card>
 			) : null}
 
+			<AdminSubmissionHistory
+				contentId={server._id}
+				contentType="server"
+				revision={server.submissionRevision}
+			/>
+			<SubmissionMetadata
+				fields={[
+					['Software', server.software?.name],
+					[
+						'Categories',
+						server.categories
+							.map((category) => category?.name)
+							.filter(Boolean)
+							.join(', '),
+					],
+					['Languages', server.language?.join(', ')],
+					['Tags', server.tags?.join(', ')],
+				]}
+				links={[
+					['Website', server.website],
+					['Discord', server.discordUrl],
+					['Store', server.storeUrl],
+					['Wiki', server.wikiUrl],
+				]}
+			/>
 			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="space-y-6">
 					{server.bannerUrl ? (

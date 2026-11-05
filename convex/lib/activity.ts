@@ -1,6 +1,10 @@
+import { internal } from '../_generated/api'
 import type { Doc } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
-import { syncProjectCategoryCounts, syncServerCategoryCounts } from './categoryCounts'
+import {
+	syncProjectCategoryCounts,
+	syncServerCategoryCounts,
+} from './categoryCounts'
 import { syncProject, syncServer } from './discovery'
 import { isPublicProject, isPublicServer } from './contentVisibility'
 import { syncProjectOwners, syncServerOwners } from './creatorListings'
@@ -58,7 +62,8 @@ export async function afterServerWrite(
 		await syncServer(ctx, after)
 	}
 	if (after && isPublicServer(after) && !(before && isPublicServer(before))) {
-		if (!before?.publishedAt) await stageAnnouncement(ctx, 'server', after._id)
+		if (!before?.publishedAt)
+			await stageAnnouncement(ctx, 'server', after._id)
 		await recordActivity(ctx, {
 			userId: after.registeredBy,
 			type: 'server_added',
@@ -67,7 +72,11 @@ export async function afterServerWrite(
 			targetSlug: after.slug,
 		})
 	}
-	if (after && isPublicServer(after) && after.moderationStatus === 'approved') {
+	if (
+		after &&
+		isPublicServer(after) &&
+		after.moderationStatus === 'approved'
+	) {
 		await wakeAnnouncement(ctx, 'server', after._id)
 	}
 }
@@ -81,15 +90,35 @@ export async function afterProjectWrite(
 	before: Doc<'projects'> | null,
 	after: Doc<'projects'> | null,
 ) {
+	if (
+		after &&
+		(before?.status !== after.status ||
+			before?.moderationStatus !== after.moderationStatus ||
+			before?.submissionStatus !== after.submissionStatus)
+	) {
+		await ctx.scheduler.runAfter(
+			0,
+			internal.functions.moderation.work.syncProjectReleases,
+			{ projectId: after._id },
+		)
+	}
 	await syncProjectCategoryCounts(ctx, before, after)
 	await syncProjectOwners(ctx, before, after)
 	if (after) {
 		await syncProject(ctx, after)
 	}
-	if (after?.status === 'published' && before?.status !== 'published' && !before?.publishedAt) {
+	if (
+		after?.status === 'published' &&
+		before?.status !== 'published' &&
+		!before?.publishedAt
+	) {
 		await stageAnnouncement(ctx, 'project', after._id)
 	}
-	if (after && isPublicProject(after) && !(before && isPublicProject(before))) {
+	if (
+		after &&
+		isPublicProject(after) &&
+		!(before && isPublicProject(before))
+	) {
 		await recordActivity(ctx, {
 			userId: after.createdBy,
 			type: 'project_added',
@@ -98,7 +127,8 @@ export async function afterProjectWrite(
 			targetSlug: after.slug,
 		})
 	}
-	if (after && isPublicProject(after)) await wakeAnnouncement(ctx, 'project', after._id)
+	if (after && isPublicProject(after))
+		await wakeAnnouncement(ctx, 'project', after._id)
 }
 
 export async function recordReleaseActivity(

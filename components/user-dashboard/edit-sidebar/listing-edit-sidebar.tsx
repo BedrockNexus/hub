@@ -42,12 +42,25 @@ export interface EditSection {
 	exactMatch?: boolean
 }
 
-export type ListingStatus = 'draft' | 'in_review' | 'published'
+export type ListingStatus =
+	| 'draft'
+	| 'in_review'
+	| 'published'
+	| 'changes_requested'
+	| 'rejected'
+	| 'flagged'
+	| 'unpublished'
+	| 'archived'
 
 const STATUS: Record<ListingStatus, { label: string; icon: IconType }> = {
 	draft: { label: 'Draft', icon: NoteEditIcon },
-	in_review: { label: 'In review', icon: Flag01Icon },
+	in_review: { label: 'Awaiting review', icon: Flag01Icon },
 	published: { label: 'Published', icon: CheckmarkCircle01Icon },
+	changes_requested: { label: 'Changes requested', icon: NoteEditIcon },
+	rejected: { label: 'Rejected', icon: Flag01Icon },
+	flagged: { label: 'Flagged', icon: Flag01Icon },
+	unpublished: { label: 'Unpublished', icon: NoteEditIcon },
+	archived: { label: 'Archived', icon: NoteEditIcon },
 }
 
 /** The next step for the item: a link to a page, or an action to run. */
@@ -135,6 +148,15 @@ export function ListingEditSidebar({
 				</SidebarGroup>
 
 				<SidebarSeparator />
+
+				{status === 'in_review' ? (
+					<p className="mx-2 rounded-md border p-3 text-muted-foreground text-xs group-data-[collapsible=icon]:hidden">
+						Submitted details are locked during review.{' '}
+						{publicHref
+							? 'Your approved listing remains public.'
+							: ''}
+					</p>
+				) : null}
 
 				{moderationNote ? (
 					<div className="mx-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs group-data-[collapsible=icon]:hidden">

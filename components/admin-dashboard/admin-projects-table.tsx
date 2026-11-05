@@ -49,6 +49,7 @@ import {
 	PROJECT_TYPE_LABELS,
 	type StoredProjectType,
 } from '@/lib/project-artifacts'
+import { SubmissionStatusBadge } from './submission-status'
 
 interface AdminProjectCategory {
 	_id: Id<'projectCategories'>
@@ -63,6 +64,7 @@ interface AdminProjectRow {
 	name: string
 	slug: string
 	status?: LifecycleStatus
+	submissionStatus?: 'pending' | 'changes_requested' | 'approved' | 'rejected'
 	moderationStatus?: ModerationStatus
 	ownerType: 'user' | 'organization'
 	ownerName: string
@@ -81,7 +83,9 @@ function AdminProjectStats({ projects }: { projects: AdminProjectRow[] }) {
 		(project) => project.status === 'published',
 	).length
 	const reviewCount = projects.filter(
-		(project) => project.status === 'under_review',
+		(project) =>
+			project.submissionStatus === 'pending' ||
+			project.status === 'under_review',
 	).length
 	const totalDownloads = projects.reduce(
 		(sum, project) => sum + project.totalDownloads,
@@ -265,6 +269,26 @@ export function AdminProjectsTable() {
 				}) => <DataTableColumnHeader column={column} label="Status" />,
 				cell: ({ row }) => (
 					<LifecycleStatusBadge status={row.original.status} />
+				),
+				enableColumnFilter: false,
+			},
+			{
+				id: 'submissionStatus',
+				accessorKey: 'submissionStatus',
+				header: ({
+					column,
+				}: {
+					column: Column<DataTableFeatures, AdminProjectRow, unknown>
+				}) => (
+					<DataTableColumnHeader
+						column={column}
+						label="Review status"
+					/>
+				),
+				cell: ({ row }) => (
+					<SubmissionStatusBadge
+						status={row.original.submissionStatus}
+					/>
 				),
 				enableColumnFilter: false,
 			},

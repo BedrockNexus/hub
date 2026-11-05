@@ -1,7 +1,10 @@
 'use client'
 
 import { GalleryManager } from '@/components/user-dashboard/gallery/gallery-manager'
-import { usePluginForEdit } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
+import {
+	PluginReviewNotice,
+	usePluginForEdit,
+} from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
 import {
 	SettingsSection,
 	SettingsSkeleton,
@@ -22,8 +25,11 @@ export function PluginGallerySettingsForm({
 			description="Add screenshots of your plugin to showcase it to users"
 			title="Gallery"
 		>
+			<PluginReviewNotice plugin={plugin} />
 			{plugin.draft.projectId ? (
-				<GalleryManager entityId={draftId} kind="plugin" />
+				<div inert={plugin.locked}>
+					<GalleryManager entityId={draftId} kind="plugin" />
+				</div>
 			) : (
 				<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
 					Pick a build workflow first; then you can add gallery

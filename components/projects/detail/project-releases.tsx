@@ -1,22 +1,8 @@
-import { Download01Icon, Package01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import Link from 'next/link'
+import { ReleaseHistory } from '@/components/detail/release-history'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { ProjectVersionActions } from '@/components/projects/detail/project-version-actions'
-import { Badge } from '@/components/ui/badge'
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@/components/ui/empty'
-import { Skeleton } from '@/components/ui/skeleton'
 import { contentHref } from '@/lib/content-routes'
-import { formatDate } from '@/lib/format'
-import {
-	getProjectReleasePolicy,
-	type ProjectType,
-} from '@/lib/project-artifacts'
+import type { ProjectType } from '@/lib/project-artifacts'
 
 export interface PublicProjectRelease {
 	_id: string
@@ -49,110 +35,35 @@ export function ProjectReleases({
 	projectSlug: string
 	releases: PublicProjectRelease[] | undefined
 }) {
-	const releasePolicy = getProjectReleasePolicy(projectType)
-	if (releases === undefined) {
-		return (
-			<div className="space-y-4">
-				{['one', 'two', 'three'].map((key) => (
-					<div className="space-y-4 rounded-md border p-5" key={key}>
-						<Skeleton className="h-6 w-40" />
-						<Skeleton className="h-4 w-64" />
-						<Skeleton className="h-20 w-full" />
-					</div>
-				))}
-			</div>
-		)
-	}
-
-	if (releases.length === 0) {
-		return (
-			<Empty className="border border-border/70 border-dashed py-14">
-				<EmptyHeader>
-					<EmptyTitle>No Releases Yet</EmptyTitle>
-					<EmptyDescription>
-						The creator has not published a downloadable release
-						yet.
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		)
-	}
-
 	return (
-		<div className="space-y-4">
-			{releases.map((release, index) => (
-				<article
-					className="overflow-hidden rounded-md border bg-card"
-					key={release._id}
-				>
-					<header className="flex flex-col gap-4 border-b bg-muted/25 p-5 sm:flex-row sm:items-start sm:justify-between">
-						<div className="min-w-0 space-y-2">
-							<div className="flex flex-wrap items-center gap-2">
-								<Link
-									className="font-semibold text-lg hover:text-primary hover:underline"
-									href={`${contentHref(projectType, projectSlug)}/releases/${encodeURIComponent(release.version)}`}
-								>
-									{release.version}
-								</Link>
-								{index === 0 ? <Badge>Latest</Badge> : null}
-							</div>
-							<p className="text-muted-foreground text-sm">
-								Published {formatDate(release.createdAt)}
-							</p>
-						</div>
-						<ProjectVersionActions
-							downloadUrl={release.downloadUrl}
-							fileName={release.fileName}
-							projectSlug={projectSlug}
-							projectType={projectType}
-							version={release.version}
-						/>
-					</header>
-
-					<div className="space-y-5 p-5">
-						{releasePolicy.requireGameVersions &&
-						release.gameVersions?.length ? (
-							<div className="flex flex-wrap gap-1.5">
-								{release.gameVersions.map((gameVersion) => (
-									<Badge
-										key={gameVersion}
-										variant="secondary"
-									>
-										Minecraft {gameVersion}
-									</Badge>
-								))}
-							</div>
-						) : null}
-
-						{releasePolicy.allowChangelog && release.changelog ? (
-							<RichTextViewer content={release.changelog} />
-						) : null}
-						{releasePolicy.allowChangelog && !release.changelog ? (
-							<p className="text-muted-foreground text-sm">
-								No changelog was provided for this release.
-							</p>
-						) : null}
-
-						<div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-4 text-muted-foreground text-sm">
-							<span className="inline-flex items-center gap-2">
-								<HugeiconsIcon
-									className="size-4"
-									icon={Package01Icon}
-								/>
-								{release.fileName} (
-								{formatReleaseBytes(release.fileSize)})
-							</span>
-							<span className="inline-flex items-center gap-2">
-								<HugeiconsIcon
-									className="size-4"
-									icon={Download01Icon}
-								/>
-								{release.downloads.toLocaleString()} downloads
-							</span>
-						</div>
-					</div>
-				</article>
-			))}
-		</div>
+		<ReleaseHistory
+			entries={releases?.map((release) => ({
+				id: release._id,
+				version: release.version,
+				href: `${contentHref(projectType, projectSlug)}/releases/${encodeURIComponent(release.version)}`,
+				gameVersions: release.gameVersions ?? [],
+				platform: 'Bedrock',
+				publishedAt: release.createdAt,
+				downloads: release.downloads,
+				size: formatReleaseBytes(release.fileSize),
+				notes: release.changelog?.trim() ? (
+					<RichTextViewer content={release.changelog} />
+				) : (
+					<p className="text-muted-foreground text-sm">
+						No changelog was provided for this release.
+					</p>
+				),
+				actions: (
+					<ProjectVersionActions
+						downloadUrl={release.downloadUrl}
+						fileName={release.fileName}
+						projectSlug={projectSlug}
+						projectType={projectType}
+						version={release.version}
+					/>
+				),
+			}))}
+			showPlatformFilter={false}
+		/>
 	)
 }

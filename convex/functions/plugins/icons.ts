@@ -1,7 +1,12 @@
+import { deleteUnretainedMedia } from '../../lib/moderationHistory'
 import { ConvexError, v } from 'convex/values'
 
 import { internal } from '../../_generated/api'
-import { action, internalMutation, type MutationCtx } from '../../_generated/server'
+import {
+	action,
+	internalMutation,
+	type MutationCtx,
+} from '../../_generated/server'
 import { authedMutation } from '../../lib/functions'
 import { validateImageObjectMetadata } from '../../lib/media'
 import { getUserByTokenIdentifier } from '../../lib/plugins/access'
@@ -14,14 +19,13 @@ import {
 	syncCdnObjectMetadata,
 } from '../../lib/r2'
 import { buildPluginIconR2ObjectKey, isPluginIconR2Key } from '../../lib/r2Keys'
-import { requireOwnedDraft } from './publishing/model'
+import { requireOwnedDraft, assertNotUnderReview } from './publishing/model'
 import type { Doc, Id } from '../../_generated/dataModel'
 
 /**
  * Plugin icons live in the public R2 bucket under the plugin's draft:
  * generateUploadUrl, a direct PUT from the browser, then confirmUpload checks
- * the file and saves its CDN URL. The icon shows on the plugin page at once,
- * like project and server icons.
+ * the file and saves its CDN URL. The icon is staged with the next submitted release.
  */
 
 // The browser resizes icons to 256px before uploading; this is generous.
@@ -113,12 +117,17 @@ async function replaceIcon(
 	const project = draft.projectId
 		? await ctx.db.get('plugins', draft.projectId)
 		: null
+	await assertNotUnderReview(
+		ctx,
+		draft,
+		'This submission is awaiting review. Its icon is locked.',
+	)
 	const now = Date.now()
 	await ctx.db.patch('pluginPublishingDrafts', draft._id, {
 		iconUrl,
 		updatedAt: now,
 	})
-	if (project) {
+	if (project && !project.publishedAt && project.status !== 'published') {
 		await ctx.db.patch('plugins', project._id, { iconUrl })
 		const updated = await ctx.db.get('plugins', project._id)
 		if (updated) {
@@ -126,7 +135,14 @@ async function replaceIcon(
 		}
 	}
 	for (const replaced of new Set([draft.iconUrl, project?.iconUrl])) {
-		if (replaced && replaced !== iconUrl) {
+		if (
+			replaced &&
+			replaced !== iconUrl &&
+			!(
+				(project?.publishedAt || project?.status === 'published') &&
+				replaced === project.iconUrl
+			)
+		) {
 			await deleteIcon(ctx, draft._id, replaced)
 		}
 	}
@@ -140,6 +156,6 @@ export async function deleteIcon(
 ) {
 	const key = getCdnObjectKey(iconUrl)
 	if (key && isPluginIconR2Key(key, draftId)) {
-		await r2.deleteObject(ctx, key)
+		await deleteUnretainedMedia(ctx, key)
 	}
 }

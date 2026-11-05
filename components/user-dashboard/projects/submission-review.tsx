@@ -8,14 +8,15 @@ import { toast } from 'sonner'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { ProjectTypeDetailsCard } from '@/components/projects/detail/project-type-details-card'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ListingSubmissionChecklist } from '@/components/user-dashboard/listing-submission-checklist'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { contentEditHref } from '@/lib/content-routes'
+import { creatorListingState } from '@/lib/creator-listing-state'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
@@ -46,16 +47,24 @@ export function ProjectSubmissionReview({ id }: { id: Id<'projects'> }) {
 		hasGallery: !!gallery?.length,
 	})
 	const ready = checks.every((check) => !check.required || check.complete)
+	const state = creatorListingState(project)
 	const canSubmit =
-		project.status === 'draft' && project.moderationStatus !== 'rejected'
-	let statusMessage =
-		'Your listing is published. New releases are reviewed separately; the approved release stays available.'
+		state.canSubmit && (project.status === 'draft' || state.hasDraftChanges)
+	let statusMessage = state.published
+		? 'Your listing is published. New releases are reviewed separately; the approved release stays available.'
+		: 'Save any corrections before submitting your listing for review.'
 	if (project.moderationStatus === 'rejected') {
 		statusMessage =
 			'This submission was rejected. Contact the moderators about the decision.'
-	} else if (project.status === 'under_review') {
+	} else if (
+		project.status === 'under_review' ||
+		project.submissionStatus === 'pending'
+	) {
 		statusMessage = 'Your submission is awaiting moderator review.'
 	}
+	const submitLabel = ['changes_requested', 'rejected'].includes(state.review)
+		? 'Resubmit for review'
+		: 'Submit for review'
 	const submit = async () => {
 		setSubmitting(true)
 		try {
@@ -80,75 +89,28 @@ export function ProjectSubmissionReview({ id }: { id: Id<'projects'> }) {
 					to this draft from your dashboard.
 				</p>
 			</div>
-			{project.moderationReason ? (
-				<Alert>
-					<AlertTitle>Moderator feedback</AlertTitle>
-					<AlertDescription className="whitespace-pre-line">
-						{project.moderationReason}
-					</AlertDescription>
-				</Alert>
-			) : null}
-			<Card>
-				<CardHeader>
-					<CardTitle>Submission checklist</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<ul className="space-y-3">
-						{checks.map((check) => (
-							<li
-								className="flex flex-wrap items-center justify-between gap-2 text-sm"
-								key={check.label}
-							>
-								<span>
-									<span aria-hidden>
-										{check.complete ? '✓' : '○'}
-									</span>{' '}
-									<span className="sr-only">
-										{check.complete
-											? 'Complete: '
-											: 'Incomplete: '}
-									</span>
-									{check.label}{' '}
-									<span className="text-muted-foreground">
-										(
-										{check.required
-											? 'required'
-											: 'recommended'}
-										)
-									</span>
-								</span>
-								<Link
-									className="font-medium underline underline-offset-4"
-									href={`${base}${check.section}`}
-								>
-									{check.complete ? 'Edit' : 'Complete'}
-								</Link>
-							</li>
-						))}
-					</ul>
-					{canSubmit ? (
-						<>
-							<p className="text-muted-foreground text-sm">
-								Submission starts moderator review. Files become
-								public after validation and approval.
-							</p>
-							<Button
-								disabled={!ready || submitting}
-								onClick={submit}
-								type="button"
-							>
-								{submitting
-									? 'Submitting…'
-									: 'Submit for review'}
-							</Button>
-						</>
-					) : (
+
+			<ListingSubmissionChecklist basePath={base} checks={checks}>
+				{canSubmit ? (
+					<>
 						<p className="text-muted-foreground text-sm">
-							{statusMessage}
+							Submission starts moderator review. Files become
+							public after validation and approval.
 						</p>
-					)}
-				</CardContent>
-			</Card>
+						<Button
+							disabled={!ready || submitting}
+							onClick={submit}
+							type="button"
+						>
+							{submitting ? 'Submitting...' : submitLabel}
+						</Button>
+					</>
+				) : (
+					<p className="text-muted-foreground text-sm">
+						{statusMessage}
+					</p>
+				)}
+			</ListingSubmissionChecklist>
 			<div className="border-t pt-6">
 				<p className="mb-3 text-muted-foreground text-sm">
 					Private preview of saved content

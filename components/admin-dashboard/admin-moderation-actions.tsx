@@ -36,7 +36,7 @@ const ACTION_COPY: Record<
 	changes: {
 		title: 'Request changes?',
 		description:
-			'Return this submission to draft with feedback. The creator can correct it and submit again.',
+			'Return this submission with feedback so the creator can correct it and submit again. Existing approved content stays public.',
 		submit: 'Request changes',
 	},
 	approve: {
@@ -54,7 +54,7 @@ const ACTION_COPY: Record<
 	reject: {
 		title: 'Reject submission?',
 		description:
-			'The content stays hidden and the creator cannot resubmit or republish it. They will see your reason.',
+			'Reject this submission with feedback. An existing approved listing stays public; a rejected first submission stays hidden.',
 		submit: 'Reject',
 	},
 	unpublish: {
@@ -70,6 +70,14 @@ function getModerationPatch(action: ModerationAction, reason: string) {
 		return {
 			status: 'published' as const,
 			moderationStatus: 'approved' as const,
+		}
+	}
+
+	if (action === 'changes') {
+		return {
+			status: 'draft' as const,
+			moderationStatus: 'pending' as const,
+			moderationReason: reason,
 		}
 	}
 
@@ -92,7 +100,122 @@ function getModerationPatch(action: ModerationAction, reason: string) {
 	return {
 		status: 'draft' as const,
 		moderationStatus: 'approved' as const,
+		moderationReason: reason,
 	}
+}
+
+function needsModerationReason(action: ModerationAction | null) {
+	return (
+		action !== null &&
+		['flag', 'reject', 'changes', 'unpublish'].includes(action)
+	)
+}
+
+function ModerationButtons({
+	status,
+	contentType,
+	moderationStatus,
+	wasPublished,
+	hasPendingSubmission,
+	canApprove,
+	approveDisabledReason,
+	onApprove,
+	onAction,
+}: {
+	status: ContentStatus
+	contentType: 'project' | 'server' | 'plugin'
+	moderationStatus?: ModerationStatus
+	wasPublished: boolean
+	hasPendingSubmission: boolean
+	canApprove: boolean
+	approveDisabledReason?: string
+	onApprove: () => void
+	onAction: (action: ModerationAction) => void
+}) {
+	const isPublishedServerAwaitingReview =
+		contentType === 'server' &&
+		status === 'published' &&
+		moderationStatus !== 'approved'
+	return (
+		<div className="flex flex-wrap gap-2">
+			{status === 'under_review' || hasPendingSubmission ? (
+				<>
+					<Button
+						disabled={!canApprove}
+						onClick={onApprove}
+						title={approveDisabledReason}
+					>
+						<HugeiconsIcon
+							className="size-4"
+							icon={CheckmarkCircle01Icon}
+						/>
+						{wasPublished && !hasPendingSubmission
+							? 'Restore'
+							: 'Approve'}
+					</Button>
+					{moderationStatus === 'rejected' ? null : (
+						<Button
+							onClick={() => onAction('changes')}
+							variant="outline"
+						>
+							Request changes
+						</Button>
+					)}
+					<Button
+						onClick={() => onAction('reject')}
+						variant="destructive"
+					>
+						<HugeiconsIcon className="size-4" icon={Cancel01Icon} />
+						Reject
+					</Button>
+				</>
+			) : null}
+			{status === 'draft' &&
+			!hasPendingSubmission &&
+			(contentType === 'server' ||
+				wasPublished ||
+				(contentType === 'plugin' && canApprove)) ? (
+				<Button
+					disabled={!canApprove}
+					onClick={onApprove}
+					title={approveDisabledReason}
+				>
+					<HugeiconsIcon
+						className="size-4"
+						icon={CheckmarkCircle01Icon}
+					/>
+					{wasPublished ? 'Restore' : 'Publish'}
+				</Button>
+			) : null}
+			{status === 'published' ? (
+				<>
+					{isPublishedServerAwaitingReview ? (
+						<Button onClick={onApprove}>
+							<HugeiconsIcon
+								className="size-4"
+								icon={CheckmarkCircle01Icon}
+							/>
+							Approve
+						</Button>
+					) : null}
+					<Button onClick={() => onAction('flag')} variant="outline">
+						<HugeiconsIcon className="size-4" icon={Flag01Icon} />
+						Flag
+					</Button>
+					<Button
+						onClick={() => onAction('unpublish')}
+						variant="destructive"
+					>
+						<HugeiconsIcon
+							className="size-4"
+							icon={ViewOffSlashIcon}
+						/>
+						Unpublish
+					</Button>
+				</>
+			) : null}
+		</div>
+	)
 }
 
 export function AdminModerationActions({
@@ -103,15 +226,24 @@ export function AdminModerationActions({
 	contentType,
 	moderationStatus,
 	status,
+	wasPublished = false,
+	submissionStatus,
+	submissionRevision = 0,
 }: {
 	approveDisabledReason?: string
 	canApprove?: boolean
 	contentId: string
 	contentName: string
-	contentType: 'project' | 'server'
+	contentType: 'project' | 'server' | 'plugin'
 	moderationStatus?: ModerationStatus
 	status: ContentStatus
+	wasPublished?: boolean
+	submissionStatus?: 'pending' | 'changes_requested' | 'approved' | 'rejected'
+	submissionRevision?: number
 }) {
+	const moderatePlugin = useMutation(
+		api.functions.plugins.moderation.moderate,
+	)
 	const updateProject = useMutation(
 		api.functions.projects.projects.adminUpdate,
 	)
@@ -121,11 +253,12 @@ export function AdminModerationActions({
 	)
 	const [action, setAction] = useState<ModerationAction | null>(null)
 	const [reason, setReason] = useState('')
+	const [dialogRevision, setDialogRevision] = useState(submissionRevision)
+	const openAction = (next: ModerationAction) => {
+		setDialogRevision(submissionRevision)
+		setAction(next)
+	}
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const isPublishedServerAwaitingReview =
-		contentType === 'server' &&
-		status === 'published' &&
-		moderationStatus !== 'approved'
 
 	const openApproveDialog = () => {
 		if (!canApprove) {
@@ -134,7 +267,7 @@ export function AdminModerationActions({
 			)
 			return
 		}
-		setAction('approve')
+		openAction('approve')
 	}
 
 	const close = () => {
@@ -149,12 +282,7 @@ export function AdminModerationActions({
 			return
 		}
 		const trimmedReason = reason.trim()
-		if (
-			(action === 'flag' ||
-				action === 'reject' ||
-				action === 'changes') &&
-			!trimmedReason
-		) {
+		if (needsModerationReason(action) && !trimmedReason) {
 			toast.error('Add a reason for the creator')
 			return
 		}
@@ -163,19 +291,29 @@ export function AdminModerationActions({
 
 		setIsSubmitting(true)
 		try {
-			if (action === 'changes' && contentType === 'project') {
+			if (contentType === 'plugin') {
+				await moderatePlugin({
+					id: contentId as Id<'plugins'>,
+					expectedRevision: dialogRevision,
+					action,
+					reason: trimmedReason || undefined,
+				})
+			} else if (action === 'changes' && contentType === 'project') {
 				await requestProjectChanges({
 					id: contentId as Id<'projects'>,
+					expectedRevision: dialogRevision,
 					reason: trimmedReason,
 				})
 			} else if (contentType === 'server') {
 				await updateServer({
 					id: contentId as Id<'servers'>,
+					expectedRevision: dialogRevision,
 					...patch,
 				})
 			} else {
 				await updateProject({
 					id: contentId as Id<'projects'>,
+					expectedRevision: dialogRevision,
 					...patch,
 				})
 			}
@@ -195,84 +333,17 @@ export function AdminModerationActions({
 
 	return (
 		<>
-			<div className="flex flex-wrap gap-2">
-				{status === 'under_review' ? (
-					<>
-						<Button
-							disabled={!canApprove}
-							onClick={openApproveDialog}
-							title={approveDisabledReason}
-						>
-							<HugeiconsIcon
-								className="size-4"
-								icon={CheckmarkCircle01Icon}
-							/>
-							Approve
-						</Button>
-						{contentType === 'project' &&
-						moderationStatus !== 'rejected' ? (
-							<Button
-								onClick={() => setAction('changes')}
-								variant="outline"
-							>
-								Request changes
-							</Button>
-						) : null}
-						<Button
-							onClick={() => setAction('reject')}
-							variant="destructive"
-						>
-							<HugeiconsIcon
-								className="size-4"
-								icon={Cancel01Icon}
-							/>
-							Reject
-						</Button>
-					</>
-				) : null}
-				{status === 'draft' && contentType === 'server' ? (
-					<Button onClick={openApproveDialog}>
-						<HugeiconsIcon
-							className="size-4"
-							icon={CheckmarkCircle01Icon}
-						/>
-						Publish
-					</Button>
-				) : null}
-				{status === 'published' ? (
-					<>
-						{isPublishedServerAwaitingReview ? (
-							<Button onClick={openApproveDialog}>
-								<HugeiconsIcon
-									className="size-4"
-									icon={CheckmarkCircle01Icon}
-								/>
-								Approve
-							</Button>
-						) : null}
-						<Button
-							onClick={() => setAction('flag')}
-							variant="outline"
-						>
-							<HugeiconsIcon
-								className="size-4"
-								icon={Flag01Icon}
-							/>
-							Flag
-						</Button>
-						<Button
-							onClick={() => setAction('unpublish')}
-							variant="destructive"
-						>
-							<HugeiconsIcon
-								className="size-4"
-								icon={ViewOffSlashIcon}
-							/>
-							Unpublish
-						</Button>
-					</>
-				) : null}
-			</div>
+			<ModerationButtons
+				approveDisabledReason={approveDisabledReason}
+				canApprove={canApprove}
+				contentType={contentType}
+				hasPendingSubmission={submissionStatus === 'pending'}
+				moderationStatus={moderationStatus}
+				onAction={openAction}
+				onApprove={openApproveDialog}
+				status={status}
+				wasPublished={wasPublished}
+			/>
 
 			<Dialog onOpenChange={(open) => !open && close()} open={!!action}>
 				<DialogContent>
@@ -284,9 +355,7 @@ export function AdminModerationActions({
 							{action ? ACTION_COPY[action].description : ''}
 						</DialogDescription>
 					</DialogHeader>
-					{action === 'flag' ||
-					action === 'reject' ||
-					action === 'changes' ? (
+					{needsModerationReason(action) ? (
 						<div className="space-y-2">
 							<Label htmlFor="moderation-reason">
 								Reason for creator

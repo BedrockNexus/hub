@@ -65,7 +65,6 @@ interface AdminUserRow {
 	_id: string
 	name: string
 	displayName: string
-	email: string
 	emailVerified: boolean
 	image?: string
 	username?: string
@@ -88,7 +87,7 @@ interface UserPatch {
 }
 
 function getInitials(user: AdminUserRow) {
-	const source = user.displayName || user.email
+	const source = user.displayName || user.username || user.name || 'User'
 	return source
 		.split(WHITESPACE_PATTERN)
 		.map((part) => part.charAt(0))
@@ -411,8 +410,7 @@ export function AdminUsersTable() {
 		() => [
 			{
 				id: 'user',
-				accessorFn: (row) =>
-					`${row.displayName} ${row.email} ${row.username ?? ''}`,
+				accessorFn: (row) => `${row.displayName} ${row.username ?? ''}`,
 				header: ({
 					column,
 				}: {
@@ -432,9 +430,6 @@ export function AdminUsersTable() {
 						<div className="min-w-0">
 							<div className="truncate font-medium">
 								{row.original.displayName}
-							</div>
-							<div className="truncate text-muted-foreground text-xs">
-								{row.original.email}
 							</div>
 						</div>
 					</div>
