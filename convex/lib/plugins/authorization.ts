@@ -3,7 +3,7 @@ import { ConvexError } from 'convex/values'
 import { components } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { type AppUser, isStaff } from './access'
+import { type AppUser, canReviewPlugins, isStaff } from './access'
 
 type DatabaseCtx = QueryCtx | MutationCtx
 
@@ -182,7 +182,7 @@ export async function canViewProject(
 		return false
 	}
 
-	if (isStaff(user)) {
+	if (canReviewPlugins(user)) {
 		return true
 	}
 

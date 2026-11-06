@@ -16,6 +16,15 @@ The `/api` path applies to the optional same-origin stack in
 Application integration and official counters are deployed. OpenPanel activation
 and live collector acceptance remain in [TODO.md](../TODO.md).
 
+## Website chart components
+
+Use [Bklit UI](https://bklit.com/docs/installation) for analytics charts in the
+BedrockNexus admin and creator dashboards. It is the chart presentation layer:
+OpenPanel remains the behavioral analytics provider, and Convex remains the
+source of official listing and download totals. Install the relevant Bklit
+shadcn registry components when implementing those screens, using the site's
+existing theme and accessible loading, empty and error states.
+
 ## URL contract
 
 | Consumer | Route |

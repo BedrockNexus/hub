@@ -34,7 +34,15 @@ interface AdminRouteErrorStateProps {
 	description?: string
 	onReset?: () => void
 	title?: string
+	/** Where the home button goes; the admin dashboard by default. */
+	home?: { href: '/admin' | '/moderation'; label: string }
 }
+
+const ADMIN_HOME = { href: '/admin', label: 'Admin Home' } as const
+export const MODERATION_HOME = {
+	href: '/moderation',
+	label: 'Moderation Home',
+} as const
 
 export function AdminRouteLoadingState() {
 	return (
@@ -78,9 +86,10 @@ export function AdminRouteLoadingState() {
 }
 
 export function AdminRouteErrorState({
-	description = 'The admin dashboard could not finish loading this section.',
+	description = 'This section could not finish loading.',
 	onReset,
 	title = 'Something went wrong',
+	home = ADMIN_HOME,
 }: AdminRouteErrorStateProps) {
 	return (
 		<Empty className="min-h-105 border">
@@ -100,25 +109,28 @@ export function AdminRouteErrorState({
 				) : null}
 				<Button
 					nativeButton={false}
-					render={<Link href="/admin" />}
+					render={<Link href={home.href} />}
 					variant="outline"
 				>
 					<HugeiconsIcon
 						className="size-4"
 						icon={DashboardBrowsingIcon}
 					/>
-					Admin Home
+					{home.label}
 				</Button>
 			</EmptyContent>
 		</Empty>
 	)
 }
 
-export function AdminRouteNotFoundState() {
+export function AdminRouteNotFoundState({
+	home,
+}: Pick<AdminRouteErrorStateProps, 'home'> = {}) {
 	return (
 		<AdminRouteErrorState
-			description="That admin section does not exist or is not available in this build."
-			title="Admin page not found"
+			description="That section does not exist or is not available in this build."
+			home={home}
+			title="Page not found"
 		/>
 	)
 }

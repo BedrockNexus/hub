@@ -1,14 +1,14 @@
 import { assertReviewRevision, decisionFields } from '../../lib/submissions'
 import { ConvexError, v } from 'convex/values'
 import type { Doc } from '../../_generated/dataModel'
-import { adminMutation } from '../../lib/functions'
+import { moderatorMutation } from '../../lib/functions'
 import { recordAdminAction } from '../../lib/audit'
 import { replaceProjectAggregates } from '../../lib/plugins/aggregates'
 import { getActiveOrganizationMembership } from '../../lib/plugins/authorization'
 import { enforceRateLimit } from '../../lib/plugins/rateLimits'
 import { approvePluginReview } from './publishing/model'
 
-export const moderate = adminMutation({
+export const moderate = moderatorMutation({
 	args: {
 		id: v.id('plugins'),
 		action: v.union(
@@ -23,7 +23,7 @@ export const moderate = adminMutation({
 	},
 	returns: v.id('plugins'),
 	handler: async (ctx, args) => {
-		await enforceRateLimit(ctx, 'moderationDecision', ctx.admin._id)
+		await enforceRateLimit(ctx, 'moderationDecision', ctx.moderator._id)
 		const project = await ctx.db.get('plugins', args.id)
 		if (!project) throw new ConvexError('Plugin not found')
 		assertReviewRevision(project, args.expectedRevision)
@@ -38,14 +38,14 @@ export const moderate = adminMutation({
 		}
 		if (
 			args.action === 'approve' &&
-			(project.createdBy === ctx.admin._id ||
+			(project.createdBy === ctx.moderator._id ||
 				(project.ownerType === 'user'
-					? project.ownerId === ctx.admin._id
+					? project.ownerId === ctx.moderator._id
 					: Boolean(
 							await getActiveOrganizationMembership(
 								ctx,
 								project.ownerId,
-								ctx.admin,
+								ctx.moderator,
 							),
 						)))
 		) {
@@ -58,7 +58,7 @@ export const moderate = adminMutation({
 			updatedAt: now,
 			submissionRevision: project.submissionRevision,
 			moderatedAt: now,
-			moderatedBy: ctx.admin._id,
+			moderatedBy: ctx.moderator._id,
 			moderationRevision: (project.moderationRevision ?? 0) + 1,
 			moderationReason: reason,
 		}
@@ -166,7 +166,7 @@ export const moderate = adminMutation({
 								? 'rejected'
 								: 'changesRequested',
 						reviewNotes: reason,
-						reviewedBy: ctx.admin._id,
+						reviewedBy: ctx.moderator._id,
 						reviewedAt: now,
 						updatedAt: now,
 					})
@@ -223,7 +223,7 @@ export const moderate = adminMutation({
 					expectedRevision: updated.submissionRevision,
 				})
 		}
-		await recordAdminAction(ctx, ctx.admin._id, {
+		await recordAdminAction(ctx, ctx.moderator._id, {
 			action: `plugin.${args.action}`,
 			targetType: 'plugin',
 			targetId: project._id,

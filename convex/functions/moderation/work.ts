@@ -4,12 +4,7 @@ import type { QueryCtx } from '../../_generated/server'
 import { internal } from '../../_generated/api'
 import { internalMutation } from '../../_generated/server'
 import { ConvexError, v } from 'convex/values'
-import {
-	adminMutation,
-	adminQuery,
-	authedMutation,
-	authedQuery,
-} from '../../lib/functions'
+import { authedMutation, authedQuery, moderatorMutation, moderatorQuery } from '../../lib/functions'
 import { authComponent } from '../../auth'
 import schema from '../../schema'
 import { contentType } from '../../schemas/moderation'
@@ -40,7 +35,12 @@ async function reviewAssignment(
 		? await authComponent.getAnyUserById(ctx, active.assignedTo)
 		: null
 	return {
-		assignee: active ? (user?.name ?? 'Deleted account') : undefined,
+		assignee: active
+			? user?.displayUsername ||
+				user?.username ||
+				user?.name ||
+				'Deleted account'
+			: undefined,
 		mine: active?.assignedTo === me,
 	}
 }
@@ -53,7 +53,14 @@ const args = {
 	),
 	revision: v.number(),
 }
-export const queue = adminQuery({
+export const assignment = moderatorQuery({
+	args,
+	returns: v.object({ assignee: v.optional(v.string()), mine: v.boolean() }),
+	handler: async (ctx, input) =>
+		reviewAssignment(ctx, input.contentId, input.revision, ctx.moderator._id),
+})
+
+export const queue = moderatorQuery({
 	args: {},
 	returns: v.object({
 		more: v.boolean(),
@@ -104,7 +111,7 @@ export const queue = adminQuery({
 					ctx,
 					item._id,
 					item.submissionRevision ?? 0,
-					ctx.admin._id,
+					ctx.moderator._id,
 				)
 				return {
 					id: item._id,
@@ -145,7 +152,7 @@ export const queue = adminQuery({
 					ctx,
 					release._id,
 					release.createdAt,
-					ctx.admin._id,
+					ctx.moderator._id,
 				)),
 			})
 		}
@@ -153,12 +160,12 @@ export const queue = adminQuery({
 			more:
 				groups.some((group) => group.length > 100) ||
 				pendingReleases.length > 100,
-			me: ctx.admin._id,
+			me: ctx.moderator._id,
 			rows: rows.sort((a, b) => a.submittedAt - b.submittedAt),
 		}
 	},
 })
-export const claim = adminMutation({
+export const claim = moderatorMutation({
 	args: { ...args, release: v.optional(v.boolean()) },
 	returns: v.null(),
 	handler: async (ctx, input) => {
@@ -186,7 +193,7 @@ export const claim = adminMutation({
 		if (
 			existing &&
 			existing.revision === input.revision &&
-			existing.assignedTo !== ctx.admin._id
+			existing.assignedTo !== ctx.moderator._id
 		)
 			throw new ConvexError(
 				'Another moderator has claimed this submission',
@@ -196,7 +203,7 @@ export const claim = adminMutation({
 			const id = await ctx.db.insert('reviewClaims', {
 				contentId: input.contentId,
 				revision: input.revision,
-				assignedTo: ctx.admin._id,
+				assignedTo: ctx.moderator._id,
 				claimedAt: Date.now(),
 			})
 			await ctx.scheduler.runAfter(

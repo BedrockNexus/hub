@@ -132,7 +132,7 @@ export const seed = internalMutation({
     await insertProjectAggregates(ctx, project)
     created++
    }
-   listings.push({ name: sample.name, path: sample.status === 'published' ? `/plugins/${createPluginDashboardId(githubRepositoryId)}` : '/admin/plugins' })
+   listings.push({ name: sample.name, path: sample.status === 'published' ? `/plugins/${createPluginDashboardId(githubRepositoryId)}` : '/moderation/plugins' })
   }
   return { created, listings }
  },

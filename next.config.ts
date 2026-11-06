@@ -21,6 +21,27 @@ const TRAILING_SLASH = /\/$/
 const nextConfig: NextConfig = {
 	output: 'standalone',
 	poweredByHeader: false,
+	async redirects() {
+		// Review and content moderation moved from /admin to /moderation.
+		return [
+			{ source: '/admin/reviews', destination: '/moderation' },
+			{ source: '/admin/plugins/reviews', destination: '/moderation' },
+			{ source: '/admin/projects', destination: '/moderation/addons' },
+			{
+				source: '/admin/projects/:id',
+				destination: '/moderation/addons/:id',
+			},
+			{
+				source: '/admin/:section(servers|addons|resource-packs)/:path*',
+				destination: '/moderation/:section/:path*',
+			},
+			{ source: '/admin/plugins', destination: '/moderation/plugins' },
+			{
+				source: '/admin/plugins/:id((?!workflows$|deliveries$)[^/]+)',
+				destination: '/moderation/plugins/:id',
+			},
+		].map((redirect) => ({ ...redirect, permanent: true }))
+	},
 	async headers() {
 		return [{ source: '/:path*', headers: securityHeaders }]
 	},

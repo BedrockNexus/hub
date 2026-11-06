@@ -14,7 +14,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { internalMutation, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
-import { adminMutation, adminQuery } from '../../lib/functions'
+import { moderatorMutation, moderatorQuery } from '../../lib/functions'
 import { canEditContent, isAffiliatedWithContent } from '../../lib/permissions'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
@@ -310,7 +310,7 @@ export const getByVersion = query({
  * Releases of public projects waiting for a moderator. Releases of projects
  * still in their first review are approved with the project instead.
  */
-export const listPendingReleases = adminQuery({
+export const listPendingReleases = moderatorQuery({
 	args: {},
 	returns: v.array(
 		v.object({
@@ -379,7 +379,7 @@ export const listPendingReleases = adminQuery({
  * downloadable on a public project; rejection is final for that release.
  * Admins cannot review releases of projects they own or belong to.
  */
-export const reviewRelease = adminMutation({
+export const reviewRelease = moderatorMutation({
 	args: {
 		versionId: v.id('projectVersions'),
 		decision: v.union(v.literal('approved'), v.literal('rejected')),
@@ -387,7 +387,7 @@ export const reviewRelease = adminMutation({
 	},
 	returns: v.id('projectVersions'),
 	handler: async (ctx, args) => {
-		const user = ctx.admin
+		const user = ctx.moderator
 
 		const version = await ctx.db.get(args.versionId)
 		if (!version) {

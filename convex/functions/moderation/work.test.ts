@@ -28,11 +28,35 @@ describe('review assignment and notifications', () => {
 		await insertRelease(t, id, '1.0.0')
 		await expect(
 			owner.query(api.functions.moderation.work.queue, {}),
-		).rejects.toThrow('Admin role')
+		).rejects.toThrow('Moderator role required')
 		await first.mutation(api.functions.moderation.work.claim, {
 			contentId: id,
 			revision: 1,
 		})
+		await expect(
+			owner.query(api.functions.moderation.work.assignment, {
+				contentId: id,
+				revision: 1,
+			}),
+		).rejects.toThrow('Moderator role required')
+		expect(
+			await first.query(api.functions.moderation.work.assignment, {
+				contentId: id,
+				revision: 1,
+			}),
+		).toMatchObject({ assignee: 'first', mine: true })
+		expect(
+			await second.query(api.functions.moderation.work.assignment, {
+				contentId: id,
+				revision: 1,
+			}),
+		).toMatchObject({ assignee: 'first', mine: false })
+		expect(
+			await second.query(api.functions.moderation.work.assignment, {
+				contentId: id,
+				revision: 2,
+			}),
+		).toEqual({ mine: false })
 		await expect(
 			second.mutation(api.functions.moderation.work.claim, {
 				contentId: id,
@@ -165,7 +189,7 @@ describe.each(['addon', 'resource_pack'] as const)(
 					contentId: older,
 					revision: rows[0].revision,
 				}),
-			).rejects.toThrow('Admin role')
+			).rejects.toThrow('Moderator role required')
 			await expect(
 				first.mutation(api.functions.moderation.work.claim, {
 					contentId: older,
@@ -447,4 +471,47 @@ it('refreshes standalone eligibility when listing visibility changes', async () 
 	expect(
 		(await t.run((ctx) => ctx.db.get(versionId)))?.standaloneReviewPending,
 	).toBe(false)
+})
+
+it('reads an assignment even when its submission is outside the bounded queue', async () => {
+	const t = createTest()
+	const admin = await signIn(t, 'backlog-reviewer', 'admin')
+	const ids = await t.run(async (ctx) => {
+		const ids = []
+		for (let i = 0; i < 101; i++)
+			ids.push(
+				await ctx.db.insert('projects', {
+					type: 'addon',
+					name: `Backlog ${i}`,
+					slug: `backlog-${i}`,
+					summary: 'A pending listing',
+					description: 'A pending listing',
+					categoryIds: [],
+					ownerType: 'user',
+					ownerId: 'creator',
+					createdBy: 'creator',
+					status: 'under_review',
+					moderationStatus: 'pending',
+					submissionStatus: 'pending',
+					submissionRevision: 1,
+					submittedAt: i,
+					updatedAt: Date.now(),
+				}),
+			)
+		return ids
+	})
+	const last = ids[100]
+	await admin.mutation(api.functions.moderation.work.claim, {
+		contentId: last,
+		revision: 1,
+	})
+	const queue = await admin.query(api.functions.moderation.work.queue, {})
+	expect(queue.more).toBe(true)
+	expect(queue.rows.some((row) => row.id === last)).toBe(false)
+	expect(
+		await admin.query(api.functions.moderation.work.assignment, {
+			contentId: last,
+			revision: 1,
+		}),
+	).toMatchObject({ assignee: 'backlog-reviewer', mine: true })
 })

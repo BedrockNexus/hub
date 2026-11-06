@@ -3,7 +3,7 @@ import { ConvexError, v } from 'convex/values'
 import { internal } from '../../_generated/api'
 import { internalMutation, type QueryCtx } from '../../_generated/server'
 import { authComponent } from '../../auth'
-import { adminQuery } from '../../lib/functions'
+import { moderatorQuery } from '../../lib/functions'
 import {
 	baselineRelease,
 	comparison,
@@ -42,7 +42,7 @@ async function getContent(
 	const id = ctx.db.normalizeId('plugins', input.contentId)
 	return id ? ctx.db.get('plugins', id) : null
 }
-export const getCurrentComparison = adminQuery({
+export const getCurrentComparison = moderatorQuery({
 	args,
 	returns: v.union(
 		v.null(),
@@ -163,7 +163,7 @@ function decisionTitle(action: string, changes?: Record<string, string>) {
 		return 'Deleted'
 	return 'Listing updated'
 }
-export const list = adminQuery({
+export const list = moderatorQuery({
 	args: { ...args, paginationOpts: paginationOptsValidator },
 	returns: v.object({
 		page: v.array(historyEntry),
@@ -226,7 +226,7 @@ export const list = adminQuery({
 		return { ...result, page }
 	},
 })
-export const getComparison = adminQuery({
+export const getComparison = moderatorQuery({
 	args: { ...args, eventId: v.id('moderationEvents') },
 	returns: v.union(v.null(), comparisonValidator),
 	handler: async (ctx, input) => {

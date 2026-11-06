@@ -115,6 +115,7 @@ import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_redact from "../lib/redact.js";
 import type * as lib_releaseReviewQueue from "../lib/releaseReviewQueue.js";
 import type * as lib_reviewWork from "../lib/reviewWork.js";
+import type * as lib_roles from "../lib/roles.js";
 import type * as lib_serverAddress from "../lib/serverAddress.js";
 import type * as lib_siteAggregates from "../lib/siteAggregates.js";
 import type * as lib_submissionGallery from "../lib/submissionGallery.js";
@@ -241,6 +242,7 @@ declare const fullApi: ApiFromModules<{
   "lib/redact": typeof lib_redact;
   "lib/releaseReviewQueue": typeof lib_releaseReviewQueue;
   "lib/reviewWork": typeof lib_reviewWork;
+  "lib/roles": typeof lib_roles;
   "lib/serverAddress": typeof lib_serverAddress;
   "lib/siteAggregates": typeof lib_siteAggregates;
   "lib/submissionGallery": typeof lib_submissionGallery;

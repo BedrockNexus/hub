@@ -2,6 +2,7 @@ import { ConvexError } from 'convex/values'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import type { AuthUser } from '../functions'
+import { canModerate, isAdminRole } from '../roles'
 
 /**
  * Who is calling the plugin registry. Plugins use hub accounts: any signed-in
@@ -9,9 +10,17 @@ import type { AuthUser } from '../functions'
  */
 export type AppUser = AuthUser
 
-/** Site admins act as plugin reviewers; there is no separate moderator role. */
+/**
+ * Site admins, who can manage any plugin or organization. Moderators review
+ * and moderate but do not get these powers; see `canReviewPlugins`.
+ */
 export function isStaff(user: { role?: string | null }): boolean {
-	return user.role === 'admin'
+	return isAdminRole(user.role)
+}
+
+/** Admins and moderators, who can see hidden plugins and submitted files. */
+export function canReviewPlugins(user: { role?: string | null }): boolean {
+	return canModerate(user.role)
 }
 
 export async function getCurrentUserOrNull(

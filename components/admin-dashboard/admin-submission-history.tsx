@@ -130,13 +130,14 @@ export function AdminSubmissionHistory({
 	contentId,
 	contentType,
 	revision,
-}: Scope & { revision?: number }) {
+	mode = 'all',
+}: Scope & { revision?: number; mode?: 'all' | 'changes' | 'history' }) {
 	const scope = { contentId, contentType }
 	const current = useQuery(
 		api.functions.moderation.history.getCurrentComparison,
-		scope,
+		mode === 'history' ? 'skip' : scope,
 	)
-	const [historyOpen, setHistoryOpen] = useState(false)
+	const [historyOpen, setHistoryOpen] = useState(mode === 'history')
 	const history = usePaginatedQuery(
 		api.functions.moderation.history.list,
 		historyOpen ? scope : 'skip',
@@ -144,7 +145,9 @@ export function AdminSubmissionHistory({
 	)
 	return (
 		<div className="space-y-6">
-			{current && current.revision === (revision ?? 0) ? (
+			{mode !== 'history' &&
+			current &&
+			current.revision === (revision ?? 0) ? (
 				<Card>
 					<CardHeader>
 						<CardTitle>Changes in this submission</CardTitle>
@@ -158,42 +161,55 @@ export function AdminSubmissionHistory({
 					</CardContent>
 				</Card>
 			) : null}
-			<Card>
-				<details
-					onToggle={(event) =>
-						setHistoryOpen(event.currentTarget.open)
-					}
-				>
-					<summary className="cursor-pointer rounded-md px-6 py-5 font-semibold text-base outline-none focus-visible:ring-2 focus-visible:ring-ring">
-						Moderation history
-					</summary>
-
-					<CardContent>
-						<p className="mb-4 text-muted-foreground text-sm">
-							Submissions, decisions, and moderator feedback.
-							Older decisions may not have a saved comparison.
-						</p>
-						<HistoryResults
-							events={history.results}
-							loading={history.status === 'LoadingFirstPage'}
-							scope={scope}
-						/>
-						{history.status === 'CanLoadMore' ||
-						history.status === 'LoadingMore' ? (
-							<Button
-								className="mt-4"
-								disabled={history.status === 'LoadingMore'}
-								onClick={() => history.loadMore(10)}
-								variant="outline"
-							>
-								{history.status === 'LoadingMore'
-									? 'Loading history...'
-									: 'Load older history'}
-							</Button>
-						) : null}
+			{mode === 'changes' &&
+			!(current && current.revision === (revision ?? 0)) ? (
+				<Card>
+					<CardContent className="py-6 text-muted-foreground text-sm">
+						{current === undefined
+							? 'Loading submitted changes...'
+							: 'No saved comparison is available for this submission revision. Review the saved content in the other sections.'}
 					</CardContent>
-				</details>
-			</Card>
+				</Card>
+			) : null}
+			{mode === 'changes' ? null : (
+				<Card>
+					<details
+						onToggle={(event) =>
+							setHistoryOpen(event.currentTarget.open)
+						}
+						open={historyOpen}
+					>
+						<summary className="cursor-pointer rounded-md px-6 py-5 font-semibold text-base outline-none focus-visible:ring-2 focus-visible:ring-ring">
+							Moderation history
+						</summary>
+
+						<CardContent>
+							<p className="mb-4 text-muted-foreground text-sm">
+								Submissions, decisions, and moderator feedback.
+								Older decisions may not have a saved comparison.
+							</p>
+							<HistoryResults
+								events={history.results}
+								loading={history.status === 'LoadingFirstPage'}
+								scope={scope}
+							/>
+							{history.status === 'CanLoadMore' ||
+							history.status === 'LoadingMore' ? (
+								<Button
+									className="mt-4"
+									disabled={history.status === 'LoadingMore'}
+									onClick={() => history.loadMore(10)}
+									variant="outline"
+								>
+									{history.status === 'LoadingMore'
+										? 'Loading history...'
+										: 'Load older history'}
+								</Button>
+							) : null}
+						</CardContent>
+					</details>
+				</Card>
+			)}
 		</div>
 	)
 }

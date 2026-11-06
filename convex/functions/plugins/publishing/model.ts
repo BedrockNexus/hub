@@ -31,15 +31,10 @@ import {
 } from '../../../_generated/server'
 import {
 	type AppUser,
+	canReviewPlugins,
 	getUserByTokenIdentifier,
-	isStaff,
 } from '../../../lib/plugins/access'
-import {
-	adminMutation,
-	adminQuery,
-	authedMutation,
-	authedQuery,
-} from '../../../lib/functions'
+import { authedMutation, authedQuery, moderatorMutation, moderatorQuery } from '../../../lib/functions'
 import {
 	getActiveOrganizationMembership,
 	listOrganizationMemberships,
@@ -1380,7 +1375,7 @@ async function assertNotOwnSubmission(
 	}
 }
 
-export const listReviewQueue = adminQuery({
+export const listReviewQueue = moderatorQuery({
 	args: {},
 	returns: v.array(
 		v.object({
@@ -1475,10 +1470,10 @@ export const getReviewFile = internalQuery({
 	),
 	handler: async (ctx, args) => {
 		const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier)
-		if (!isStaff(user)) {
+		if (!canReviewPlugins(user)) {
 			throw new ConvexError({
 				code: 'FORBIDDEN',
-				message: 'Admin role required.',
+				message: 'Moderator role required.',
 			})
 		}
 		const release = await ctx.db.get('pluginReleases', args.releaseId)
@@ -1489,14 +1484,14 @@ export const getReviewFile = internalQuery({
 })
 
 export async function approvePluginReview(
-	ctx: MutationCtx & { admin: AppUser },
+	ctx: MutationCtx & { moderator: AppUser },
 	args: {
 		releaseId: Id<'pluginReleases'>
 		note?: string
 		expectedRevision?: number
 	},
 ): Promise<Id<'plugins'>> {
-	await enforceRateLimit(ctx, 'moderationDecision', ctx.admin._id)
+	await enforceRateLimit(ctx, 'moderationDecision', ctx.moderator._id)
 	const release = await ctx.db.get('pluginReleases', args.releaseId)
 	if (release?.status !== 'inReview' || !release.uploadKey) {
 		throw new ConvexError({
@@ -1518,7 +1513,7 @@ export async function approvePluginReview(
 		})
 	}
 	assertReviewRevision(project, args.expectedRevision)
-	await assertNotOwnSubmission(ctx, project, release, ctx.admin)
+	await assertNotOwnSubmission(ctx, project, release, ctx.moderator)
 	const repository = await ctx.db.get(
 		'githubRepositories',
 		release.repositoryId,
@@ -1540,12 +1535,12 @@ export async function approvePluginReview(
 		approvalModerationRevision: project.moderationRevision ?? 0,
 		submissionRevision: project.submissionRevision,
 		reviewedAt: now,
-		reviewedBy: ctx.admin._id,
+		reviewedBy: ctx.moderator._id,
 		reviewNotes: note,
 		failureReason: undefined,
 		updatedAt: now,
 	})
-	await recordAdminAction(ctx, ctx.admin._id, {
+	await recordAdminAction(ctx, ctx.moderator._id, {
 		action: 'plugin.approve',
 		targetType: 'pluginRelease',
 		targetId: release._id,
@@ -1561,7 +1556,7 @@ export async function approvePluginReview(
 	return project._id
 }
 
-export const approveReview = adminMutation({
+export const approveReview = moderatorMutation({
 	args: {
 		releaseId: v.id('pluginReleases'),
 		note: v.optional(v.string()),
@@ -1572,7 +1567,7 @@ export const approveReview = adminMutation({
 })
 
 /** Retries copying an approved version to the CDN after a failure. */
-export const retryPublishing = adminMutation({
+export const retryPublishing = moderatorMutation({
 	args: {
 		releaseId: v.id('pluginReleases'),
 		expectedRevision: v.optional(v.number()),
@@ -1600,7 +1595,7 @@ export const retryPublishing = adminMutation({
 			)
 		}
 		assertReviewRevision(project, args.expectedRevision)
-		await assertNotOwnSubmission(ctx, project, release, ctx.admin)
+		await assertNotOwnSubmission(ctx, project, release, ctx.moderator)
 		await ctx.db.patch('pluginReleases', release._id, {
 			approvalModerationRevision: project.moderationRevision ?? 0,
 			submissionRevision: project.submissionRevision,
@@ -1853,7 +1848,7 @@ const reviewDecisionArgs = {
 }
 
 async function recordReviewDecision(
-	ctx: MutationCtx & { admin: AppUser },
+	ctx: MutationCtx & { moderator: AppUser },
 	args: {
 		releaseId: Id<'pluginReleases'>
 		reason: string
@@ -1861,7 +1856,7 @@ async function recordReviewDecision(
 	},
 	status: 'changesRequested' | 'rejected',
 ) {
-	await enforceRateLimit(ctx, 'moderationDecision', ctx.admin._id)
+	await enforceRateLimit(ctx, 'moderationDecision', ctx.moderator._id)
 	const reason = moderationReason(args.reason)
 	if (!reason) {
 		throw new ConvexError({
@@ -1897,7 +1892,7 @@ async function recordReviewDecision(
 	await ctx.db.patch('pluginReleases', release._id, {
 		status,
 		reviewedAt: now,
-		reviewedBy: ctx.admin._id,
+		reviewedBy: ctx.moderator._id,
 		reviewNotes: reason,
 		updatedAt: now,
 	})
@@ -1912,7 +1907,7 @@ async function recordReviewDecision(
 			moderationStatus: status === 'rejected' ? 'rejected' : 'pending',
 			moderationReason: reason,
 			moderatedAt: now,
-			moderatedBy: ctx.admin._id,
+			moderatedBy: ctx.moderator._id,
 			updatedAt: now,
 		})
 		if (status === 'rejected') {
@@ -1936,7 +1931,7 @@ async function recordReviewDecision(
 			{ releaseId: release._id, uploadKey: release.uploadKey },
 		)
 	}
-	await recordAdminAction(ctx, ctx.admin._id, {
+	await recordAdminAction(ctx, ctx.moderator._id, {
 		action:
 			status === 'rejected' ? 'plugin.reject' : 'plugin.requestChanges',
 		targetType: 'pluginRelease',
@@ -1948,14 +1943,14 @@ async function recordReviewDecision(
 	return project._id
 }
 
-export const requestReviewChanges = adminMutation({
+export const requestReviewChanges = moderatorMutation({
 	args: reviewDecisionArgs,
 	returns: v.id('plugins'),
 	handler: async (ctx, args) =>
 		await recordReviewDecision(ctx, args, 'changesRequested'),
 })
 
-export const rejectReview = adminMutation({
+export const rejectReview = moderatorMutation({
 	args: reviewDecisionArgs,
 	returns: v.id('plugins'),
 	handler: async (ctx, args) =>

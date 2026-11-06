@@ -19,7 +19,8 @@ import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { ownerFromOrganization } from '../../lib/contentOwnership'
-import { adminMutation, adminQuery } from '../../lib/functions'
+import { moderatorMutation, moderatorQuery } from '../../lib/functions'
+import { isAdminRole } from '../../lib/roles'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import {
@@ -786,7 +787,7 @@ export const listByOrganization = query({
 /**
  * List servers for admin moderation.
  */
-export const listAdmin = adminQuery({
+export const listAdmin = moderatorQuery({
 	args: {
 		limit: v.optional(v.number()),
 	},
@@ -833,7 +834,7 @@ export const listAdmin = adminQuery({
 	},
 })
 
-export const getAdminReview = adminQuery({
+export const getAdminReview = moderatorQuery({
 	args: { id: v.id('servers') },
 	handler: async (ctx, args) => {
 		const stored = await ctx.db.get(args.id)
@@ -1271,7 +1272,15 @@ export const update = mutation({
 /**
  * Admin update for any server
  */
-export const updateAdmin = adminMutation({
+const MODERATION_UPDATE_FIELDS = new Set([
+	'id',
+	'expectedRevision',
+	'status',
+	'moderationStatus',
+	'moderationReason',
+])
+
+export const updateAdmin = moderatorMutation({
 	args: {
 		id: v.id('servers'),
 		expectedRevision: v.optional(v.number()),
@@ -1296,7 +1305,14 @@ export const updateAdmin = adminMutation({
 		moderationReason: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const user = ctx.admin
+		const user = ctx.moderator
+		// Moderators decide on a listing; only admins edit its content.
+		const editsListing = Object.keys(args).some(
+			(key) => !MODERATION_UPDATE_FIELDS.has(key),
+		)
+		if (editsListing && !isAdminRole(user.role)) {
+			throw new ConvexError('Admin role required to edit a server listing')
+		}
 
 		const server = await ctx.db.get(args.id)
 		if (!server) {

@@ -166,7 +166,7 @@ function ServerActionsCell({ server }: { server: AdminServerRow }) {
 					render={(props) => (
 						<Link
 							{...props}
-							href={`/admin/servers/${server._id}`}
+							href={`/moderation/servers/${server._id}`}
 						/>
 					)}
 				>

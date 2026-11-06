@@ -26,14 +26,14 @@ import { api } from '@/convex/_generated/api'
 
 const QUICK_ACTIONS = [
 	{
-		description: 'Review project submissions awaiting a decision',
-		href: '/admin/projects',
+		description: 'Review pending listing and version submissions',
+		href: '/moderation',
 		icon: PuzzleIcon,
-		label: 'Project moderation',
+		label: 'Awaiting review',
 	},
 	{
 		description: 'Inspect published and flagged server listings',
-		href: '/admin/servers',
+		href: '/moderation/servers',
 		icon: ServerStack03Icon,
 		label: 'Server moderation',
 	},
@@ -68,9 +68,7 @@ export function AdminOverview() {
 	const servers = useQuery(api.functions.servers.servers.listAdmin, {
 		limit: 250,
 	})
-	const projects = useQuery(api.functions.projects.projects.listAdmin, {
-		limit: 250,
-	})
+	const reviewQueue = useQuery(api.functions.moderation.work.queue, {})
 	const userStats = useQuery(api.functions.site.users.getAdminUserStats, {})
 	const organizationStats = useQuery(
 		api.functions.site.organizations.getAdminOrganizationStats,
@@ -79,16 +77,13 @@ export function AdminOverview() {
 
 	if (
 		servers === undefined ||
-		projects === undefined ||
+		reviewQueue === undefined ||
 		userStats === undefined ||
 		organizationStats === undefined
 	) {
 		return <OverviewSkeleton />
 	}
 
-	const pendingProjects = projects.filter(
-		(project) => project.status === 'under_review',
-	)
 	const serversNeedingReview = servers.filter(
 		(server) =>
 			server.status === 'under_review' ||
@@ -98,17 +93,17 @@ export function AdminOverview() {
 
 	const queues = [
 		{
-			count: pendingProjects.length,
+			count: `${reviewQueue.rows.length}${reviewQueue.more ? '+' : ''}`,
 			description:
-				'Addons and resource packs awaiting approval or rejection',
-			href: '/admin/projects',
+				'Pending listing and version submissions across all catalogs',
+			href: '/moderation',
 			icon: PuzzleIcon,
-			label: 'Pending projects',
+			label: 'Awaiting review',
 		},
 		{
 			count: serversNeedingReview.length,
 			description: 'Published unreviewed or hidden flagged servers',
-			href: '/admin/servers',
+			href: '/moderation/servers',
 			icon: Flag01Icon,
 			label: 'Server reviews',
 		},
@@ -134,9 +129,9 @@ export function AdminOverview() {
 				actions={
 					<Button
 						nativeButton={false}
-						render={<Link href="/admin/projects" />}
+						render={<Link href="/moderation" />}
 					>
-						Review Addons & Packs
+						Review submissions
 						<HugeiconsIcon
 							className="size-4"
 							icon={ArrowRight01Icon}

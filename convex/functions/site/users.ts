@@ -396,7 +396,13 @@ const STATS_MAX_USERS = 10_000
 export const getAdminUserStats = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		const totals = { total: 0, verified: 0, admins: 0, banned: 0 }
+		const totals = {
+			total: 0,
+			verified: 0,
+			admins: 0,
+			moderators: 0,
+			banned: 0,
+		}
 		let cursor: string | null = null
 		let isDone = false
 		while (!isDone && totals.total < STATS_MAX_USERS) {
@@ -408,6 +414,7 @@ export const getAdminUserStats = adminQuery({
 				totals.total += 1
 				if (user.emailVerified) totals.verified += 1
 				if (user.role === 'admin') totals.admins += 1
+				if (user.role === 'moderator') totals.moderators += 1
 				if (user.banned) totals.banned += 1
 			}
 			isDone = result.isDone ?? true
@@ -423,7 +430,13 @@ export const getAdminUserStats = adminQuery({
 export const updateAdminUser = adminMutation({
 	args: {
 		userId: v.string(),
-		role: v.optional(v.union(v.literal('user'), v.literal('admin'))),
+		role: v.optional(
+			v.union(
+				v.literal('user'),
+				v.literal('moderator'),
+				v.literal('admin'),
+			),
+		),
 		banned: v.optional(v.boolean()),
 		banReason: v.optional(v.string()),
 		banExpires: v.optional(v.union(v.number(), v.null())),
@@ -433,7 +446,8 @@ export const updateAdminUser = adminMutation({
 
 		if (
 			args.userId === adminUser._id &&
-			(args.role === 'user' || args.banned === true)
+			((args.role !== undefined && args.role !== 'admin') ||
+				args.banned === true)
 		) {
 			throw new Error('You cannot remove your own admin access')
 		}

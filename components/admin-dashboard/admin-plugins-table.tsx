@@ -96,7 +96,7 @@ function PluginActionsCell({ plugin }: { plugin: PluginRow }) {
 					render={(props) => (
 						<Link
 							{...props}
-							href={`/admin/plugins/${plugin.projectId}`}
+							href={`/moderation/plugins/${plugin.projectId}`}
 						/>
 					)}
 				>

@@ -1,12 +1,12 @@
 'use client'
 
 import {
+	CheckmarkCircle01Icon,
 	DashboardBrowsingIcon,
 	GridIcon,
 	OfficeIcon,
 	Package01Icon,
 	PlugSocketIcon,
-	PuzzleIcon,
 	ServerStack03Icon,
 	Settings01Icon,
 	StarIcon,
@@ -24,23 +24,10 @@ const data = {
 			icon: DashboardBrowsingIcon,
 			exactMatch: true,
 		},
-	],
-	navModeration: [
 		{
-			title: 'Servers',
-			url: '/admin/servers',
-			icon: ServerStack03Icon,
-		},
-		{
-			title: 'Addons & Resource Packs',
-			url: '/admin/projects',
-			icon: PuzzleIcon,
-		},
-		{
-			title: 'Plugins',
-			url: '/admin/plugins',
-			icon: PlugSocketIcon,
-			exactMatch: true,
+			title: 'Moderation',
+			url: '/moderation',
+			icon: CheckmarkCircle01Icon,
 		},
 	],
 	navPeople: [
@@ -106,11 +93,6 @@ export function AdminDashboardSidebar(
 					basePath="/admin"
 					groupLabel="Admin"
 					items={data.navMain}
-				/>
-				<SidebarNav
-					basePath="/admin"
-					groupLabel="Moderation"
-					items={data.navModeration}
 				/>
 				<SidebarNav
 					basePath="/admin"

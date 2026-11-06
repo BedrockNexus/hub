@@ -3,6 +3,7 @@
 import {
 	Copy01Icon,
 	MoreHorizontalIcon,
+	Shield01Icon,
 	UserBlock01Icon,
 	UserCheck01Icon,
 	UserGroupIcon,
@@ -56,7 +57,7 @@ import { api } from '@/convex/_generated/api'
 import { useDataTable } from '@/hooks/use-data-table'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 
-type UserRole = 'user' | 'admin' | string
+type UserRole = 'user' | 'moderator' | 'admin' | string
 type AccountStatus = 'banned' | 'verified' | 'unverified'
 
 const WHITESPACE_PATTERN = /\s+/
@@ -81,7 +82,7 @@ interface AdminUserRow {
 }
 
 interface UserPatch {
-	role?: 'user' | 'admin'
+	role?: 'user' | 'moderator' | 'admin'
 	banned?: boolean
 	banReason?: string
 }
@@ -106,6 +107,10 @@ function getAccountStatus(row: AdminUserRow): AccountStatus {
 function RoleBadge({ role }: { role: UserRole }) {
 	if (role === 'admin') {
 		return <Badge variant="secondary">Admin</Badge>
+	}
+
+	if (role === 'moderator') {
+		return <Badge variant="secondary">Moderator</Badge>
 	}
 
 	if (role === 'user') {
@@ -147,6 +152,7 @@ interface AdminUserStats {
 	total: number
 	verified: number
 	admins: number
+	moderators: number
 	banned: number
 	isPartial: boolean
 }
@@ -155,6 +161,7 @@ function AdminUsersStats({ stats }: { stats: AdminUserStats | undefined }) {
 	const format = (value: number | undefined) =>
 		value === undefined ? '-' : `${value}${stats?.isPartial ? '+' : ''}`
 	const adminCount = format(stats?.admins)
+	const moderatorCount = format(stats?.moderators)
 	const bannedCount = format(stats?.banned)
 	const unverifiedCount = stats ? format(stats.total - stats.verified) : '-'
 	const verifiedCount = format(stats?.verified)
@@ -169,7 +176,7 @@ function AdminUsersStats({ stats }: { stats: AdminUserStats | undefined }) {
 			<Stat>
 				<StatLabel>Admins</StatLabel>
 				<StatValue>{adminCount}</StatValue>
-				<StatDescription>Accounts with admin access</StatDescription>
+				<StatDescription>{moderatorCount} moderators</StatDescription>
 			</Stat>
 			<Stat>
 				<StatLabel>Unverified</StatLabel>
@@ -284,7 +291,26 @@ function UserActionsCell({
 					<DropdownMenuItem
 						disabled={
 							isUpdating ||
-							user.role !== 'admin' ||
+							user.role === 'moderator' ||
+							user.isCurrentUser
+						}
+						onClick={() =>
+							setPendingCommand({
+								label: 'Make Moderator',
+								message: `${user.displayName} is now a moderator`,
+								patch: { role: 'moderator' },
+								title: `Make ${user.displayName} a moderator?`,
+							})
+						}
+					>
+						<HugeiconsIcon className="size-4" icon={Shield01Icon} />
+						Make Moderator
+					</DropdownMenuItem>
+					<DropdownMenuItem
+						disabled={
+							isUpdating ||
+							!user.role ||
+							user.role === 'user' ||
 							user.isCurrentUser
 						}
 						onClick={() =>
@@ -292,7 +318,7 @@ function UserActionsCell({
 								label: 'Make User',
 								message: `${user.displayName} is now a user`,
 								patch: { role: 'user' },
-								title: `Remove admin access from ${user.displayName}?`,
+								title: `Remove ${user.role} access from ${user.displayName}?`,
 							})
 						}
 					>
@@ -468,6 +494,7 @@ export function AdminUsersTable() {
 					variant: 'multiSelect',
 					options: [
 						{ label: 'Admin', value: 'admin' },
+						{ label: 'Moderator', value: 'moderator' },
 						{ label: 'User', value: 'user' },
 					],
 				},

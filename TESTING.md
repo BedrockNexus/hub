@@ -32,6 +32,14 @@ This file is the canonical checklist for launch verification, automated tests, a
 
 ## Lifecycle And Moderation
 
+- [ ] Confirm `/moderation` opens Awaiting review, with Servers, Addons, Resource Packs and Plugins tables in its sidebar; old `/admin/reviews`, `/admin/servers`, `/admin/addons`, `/admin/resource-packs` and `/admin/plugins/<id>` links redirect there.
+- [ ] Make a user a moderator from Users and confirm they can open `/moderation`, claim and decide on submissions and download plugin files, but are sent away from `/admin` and cannot edit a server listing's content.
+- [ ] Confirm the Reviewer column and review bar show the claiming reviewer's username, including your own claims.
+- [ ] Confirm each submission's Versions & files table expands a row to show that version's details, changelog and actions.
+- [ ] Confirm server, addon, resource-pack and plugin submission reviews use the section sidebar; submitted content remains read-only and the decision panel retains its submission revision between sections.
+- [ ] Confirm existing `#release-<id>` links open Versions & files, display the selected changelog, and allow navigating away and back without losing the selected version.
+- [ ] Confirm reviewer claims load for submissions outside the first queue page; another moderator cannot act on claimed content, including plugin releases.
+- [ ] On mobile, confirm choosing a review section closes the sidebar, tables scroll within their container, and the decision bar stays reachable without covering the last content row.
 - [ ] Generate a server verification code, add the exact token as a DNS TXT record, and confirm DNS verification succeeds for the matching hostname.
 - [ ] Generate a server verification code, add the exact token to either Bedrock MOTD line, and confirm MOTD verification succeeds only for the matching online host and port.
 - [ ] Confirm DNS verification fails for a missing or incorrect TXT record, and MOTD verification fails for an offline server, mismatched port, or missing token.

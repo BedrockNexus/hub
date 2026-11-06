@@ -1,10 +1,12 @@
 'use client'
 
-import { Alert02Icon, ArrowLeft02Icon } from '@hugeicons/core-free-icons'
+import { ArrowLeft02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
+import type { FunctionReturnType } from 'convex/server'
 import Image from 'next/image'
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import {
 	LifecycleStatusBadge,
 	ModerationStatusBadge,
@@ -14,39 +16,230 @@ import {
 	ReleaseReviewActions,
 	ReleaseReviewBadge,
 } from '@/components/admin-dashboard/admin-release-review'
+import {
+	type ReviewVersionRow,
+	ReviewVersionsTable,
+} from '@/components/admin-dashboard/review-versions-table'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { ProjectTypeDetailsCard } from '@/components/projects/detail/project-type-details-card'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@/components/ui/table'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { useAdminReviewNavigation } from '@/hooks/use-admin-review-navigation'
+import { moderationCollectionHref } from '@/lib/admin-review-navigation'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_PLURAL_LABELS,
+} from '@/lib/project-artifacts'
+import { AdminReviewShell, ReviewSectionPanel } from './admin-review-shell'
 import { AdminSubmissionHistory } from './admin-submission-history'
 import { SubmissionMetadata } from './submission-metadata'
-import { SubmissionStatusBadge } from './submission-status'
 
-function formatBytes(bytes: number) {
-	if (bytes < 1024) {
-		return `${bytes} B`
-	}
-	if (bytes < 1024 * 1024) {
-		return `${(bytes / 1024).toFixed(1)} KB`
-	}
-	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+type ProjectReview = NonNullable<
+	FunctionReturnType<typeof api.functions.projects.projects.getAdminReview>
+>
+type ProjectVersion = ProjectReview['versions'][number]
+
+function canReviewVersion(project: ProjectReview, version: ProjectVersion) {
+	return (
+		version.reviewStatus === 'pending' &&
+		project.submissionStatus !== 'pending' &&
+		project.status === 'published' &&
+		project.moderationStatus === 'approved' &&
+		!version.deletionRequestedAt
+	)
 }
 
+function projectVersionNotices(version: ProjectVersion) {
+	if (
+		!(
+			version.validationError ||
+			version.reviewReason ||
+			version.deletionRequestedAt
+		)
+	) {
+		return null
+	}
+	return (
+		<div className="space-y-2 text-sm">
+			{version.deletionRequestedAt ? (
+				<p className="text-muted-foreground">File removal requested.</p>
+			) : null}
+			{version.validationError ? (
+				<p className="text-destructive">{version.validationError}</p>
+			) : null}
+			{version.reviewReason ? (
+				<p className="whitespace-pre-wrap">
+					Moderator feedback: {version.reviewReason}
+				</p>
+			) : null}
+		</div>
+	)
+}
+
+function projectVersionRow(
+	project: ProjectReview,
+	version: ProjectVersion,
+	selected: boolean,
+	onReviewVersion: (id: string) => unknown,
+): ReviewVersionRow {
+	let actions: ReactNode
+	if (canReviewVersion(project, version)) {
+		actions = selected ? (
+			<p className="text-muted-foreground text-sm">
+				Use the decision bar below to approve or reject this version.
+			</p>
+		) : (
+			<Button
+				onClick={() => onReviewVersion(version._id)}
+				size="sm"
+				variant="outline"
+			>
+				Review version
+			</Button>
+		)
+	}
+	return {
+		id: version._id,
+		version: version.version,
+		fileName: version.fileName,
+		size: version.fileSize,
+		submittedAt: version.createdAt,
+		status: <ReleaseReviewBadge status={version.reviewStatus} />,
+		facts: [
+			[
+				'Game versions',
+				version.gameVersions?.join(', ') || 'Not specified',
+			],
+			['Validation', version.validationStatus ?? 'valid'],
+		],
+		notices: projectVersionNotices(version),
+		changelog: (
+			<RichTextViewer
+				content={version.changelog || 'No changelog supplied.'}
+			/>
+		),
+		actions,
+	}
+}
+
+function ProjectReviewVersions({
+	project,
+	onReviewVersion,
+	selectedId,
+}: {
+	project: ProjectReview
+	selectedId?: string | null
+	onReviewVersion: (id: string) => unknown
+}) {
+	return (
+		<ReviewVersionsTable
+			emptyMessage="No version files uploaded"
+			openId={selectedId}
+			rows={project.versions.map((version) =>
+				projectVersionRow(
+					project,
+					version,
+					version._id === selectedId,
+					onReviewVersion,
+				),
+			)}
+		/>
+	)
+}
+function ProjectVersionDecision({
+	version,
+}: {
+	version: ProjectReview['versions'][number]
+}) {
+	if (version.deletionRequestedAt) {
+		return (
+			<p className="text-muted-foreground text-sm">
+				File removal requested.
+			</p>
+		)
+	}
+	if (version.reviewStatus === 'pending') {
+		return (
+			<ReleaseReviewActions
+				canApprove={version.validationStatus === 'valid'}
+				versionId={version._id}
+				versionLabel={`v${version.version}`}
+			/>
+		)
+	}
+	return <ReleaseReviewBadge status={version.reviewStatus} />
+}
+function ProjectReviewHeader({ project }: { project: ProjectReview }) {
+	return (
+		<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+			<div className="space-y-3">
+				<Button
+					nativeButton={false}
+					render={
+						<Link
+							href={moderationCollectionHref(
+								'projects',
+								normalizeProjectType(project.type),
+							)}
+						/>
+					}
+					variant="ghost"
+				>
+					<HugeiconsIcon className="size-4" icon={ArrowLeft02Icon} />
+					{
+						PROJECT_TYPE_PLURAL_LABELS[
+							normalizeProjectType(project.type)
+						]
+					}
+				</Button>
+				<div className="flex items-center gap-4">
+					{project.iconUrl ? (
+						<Image
+							alt={`${project.name} icon`}
+							className="size-16 rounded-md border object-cover"
+							height={64}
+							src={project.iconUrl}
+							width={64}
+						/>
+					) : null}
+					<div>
+						<h1 className="font-semibold text-2xl">
+							{project.name}
+						</h1>
+						<p className="text-muted-foreground text-sm">
+							{project.summary}
+						</p>
+					</div>
+				</div>
+				<div className="flex flex-wrap gap-2">
+					<LifecycleStatusBadge status={project.status} />
+					<ModerationStatusBadge status={project.moderationStatus} />
+					<Badge variant="outline">
+						{project.type.replace('_', ' ')}
+					</Badge>
+				</div>
+			</div>
+		</div>
+	)
+}
+function standaloneVersion(
+	project: ProjectReview,
+	selected?: ProjectReview['versions'][number],
+) {
+	return selected &&
+		project.submissionStatus !== 'pending' &&
+		project.status === 'published' &&
+		project.moderationStatus === 'approved'
+		? selected
+		: undefined
+}
 export function AdminProjectReview({ projectId }: { projectId: string }) {
+	const nav = useAdminReviewNavigation()
 	const project = useQuery(api.functions.projects.projects.getAdminReview, {
 		id: projectId as Id<'projects'>,
 	})
@@ -74,254 +267,172 @@ export function AdminProjectReview({ projectId }: { projectId: string }) {
 	const versionApprovalMessage =
 		'The creator must have a validated release eligible for review before this listing can be approved.'
 
+	const selectedVersion = nav.releaseId
+		? project.versions.find((version) => version._id === nav.releaseId)
+		: undefined
+	const versionReview = standaloneVersion(project, selectedVersion)
+
 	return (
-		<div className="space-y-6">
-			{project.bannerUrl ? (
-				<Image
-					alt={`${project.name} banner`}
-					className="max-h-64 w-full rounded-md border object-cover"
-					height={400}
-					src={project.bannerUrl}
-					width={1200}
-				/>
-			) : null}
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-				<div className="space-y-3">
-					<Button
-						nativeButton={false}
-						render={<Link href="/admin/projects" />}
-						variant="ghost"
-					>
-						<HugeiconsIcon
-							className="size-4"
-							icon={ArrowLeft02Icon}
-						/>
-						Addons & Resource Packs
-					</Button>
-					<div className="flex items-center gap-4">
-						{project.iconUrl ? (
-							<Image
-								alt={`${project.name} icon`}
-								className="size-16 rounded-md border object-cover"
-								height={64}
-								src={project.iconUrl}
-								width={64}
-							/>
-						) : null}
-						<div>
-							<h1 className="font-semibold text-2xl">
-								{project.name}
-							</h1>
-							<p className="text-muted-foreground text-sm">
-								{project.summary}
-							</p>
-						</div>
-					</div>
-					<div className="flex flex-wrap gap-2">
-						<LifecycleStatusBadge status={project.status} />
-						<ModerationStatusBadge
-							status={project.moderationStatus}
-						/>
-						<Badge variant="outline">
-							{project.type.replace('_', ' ')}
-						</Badge>
-					</div>
-				</div>
-				<SubmissionStatusBadge status={project.submissionStatus} />
-				<AdminModerationActions
-					approveDisabledReason={
-						hasVersionFiles ? undefined : versionApprovalMessage
-					}
-					canApprove={hasVersionFiles}
-					contentId={project._id}
-					contentName={project.name}
-					contentType="project"
-					moderationStatus={project.moderationStatus}
-					status={project.status}
-					submissionRevision={project.submissionRevision}
-					submissionStatus={project.submissionStatus}
-					wasPublished={Boolean(project.publishedAt)}
-				/>
-			</div>
-
-			{(project.submissionReason ?? project.moderationReason) ? (
-				<Card className="border-destructive/40">
-					<CardHeader>
-						<CardTitle className="text-base">
-							Current moderation note
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="text-sm">
-						{project.submissionReason ?? project.moderationReason}
-					</CardContent>
-				</Card>
-			) : null}
-
-			{hasVersionFiles ? null : (
-				<Alert>
-					<HugeiconsIcon className="size-4" icon={Alert02Icon} />
-					<AlertTitle>Version file required</AlertTitle>
-					<AlertDescription>
-						{versionApprovalMessage}
-					</AlertDescription>
-				</Alert>
-			)}
-
-			<AdminSubmissionHistory
-				contentId={project._id}
-				contentType="project"
-				revision={project.submissionRevision}
-			/>
-			<SubmissionMetadata
-				fields={[
-					['Tags', project.tags?.join(', ')],
-					['License notes', project.licenseCustom],
-				]}
-				links={[
-					['Source', project.sourceUrl],
-					['Website', project.websiteUrl],
-					['Issue tracker', project.issueTrackerUrl],
-					['Wiki', project.wikiUrl],
-					['Discord', project.discordUrl],
-					['Donations', project.donationUrl],
-				]}
-			/>
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+		<AdminReviewShell
+			actions={
+				versionReview ? (
+					<ProjectVersionDecision version={versionReview} />
+				) : (
+					<AdminModerationActions
+						approveDisabledReason={
+							hasVersionFiles ? undefined : versionApprovalMessage
+						}
+						canApprove={hasVersionFiles}
+						contentId={project._id}
+						contentName={project.name}
+						contentType="project"
+						moderationStatus={project.moderationStatus}
+						status={project.status}
+						submissionRevision={project.submissionRevision}
+						submissionStatus={project.submissionStatus}
+						wasPublished={Boolean(project.publishedAt)}
+					/>
+				)
+			}
+			header={<ProjectReviewHeader project={project} />}
+			identity={
+				versionReview
+					? {
+							contentId: versionReview._id,
+							revision: versionReview.createdAt,
+							pending:
+								versionReview.reviewStatus === 'pending' &&
+								!versionReview.deletionRequestedAt,
+						}
+					: {
+							contentId: project._id,
+							revision: project.submissionRevision ?? 0,
+							pending: project.submissionStatus === 'pending',
+						}
+			}
+			note={
+				versionReview
+					? versionReview.reviewReason
+					: (project.submissionReason ?? project.moderationReason)
+			}
+			submissionRevision={project.submissionRevision}
+			submissionStatus={project.submissionStatus}
+			submittedAt={versionReview?.createdAt ?? project.submittedAt}
+			versionLabel={
+				versionReview ? `version ${versionReview.version}` : undefined
+			}
+		>
+			<ReviewSectionPanel active={nav.section === 'overview'}>
 				<div className="space-y-6">
-					<Card>
+					{project.bannerUrl ? (
+						<Image
+							alt={`${project.name} banner`}
+							className="max-h-64 w-full rounded-md border object-cover"
+							height={400}
+							src={project.bannerUrl}
+							width={1200}
+						/>
+					) : null}
+					<Card className="h-fit">
 						<CardHeader>
-							<CardTitle>Description</CardTitle>
+							<CardTitle className="text-base">
+								Submission details
+							</CardTitle>
 						</CardHeader>
-						<CardContent>
-							<RichTextViewer content={project.description} />
+						<CardContent className="grid gap-6 text-sm sm:grid-cols-2 xl:grid-cols-3">
+							<div>
+								<p className="text-muted-foreground">Owner</p>
+								<p>
+									{project.owner?.type === 'organization'
+										? project.owner.name
+										: project.owner?.displayUsername ||
+											project.owner?.username ||
+											'Unknown user'}
+								</p>
+							</div>
+							<div>
+								<p className="text-muted-foreground">License</p>
+								<p>{project.license || 'Not provided'}</p>
+							</div>
+							<div>
+								<p className="text-muted-foreground">
+									Categories
+								</p>
+								<p>
+									{project.categories
+										.map((category) => category?.name)
+										.filter(Boolean)
+										.join(', ') || 'None'}
+								</p>
+							</div>
 						</CardContent>
 					</Card>
-					<Card>
-						<CardHeader>
-							<CardTitle>Gallery</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<GalleryGrid
-								emptyDescription="No screenshots were supplied."
-								emptyTitle="No gallery images"
-								items={project.gallery}
-							/>
-						</CardContent>
-					</Card>
-					<Card>
-						<CardHeader>
-							<CardTitle>Versions and files</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Version</TableHead>
-										<TableHead>File</TableHead>
-										<TableHead>Game versions</TableHead>
-										<TableHead>Review</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{project.versions.map((version) => (
-										<TableRow
-											id={`release-${version._id}`}
-											key={version._id}
-										>
-											<TableCell className="font-medium">
-												{version.version}
-											</TableCell>
-											<TableCell>
-												{version.fileName}
-												<span className="ml-2 text-muted-foreground text-xs">
-													{formatBytes(
-														version.fileSize,
-													)}
-												</span>
-											</TableCell>
-											<TableCell>
-												{version.gameVersions?.join(
-													', ',
-												) || 'Not specified'}
-											</TableCell>
-											<TableCell>
-												{version.reviewStatus ===
-													'pending' &&
-												project.submissionStatus !==
-													'pending' &&
-												project.status ===
-													'published' &&
-												project.moderationStatus ===
-													'approved' &&
-												!version.deletionRequestedAt ? (
-													<ReleaseReviewActions
-														canApprove={
-															version.validationStatus ===
-															'valid'
-														}
-														versionId={version._id}
-														versionLabel={`v${version.version}`}
-													/>
-												) : (
-													<ReleaseReviewBadge
-														status={
-															version.reviewStatus
-														}
-													/>
-												)}
-											</TableCell>
-										</TableRow>
-									))}
-									{project.versions.length === 0 ? (
-										<TableRow>
-											<TableCell
-												className="h-24 text-center text-muted-foreground"
-												colSpan={4}
-											>
-												No version files uploaded
-											</TableCell>
-										</TableRow>
-									) : null}
-								</TableBody>
-							</Table>
-						</CardContent>
-					</Card>
+					<ProjectTypeDetailsCard metadata={project.metadata} />
 				</div>
-
-				<Card className="h-fit">
+			</ReviewSectionPanel>
+			<ReviewSectionPanel active={nav.section === 'changes'}>
+				<AdminSubmissionHistory
+					contentId={project._id}
+					contentType="project"
+					mode="changes"
+					revision={project.submissionRevision}
+				/>
+			</ReviewSectionPanel>
+			<ReviewSectionPanel active={nav.section === 'description'}>
+				<Card>
 					<CardHeader>
-						<CardTitle className="text-base">
-							Submission details
-						</CardTitle>
+						<CardTitle>Description</CardTitle>
 					</CardHeader>
-					<CardContent className="space-y-3 text-sm">
-						<div>
-							<p className="text-muted-foreground">Owner</p>
-							<p>
-								{project.owner?.type === 'organization'
-									? project.owner.name
-									: project.owner?.displayUsername ||
-										project.owner?.username ||
-										'Unknown user'}
-							</p>
-						</div>
-						<div>
-							<p className="text-muted-foreground">License</p>
-							<p>{project.license || 'Not provided'}</p>
-						</div>
-						<div>
-							<p className="text-muted-foreground">Categories</p>
-							<p>
-								{project.categories
-									.map((category) => category?.name)
-									.filter(Boolean)
-									.join(', ') || 'None'}
-							</p>
-						</div>
+					<CardContent>
+						<RichTextViewer content={project.description} />
 					</CardContent>
 				</Card>
-				<ProjectTypeDetailsCard metadata={project.metadata} />
+			</ReviewSectionPanel>
+			<ReviewSectionPanel active={nav.section === 'gallery'}>
+				<Card>
+					<CardHeader>
+						<CardTitle>Gallery</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<GalleryGrid
+							emptyDescription="No screenshots were supplied."
+							emptyTitle="No gallery images"
+							items={project.gallery}
+						/>
+					</CardContent>
+				</Card>
+			</ReviewSectionPanel>
+			<div className="space-y-6" hidden={nav.section !== 'versions'}>
+				<ProjectReviewVersions
+					onReviewVersion={nav.selectRelease}
+					project={project}
+					selectedId={nav.releaseId}
+				/>
 			</div>
-		</div>
+			<ReviewSectionPanel active={nav.section === 'links'}>
+				<SubmissionMetadata
+					fields={[
+						['Tags', project.tags?.join(', ')],
+						['License notes', project.licenseCustom],
+					]}
+					links={[
+						['Source', project.sourceUrl],
+						['Website', project.websiteUrl],
+						['Issue tracker', project.issueTrackerUrl],
+						['Wiki', project.wikiUrl],
+						['Discord', project.discordUrl],
+						['Donations', project.donationUrl],
+					]}
+				/>
+			</ReviewSectionPanel>
+			<ReviewSectionPanel active={nav.section === 'history'}>
+				<AdminSubmissionHistory
+					contentId={project._id}
+					contentType="project"
+					mode="history"
+					revision={project.submissionRevision}
+				/>
+			</ReviewSectionPanel>
+		</AdminReviewShell>
 	)
 }

@@ -42,11 +42,14 @@ import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-ta
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
+import { moderationReviewHref } from '@/lib/admin-review-navigation'
 import { contentHref } from '@/lib/content-routes'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import {
 	normalizeProjectType,
 	PROJECT_TYPE_LABELS,
+	PROJECT_TYPE_PLURAL_LABELS,
+	type ProjectType,
 	type StoredProjectType,
 } from '@/lib/project-artifacts'
 import { SubmissionStatusBadge } from './submission-status'
@@ -147,7 +150,13 @@ function ProjectActionsCell({ project }: { project: AdminProjectRow }) {
 					render={(props) => (
 						<Link
 							{...props}
-							href={`/admin/projects/${project._id}`}
+							href={moderationReviewHref(
+								'projects',
+								project._id,
+								{
+									projectType: project.type,
+								},
+							)}
 						/>
 					)}
 				>
@@ -163,14 +172,19 @@ function ProjectActionsCell({ project }: { project: AdminProjectRow }) {
 	)
 }
 
-export function AdminProjectsTable() {
+export function AdminProjectsTable({ type }: { type: ProjectType }) {
+	const label = PROJECT_TYPE_LABELS[type]
+	const plural = PROJECT_TYPE_PLURAL_LABELS[type]
 	const adminProjects = useQuery(api.functions.projects.projects.listAdmin, {
 		limit: 250,
 	})
 
 	const projects = useMemo(
-		() => (adminProjects ?? []) as AdminProjectRow[],
-		[adminProjects],
+		() =>
+			(adminProjects ?? []).filter(
+				(project) => normalizeProjectType(project.type) === type,
+			) as AdminProjectRow[],
+		[adminProjects, type],
 	)
 
 	const columns = useMemo<ColumnDef<DataTableFeatures, AdminProjectRow>[]>(
@@ -202,7 +216,7 @@ export function AdminProjectsTable() {
 					column,
 				}: {
 					column: Column<DataTableFeatures, AdminProjectRow, unknown>
-				}) => <DataTableColumnHeader column={column} label="Project" />,
+				}) => <DataTableColumnHeader column={column} label={label} />,
 				cell: ({ row }) => (
 					<Link
 						className="font-medium hover:underline"
@@ -216,8 +230,8 @@ export function AdminProjectsTable() {
 					</Link>
 				),
 				meta: {
-					label: 'Project',
-					placeholder: 'Search projects...',
+					label,
+					placeholder: `Search ${plural.toLowerCase()}...`,
 					variant: 'text',
 				},
 				enableColumnFilter: true,
@@ -237,25 +251,6 @@ export function AdminProjectsTable() {
 							{row.original.ownerType}
 						</div>
 					</div>
-				),
-				enableColumnFilter: false,
-			},
-			{
-				id: 'type',
-				accessorKey: 'type',
-				header: ({
-					column,
-				}: {
-					column: Column<DataTableFeatures, AdminProjectRow, unknown>
-				}) => <DataTableColumnHeader column={column} label="Type" />,
-				cell: ({ row }) => (
-					<Badge className="text-xs" variant="secondary">
-						{
-							PROJECT_TYPE_LABELS[
-								normalizeProjectType(row.original.type)
-							]
-						}
-					</Badge>
 				),
 				enableColumnFilter: false,
 			},
@@ -407,7 +402,7 @@ export function AdminProjectsTable() {
 				size: 32,
 			},
 		],
-		[],
+		[label, plural],
 	)
 
 	const { table } = useDataTable({
@@ -430,8 +425,8 @@ export function AdminProjectsTable() {
 		return (
 			<div className="min-w-0 space-y-6">
 				<AdminPageHeader
-					description="Review, publish, unpublish, and reject project submissions."
-					title="Addons & Resource Packs"
+					description={`Manage ${plural.toLowerCase()}, publication status, and moderation decisions.`}
+					title={plural}
 				/>
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
@@ -443,11 +438,11 @@ export function AdminProjectsTable() {
 						</div>
 						<div>
 							<h2 className="font-semibold text-lg">
-								No projects yet
+								No {plural.toLowerCase()} yet
 							</h2>
 							<p className="text-muted-foreground text-sm">
-								Project submissions will appear here when users
-								create them.
+								{plural} will appear here when creators add
+								them.
 							</p>
 						</div>
 					</CardContent>
@@ -459,8 +454,8 @@ export function AdminProjectsTable() {
 	return (
 		<div className="min-w-0 space-y-6">
 			<AdminPageHeader
-				description="Review, publish, unpublish, and reject project submissions."
-				title="Addons & Resource Packs"
+				description={`Manage ${plural.toLowerCase()}, publication status, and moderation decisions.`}
+				title={plural}
 			/>
 			<AdminProjectStats projects={projects} />
 			<DataTable table={table}>

@@ -1,6 +1,7 @@
 'use client'
 
 import {
+	CheckmarkCircle01Icon,
 	DashboardBrowsingIcon,
 	Settings01Icon,
 	Shield01Icon,
@@ -41,6 +42,17 @@ export function AdminDashboardHeader() {
 				<HugeiconsIcon
 					className="text-muted-foreground"
 					icon={Shield01Icon}
+				/>
+			),
+			visibility: 'authenticated',
+		},
+		{
+			label: 'Moderation',
+			href: '/moderation',
+			icon: (
+				<HugeiconsIcon
+					className="text-muted-foreground"
+					icon={CheckmarkCircle01Icon}
 				/>
 			),
 			visibility: 'authenticated',

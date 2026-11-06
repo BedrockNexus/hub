@@ -117,6 +117,7 @@ query    auth:getCurrentUser
 query    functions/moderation/history:getComparison
 query    functions/moderation/history:getCurrentComparison
 query    functions/moderation/history:list
+query    functions/moderation/work:assignment
 query    functions/moderation/work:notices
 query    functions/moderation/work:queue
 query    functions/plugins/catalog:explore

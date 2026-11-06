@@ -21,11 +21,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { useAdminReviewNavigation } from '@/hooks/use-admin-review-navigation'
+import { AdminReviewShell, ReviewSectionPanel } from './admin-review-shell'
 import { AdminSubmissionHistory } from './admin-submission-history'
 import { SubmissionMetadata } from './submission-metadata'
-import { SubmissionStatusBadge } from './submission-status'
 
 export function AdminServerReview({ serverId }: { serverId: string }) {
+	const nav = useAdminReviewNavigation()
 	const server = useQuery(api.functions.servers.servers.getAdminReview, {
 		id: serverId as Id<'servers'>,
 	})
@@ -45,58 +47,8 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 	}
 
 	return (
-		<div className="space-y-6">
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-				<div className="space-y-3">
-					<Button
-						nativeButton={false}
-						render={<Link href="/admin/servers" />}
-						variant="ghost"
-					>
-						<HugeiconsIcon
-							className="size-4"
-							icon={ArrowLeft02Icon}
-						/>
-						Servers
-					</Button>
-					<div className="flex items-center gap-4">
-						{server.logoUrl ? (
-							<Image
-								alt={`${server.name} logo`}
-								className="size-16 rounded-md border object-cover"
-								height={64}
-								src={server.logoUrl}
-								width={64}
-							/>
-						) : null}
-						<div>
-							<h1 className="font-semibold text-2xl">
-								{server.name}
-							</h1>
-							<p className="text-muted-foreground text-sm">
-								{server.ipAddress}:{server.port}
-							</p>
-						</div>
-					</div>
-					<div className="flex flex-wrap gap-2">
-						<LifecycleStatusBadge status={server.status} />
-						<ModerationStatusBadge
-							status={server.moderationStatus}
-						/>
-						{server.verifiedAt ? (
-							<Badge variant="secondary">
-								<HugeiconsIcon
-									className="size-3.5"
-									icon={CheckmarkCircle01Icon}
-								/>
-								Ownership verified
-							</Badge>
-						) : (
-							<Badge variant="destructive">Not verified</Badge>
-						)}
-					</div>
-				</div>
-				<SubmissionStatusBadge status={server.submissionStatus} />
+		<AdminReviewShell
+			actions={
 				<AdminModerationActions
 					contentId={server._id}
 					contentName={server.name}
@@ -107,47 +59,78 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 					submissionStatus={server.submissionStatus}
 					wasPublished={Boolean(server.publishedAt)}
 				/>
-			</div>
-
-			{(server.submissionReason ?? server.moderationReason) ? (
-				<Card className="border-destructive/40">
-					<CardHeader>
-						<CardTitle className="text-base">
-							Current moderation note
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="text-sm">
-						{server.submissionReason ?? server.moderationReason}
-					</CardContent>
-				</Card>
-			) : null}
-
-			<AdminSubmissionHistory
-				contentId={server._id}
-				contentType="server"
-				revision={server.submissionRevision}
-			/>
-			<SubmissionMetadata
-				fields={[
-					['Software', server.software?.name],
-					[
-						'Categories',
-						server.categories
-							.map((category) => category?.name)
-							.filter(Boolean)
-							.join(', '),
-					],
-					['Languages', server.language?.join(', ')],
-					['Tags', server.tags?.join(', ')],
-				]}
-				links={[
-					['Website', server.website],
-					['Discord', server.discordUrl],
-					['Store', server.storeUrl],
-					['Wiki', server.wikiUrl],
-				]}
-			/>
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+			}
+			header={
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+					<div className="space-y-3">
+						<Button
+							nativeButton={false}
+							render={<Link href="/moderation/servers" />}
+							variant="ghost"
+						>
+							<HugeiconsIcon
+								className="size-4"
+								icon={ArrowLeft02Icon}
+							/>
+							Servers
+						</Button>
+						<div className="flex items-center gap-4">
+							{server.logoUrl ? (
+								<Image
+									alt={`${server.name} logo`}
+									className="size-16 rounded-md border object-cover"
+									height={64}
+									src={server.logoUrl}
+									width={64}
+								/>
+							) : null}
+							<div>
+								<h1 className="font-semibold text-2xl">
+									{server.name}
+								</h1>
+								<p className="text-muted-foreground text-sm">
+									{server.ipAddress}:{server.port}
+								</p>
+							</div>
+						</div>
+						<div className="flex flex-wrap gap-2">
+							<LifecycleStatusBadge status={server.status} />
+							<ModerationStatusBadge
+								status={server.moderationStatus}
+							/>
+							{server.verifiedAt ? (
+								<Badge variant="secondary">
+									<HugeiconsIcon
+										className="size-3.5"
+										icon={CheckmarkCircle01Icon}
+									/>
+									Ownership verified
+								</Badge>
+							) : (
+								<Badge variant="destructive">
+									Not verified
+								</Badge>
+							)}
+						</div>
+					</div>
+				</div>
+			}
+			identity={{
+				contentId: server._id,
+				revision: server.submissionRevision ?? 0,
+				pending: server.submissionStatus === 'pending',
+			}}
+			note={server.submissionReason ?? server.moderationReason}
+			server
+			submissionRevision={server.submissionRevision}
+			submissionStatus={server.submissionStatus}
+			submittedAt={server.submittedAt}
+		>
+			<ReviewSectionPanel
+				active={
+					nav.section === 'overview' || nav.section === 'versions'
+				}
+			>
 				<div className="space-y-6">
 					{server.bannerUrl ? (
 						<Image
@@ -160,39 +143,11 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 					) : null}
 					<Card>
 						<CardHeader>
-							<CardTitle>Description</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<RichTextViewer
-								content={
-									server.description ||
-									server.smallDescription
-								}
-							/>
-						</CardContent>
-					</Card>
-					<Card>
-						<CardHeader>
-							<CardTitle>Gallery</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<GalleryGrid
-								emptyDescription="No screenshots were supplied."
-								emptyTitle="No gallery images"
-								items={server.gallery}
-							/>
-						</CardContent>
-					</Card>
-				</div>
-
-				<div className="space-y-4">
-					<Card>
-						<CardHeader>
 							<CardTitle className="text-base">
 								Submission details
 							</CardTitle>
 						</CardHeader>
-						<CardContent className="space-y-3 text-sm">
+						<CardContent className="grid gap-6 text-sm sm:grid-cols-2 xl:grid-cols-3">
 							<div>
 								<p className="text-muted-foreground">Owner</p>
 								<p>
@@ -232,7 +187,74 @@ export function AdminServerReview({ serverId }: { serverId: string }) {
 						</CardContent>
 					</Card>
 				</div>
-			</div>
-		</div>
+			</ReviewSectionPanel>
+			<ReviewSectionPanel active={nav.section === 'changes'}>
+				<AdminSubmissionHistory
+					contentId={server._id}
+					contentType="server"
+					mode="changes"
+					revision={server.submissionRevision}
+				/>
+			</ReviewSectionPanel>
+			<ReviewSectionPanel active={nav.section === 'description'}>
+				<Card>
+					<CardHeader>
+						<CardTitle>Description</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<RichTextViewer
+							content={
+								server.description || server.smallDescription
+							}
+						/>
+					</CardContent>
+				</Card>
+			</ReviewSectionPanel>
+			<ReviewSectionPanel active={nav.section === 'gallery'}>
+				<Card>
+					<CardHeader>
+						<CardTitle>Gallery</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<GalleryGrid
+							emptyDescription="No screenshots were supplied."
+							emptyTitle="No gallery images"
+							items={server.gallery}
+						/>
+					</CardContent>
+				</Card>
+			</ReviewSectionPanel>
+
+			<ReviewSectionPanel active={nav.section === 'links'}>
+				<SubmissionMetadata
+					fields={[
+						['Software', server.software?.name],
+						[
+							'Categories',
+							server.categories
+								.map((category) => category?.name)
+								.filter(Boolean)
+								.join(', '),
+						],
+						['Languages', server.language?.join(', ')],
+						['Tags', server.tags?.join(', ')],
+					]}
+					links={[
+						['Website', server.website],
+						['Discord', server.discordUrl],
+						['Store', server.storeUrl],
+						['Wiki', server.wikiUrl],
+					]}
+				/>
+			</ReviewSectionPanel>
+			<ReviewSectionPanel active={nav.section === 'history'}>
+				<AdminSubmissionHistory
+					contentId={server._id}
+					contentType="server"
+					mode="history"
+					revision={server.submissionRevision}
+				/>
+			</ReviewSectionPanel>
+		</AdminReviewShell>
 	)
 }

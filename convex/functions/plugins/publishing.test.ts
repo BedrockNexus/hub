@@ -1495,7 +1495,7 @@ describe('admin plugin catalog', () => {
 				api.functions.plugins.projects.listAdmin,
 				{},
 			),
-		).rejects.toThrow('Admin role required')
+		).rejects.toThrow('Moderator role required')
 		for (const status of [
 			'draft',
 			'review',
@@ -1590,7 +1590,7 @@ describe('per-plugin admin submission review', () => {
 				api.functions.plugins.projects.getAdminReview,
 				args,
 			),
-		).rejects.toThrow('Admin role required')
+		).rejects.toThrow('Moderator role required')
 		const read = () =>
 			first.moderator.client.query(
 				api.functions.plugins.projects.getAdminReview,
@@ -1674,7 +1674,7 @@ describe('shared plugin listing moderation', () => {
 				api.functions.plugins.moderation.moderate,
 				{ id: f.projectId, action: 'flag', reason: 'test' },
 			),
-		).rejects.toThrow('Admin role required')
+		).rejects.toThrow('Moderator role required')
 		await expect(moderate('flag', ' ')).rejects.toThrow('reason')
 		vi.stubEnv('DOWNLOAD_REDIRECT_SECRET', 'moderation-test-secret')
 		vi.stubEnv('R2_CDN_PUBLIC_URL', 'https://cdn.example.com')

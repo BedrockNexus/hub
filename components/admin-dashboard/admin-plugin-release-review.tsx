@@ -2,21 +2,21 @@
 
 import { Download01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useAction, useMutation } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { PluginReviewStatusBadge } from '@/components/admin-dashboard/plugin-review-status'
+import type { ReviewVersionRow } from '@/components/admin-dashboard/review-versions-table'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
-import { formatBytes, formatRegistryDate } from '@/lib/plugins/format-registry'
 
 type Review = NonNullable<
 	FunctionReturnType<typeof api.functions.plugins.projects.getAdminReview>
 >
+type Release = Review['releases'][number]
 type Decision = 'approve' | 'changes' | 'reject'
 
 function errorMessage(error: unknown) {
@@ -34,18 +34,140 @@ function errorMessage(error: unknown) {
 	return error instanceof Error ? error.message : 'The review action failed.'
 }
 
-export function AdminPluginReleaseReview({
+function reviewActionDisabled(
+	busy: boolean,
+	assignment: { assignee?: string; mine: boolean } | undefined,
+) {
+	return (
+		busy || !assignment || Boolean(assignment.assignee && !assignment.mine)
+	)
+}
+
+function releaseFacts(release: Release, repositoryUrl?: string) {
+	const facts: NonNullable<ReviewVersionRow['facts']> = []
+	if (repositoryUrl) {
+		facts.push([
+			'Commit',
+			<span key="commit">
+				<a
+					className="font-mono hover:underline"
+					href={`${repositoryUrl}/commit/${release.commitSha}`}
+					rel="noreferrer"
+					target="_blank"
+				>
+					{release.commitSha.slice(0, 7)}
+				</a>
+				{release.branch ? ` on ${release.branch}` : ''}
+			</span>,
+		])
+	}
+	if (release.logsUrl) {
+		facts.push([
+			'Build',
+			<a
+				className="hover:underline"
+				href={release.logsUrl}
+				key="logs"
+				rel="noreferrer"
+				target="_blank"
+			>
+				Build logs
+			</a>,
+		])
+	}
+	if (release.sha256) {
+		facts.push([
+			'SHA-256',
+			<span className="font-mono text-xs" key="sha">
+				{release.sha256}
+			</span>,
+		])
+	}
+	return facts
+}
+
+function releaseNotices(release: Release, publicationBlocked: boolean) {
+	const blocked =
+		publicationBlocked &&
+		['inReview', 'publishing'].includes(release.status)
+	if (!(blocked || release.reviewNotes || release.failureReason)) {
+		return null
+	}
+	return (
+		<div className="space-y-3 text-sm">
+			{blocked ? (
+				<p className="text-muted-foreground">
+					Restore this listing before publishing a release.
+				</p>
+			) : null}
+			{release.reviewNotes ? (
+				<div className="space-y-1">
+					<p className="font-medium">Review note</p>
+					<p className="whitespace-pre-wrap text-muted-foreground">
+						{release.reviewNotes}
+					</p>
+				</div>
+			) : null}
+			{release.failureReason ? (
+				<p className="rounded-md border border-destructive/40 p-3">
+					{release.failureReason}
+				</p>
+			) : null}
+		</div>
+	)
+}
+
+/** One plugin release as a row of the shared versions table. */
+export function pluginReleaseRow(
+	release: Release,
+	{
+		submissionRevision,
+		repositoryUrl,
+		relativeUrlBase,
+		publicationBlocked,
+	}: {
+		submissionRevision?: number
+		repositoryUrl?: string
+		relativeUrlBase?: { images: string; links: string }
+		publicationBlocked: boolean
+	},
+): ReviewVersionRow {
+	return {
+		id: release._id,
+		version: release.version,
+		fileName: release.fileName,
+		size: release.size,
+		submittedAt: release.submittedAt,
+		status: <PluginReviewStatusBadge status={release.status} />,
+		facts: releaseFacts(release, repositoryUrl),
+		notices: releaseNotices(release, publicationBlocked),
+		changelog: (
+			<RichTextViewer
+				content={release.changelog}
+				relativeUrlBase={relativeUrlBase}
+			/>
+		),
+		actions:
+			release.uploadKey ||
+			['inReview', 'publishing'].includes(release.status) ? (
+				<AdminPluginReleaseActions
+					publicationBlocked={publicationBlocked}
+					release={release}
+					submissionRevision={submissionRevision}
+				/>
+			) : undefined,
+	}
+}
+
+/** Download, retry and review decisions for one plugin release. */
+function AdminPluginReleaseActions({
 	release,
-	submissionRevision,
-	repositoryUrl,
-	relativeUrlBase,
-	publicationBlocked = false,
+	submissionRevision = 0,
+	publicationBlocked,
 }: {
-	release: Review['releases'][number]
+	release: Release
 	submissionRevision?: number
-	repositoryUrl?: string
-	relativeUrlBase?: { images: string; links: string }
-	publicationBlocked?: boolean
+	publicationBlocked: boolean
 }) {
 	const approve = useMutation(
 		api.functions.plugins.publishing.model.approveReview,
@@ -64,7 +186,12 @@ export function AdminPluginReleaseReview({
 	)
 	const [note, setNote] = useState('')
 	const [busy, setBusy] = useState(false)
-	const publicationDisabled = busy || publicationBlocked
+	const assignment = useQuery(api.functions.moderation.work.assignment, {
+		contentId: release.projectId,
+		revision: submissionRevision,
+	})
+	const reviewDisabled = reviewActionDisabled(busy, assignment)
+	const publicationDisabled = reviewDisabled || publicationBlocked
 	async function attempt(operation: () => Promise<void>) {
 		setBusy(true)
 		try {
@@ -83,7 +210,7 @@ export function AdminPluginReleaseReview({
 		}
 		await attempt(async () => {
 			const releaseId = release._id
-			const expectedRevision = submissionRevision ?? 0
+			const expectedRevision = submissionRevision
 			if (decision === 'approve') {
 				await approve({
 					releaseId,
@@ -101,170 +228,90 @@ export function AdminPluginReleaseReview({
 			setNote('')
 		})
 	}
-	return (
-		<Card>
-			<CardHeader>
-				<div className="flex flex-wrap items-start justify-between gap-3">
-					<div>
-						<CardTitle>Version {release.version}</CardTitle>
-						<p className="mt-1 text-muted-foreground text-sm">
-							Submitted {formatRegistryDate(release.submittedAt)}
-						</p>
-					</div>
-					<PluginReviewStatusBadge status={release.status} />
-				</div>
-			</CardHeader>
-			<CardContent className="space-y-5">
-				{publicationBlocked &&
-				['inReview', 'publishing'].includes(release.status) ? (
-					<p className="text-muted-foreground text-sm">
-						Restore this listing before publishing a release.
-					</p>
-				) : null}
-				<div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
-					<div className="min-w-0 text-sm">
-						<p className="break-all font-medium">
-							{release.fileName ?? 'File not available yet'}
-						</p>
-						{release.size === undefined ? null : (
-							<p className="text-muted-foreground">
-								{formatBytes(release.size)}
-							</p>
-						)}
-					</div>
-					{release.uploadKey ? (
+	const download = release.uploadKey ? (
+		<Button
+			disabled={busy}
+			onClick={() =>
+				attempt(async () => {
+					window.location.assign(
+						await getDownload({ releaseId: release._id }),
+					)
+				})
+			}
+			variant="outline"
+		>
+			<HugeiconsIcon aria-hidden icon={Download01Icon} />
+			Download submitted file
+		</Button>
+	) : null
+	if (release.status === 'publishing') {
+		return (
+			<div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+				<p>
+					{release.failureReason
+						? 'Publishing needs attention.'
+						: 'Publishing the approved file...'}
+				</p>
+				<div className="flex flex-wrap gap-2">
+					{download}
+					{release.failureReason ? (
 						<Button
-							disabled={busy}
+							disabled={publicationDisabled}
 							onClick={() =>
 								attempt(async () => {
-									window.location.assign(
-										await getDownload({
-											releaseId: release._id,
-										}),
-									)
+									await retry({
+										releaseId: release._id,
+										expectedRevision: submissionRevision,
+									})
+									toast.success('Retrying publication.')
 								})
 							}
-							variant="outline"
 						>
-							<HugeiconsIcon aria-hidden icon={Download01Icon} />
-							Download submitted file
+							Retry publishing
 						</Button>
 					) : null}
 				</div>
-				{repositoryUrl ? (
-					<p className="text-sm">
-						Commit{' '}
-						<a
-							className="font-mono hover:underline"
-							href={`${repositoryUrl}/commit/${release.commitSha}`}
-							rel="noreferrer"
-							target="_blank"
-						>
-							{release.commitSha.slice(0, 7)}
-						</a>
-						{release.branch ? ` on ${release.branch}` : ''}
-						{release.logsUrl ? (
-							<>
-								{' '}
-								-{' '}
-								<a
-									className="hover:underline"
-									href={release.logsUrl}
-									rel="noreferrer"
-									target="_blank"
-								>
-									Build logs
-								</a>
-							</>
-						) : null}
-					</p>
-				) : null}
-				{release.sha256 ? (
-					<p className="break-all font-mono text-muted-foreground text-xs">
-						SHA-256 {release.sha256}
-					</p>
-				) : null}
-				<section className="space-y-3">
-					<h3 className="font-semibold text-sm">Changelog</h3>
-					<RichTextViewer
-						content={release.changelog}
-						relativeUrlBase={relativeUrlBase}
-					/>
-				</section>
-				{release.reviewNotes ? (
-					<div className="space-y-1 border-t pt-4">
-						<h3 className="font-semibold text-sm">Review note</h3>
-						<p className="whitespace-pre-wrap text-muted-foreground text-sm">
-							{release.reviewNotes}
-						</p>
-					</div>
-				) : null}
-				{release.failureReason ? (
-					<p className="rounded-md border border-destructive/40 p-3 text-sm">
-						{release.failureReason}
-					</p>
-				) : null}
-				{release.status === 'publishing' ? (
-					<div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-sm">
-						<p>
-							{release.failureReason
-								? 'Publishing needs attention.'
-								: 'Publishing the approved file...'}
-						</p>
-						{release.failureReason ? (
-							<Button
-								disabled={publicationDisabled}
-								onClick={() =>
-									attempt(async () => {
-										await retry({
-											releaseId: release._id,
-											expectedRevision:
-												submissionRevision ?? 0,
-										})
-										toast.success('Retrying publication.')
-									})
-								}
-							>
-								Retry publishing
-							</Button>
-						) : null}
-					</div>
-				) : null}
-				{release.status === 'inReview' ? (
-					<div className="space-y-3 border-t pt-4">
-						<Textarea
-							aria-label={`Review note for version ${release.version}`}
-							disabled={busy}
-							maxLength={500}
-							onChange={(event) => setNote(event.target.value)}
-							placeholder="Optional approval note, or the reason for changes or rejection"
-							value={note}
-						/>
-						<div className="flex flex-wrap justify-end gap-2">
-							<Button
-								disabled={busy}
-								onClick={() => decide('reject')}
-								variant="destructive"
-							>
-								Reject
-							</Button>
-							<Button
-								disabled={busy}
-								onClick={() => decide('changes')}
-								variant="outline"
-							>
-								Request changes
-							</Button>
-							<Button
-								disabled={publicationDisabled}
-								onClick={() => decide('approve')}
-							>
-								Approve and publish
-							</Button>
-						</div>
-					</div>
-				) : null}
-			</CardContent>
-		</Card>
+			</div>
+		)
+	}
+	if (release.status !== 'inReview') {
+		return download
+	}
+	return (
+		<div className="space-y-3">
+			<Textarea
+				aria-label={`Review note for version ${release.version}`}
+				disabled={reviewDisabled}
+				maxLength={500}
+				onChange={(event) => setNote(event.target.value)}
+				placeholder="Optional approval note, or the reason for changes or rejection"
+				value={note}
+			/>
+			<div className="flex flex-wrap justify-between gap-2">
+				<div>{download}</div>
+				<div className="flex flex-wrap gap-2">
+					<Button
+						disabled={reviewDisabled}
+						onClick={() => decide('reject')}
+						variant="destructive"
+					>
+						Reject
+					</Button>
+					<Button
+						disabled={reviewDisabled}
+						onClick={() => decide('changes')}
+						variant="outline"
+					>
+						Request changes
+					</Button>
+					<Button
+						disabled={publicationDisabled}
+						onClick={() => decide('approve')}
+					>
+						Approve and publish
+					</Button>
+				</div>
+			</div>
+		</div>
 	)
 }

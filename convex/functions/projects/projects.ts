@@ -18,7 +18,7 @@ import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { toPublicProject } from '../../lib/publicContent'
-import { adminMutation, adminQuery } from '../../lib/functions'
+import { adminMutation, moderatorMutation, moderatorQuery } from '../../lib/functions'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
 	moderationStatus as projectModerationStatus,
@@ -739,7 +739,7 @@ export const listByOrganization = query({
 /**
  * List projects for admin moderation.
  */
-export const listAdmin = adminQuery({
+export const listAdmin = moderatorQuery({
 	args: {
 		limit: v.optional(v.number()),
 	},
@@ -1119,7 +1119,7 @@ export const update = mutation({
 	},
 })
 
-export const getAdminReview = adminQuery({
+export const getAdminReview = moderatorQuery({
 	args: { id: v.id('projects') },
 	handler: async (ctx, args) => {
 		const stored = await ctx.db.get(args.id)
@@ -1200,7 +1200,7 @@ export const remove = mutation({
 })
 
 /** Return a fixable submission to draft without lifting a final rejection. */
-export const requestChanges = adminMutation({
+export const requestChanges = moderatorMutation({
 	args: {
 		id: v.id('projects'),
 		reason: v.string(),
@@ -1220,7 +1220,7 @@ export const requestChanges = adminMutation({
 				'Only submissions awaiting review can be returned for changes',
 			)
 		}
-		if (await isAffiliatedWithContent(ctx, item, ctx.admin._id)) {
+		if (await isAffiliatedWithContent(ctx, item, ctx.moderator._id)) {
 			throw new ConvexError(
 				'Ask another admin to review your own project',
 			)
@@ -1242,11 +1242,11 @@ export const requestChanges = adminMutation({
 					}),
 			...decisionFields(item, 'changes_requested', reason),
 			moderatedAt: now,
-			moderatedBy: ctx.admin._id,
+			moderatedBy: ctx.moderator._id,
 			updatedAt: now,
 		})
 		await afterProjectWrite(ctx, item, await ctx.db.get(item._id))
-		await recordAdminAction(ctx, ctx.admin._id, {
+		await recordAdminAction(ctx, ctx.moderator._id, {
 			action: 'project.requestChanges',
 			targetType: 'project',
 			targetId: item._id,
@@ -1259,7 +1259,7 @@ export const requestChanges = adminMutation({
 })
 
 /** Admin update - toggle status/moderation (no ownership check). */
-export const adminUpdate = adminMutation({
+export const adminUpdate = moderatorMutation({
 	args: {
 		id: v.id('projects'),
 		expectedRevision: v.optional(v.number()),
@@ -1274,7 +1274,7 @@ export const adminUpdate = adminMutation({
 		moderationReason: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const user = ctx.admin
+		const user = ctx.moderator
 
 		const item = await ctx.db.get(args.id)
 		if (!item) {
@@ -1481,7 +1481,7 @@ export const adminUpdate = adminMutation({
 /**
  * List projects pending moderation review (admin only)
  */
-export const listPendingModeration = adminQuery({
+export const listPendingModeration = moderatorQuery({
 	args: {
 		limit: v.optional(v.number()),
 	},

@@ -92,6 +92,7 @@ function withContentSecurityPolicy(request: NextRequest) {
 const MAINTENANCE_EXEMPT_PATHS = [
 	'/maintenance',
 	'/admin',
+	'/moderation',
 	'/login',
 	'/forgot-password',
 	'/reset-password',

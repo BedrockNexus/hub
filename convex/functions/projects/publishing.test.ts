@@ -221,7 +221,7 @@ describe('request changes authorization and final rejection', () => {
 					reason: 'Fix it',
 				},
 			),
-		).rejects.toThrow('Admin role')
+		).rejects.toThrow('Moderator role required')
 		await expect(
 			reviewMutation(
 				t,

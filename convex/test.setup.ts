@@ -32,7 +32,7 @@ export function createTest() {
 export async function insertUser(
 	t: TestClient,
 	label: string,
-	role: 'user' | 'admin' = 'user',
+	role: 'user' | 'moderator' | 'admin' = 'user',
 ) {
 	const now = Date.now()
 	const user = await t.mutation(components.betterAuth.adapter.create, {
@@ -69,7 +69,7 @@ export async function insertUser(
 export async function signIn(
 	t: TestClient,
 	label: string,
-	role: 'user' | 'admin' = 'user',
+	role: 'user' | 'moderator' | 'admin' = 'user',
 ) {
 	const identity = await insertUser(t, label, role)
 	const client = t.withIdentity({

@@ -11,7 +11,7 @@ import type { Doc } from '../../_generated/dataModel'
 import type { QueryCtx } from '../../_generated/server'
 import { query } from '../../_generated/server'
 import { type AppUser, getCurrentUserOrNull } from '../../lib/plugins/access'
-import { adminQuery, authedQuery } from '../../lib/functions'
+import { authedQuery, moderatorQuery } from '../../lib/functions'
 import {
 	canViewProject,
 	getOrganizationById,
@@ -256,7 +256,7 @@ const adminPluginValidator = v.object({
 	updatedAt: v.number(),
 })
 
-export const listAdmin = adminQuery({
+export const listAdmin = moderatorQuery({
 	args: {},
 	returns: v.array(adminPluginValidator),
 	handler: async (ctx) => {
@@ -304,7 +304,7 @@ export const listAdmin = adminQuery({
 })
 
 /** A single plugin's submission and release history, including private drafts. */
-export const getAdminReview = adminQuery({
+export const getAdminReview = moderatorQuery({
 	args: { id: v.string() },
 	returns: v.union(
 		v.null(),
