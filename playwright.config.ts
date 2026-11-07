@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000'
+const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000'
 
 export default defineConfig({
 	testDir: './e2e',
@@ -9,6 +9,7 @@ export default defineConfig({
 		timeout: 10_000,
 	},
 	fullyParallel: true,
+	workers: process.env.E2E_PUBLISHING === '1' ? 1 : undefined,
 	reporter: [['list'], ['html', { open: 'never' }]],
 	use: {
 		baseURL,
@@ -18,7 +19,10 @@ export default defineConfig({
 	webServer: process.env.E2E_BASE_URL
 		? undefined
 		: {
-				command: 'bun run dev',
+				command:
+					process.env.E2E_PUBLISHING === '1'
+						? 'bun run start'
+						: 'bun run dev',
 				url: baseURL,
 				reuseExistingServer: true,
 				timeout: 120_000,
@@ -27,6 +31,11 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			use: { ...devices['Desktop Chrome'] },
+		},
+		{
+			name: 'mobile-chromium',
+			testMatch: 'publishing.spec.ts',
+			use: { ...devices['Pixel 7'], browserName: 'chromium' },
 		},
 	],
 })

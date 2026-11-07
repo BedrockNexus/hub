@@ -28,7 +28,8 @@
     "test": "bun test ./lib/*.test.ts convex/lib infrastructure/cdn-root && vitest run",
     "test:functions": "vitest run",
     "typecheck": "tsc --noEmit && tsc --noEmit -p convex",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:publishing": "cross-env E2E_PUBLISHING=1 playwright test e2e/publishing.spec.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",

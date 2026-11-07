@@ -36,13 +36,15 @@ export function ListingReviewBadge({ status }: { status: ReviewState }) {
 export function ListingReviewNotice({
 	listing,
 	children,
+	submitStep = 'open Review & submit',
 }: {
 	listing: CreatorListingInput
 	children?: React.ReactNode
+	/** How the creator sends the listing for review, finishing "then …". */
+	submitStep?: string
 }) {
 	const state = creatorListingState(listing)
-	let message =
-		'Save your changes, then open Review & submit to check your listing and send it to the moderators.'
+	let message = `Save your changes, then ${submitStep} to check your listing and send it to the moderators.`
 	if (state.locked) {
 		message =
 			'Your submission is awaiting moderator review. Editing is locked until a moderator decides.'
@@ -53,8 +55,7 @@ export function ListingReviewNotice({
 		message =
 			'This listing cannot be submitted while it is restricted. Contact the moderators about the decision.'
 	} else if (state.review === 'changes_requested') {
-		message =
-			'Update your saved listing using the moderator feedback, then open Review & submit to send it again.'
+		message = `Update your saved listing using the moderator feedback, then ${submitStep} to send it again.`
 	} else if (state.published) {
 		message =
 			'Your approved listing stays public. Saved changes remain private until you submit them and a moderator approves them.'
