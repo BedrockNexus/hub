@@ -137,6 +137,7 @@ export function UserButton({
           size === "icon" ? (
             <Button
               variant={variant}
+              aria-label="Account menu"
               className={cn("rounded-md", className)}
               size="icon"
             >

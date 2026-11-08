@@ -15,6 +15,7 @@ import {
 	type PublishingFixture,
 	provisionPublishingFixture,
 	type Role,
+	signInRespectingRateLimit,
 	type TestListing,
 } from './support/publishing-fixtures'
 
@@ -163,6 +164,8 @@ test.describe('publishing acceptance', () => {
 	test('real sign-in and creator, moderator, admin permission boundaries', async ({
 		browser,
 	}, info) => {
+		// Room for one sign-in rate-limit wait (see signInRespectingRateLimit).
+		test.setTimeout(300_000)
 		for (const role of ['creator', 'moderator', 'admin'] as const) {
 			console.info(`Checking ${info.project.name} ${role} sign-in`)
 			const page = await asRole(browser, info)
@@ -186,15 +189,19 @@ test.describe('publishing acceptance', () => {
 						.then((value) => value.length),
 				)
 				.toBe(fixture.accounts[role].password.length)
-			const [login] = await Promise.all([
-				page.waitForResponse(
-					(response) => response.url().includes('/api/auth/sign-in/'),
-					{ timeout: 30_000 },
-				),
-				page
-					.getByRole('button', { name: 'Login', exact: true })
-					.click(),
-			])
+			const login = await signInRespectingRateLimit(async () => {
+				const [response] = await Promise.all([
+					page.waitForResponse(
+						(response) =>
+							response.url().includes('/api/auth/sign-in/'),
+						{ timeout: 30_000 },
+					),
+					page
+						.getByRole('button', { name: 'Login', exact: true })
+						.click(),
+				])
+				return response
+			})
 			if (!login.ok()) {
 				const failure = await login.json()
 				throw new Error(
@@ -202,7 +209,22 @@ test.describe('publishing acceptance', () => {
 				)
 			}
 			await expect(page).not.toHaveURL(LOGIN, { timeout: 30_000 })
-			console.info(`Signed in as ${role}; checking permissions`)
+			console.info(`Signed in as ${role}; checking menu and permissions`)
+			await page.goto('/dashboard')
+			await page
+				.getByRole('button', { name: 'Account menu', exact: true })
+				.click()
+			const menu = page.getByRole('menu')
+			await expect(
+				menu.getByRole('menuitem', { name: 'Profile', exact: true }),
+			).toBeVisible()
+			await expect(
+				menu.getByRole('menuitem', { name: 'Moderation', exact: true }),
+			).toHaveCount(role === 'creator' ? 0 : 1)
+			await expect(
+				menu.getByRole('menuitem', { name: 'Admin', exact: true }),
+			).toHaveCount(role === 'admin' ? 1 : 0)
+			await page.keyboard.press('Escape')
 			await page.goto('/moderation')
 			if (role === 'creator') {
 				await expect(page).toHaveURL(DASHBOARD)

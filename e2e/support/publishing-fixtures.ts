@@ -128,6 +128,31 @@ function pack(moduleType: 'data' | 'resources', name: string) {
 		),
 	})
 }
+/** Seconds Better Auth asks a rate-limited client to wait (`X-Retry-After`). */
+export function retryAfterSeconds(headers: Record<string, string>) {
+	const seconds = Number(headers['x-retry-after'])
+	return Number.isFinite(seconds) && seconds > 0 ? seconds : 60
+}
+
+/**
+ * Sign-in is limited to 5 attempts a minute per client address, and one run
+ * signs in more often than that. Wait out a 429 instead of failing; the limit
+ * resets once a full window passes without an allowed sign-in.
+ */
+export async function signInRespectingRateLimit<
+	T extends { status: () => number; headers: () => Record<string, string> },
+>(attempt: () => Promise<T>): Promise<T> {
+	for (let tries = 0; ; tries++) {
+		const response = await attempt()
+		if (response.status() !== 429 || tries >= 3) {
+			return response
+		}
+		const wait = retryAfterSeconds(response.headers()) + 1
+		console.info(`Sign-in rate limited; waiting ${wait}s`)
+		await new Promise((done) => setTimeout(done, wait * 1000))
+	}
+}
+
 async function makeAccount(
 	production: boolean,
 	baseURL: string,
@@ -182,9 +207,9 @@ async function makeAccount(
 			baseURL,
 			extraHTTPHeaders: { origin: baseURL },
 		})
-		const login = await http.post('/api/auth/sign-in/email', {
-			data: { email, password },
-		})
+		const login = await signInRespectingRateLimit(() =>
+			http.post('/api/auth/sign-in/email', { data: { email, password } }),
+		)
 		expect(login.status(), `Sign in as fixture ${role}`).toBe(200)
 		const tokenResponse = await http.get('/api/auth/convex/token')
 		expect(tokenResponse.ok()).toBe(true)

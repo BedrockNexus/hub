@@ -1,6 +1,7 @@
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import type { ReactNode } from 'react'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { WorkspaceAuthGate } from '@/components/workspace-auth-gate'
 
 interface WorkspaceLayoutProps {
 	children: ReactNode
@@ -17,10 +18,13 @@ export function WorkspaceLayout({
 		<NuqsAdapter>
 			<SidebarProvider className="pt-16">
 				{header}
-				{sidebar}
+				{/* The sidebar may query protected data (review sidebars do). */}
+				<WorkspaceAuthGate fallback={null} signedOut={null}>
+					{sidebar}
+				</WorkspaceAuthGate>
 				<SidebarInset>
 					<div className="mx-auto flex w-full min-w-0 max-w-[96rem] flex-1 flex-col gap-6 p-4 md:p-6">
-						{children}
+						<WorkspaceAuthGate>{children}</WorkspaceAuthGate>
 					</div>
 				</SidebarInset>
 			</SidebarProvider>

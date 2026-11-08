@@ -562,16 +562,16 @@ export const create = mutation({
 			upload.projectId !== args.projectId ||
 			upload.userId !== user._id
 		) {
-			throw new Error('The artifact upload is invalid or has expired')
+			throw new ConvexError('The artifact upload is invalid or has expired')
 		}
 		if (upload.expiresAt < Date.now()) {
-			throw new Error('The artifact upload has expired. Upload it again.')
+			throw new ConvexError('The artifact upload has expired. Upload it again.')
 		}
 		if (
 			normalizeProjectType(upload.projectType) !==
 			normalizeProjectType(project.type)
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'The project type changed after this artifact was uploaded',
 			)
 		}
@@ -582,7 +582,7 @@ export const create = mutation({
 			releasePolicy.requireCreatorVersion &&
 			args.version?.trim() !== version
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'The release version changed after the artifact was uploaded',
 			)
 		}
@@ -594,7 +594,7 @@ export const create = mutation({
 			)
 			.first()
 		if (existing) {
-			throw new Error(`Release ${version} already exists`)
+			throw new ConvexError(`Release ${version} already exists`)
 		}
 
 		const gameVersions = Array.from(
@@ -603,14 +603,14 @@ export const create = mutation({
 			),
 		)
 		if (releasePolicy.requireGameVersions && gameVersions.length === 0) {
-			throw new Error('Select at least one supported Minecraft version')
+			throw new ConvexError('Select at least one supported Minecraft version')
 		}
 		const changelog = args.changelog?.trim()
 
 		const metadata = await uploadsR2.getMetadata(ctx, upload.r2Key)
 		const fileSize = metadata?.size
 		if (!metadata || fileSize === undefined) {
-			throw new Error(
+			throw new ConvexError(
 				'The uploaded artifact could not be found in storage',
 			)
 		}

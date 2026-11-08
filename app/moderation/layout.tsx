@@ -32,7 +32,7 @@ export default async function ModerationLayout({
 
 	return (
 		<WorkspaceLayout
-			header={<ModerationHeader isAdmin={isAdmin} />}
+			header={<ModerationHeader />}
 			sidebar={
 				<ModerationSidebar
 					className="top-16 h-[calc(100svh-4rem)]"
