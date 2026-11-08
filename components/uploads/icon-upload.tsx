@@ -25,6 +25,7 @@ import {
 	type R2ImageResourceType,
 	uploadFileToPresignedUrl,
 } from '@/lib/r2-upload'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const getFileKey = (file: File) =>
 	`${file.name}-${file.size}-${file.lastModified}`
@@ -108,9 +109,7 @@ export function IconUpload({
 				await syncMetadata({ key })
 				onUploadComplete(key)
 			} catch (error) {
-				toast.error(
-					error instanceof Error ? error.message : 'Upload failed',
-				)
+				toast.error(userFacingError(error, 'Upload failed'))
 			}
 		},
 		[

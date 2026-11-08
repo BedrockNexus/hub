@@ -46,13 +46,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useUploadFile } from '@/hooks/use-upload-file'
+import { userFacingError } from '@/lib/user-facing-error'
 import { cn } from '@/lib/utils'
 import { getYoutubeVideoId } from '@/lib/youtube'
 
 const MAX_IMAGE_SIZE_BYTES = 4 * 1024 * 1024
 
 function reportUploadError(error: unknown) {
-	toast.error(error instanceof Error ? error.message : 'Image upload failed.')
+	toast.error(userFacingError(error, 'Image upload failed.'))
 }
 
 export interface MarkdownEditorProps {

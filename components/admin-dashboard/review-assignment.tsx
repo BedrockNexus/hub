@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { userFacingError } from '@/lib/user-facing-error'
 export type ReviewContentId =
 	| Id<'projects'>
 	| Id<'plugins'>
@@ -53,9 +54,10 @@ export function ReviewAssignment({
 								)
 							} catch (error) {
 								toast.error(
-									error instanceof Error
-										? error.message
-										: 'Could not update assignment',
+									userFacingError(
+										error,
+										'Could not update assignment',
+									),
 								)
 							}
 						}}

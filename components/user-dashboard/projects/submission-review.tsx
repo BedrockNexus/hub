@@ -22,6 +22,7 @@ import {
 	PROJECT_TYPE_LABELS,
 } from '@/lib/project-artifacts'
 import { projectSubmissionChecklist } from '@/lib/project-submission'
+import { userFacingError } from '@/lib/user-facing-error'
 
 export function ProjectSubmissionReview({ id }: { id: Id<'projects'> }) {
 	const project = useQuery(api.functions.projects.projects.getForEdit, { id })
@@ -71,11 +72,7 @@ export function ProjectSubmissionReview({ id }: { id: Id<'projects'> }) {
 			await update({ id, status: 'under_review' })
 			toast.success(`${project.name} submitted for review`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not submit for review',
-			)
+			toast.error(userFacingError(error, 'Could not submit for review'))
 		} finally {
 			setSubmitting(false)
 		}

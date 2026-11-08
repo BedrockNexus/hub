@@ -56,6 +56,7 @@ import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-ta
 import { api } from '@/convex/_generated/api'
 import { useDataTable } from '@/hooks/use-data-table'
 import type { DataTableFeatures } from '@/lib/data-table-features'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type UserRole = 'user' | 'moderator' | 'admin' | string
 type AccountStatus = 'banned' | 'verified' | 'unverified'
@@ -422,11 +423,7 @@ export function AdminUsersTable() {
 				await updateUser({ userId: user._id, ...patch })
 				toast.success(message)
 			} catch (error) {
-				toast.error(
-					error instanceof Error
-						? error.message
-						: 'Failed to update user',
-				)
+				toast.error(userFacingError(error, 'Failed to update user'))
 			}
 		},
 		[updateUser],

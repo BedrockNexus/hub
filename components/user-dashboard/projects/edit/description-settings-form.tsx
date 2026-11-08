@@ -20,6 +20,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { projectFormSchema } from '@/lib/schemas/projects'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const descriptionSchema = projectFormSchema.pick({ description: true })
 
@@ -70,10 +71,7 @@ export function ProjectDescriptionSettingsForm({
 			form.reset(data)
 			toast.success('Description saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save description'
+			const message = userFacingError(error, 'Failed to save description')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

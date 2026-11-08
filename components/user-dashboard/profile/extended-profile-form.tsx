@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import { uploadFileToPresignedUrl } from '@/lib/r2-upload'
+import { userFacingError } from '@/lib/user-facing-error'
 
 export function ExtendedProfileForm() {
 	const profile = useQuery(api.functions.site.users.getMyProfile, {})
@@ -46,9 +47,7 @@ export function ExtendedProfileForm() {
 			setBannerPreview(URL.createObjectURL(file))
 			toast.success('Banner ready to save')
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : 'Banner upload failed',
-			)
+			toast.error(userFacingError(error, 'Banner upload failed'))
 		} finally {
 			setPending(false)
 		}
@@ -78,11 +77,7 @@ export function ExtendedProfileForm() {
 			setBannerKey(undefined)
 			toast.success('Public profile updated')
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not update profile',
-			)
+			toast.error(userFacingError(error, 'Could not update profile'))
 		} finally {
 			setPending(false)
 		}

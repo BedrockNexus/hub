@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/convex/_generated/api'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type VerificationMethod = 'dns_txt' | 'motd_token'
 
@@ -72,9 +73,10 @@ export function ServerOwnershipVerification({
 				setCode(await generateCode({ rotate }))
 			} catch (error) {
 				toast.error(
-					error instanceof Error
-						? error.message
-						: 'Failed to generate verification code',
+					userFacingError(
+						error,
+						'Failed to generate verification code',
+					),
 				)
 			} finally {
 				setIsGenerating(false)
@@ -123,9 +125,10 @@ export function ServerOwnershipVerification({
 			}
 		} catch (error) {
 			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Verification failed. Please try again.',
+				userFacingError(
+					error,
+					'Verification failed. Please try again.',
+				),
 			)
 		} finally {
 			setIsVerifying(false)

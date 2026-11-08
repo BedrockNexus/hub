@@ -17,6 +17,7 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { SERVER_FORM_DEFAULTS, type ServerFormData } from '@/lib/schemas/server'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const generalSchema = z.object({
 	organizationId: z.string().optional(),
@@ -115,10 +116,7 @@ export function GeneralSettingsForm({
 			form.reset(data)
 			toast.success('General settings saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save settings'
+			const message = userFacingError(error, 'Failed to save settings')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

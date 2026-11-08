@@ -12,6 +12,7 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { usePluginIconUpload } from '@/hooks/use-picture-upload'
 import { resizeSquareImage } from '@/lib/resize-image'
+import { userFacingError } from '@/lib/user-facing-error'
 
 function errorMessage(error: unknown) {
 	if (
@@ -25,9 +26,7 @@ function errorMessage(error: unknown) {
 	) {
 		return error.data.message
 	}
-	return error instanceof Error
-		? error.message
-		: 'The icon could not be saved.'
+	return userFacingError(error, 'The icon could not be saved.')
 }
 
 /** Upload, replace, or remove a plugin's icon. Saves immediately. */

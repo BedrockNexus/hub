@@ -12,6 +12,7 @@ import { ServerBrandingFields } from '@/components/user-dashboard/servers/fields
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import { userFacingError } from '@/lib/user-facing-error'
 
 interface BrandingSettingsFormProps {
 	id: string
@@ -84,10 +85,7 @@ export function BrandingSettingsForm({
 
 			toast.success('Branding saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save branding'
+			const message = userFacingError(error, 'Failed to save branding')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

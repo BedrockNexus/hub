@@ -38,6 +38,7 @@ import type { Id } from '@/convex/_generated/dataModel'
 import { contentEditHref } from '@/lib/content-routes'
 import { formatDate } from '@/lib/format'
 import type { ProjectType } from '@/lib/project-artifacts'
+import { userFacingError } from '@/lib/user-facing-error'
 
 function formatBytes(bytes: number): string {
 	if (bytes === 0) {
@@ -158,9 +159,7 @@ export function ProjectVersionsForm({
 			await deleteVersion({ id })
 			toast.success(`Release ${version} deleted`)
 		} catch (err) {
-			toast.error(
-				err instanceof Error ? err.message : 'Failed to delete release',
-			)
+			toast.error(userFacingError(err, 'Failed to delete release'))
 		} finally {
 			setDeletingId(null)
 		}
@@ -172,11 +171,7 @@ export function ProjectVersionsForm({
 			await retryValidation({ versionId: id })
 			toast.success('Artifact validation queued again')
 		} catch (err) {
-			toast.error(
-				err instanceof Error
-					? err.message
-					: 'Failed to retry validation',
-			)
+			toast.error(userFacingError(err, 'Failed to retry validation'))
 		} finally {
 			setRetryingId(null)
 		}

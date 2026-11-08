@@ -21,6 +21,7 @@ import { LicenseCombobox } from '@/components/user-dashboard/license-combobox'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { LICENSE_CATALOG_SOURCE } from '@/lib/licenses'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const licenseSchema = z.object({
 	license: z.string().max(80, 'License must be less than 80 characters'),
@@ -73,10 +74,7 @@ export function ProjectLicenseSettingsForm({
 			form.reset(data)
 			toast.success('License saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save license'
+			const message = userFacingError(error, 'Failed to save license')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

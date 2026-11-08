@@ -45,6 +45,7 @@ import {
 	type ServerFormData,
 	serverFormSchema,
 } from '@/lib/schemas/server'
+import { userFacingError } from '@/lib/user-facing-error'
 
 // Steps configuration
 const STEPS = [
@@ -268,11 +269,7 @@ export function AddServerForm() {
 			toast.success('Server draft created!')
 			router.push('/dashboard/servers')
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Failed to create server draft',
-			)
+			toast.error(userFacingError(error, 'Failed to create server draft'))
 		} finally {
 			setIsSubmitting(false)
 		}

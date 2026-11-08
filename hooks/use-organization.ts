@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { authClient } from '@/lib/auth-client'
+import { userFacingError } from '@/lib/user-facing-error'
 
 interface Organization {
 	id: string
@@ -67,11 +68,7 @@ export function useListOrganizations() {
 				setOrganizations(result.data ?? [])
 			}
 		} catch (err) {
-			setError(
-				err instanceof Error
-					? err.message
-					: 'Failed to load organizations',
-			)
+			setError(userFacingError(err, 'Failed to load organizations'))
 		} finally {
 			setLoading(false)
 		}
@@ -110,11 +107,7 @@ export function useFullOrganization(slug: string) {
 				setOrganization(result.data ?? null)
 			}
 		} catch (err) {
-			setError(
-				err instanceof Error
-					? err.message
-					: 'Failed to load organization',
-			)
+			setError(userFacingError(err, 'Failed to load organization'))
 		} finally {
 			setLoading(false)
 		}

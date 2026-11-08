@@ -14,6 +14,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { ProjectLinksFields } from '@/components/user-dashboard/projects/fields/project-links-fields'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const linksSchema = z.object({
 	sourceUrl: z
@@ -113,8 +114,7 @@ export function ProjectLinksSettingsForm({
 			form.reset(data)
 			toast.success('Links saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : 'Failed to save links'
+			const message = userFacingError(error, 'Failed to save links')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

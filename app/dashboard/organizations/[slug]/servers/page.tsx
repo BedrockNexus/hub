@@ -59,6 +59,7 @@ import { useDataTable } from '@/hooks/use-data-table'
 import { useFullOrganization } from '@/hooks/use-organization'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import { serverEditHref, serverHref } from '@/lib/server-routes'
+import { userFacingError } from '@/lib/user-facing-error'
 
 // Type for server table display
 interface ServerRow {
@@ -283,9 +284,7 @@ export default function OrganizationServersPage() {
 				}))
 			} catch (error) {
 				toast.error(
-					error instanceof Error
-						? error.message
-						: 'Failed to refresh server status',
+					userFacingError(error, 'Failed to refresh server status'),
 				)
 				setManualStatuses((prev) => ({
 					...prev,

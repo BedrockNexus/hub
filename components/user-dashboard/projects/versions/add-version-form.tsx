@@ -49,6 +49,7 @@ import {
 	VERSION_FORM_DEFAULTS,
 	type VersionFormData,
 } from '@/lib/schemas/projects'
+import { userFacingError } from '@/lib/user-facing-error'
 
 interface AddVersionFormProps {
 	projectId: Id<'projects'>
@@ -110,9 +111,7 @@ export function AddVersionForm({
 			)
 			router.push(`${contentEditHref(projectType, projectId)}/versions`)
 		} catch (err) {
-			toast.error(
-				err instanceof Error ? err.message : 'Failed to upload release',
-			)
+			toast.error(userFacingError(err, 'Failed to upload release'))
 		} finally {
 			setIsSubmitting(false)
 		}

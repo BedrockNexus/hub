@@ -45,6 +45,7 @@ import {
 	releaseSubmissionSchema,
 	releaseTagFor,
 } from '@/lib/plugins/publishing/metadata'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type ReleaseStatus = Doc<'pluginReleases'>['status']
 
@@ -76,7 +77,7 @@ function errorMessage(error: unknown) {
 	) {
 		return error.data.message
 	}
-	return error instanceof Error ? error.message : 'Something went wrong.'
+	return userFacingError(error, 'Something went wrong.')
 }
 
 function useBusy() {

@@ -43,6 +43,7 @@ import {
 	projectFormSchema,
 	projectMetadataFromForm,
 } from '@/lib/schemas/projects'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const STEPS = [
 	{
@@ -219,9 +220,10 @@ export function AddProjectForm({ type }: { type: ProjectType }) {
 			router.push(contentEditHref(type, project.id))
 		} catch (error) {
 			toast.error(
-				error instanceof Error
-					? error.message
-					: `Failed to create ${label.toLowerCase()}`,
+				userFacingError(
+					error,
+					`Failed to create ${label.toLowerCase()}`,
+				),
 			)
 		} finally {
 			setIsSubmitting(false)

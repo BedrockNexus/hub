@@ -61,6 +61,7 @@ import type { Id } from '@/convex/_generated/dataModel'
 import { useDataTable } from '@/hooks/use-data-table'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import { serverEditHref } from '@/lib/server-routes'
+import { userFacingError } from '@/lib/user-facing-error'
 
 // Type for category from Convex
 interface Category {
@@ -445,9 +446,7 @@ export function ServerListTable() {
 				}))
 			} catch (error) {
 				toast.error(
-					error instanceof Error
-						? error.message
-						: 'Failed to refresh server status',
+					userFacingError(error, 'Failed to refresh server status'),
 				)
 				setManualStatuses((prev) => ({
 					...prev,
@@ -465,11 +464,7 @@ export function ServerListTable() {
 				await deleteServer({ id: serverId })
 				toast.success(`${serverName} has been deleted`)
 			} catch (error) {
-				toast.error(
-					error instanceof Error
-						? error.message
-						: 'Failed to delete server',
-				)
+				toast.error(userFacingError(error, 'Failed to delete server'))
 			}
 		},
 		[deleteServer],
@@ -490,9 +485,7 @@ export function ServerListTable() {
 				)
 			} catch (error) {
 				toast.error(
-					error instanceof Error
-						? error.message
-						: 'Failed to update server status',
+					userFacingError(error, 'Failed to update server status'),
 				)
 			}
 		},

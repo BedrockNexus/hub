@@ -23,6 +23,7 @@ import {
 	getProjectArtifactPolicy,
 	type StoredProjectType,
 } from '@/lib/project-artifacts'
+import { userFacingError } from '@/lib/user-facing-error'
 
 interface VersionFileUploadProps {
 	projectId: Id<'projects'>
@@ -124,9 +125,7 @@ export function VersionFileUpload({
 				)
 			} catch (err) {
 				toast.error(
-					err instanceof Error
-						? err.message
-						: 'Upload failed. Please try again.',
+					userFacingError(err, 'Upload failed. Please try again.'),
 				)
 				throw err
 			}

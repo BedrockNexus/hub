@@ -1,5 +1,6 @@
 "use client";
 
+import { userFacingError } from '@/lib/user-facing-error'
 import {
   FileArchiveIcon,
   FileAudioIcon,
@@ -462,7 +463,7 @@ function FileUpload(props: FileUploadProps) {
               store.dispatch({
                 type: "SET_ERROR",
                 file,
-                error: error.message ?? "Upload failed",
+                error: userFacingError(error, "Upload failed"),
               });
             },
           });
@@ -473,7 +474,7 @@ function FileUpload(props: FileUploadProps) {
         }
       } catch (error) {
         const errorMessage =
-          error instanceof Error ? error.message : "Upload failed";
+          userFacingError(error, "Upload failed");
         for (const file of files) {
           store.dispatch({
             type: "SET_ERROR",

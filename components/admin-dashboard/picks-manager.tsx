@@ -66,6 +66,7 @@ import {
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type Pick = FunctionReturnType<
 	typeof api.functions.site.picks.listAdmin
@@ -79,7 +80,7 @@ const TYPE_LABELS: Record<TargetType, string> = {
 }
 
 function errorMessage(error: unknown) {
-	return error instanceof Error ? error.message : 'Something went wrong'
+	return userFacingError(error, 'Something went wrong')
 }
 
 function AddPickForm() {

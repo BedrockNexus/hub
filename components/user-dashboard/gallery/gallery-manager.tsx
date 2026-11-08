@@ -39,6 +39,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { uploadFileToPresignedUrl } from '@/lib/r2-upload'
+import { userFacingError } from '@/lib/user-facing-error'
 
 // Plugins are addressed by their publishing draft, which carries ownership.
 type GalleryKind = 'plugin' | 'project' | 'server'
@@ -67,7 +68,7 @@ const getFileKey = (file: File) =>
 	`${file.name}-${file.size}-${file.lastModified}`
 
 function getErrorMessage(error: unknown) {
-	return error instanceof Error ? error.message : 'Something went wrong'
+	return userFacingError(error, 'Something went wrong')
 }
 
 export function GalleryManager({ kind, entityId }: GalleryManagerProps) {

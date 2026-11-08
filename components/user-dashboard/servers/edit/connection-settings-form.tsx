@@ -25,6 +25,7 @@ import {
 	type ServerFormData,
 } from '@/lib/schemas/server'
 import { serverEditHref } from '@/lib/server-routes'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const connectionSchema = z.object({
 	ipAddress: z
@@ -105,10 +106,7 @@ export function ConnectionSettingsForm({
 				)
 			}
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save settings'
+			const message = userFacingError(error, 'Failed to save settings')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

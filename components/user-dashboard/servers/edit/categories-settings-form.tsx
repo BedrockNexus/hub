@@ -18,6 +18,7 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { SERVER_FORM_DEFAULTS, type ServerFormData } from '@/lib/schemas/server'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const categoriesSchema = z.object({
 	categoryIds: z
@@ -89,10 +90,7 @@ export function CategoriesSettingsForm({
 			})
 			toast.success('Categories saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save categories'
+			const message = userFacingError(error, 'Failed to save categories')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

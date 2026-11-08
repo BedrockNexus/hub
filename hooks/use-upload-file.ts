@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/convex/_generated/api'
 import { uploadFileToPresignedUrl } from '@/lib/r2-upload'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type EditorMediaKind = 'audio' | 'file' | 'image' | 'video'
 
@@ -144,10 +145,7 @@ export function getErrorMessage(err: unknown) {
 
 		return errors.join('\n')
 	}
-	if (err instanceof Error) {
-		return err.message
-	}
-	return unknownError
+	return userFacingError(err, unknownError)
 }
 
 export function showErrorToast(err: unknown) {

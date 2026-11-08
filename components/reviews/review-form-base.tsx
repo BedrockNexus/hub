@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { userFacingError } from '@/lib/user-facing-error'
 
 interface ExistingReviewValue {
 	rating: number
@@ -79,11 +80,7 @@ export function ReviewFormBase({
 			)
 			setOpen(false)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Failed to submit review',
-			)
+			toast.error(userFacingError(error, 'Failed to submit review'))
 		} finally {
 			setIsSubmitting(false)
 		}

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
+import { userFacingError } from '@/lib/user-facing-error'
 
 export interface ListingDeletion {
 	name: string
@@ -48,11 +49,7 @@ export function DeleteListingDialog({
 			setConfirmation('')
 			setIsDeleting(false)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'It could not be deleted.',
-			)
+			toast.error(userFacingError(error, 'It could not be deleted.'))
 			setIsDeleting(false)
 		}
 	}

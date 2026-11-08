@@ -25,6 +25,7 @@ import { useDataTable } from '@/hooks/use-data-table'
 import { moderationReviewHref } from '@/lib/admin-review-navigation'
 import type { DataTableFeatures } from '@/lib/data-table-features'
 import { formatDate } from '@/lib/format'
+import { userFacingError } from '@/lib/user-facing-error'
 import type { ReviewContentId } from './review-assignment'
 
 type Submission = FunctionReturnType<
@@ -77,11 +78,7 @@ function QueueActions({ submission }: { submission: Submission }) {
 				submission.mine ? 'Review released' : 'Review assigned to you',
 			)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not update assignment',
-			)
+			toast.error(userFacingError(error, 'Could not update assignment'))
 		} finally {
 			setBusy(false)
 		}

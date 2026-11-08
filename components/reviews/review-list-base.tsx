@@ -30,6 +30,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
+import { userFacingError } from '@/lib/user-facing-error'
 
 interface ReviewUser {
 	name?: string
@@ -102,11 +103,7 @@ export function ReviewListBase<TReviewId extends string>({
 			setDeleteDialogOpen(false)
 			setReviewToDelete(null)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Failed to delete review',
-			)
+			toast.error(userFacingError(error, 'Failed to delete review'))
 		}
 	}
 

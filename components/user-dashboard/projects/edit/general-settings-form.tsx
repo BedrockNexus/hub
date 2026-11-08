@@ -23,6 +23,7 @@ import {
 	projectMetadataFromForm,
 	projectMetadataToForm,
 } from '@/lib/schemas/projects'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const generalSchema = projectFormSchema.pick({
 	organizationId: true,
@@ -116,10 +117,7 @@ export function ProjectGeneralSettingsForm({
 			setRemoveIcon(false)
 			toast.success('General settings saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save settings'
+			const message = userFacingError(error, 'Failed to save settings')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

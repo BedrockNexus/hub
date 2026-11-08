@@ -25,6 +25,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type ContentStatus = 'draft' | 'published' | 'under_review'
 type ModerationAction = 'approve' | 'flag' | 'reject' | 'unpublish' | 'changes'
@@ -322,9 +323,7 @@ export function AdminModerationActions({
 			setReason('')
 		} catch (error) {
 			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not update moderation status',
+				userFacingError(error, 'Could not update moderation status'),
 			)
 		} finally {
 			setIsSubmitting(false)

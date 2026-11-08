@@ -11,6 +11,7 @@ import {
 } from '@playwright/test'
 import { api } from '../convex/_generated/api'
 import type { Id } from '../convex/_generated/dataModel'
+import { userFacingError } from '../lib/user-facing-error'
 import {
 	type PublishingFixture,
 	provisionPublishingFixture,
@@ -28,6 +29,16 @@ const SUBMIT = /^(?:(?:Submit|Resubmit) for review|Submit updates)$/
 const CLAIMED_BY_ANOTHER = /assigned to another/i
 const CLAIM = /^(?:Claim|Release) review$/
 const SAVE = /^Save Changes$/
+/**
+ * Rethrow a failed Convex call with the text a person would be shown.
+ * Production hides `message`; ConvexError keeps it in `data`.
+ */
+function visibleError(call: Promise<unknown>) {
+	return call.catch((error: unknown) => {
+		throw new Error(userFacingError(error, 'Request failed'))
+	})
+}
+
 const REASON =
 	'Please clarify the installation steps for this acceptance fixture.'
 
@@ -246,18 +257,22 @@ test.describe('publishing acceptance', () => {
 			}
 		}
 		await expect(
-			fixture.accounts.creator.client.query(
-				api.functions.moderation.work.queue,
-				{},
+			visibleError(
+				fixture.accounts.creator.client.query(
+					api.functions.moderation.work.queue,
+					{},
+				),
 			),
 		).rejects.toThrow(MODERATOR_REQUIRED)
 		await expect(
-			fixture.accounts.moderator.client.query(
-				api.functions.site.users.listAdmin,
-				{
-					now: Date.now(),
-					paginationOpts: { numItems: 1, cursor: null },
-				},
+			visibleError(
+				fixture.accounts.moderator.client.query(
+					api.functions.site.users.listAdmin,
+					{
+						now: Date.now(),
+						paginationOpts: { numItems: 1, cursor: null },
+					},
+				),
 			),
 		).rejects.toThrow(ADMIN_REQUIRED)
 		const server = fixture.listings.find(
@@ -267,9 +282,11 @@ test.describe('publishing acceptance', () => {
 			throw new Error('Missing server fixture')
 		}
 		await expect(
-			fixture.accounts.moderator.client.mutation(
-				api.functions.servers.servers.updateAdmin,
-				{ id: server.id as Id<'servers'>, name: 'Forbidden edit' },
+			visibleError(
+				fixture.accounts.moderator.client.mutation(
+					api.functions.servers.servers.updateAdmin,
+					{ id: server.id as Id<'servers'>, name: 'Forbidden edit' },
+				),
 			),
 		).rejects.toThrow(ADMIN_EDIT_REQUIRED)
 		const adminPage = await asRole(browser, info, 'admin')
@@ -374,7 +391,9 @@ test.describe('publishing acceptance', () => {
 								expectedRevision,
 							},
 						)
-			await expect(competingDecision).rejects.toThrow(CLAIMED_BY_ANOTHER)
+			await expect(visibleError(competingDecision)).rejects.toThrow(
+				CLAIMED_BY_ANOTHER,
+			)
 
 			await decide(moderator, 'Request changes', REASON)
 			await reviewStatus(listing, 'changes_requested')

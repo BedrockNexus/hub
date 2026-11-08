@@ -64,6 +64,7 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useSoftwareLogoUpload } from '@/hooks/use-picture-upload'
 import { resizeSquareImage } from '@/lib/resize-image'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type Software = FunctionReturnType<
 	typeof api.functions.servers.software.listAdmin
@@ -91,7 +92,7 @@ const EMPTY_DRAFT: SoftwareDraft = {
 }
 
 function errorMessage(error: unknown, fallback: string) {
-	return error instanceof Error ? error.message : fallback
+	return userFacingError(error, fallback)
 }
 
 function slugFromName(name: string) {

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { authClient } from '@/lib/auth-client'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type ActionSize = 'sm' | 'xl'
 
@@ -58,11 +59,7 @@ export function FavouriteButton(props: FavouriteButtonProps) {
 				saved ? 'Saved to favourites' : 'Removed from favourites',
 			)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not update favourites',
-			)
+			toast.error(userFacingError(error, 'Could not update favourites'))
 		} finally {
 			setPending(false)
 		}

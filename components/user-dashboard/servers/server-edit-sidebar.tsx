@@ -24,6 +24,7 @@ import {
 import { ListingSwitcher } from '@/components/user-dashboard/edit-sidebar/listing-switcher'
 import { api } from '@/convex/_generated/api'
 import { serverHref, serverReference } from '@/lib/server-routes'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const BASE_PATH = '/dashboard/servers'
 
@@ -38,7 +39,7 @@ const SECTIONS: readonly EditSection[] = [
 ]
 
 function errorMessage(error: unknown, fallback: string) {
-	return error instanceof Error ? error.message : fallback
+	return userFacingError(error, fallback)
 }
 
 export function ServerEditSidebar({

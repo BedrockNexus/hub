@@ -9,6 +9,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 import { formatRegistryDate } from '@/lib/plugins/format-registry'
 import { WORKFLOW_REPOSITORY_URL } from '@/lib/plugins/workflow-catalog'
+import { userFacingError } from '@/lib/user-facing-error'
 
 export function WorkflowTemplateEditor() {
 	const auth = useConvexAuth()
@@ -56,9 +57,10 @@ export function WorkflowTemplateEditor() {
 								)
 							} catch (error) {
 								toast.error(
-									error instanceof Error
-										? error.message
-										: 'The catalog could not be refreshed.',
+									userFacingError(
+										error,
+										'The catalog could not be refreshed.',
+									),
 								)
 							} finally {
 								setBusy(false)

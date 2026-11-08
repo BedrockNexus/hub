@@ -18,6 +18,7 @@ import {
 	type ServerFormData,
 	serverFormSchema,
 } from '@/lib/schemas/server'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const linksSchema = serverFormSchema.pick({
 	website: true,
@@ -87,8 +88,7 @@ export function LinksSettingsForm({
 			form.reset(data)
 			toast.success('Links saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : 'Failed to save links'
+			const message = userFacingError(error, 'Failed to save links')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

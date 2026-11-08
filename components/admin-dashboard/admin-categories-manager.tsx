@@ -74,6 +74,7 @@ import {
 	type ProjectType,
 	type StoredProjectType,
 } from '@/lib/project-artifacts'
+import { userFacingError } from '@/lib/user-facing-error'
 import { AdminPageHeader } from './admin-page-header'
 
 interface ServerCategory {
@@ -822,11 +823,7 @@ export function AdminCategoriesManager() {
 			setIsServerCreateOpen(false)
 			toast.success(`Created ${name}`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not create category',
-			)
+			toast.error(userFacingError(error, 'Could not create category'))
 		} finally {
 			setPendingAction(null)
 		}
@@ -853,11 +850,7 @@ export function AdminCategoriesManager() {
 			setIsProjectCreateOpen(false)
 			toast.success(`Created ${name}`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not create category',
-			)
+			toast.error(userFacingError(error, 'Could not create category'))
 		} finally {
 			setPendingAction(null)
 		}
@@ -893,11 +886,7 @@ export function AdminCategoriesManager() {
 			setIsPluginCreateOpen(false)
 			toast.success(`Created ${name}`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not create category',
-			)
+			toast.error(userFacingError(error, 'Could not create category'))
 		} finally {
 			setPendingAction(null)
 		}
@@ -956,11 +945,7 @@ export function AdminCategoriesManager() {
 			setEditing(null)
 			toast.success(`Saved ${name}`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not save category',
-			)
+			toast.error(userFacingError(error, 'Could not save category'))
 		} finally {
 			setPendingAction(null)
 		}
@@ -984,11 +969,7 @@ export function AdminCategoriesManager() {
 			}
 			toast.success(`Deleted ${category.name}`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not remove category',
-			)
+			toast.error(userFacingError(error, 'Could not remove category'))
 		} finally {
 			setPendingAction(null)
 		}

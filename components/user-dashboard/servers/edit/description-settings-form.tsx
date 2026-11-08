@@ -24,6 +24,7 @@ import {
 	type ServerFormData,
 	serverFormSchema,
 } from '@/lib/schemas/server'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const descriptionSchema = serverFormSchema.pick({ description: true })
 
@@ -82,10 +83,7 @@ export function ServerDescriptionSettingsForm({
 			form.reset(data)
 			toast.success('Description saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save description'
+			const message = userFacingError(error, 'Failed to save description')
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

@@ -12,6 +12,7 @@ import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type Review = NonNullable<
 	FunctionReturnType<typeof api.functions.plugins.projects.getAdminReview>
@@ -31,7 +32,7 @@ function errorMessage(error: unknown) {
 	) {
 		return error.data.message
 	}
-	return error instanceof Error ? error.message : 'The review action failed.'
+	return userFacingError(error, 'The review action failed.')
 }
 
 function reviewActionDisabled(

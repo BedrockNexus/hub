@@ -5,6 +5,7 @@ import type { FunctionReturnType } from 'convex/server'
 import { ListingReviewNotice } from '@/components/user-dashboard/listing-review-state'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { userFacingError } from '@/lib/user-facing-error'
 
 export type PluginForEdit = FunctionReturnType<
 	typeof api.functions.plugins.publishing.model.getMine
@@ -54,5 +55,5 @@ export function errorMessage(error: unknown) {
 	) {
 		return error.data.message
 	}
-	return error instanceof Error ? error.message : 'Something went wrong.'
+	return userFacingError(error, 'Something went wrong.')
 }

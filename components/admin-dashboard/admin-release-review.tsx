@@ -20,6 +20,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { userFacingError } from '@/lib/user-facing-error'
 
 type ReviewStatus = 'pending' | 'approved' | 'rejected' | undefined
 
@@ -64,11 +65,7 @@ export function ReleaseReviewActions({
 			setIsRejecting(false)
 			setReason('')
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not review the release',
-			)
+			toast.error(userFacingError(error, 'Could not review the release'))
 		} finally {
 			setIsSubmitting(false)
 		}

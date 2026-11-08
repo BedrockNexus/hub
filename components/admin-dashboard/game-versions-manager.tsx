@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { userFacingError } from '@/lib/user-facing-error'
 
 function formatDate(timestamp: number) {
 	return new Intl.DateTimeFormat('en', {
@@ -103,11 +104,7 @@ export function GameVersionsManager() {
 			setVersion('')
 			toast.success(`Added ${trimmedVersion}`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not add version',
-			)
+			toast.error(userFacingError(error, 'Could not add version'))
 		} finally {
 			setPendingAction(null)
 		}
@@ -122,11 +119,7 @@ export function GameVersionsManager() {
 			await toggleGameVersion({ id })
 			toast.success(`Updated ${versionName}`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not update version',
-			)
+			toast.error(userFacingError(error, 'Could not update version'))
 		} finally {
 			setPendingAction(null)
 		}
@@ -141,11 +134,7 @@ export function GameVersionsManager() {
 			await removeGameVersion({ id })
 			toast.success(`Removed ${versionName}`)
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not remove version',
-			)
+			toast.error(userFacingError(error, 'Could not remove version'))
 		} finally {
 			setPendingAction(null)
 		}

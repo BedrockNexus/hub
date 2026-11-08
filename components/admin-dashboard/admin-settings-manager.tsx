@@ -29,6 +29,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import { uploadFileToPresignedUrl } from '@/lib/r2-upload'
 import { siteBrand } from '@/lib/site-brand'
+import { userFacingError } from '@/lib/user-facing-error'
 import { AdminPageHeader } from './admin-page-header'
 
 interface SeoDraft {
@@ -386,11 +387,7 @@ export function AdminSettingsManager() {
 			ogImageUpload.reset()
 			toast.success('SEO settings saved')
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not save SEO settings',
-			)
+			toast.error(userFacingError(error, 'Could not save SEO settings'))
 		} finally {
 			setPendingAction(null)
 		}
@@ -410,11 +407,7 @@ export function AdminSettingsManager() {
 			})
 			toast.success('Social links saved')
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not save social links',
-			)
+			toast.error(userFacingError(error, 'Could not save social links'))
 		} finally {
 			setPendingAction(null)
 		}
@@ -428,11 +421,7 @@ export function AdminSettingsManager() {
 			await updateFeatures(featuresDraft)
 			toast.success('Feature flags saved')
 		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: 'Could not save feature flags',
-			)
+			toast.error(userFacingError(error, 'Could not save feature flags'))
 		} finally {
 			setPendingAction(null)
 		}

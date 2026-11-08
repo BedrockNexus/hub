@@ -6,8 +6,8 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
 import { useTheme } from 'next-themes'
 import { parseDocument } from 'yaml'
-
 import { validateWorkflowTemplate } from '@/lib/plugins/workflow-templates'
+import { userFacingError } from '@/lib/user-facing-error'
 import { cn } from '@/lib/utils'
 
 interface YamlWorkflowEditorProps {
@@ -24,9 +24,7 @@ export function getWorkflowTemplateValidationError(value: string) {
 		validateWorkflowTemplate(value)
 		return null
 	} catch (error) {
-		return error instanceof Error
-			? error.message
-			: 'The workflow template is invalid.'
+		return userFacingError(error, 'The workflow template is invalid.')
 	}
 }
 

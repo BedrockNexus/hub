@@ -26,6 +26,7 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { parseTagInput, TAG_LIMITS, tagsProblem } from '@/lib/tags'
+import { userFacingError } from '@/lib/user-facing-error'
 
 const categoriesSchema = z.object({
 	categoryIds: z
@@ -102,10 +103,10 @@ export function ProjectCategoriesSettingsForm({
 			form.reset({ ...data, tags: parseTagInput(data.tags).join(', ') })
 			toast.success('Categories and tags saved!')
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Failed to save categories and tags'
+			const message = userFacingError(
+				error,
+				'Failed to save categories and tags',
+			)
 			toast.error(message)
 		} finally {
 			setIsSubmitting(false)

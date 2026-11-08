@@ -5,6 +5,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { type ComponentProps, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { userFacingError } from '@/lib/user-facing-error'
 import { cn } from '@/lib/utils'
 
 interface DownloadSuccess {
@@ -69,9 +70,10 @@ export function ProjectVersionDownloadButton({
 			window.location.assign(result.url)
 		} catch (downloadError) {
 			setError(
-				downloadError instanceof Error
-					? downloadError.message
-					: 'We could not prepare a fresh download link. Please try again.',
+				userFacingError(
+					downloadError,
+					'We could not prepare a fresh download link. Please try again.',
+				),
 			)
 		} finally {
 			setIsDownloading(false)
