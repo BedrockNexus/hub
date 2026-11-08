@@ -62,10 +62,13 @@ export function ServerDescriptionSettingsForm({
 
 	useEffect(() => {
 		if (server) {
-			form.reset({
-				...SERVER_FORM_DEFAULTS,
-				description: server.description ?? '',
-			})
+			form.reset(
+				{
+					...SERVER_FORM_DEFAULTS,
+					description: server.description ?? '',
+				},
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [server, form])
 

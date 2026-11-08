@@ -53,7 +53,10 @@ export function ProjectDescriptionSettingsForm({
 
 	useEffect(() => {
 		if (project) {
-			form.reset({ description: project.description })
+			form.reset(
+				{ description: project.description },
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [project, form])
 

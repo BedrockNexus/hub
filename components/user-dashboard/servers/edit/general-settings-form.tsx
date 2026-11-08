@@ -68,19 +68,22 @@ export function GeneralSettingsForm({
 
 	useEffect(() => {
 		if (server) {
-			form.reset({
-				...SERVER_FORM_DEFAULTS,
-				organizationId:
-					server.ownerType === 'organization'
-						? server.ownerId
-						: undefined,
-				name: server.name,
-				smallDescription: server.smallDescription,
-				region: server.region || '',
-				language: server.language ?? [],
-				gameVersions: server.gameVersions ?? [],
-				softwareId: server.softwareId ?? '',
-			})
+			form.reset(
+				{
+					...SERVER_FORM_DEFAULTS,
+					organizationId:
+						server.ownerType === 'organization'
+							? server.ownerId
+							: undefined,
+					name: server.name,
+					smallDescription: server.smallDescription,
+					region: server.region || '',
+					language: server.language ?? [],
+					gameVersions: server.gameVersions ?? [],
+					softwareId: server.softwareId ?? '',
+				},
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [server, form])
 

@@ -71,19 +71,21 @@ export function ProjectGeneralSettingsForm({
 
 	useEffect(() => {
 		if (project) {
-			form.reset({
-				...PROJECT_FORM_DEFAULTS,
-				organizationId:
-					project.ownerType === 'organization'
-						? project.ownerId
-						: undefined,
-				type: normalizeProjectType(project.type),
-				name: project.name,
-				summary: project.summary,
-				...projectMetadataToForm(project.metadata),
-			})
-			setPendingIconR2Key(undefined)
-			setRemoveIcon(false)
+			form.reset(
+				{
+					...PROJECT_FORM_DEFAULTS,
+					organizationId:
+						project.ownerType === 'organization'
+							? project.ownerId
+							: undefined,
+					type: normalizeProjectType(project.type),
+					name: project.name,
+					summary: project.summary,
+					...projectMetadataToForm(project.metadata),
+				},
+				// Live query refreshes must not wipe edits the creator has not saved.
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [project, form])
 

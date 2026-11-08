@@ -84,14 +84,17 @@ export function ProjectLinksSettingsForm({
 
 	useEffect(() => {
 		if (project) {
-			form.reset({
-				sourceUrl: project.sourceUrl || '',
-				websiteUrl: project.websiteUrl || '',
-				issueTrackerUrl: project.issueTrackerUrl || '',
-				wikiUrl: project.wikiUrl || '',
-				discordUrl: project.discordUrl || '',
-				donationUrl: project.donationUrl || '',
-			})
+			form.reset(
+				{
+					sourceUrl: project.sourceUrl || '',
+					websiteUrl: project.websiteUrl || '',
+					issueTrackerUrl: project.issueTrackerUrl || '',
+					wikiUrl: project.wikiUrl || '',
+					discordUrl: project.discordUrl || '',
+					donationUrl: project.donationUrl || '',
+				},
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [project, form])
 

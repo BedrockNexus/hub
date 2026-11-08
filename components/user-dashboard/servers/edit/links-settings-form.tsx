@@ -61,13 +61,16 @@ export function LinksSettingsForm({
 
 	useEffect(() => {
 		if (server) {
-			form.reset({
-				...SERVER_FORM_DEFAULTS,
-				website: server.website || '',
-				discordUrl: server.discordUrl || '',
-				storeUrl: server.storeUrl || '',
-				wikiUrl: server.wikiUrl || '',
-			})
+			form.reset(
+				{
+					...SERVER_FORM_DEFAULTS,
+					website: server.website || '',
+					discordUrl: server.discordUrl || '',
+					storeUrl: server.storeUrl || '',
+					wikiUrl: server.wikiUrl || '',
+				},
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [server, form])
 

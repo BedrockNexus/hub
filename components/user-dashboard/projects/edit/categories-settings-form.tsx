@@ -76,10 +76,13 @@ export function ProjectCategoriesSettingsForm({
 
 	useEffect(() => {
 		if (project) {
-			form.reset({
-				categoryIds: project.categoryIds.map(String),
-				tags: (project.tags ?? []).join(', '),
-			})
+			form.reset(
+				{
+					categoryIds: project.categoryIds.map(String),
+					tags: (project.tags ?? []).join(', '),
+				},
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [project, form])
 

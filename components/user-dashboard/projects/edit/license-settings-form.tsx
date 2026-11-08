@@ -54,9 +54,12 @@ export function ProjectLicenseSettingsForm({
 
 	useEffect(() => {
 		if (project) {
-			form.reset({
-				license: project.license || '',
-			})
+			form.reset(
+				{
+					license: project.license || '',
+				},
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [project, form])
 

@@ -61,10 +61,13 @@ export function CategoriesSettingsForm({
 
 	useEffect(() => {
 		if (server) {
-			form.reset({
-				...SERVER_FORM_DEFAULTS,
-				categoryIds: server.categoryIds.map(String),
-			})
+			form.reset(
+				{
+					...SERVER_FORM_DEFAULTS,
+					categoryIds: server.categoryIds.map(String),
+				},
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [server, form])
 

@@ -77,11 +77,14 @@ export function ConnectionSettingsForm({
 
 	useEffect(() => {
 		if (server) {
-			form.reset({
-				...SERVER_FORM_DEFAULTS,
-				ipAddress: server.ipAddress,
-				port: server.port,
-			})
+			form.reset(
+				{
+					...SERVER_FORM_DEFAULTS,
+					ipAddress: server.ipAddress,
+					port: server.port,
+				},
+				{ keepDirtyValues: true },
+			)
 		}
 	}, [server, form])
 
