@@ -1,0 +1,30 @@
+<svg
+	height="8"
+	shape-rendering="crispEdges"
+	viewBox="0 0 8 8"
+	width="8"
+	xmlns="http://www.w3.org/2000/svg"
+>
+	<title>Grass block edge</title>
+	<!-- Original 8x8 grass-on-dirt tile for Bedrock Nexus, drawn pixel by pixel. -->
+	<rect fill="#7a5436" height="8" width="8" />
+	<!-- grass top -->
+	<rect fill="#5c9a37" height="2" width="8" x="0" y="0" />
+	<rect fill="#71b347" height="1" width="1" x="1" y="0" />
+	<rect fill="#71b347" height="1" width="2" x="4" y="0" />
+	<rect fill="#4c832d" height="1" width="1" x="7" y="1" />
+	<rect fill="#4c832d" height="1" width="1" x="2" y="1" />
+	<!-- drips of grass into the dirt -->
+	<rect fill="#5c9a37" height="1" width="1" x="0" y="2" />
+	<rect fill="#4c832d" height="1" width="2" x="3" y="2" />
+	<rect fill="#5c9a37" height="2" width="1" x="6" y="2" />
+	<!-- dirt speckles -->
+	<rect fill="#916647" height="1" width="1" x="1" y="3" />
+	<rect fill="#5f412a" height="1" width="1" x="4" y="4" />
+	<rect fill="#5f412a" height="1" width="1" x="2" y="5" />
+	<rect fill="#916647" height="1" width="1" x="6" y="5" />
+	<rect fill="#916647" height="1" width="1" x="0" y="6" />
+	<rect fill="#5f412a" height="1" width="1" x="5" y="7" />
+	<rect fill="#916647" height="1" width="1" x="3" y="6" />
+	<rect fill="#5f412a" height="1" width="1" x="7" y="6" />
+</svg>

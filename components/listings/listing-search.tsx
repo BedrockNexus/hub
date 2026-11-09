@@ -32,7 +32,7 @@ export function ListingSearch({
 	}, [input, value, onChange])
 	return (
 		<search aria-label={label}>
-			<InputGroup className="h-11 bg-card">
+			<InputGroup className="h-11 bg-background/70">
 				<InputGroupAddon>
 					<HugeiconsIcon aria-hidden="true" icon={SearchIcon} />
 				</InputGroupAddon>

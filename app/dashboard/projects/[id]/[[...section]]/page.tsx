@@ -24,7 +24,7 @@ export default async function Page({
 	}
 	permanentRedirect(
 		withContentSearch(
-			contentEditHref(item.type, item._id) +
+			contentEditHref(item.type, item._id, item.publicId) +
 				legacyContentSection(section, true),
 			search,
 		),

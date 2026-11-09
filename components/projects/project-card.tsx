@@ -61,14 +61,14 @@ export function ProjectCard({ content: item }: ProjectCardProps) {
 	const reviewCount = item.reviewCount ?? 0
 
 	return (
-		<article className="relative flex h-full gap-4 rounded-md border bg-card p-4.5 transition-colors focus-within:border-ember hover:border-ember">
-			<div className="tile-bevel relative grid size-18 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
+		<article className="card-lift group relative flex h-full gap-4 rounded-lg border bg-card p-4.5">
+			<div className="relative grid size-20 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
 				{item.iconUrl ? (
 					<Image
 						alt=""
 						className="object-cover"
 						fill
-						sizes="72px"
+						sizes="80px"
 						src={item.iconUrl}
 					/>
 				) : (
@@ -81,10 +81,15 @@ export function ProjectCard({ content: item }: ProjectCardProps) {
 			</div>
 			<div className="flex min-w-0 flex-1 flex-col gap-1.5">
 				<span className="eyebrow text-[11px]">{typeLabel}</span>
-				<h3 className="truncate font-bold text-lg leading-tight">
+				<h3 className="truncate font-bold text-lg leading-tight transition-colors group-hover:text-primary">
 					<Link
 						className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
-						href={contentHref(item.type, item.slug, item._id)}
+						href={contentHref(
+							item.type,
+							item.slug,
+							item._id,
+							item.publicId,
+						)}
 					>
 						{item.name}
 					</Link>
@@ -133,8 +138,8 @@ export function ProjectCard({ content: item }: ProjectCardProps) {
 
 export function ProjectCardSkeleton() {
 	return (
-		<div className="flex gap-4 rounded-md border bg-card p-4.5">
-			<Skeleton className="size-18 shrink-0" />
+		<div className="flex gap-4 rounded-lg border bg-card p-4.5">
+			<Skeleton className="size-20 shrink-0 rounded-md" />
 			<div className="flex flex-1 flex-col gap-2">
 				<Skeleton className="h-3 w-16" />
 				<Skeleton className="h-5 w-2/3" />

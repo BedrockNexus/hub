@@ -33,7 +33,7 @@ export function PluginAvatar({
 	className?: string
 }) {
 	return (
-		<Avatar className={cn('tile-bevel size-12 bg-stone', className)}>
+		<Avatar className={cn('size-12 bg-stone', className)}>
 			{avatarUrl ? <AvatarImage alt="" src={avatarUrl} /> : null}
 			<AvatarFallback className="bg-stone font-bold font-display text-lg text-white">
 				{name.slice(0, 1).toUpperCase()}
@@ -47,8 +47,8 @@ export function PluginCard({ plugin }: { plugin: PublicPluginCard }) {
 	const categories = plugin.categories.map((category) => category.name)
 
 	return (
-		<article className="relative flex h-full gap-4 rounded-md border bg-card p-4.5 transition-colors focus-within:border-ember hover:border-ember">
-			<div className="tile-bevel relative grid size-18 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
+		<article className="card-lift group relative flex h-full gap-4 rounded-lg border bg-card p-4.5">
+			<div className="relative grid size-20 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
 				{plugin.iconUrl ? (
 					<Image
 						alt=""
@@ -109,7 +109,7 @@ export function PluginCard({ plugin }: { plugin: PublicPluginCard }) {
 
 export function PluginCardSkeleton() {
 	return (
-		<div className="flex gap-4 rounded-md border bg-card p-4.5">
+		<div className="flex gap-4 rounded-lg border bg-card p-4.5">
 			<Skeleton className="size-18 shrink-0" />
 			<div className="flex flex-1 flex-col gap-2">
 				<Skeleton className="h-3 w-16" />

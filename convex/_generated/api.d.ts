@@ -107,6 +107,7 @@ import type * as lib_plugins_downloadCounts from "../lib/plugins/downloadCounts.
 import type * as lib_plugins_rateLimits from "../lib/plugins/rateLimits.js";
 import type * as lib_plugins_slugs from "../lib/plugins/slugs.js";
 import type * as lib_plugins_workflowTemplates from "../lib/plugins/workflowTemplates.js";
+import type * as lib_projectPublicIds from "../lib/projectPublicIds.js";
 import type * as lib_projectReleases from "../lib/projectReleases.js";
 import type * as lib_publicContent from "../lib/publicContent.js";
 import type * as lib_r2 from "../lib/r2.js";
@@ -234,6 +235,7 @@ declare const fullApi: ApiFromModules<{
   "lib/plugins/rateLimits": typeof lib_plugins_rateLimits;
   "lib/plugins/slugs": typeof lib_plugins_slugs;
   "lib/plugins/workflowTemplates": typeof lib_plugins_workflowTemplates;
+  "lib/projectPublicIds": typeof lib_projectPublicIds;
   "lib/projectReleases": typeof lib_projectReleases;
   "lib/publicContent": typeof lib_publicContent;
   "lib/r2": typeof lib_r2;

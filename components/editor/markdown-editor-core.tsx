@@ -265,8 +265,8 @@ export function MarkdownEditorCore({
 	const [youtubeOpen, setYoutubeOpen] = useState(false)
 	const [youtubeUrl, setYoutubeUrl] = useState('')
 	const { uploadFile, isUploading } = useUploadFile()
-	const { resolvedTheme } = useTheme()
-	const isDark = resolvedTheme === 'dark'
+	const { forcedTheme, resolvedTheme } = useTheme()
+	const isDark = (forcedTheme ?? resolvedTheme) === 'dark'
 
 	const run = (command: (view: EditorView) => void) => {
 		const view = editorRef.current?.view

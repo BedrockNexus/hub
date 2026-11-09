@@ -110,7 +110,8 @@ export function YamlWorkflowEditor({
 	className,
 	minHeight = '32rem',
 }: YamlWorkflowEditorProps) {
-	const { resolvedTheme } = useTheme()
+	const { forcedTheme, resolvedTheme } = useTheme()
+	const isDark = (forcedTheme ?? resolvedTheme) === 'dark'
 	const validationError = getWorkflowTemplateValidationError(value)
 
 	return (
@@ -148,11 +149,7 @@ export function YamlWorkflowEditor({
 					}
 				}}
 				readOnly={disabled}
-				theme={
-					resolvedTheme === 'dark'
-						? [oneDark, lightTheme, darkTheme]
-						: lightTheme
-				}
+				theme={isDark ? [oneDark, lightTheme, darkTheme] : lightTheme}
 				value={value}
 			/>
 			<div

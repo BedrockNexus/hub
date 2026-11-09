@@ -46,7 +46,7 @@ export function PluginSearchFilters({
 	const update = (next: Partial<typeof filters>) =>
 		setFilters({ ...next, cursor: null })
 	return (
-		<div className="space-y-3">
+		<div className="space-y-3 rounded-lg border bg-card/60 p-3 shadow-[0_16px_40px_-28px_rgb(0_0_0/0.6)]">
 			<ListingSearch
 				label="Search plugins"
 				maxLength={100}

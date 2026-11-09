@@ -50,12 +50,12 @@ function CardLink({ server }: { server: ServerListItem }) {
 export function ServerCard({ server }: { server: ServerListItem }) {
 	const tags = serverTags(server)
 	return (
-		<article className="group relative flex h-full flex-col overflow-hidden rounded-md border bg-card transition-colors focus-within:border-ember hover:border-ember">
-			<div className="relative h-24 border-ember border-b-[3px]">
+		<article className="card-lift group relative flex h-full flex-col overflow-hidden rounded-lg border bg-card">
+			<div className="relative h-32 overflow-hidden">
 				{server.bannerUrl ? (
 					<Image
 						alt=""
-						className="object-cover"
+						className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
 						fill
 						sizes="(max-width: 768px) 100vw, 400px"
 						src={server.bannerUrl}
@@ -63,39 +63,46 @@ export function ServerCard({ server }: { server: ServerListItem }) {
 				) : (
 					<div aria-hidden className="strata absolute inset-0" />
 				)}
+				<div
+					aria-hidden
+					className="absolute inset-0 bg-linear-to-t from-card via-card/10 to-transparent"
+				/>
+				<ServerStatusLabel
+					className="absolute top-3 right-3 rounded-md bg-background/80 px-2.5 py-1 backdrop-blur"
+					online={server.online}
+				/>
 			</div>
 			<div className="flex flex-1 flex-col gap-3.5 px-4.5 pb-4.5">
-				<div className="-mt-7 flex items-end gap-3">
-					<LogoTile name={server.name} src={server.logoUrl} />
-					<ServerStatusLabel
-						className="ml-auto"
-						online={server.online}
+				<div className="-mt-9 flex items-end gap-3.5">
+					<LogoTile
+						className="ring-4 ring-card"
+						name={server.name}
+						size={64}
+						src={server.logoUrl}
 					/>
-				</div>
-				<div className="flex flex-col gap-2">
-					<h3 className="flex items-center gap-2 font-bold text-xl leading-tight">
-						<span className="truncate">
+					<h3 className="min-w-0 pb-1 font-bold text-lg leading-tight">
+						<span className="block truncate">
 							<CardLink server={server} />
 						</span>
 					</h3>
-					{server.smallDescription ? (
-						<p className="line-clamp-2 text-muted-foreground text-sm">
-							{server.smallDescription}
-						</p>
-					) : null}
-					{tags.length > 0 ? (
-						<div className="flex flex-wrap gap-1.5">
-							{tags.slice(0, 3).map((tag) => (
-								<TagChip key={tag}>{tag}</TagChip>
-							))}
-							{tags.length > 3 ? (
-								<TagChip>+{tags.length - 3}</TagChip>
-							) : null}
-						</div>
-					) : null}
 				</div>
+				{server.smallDescription ? (
+					<p className="line-clamp-2 text-muted-foreground text-sm leading-relaxed">
+						{server.smallDescription}
+					</p>
+				) : null}
+				{tags.length > 0 ? (
+					<div className="flex flex-wrap gap-1.5">
+						{tags.slice(0, 3).map((tag) => (
+							<TagChip key={tag}>{tag}</TagChip>
+						))}
+						{tags.length > 3 ? (
+							<TagChip>+{tags.length - 3}</TagChip>
+						) : null}
+					</div>
+				) : null}
 				<ServerAddress
-					className="mt-auto"
+					className="relative z-10 mt-auto"
 					host={server.ipAddress}
 					port={server.port}
 					serverName={server.name}
@@ -126,7 +133,7 @@ export function ServerRow({
 }) {
 	const tags = serverTags(server)
 	return (
-		<article className="relative flex flex-wrap items-center gap-x-4 gap-y-3 rounded-md border bg-card px-4.5 py-4 transition-colors focus-within:border-ember hover:border-ember">
+		<article className="card-lift relative flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border bg-card px-4.5 py-4">
 			<span className="w-8 font-mono font-semibold text-muted-foreground text-sm">
 				#{rank}
 			</span>
@@ -172,11 +179,11 @@ export function ServerCardSkeleton({ className }: { className?: string }) {
 	return (
 		<div
 			className={cn(
-				'flex flex-col overflow-hidden rounded-md border bg-card',
+				'flex flex-col overflow-hidden rounded-lg border bg-card',
 				className,
 			)}
 		>
-			<Skeleton className="h-24 rounded-none" />
+			<Skeleton className="h-32 rounded-none" />
 			<div className="flex flex-col gap-3 p-4.5">
 				<Skeleton className="-mt-11 size-14" />
 				<Skeleton className="h-6 w-2/3" />
@@ -188,5 +195,5 @@ export function ServerCardSkeleton({ className }: { className?: string }) {
 }
 
 export function ServerRowSkeleton() {
-	return <Skeleton className="h-21 w-full rounded-md" />
+	return <Skeleton className="h-21 w-full rounded-lg" />
 }

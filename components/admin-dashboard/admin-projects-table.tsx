@@ -58,6 +58,7 @@ interface AdminProjectCategory {
 	_id: Id<'projectCategories'>
 	name: string
 	slug: string
+	publicId?: string
 }
 
 interface AdminProjectRow {
@@ -66,6 +67,7 @@ interface AdminProjectRow {
 	type: StoredProjectType
 	name: string
 	slug: string
+	publicId?: string
 	status?: LifecycleStatus
 	submissionStatus?: 'pending' | 'changes_requested' | 'approved' | 'rejected'
 	moderationStatus?: ModerationStatus
@@ -224,6 +226,7 @@ export function AdminProjectsTable({ type }: { type: ProjectType }) {
 							row.original.type,
 							row.original.slug,
 							row.original._id,
+							row.original.publicId,
 						)}
 					>
 						{row.original.name}

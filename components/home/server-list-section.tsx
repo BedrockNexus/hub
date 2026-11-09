@@ -33,7 +33,7 @@ export function ServerListSection({
 		<section className="container mx-auto flex flex-col gap-6 px-4 pt-14 pb-6 md:px-6">
 			<SectionHeading href={href} linkLabel={linkLabel} title={title} />
 			{result !== undefined && result.page.length === 0 ? (
-				<p className="rounded-md border border-dashed px-6 py-12 text-center text-muted-foreground">
+				<p className="rounded-lg border border-dashed bg-card/40 px-6 py-14 text-center text-muted-foreground">
 					No published servers yet. The first community listings will
 					appear here.
 				</p>

@@ -28,6 +28,29 @@ describe('stable listing references', () => {
 			)
 		}
 	})
+	it('prefers stored short IDs without depending on mutable names', () => {
+		for (const [type, publicId, directory] of [
+			['addon', 'a_k7m2x9q4', 'addons'],
+			['resource_pack', 'rp_b8n3v6w2', 'resource-packs'],
+			['texture_pack', 'rp_b8n3v6w2', 'resource-packs'],
+		] as const) {
+			expect(projectReference(type, 'fullinternalid', publicId)).toBe(
+				publicId,
+			)
+			expect(
+				contentHref(type, 'old-name', 'fullinternalid', publicId),
+			).toBe(`/${directory}/${publicId}`)
+			expect(
+				contentHref(type, 'new-name', 'fullinternalid', publicId),
+			).toBe(`/${directory}/${publicId}`)
+			expect(contentEditHref(type, 'fullinternalid', publicId)).toBe(
+				`/dashboard/${directory}/${publicId}`,
+			)
+		}
+		expect(projectReference('addon', 'legacy', 'rp_wrongtype')).toBe(
+			'a_legacy',
+		)
+	})
 	it('parses typed IDs and rejects paths and malformed references', () => {
 		expect(parseProjectReference('a_abc123')).toEqual({
 			type: 'addon',

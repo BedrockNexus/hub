@@ -49,7 +49,7 @@ export function CreatorDirectory({
 			{items.map((item, index) => (
 				<li key={item.slug}>
 					<Link
-						className="flex h-full items-center gap-4 rounded-md border bg-card p-4.5 transition-colors hover:border-ember focus-visible:border-ember"
+						className="card-lift flex h-full items-center gap-4 rounded-lg border bg-card p-4.5 focus-visible:border-primary"
 						href={
 							ownerType === 'user'
 								? `/user/${item.slug}`

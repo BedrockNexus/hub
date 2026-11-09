@@ -72,101 +72,97 @@
 	--color-highlight: var(--highlight);
 }
 
-:root {
-	/* Sandstone: warm light theme built from the Bedrock Nexus wordmark. */
-	--background: #f6f1e8;
-	--foreground: #24170d;
-	--card: #fffdf8;
-	--card-foreground: #24170d;
-	--popover: #fffdf8;
-	--popover-foreground: #24170d;
-	--primary: #f7c84e;
-	--primary-hover: #fbd774;
-	--primary-foreground: #2a1608;
-	--secondary: #efe7da;
-	--secondary-foreground: #24170d;
-	--muted: #f1e9dc;
-	--muted-foreground: #665645;
-	--accent: #ece1cf;
-	--accent-foreground: #24170d;
-	--destructive: #b42318;
-	--border: #ddd0bc;
-	--input: #c9b8a0;
-	--ring: #c96d12;
-	--chart-1: #c96d12;
-	--chart-2: #f7c84e;
-	--chart-3: #5a6378;
-	--chart-4: #1f8a4c;
-	--chart-5: #8a4a18;
-	/* One radius scale: controls 2px (sm), containers 4px (md). */
+:root,
+.chunk-dirt,
+.chunk-stone,
+.chunk-deepslate,
+.chunk-bedrock {
+	/* The default palette also keeps underground strata dark in light mode. */
+	color: var(--foreground);
+	color-scheme: dark;
+	/* Blocky on purpose: tags 2px (sm), controls 4px (md), cards and panels 6px (lg). */
 	--radius: 0.375rem;
-	--sidebar: #fbf7f0;
-	--sidebar-foreground: #24170d;
-	--sidebar-primary: #f7c84e;
-	--sidebar-primary-foreground: #2a1608;
-	--sidebar-accent: #efe5d4;
-	--sidebar-accent-foreground: #24170d;
-	--sidebar-border: #ddd0bc;
-	--sidebar-ring: #c96d12;
-	--brand: #c96d12;
-	--highlight: #f7c84e;
+	--background: #0d0f13;
+	--foreground: #eceef2;
+	--card: #15181e;
+	--card-foreground: #eceef2;
+	--popover: #181b22;
+	--popover-foreground: #eceef2;
+	--primary: #f7c548;
+	--primary-hover: #ffd66e;
+	--primary-foreground: #1d1405;
+	--secondary: #1c2028;
+	--secondary-foreground: #eceef2;
+	--muted: #1c2028;
+	--muted-foreground: #9199a7;
+	--accent: #232833;
+	--accent-foreground: #eceef2;
+	--destructive: #f27a6a;
+	--border: #252a33;
+	--input: #323844;
+	--ring: #f7c548;
+	--chart-1: #f59f2c;
+	--chart-2: #f7c548;
+	--chart-3: #6b7486;
+	--chart-4: #4ade80;
+	--chart-5: #c2771f;
+	--sidebar: #111318;
+	--sidebar-foreground: #eceef2;
+	--sidebar-primary: #f7c548;
+	--sidebar-primary-foreground: #1d1405;
+	--sidebar-accent: #1c2028;
+	--sidebar-accent-foreground: #eceef2;
+	--sidebar-border: #252a33;
+	--sidebar-ring: #f7c548;
+	--brand: #f59f2c;
+	--highlight: #f7c548;
 
-	/* Brand extras */
-	--ember: #c96d12;
-	--ember-text: #94490a;
-	--edge: #2e1408;
-	--extrude: #8a4a18;
-	--stone: #5a6378;
-	--online: #1f8a4c;
-	--offline: #8c7f70;
-	--surface-sunken: #efe7da;
+	--ember: #f59f2c;
+	--ember-text: #f7b65a;
+	--edge: #07080a;
+	--extrude: #9a6a12;
+	--stone: #2a303b;
+	--online: #4ade80;
+	--offline: #6b7280;
+	--surface-sunken: #0a0c0f;
+	--glow: rgb(247 197 72 / 14%);
 }
 
-.dark {
-	/* Obsidian: dark theme with the wordmark's gold and the icon's ember. */
-	--background: #110e0b;
-	--foreground: #f4ebdd;
-	--card: #1d1813;
-	--card-foreground: #f4ebdd;
-	--popover: #1d1813;
-	--popover-foreground: #f4ebdd;
-	--primary: #f9d36b;
-	--primary-hover: #fde9a8;
-	--primary-foreground: #2a1608;
-	--secondary: #262019;
-	--secondary-foreground: #f4ebdd;
-	--muted: #262019;
-	--muted-foreground: #b7a993;
-	--accent: #2e261d;
-	--accent-foreground: #f4ebdd;
-	--destructive: #f2785c;
-	--border: #3a3027;
-	--input: #4d4034;
-	--ring: #f2a33a;
-	--chart-1: #f2a33a;
-	--chart-2: #f9d36b;
-	--chart-3: #6b7489;
-	--chart-4: #6fdc94;
-	--chart-5: #b5651d;
-	--sidebar: #17130f;
-	--sidebar-foreground: #f4ebdd;
-	--sidebar-primary: #f9d36b;
-	--sidebar-primary-foreground: #2a1608;
-	--sidebar-accent: #262019;
-	--sidebar-accent-foreground: #f4ebdd;
-	--sidebar-border: #3a3027;
-	--sidebar-ring: #f2a33a;
-	--brand: #f2a33a;
-	--highlight: #f9d36b;
-
-	--ember: #f2a33a;
-	--ember-text: #f6b75a;
-	--edge: #2e1408;
-	--extrude: #6b3a12;
-	--stone: #4b5468;
-	--online: #6fdc94;
-	--offline: #7d7368;
-	--surface-sunken: #17130f;
+:root.light {
+	color-scheme: light;
+	--background: #f5f6f8;
+	--foreground: #202630;
+	--card: #ffffff;
+	--card-foreground: #202630;
+	--popover: #ffffff;
+	--popover-foreground: #202630;
+	--primary: #956000;
+	--primary-hover: #805100;
+	--primary-foreground: #ffffff;
+	--secondary: #e8ebef;
+	--secondary-foreground: #202630;
+	--muted: #e8ebef;
+	--muted-foreground: #536070;
+	--accent: #e1e6ec;
+	--accent-foreground: #202630;
+	--destructive: #ba3429;
+	--border: #d1d7df;
+	--input: #bdc6d1;
+	--ring: #956000;
+	--sidebar: #edf0f4;
+	--sidebar-foreground: #202630;
+	--sidebar-primary: #956000;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #e1e6ec;
+	--sidebar-accent-foreground: #202630;
+	--sidebar-border: #d1d7df;
+	--sidebar-ring: #956000;
+	--ember-text: #835200;
+	--stone: #dce2e9;
+	--online: #24723c;
+	--offline: #626d7c;
+	--surface-sunken: #e8ecf1;
+	--glow: rgb(184 126 25 / 10%);
 }
 
 @layer base {
@@ -198,37 +194,398 @@
 		text-wrap: balance;
 	}
 
-	/* Bedrock: an original 16x16 pixel-art tile, scaled 4x with hard pixels. */
+	/* Bedrock: the original 16x16 pixel tile, washed back so it reads as texture, not noise. */
 	.strata {
 		background-color: var(--stone);
-		background-image: url("/textures/bedrock.png");
-		background-size: 64px 64px;
+		background-image:
+			linear-gradient(
+				180deg,
+				color-mix(in oklab, var(--card) 55%, transparent),
+				color-mix(in oklab, var(--card) 80%, transparent)
+			),
+			url("/textures/bedrock.png");
+		background-size:
+			100% 100%,
+			64px 64px;
 		image-rendering: pixelated;
-		box-shadow:
-			inset 0 3px 0 rgb(255 255 255 / 7%),
-			inset 0 -4px 0 rgb(0 0 0 / 35%);
 	}
 
-	/* Chunky block bevel for logo and icon tiles. */
+	/* Soft block bevel for logo and icon tiles. */
 	.tile-bevel {
-		border: 2px solid var(--edge);
+		border: 1px solid
+			color-mix(in oklab, var(--foreground) 10%, transparent);
 		box-shadow:
-			inset 0 -6px 0 rgb(0 0 0 / 28%),
-			inset 0 3px 0 rgb(255 255 255 / 14%);
+			inset 0 -3px 0 rgb(0 0 0 / 22%),
+			inset 0 1px 0 rgb(255 255 255 / 12%);
 	}
 
-	/* The hard drop under raised gold surfaces, like the logo's extrusion. */
+	/* The drop under raised gold surfaces, like the logo's extrusion. */
 	.extrude {
-		box-shadow: 0 4px 0 var(--extrude);
+		box-shadow: 0 3px 0 var(--extrude);
+	}
+
+	/* Ambient gold light behind hero sections. */
+	.hero-ambient {
+		background-image:
+			radial-gradient(
+				60rem 28rem at 15% -10%,
+				var(--glow),
+				transparent 70%
+			),
+			radial-gradient(
+				40rem 24rem at 95% 10%,
+				color-mix(in oklab, var(--ember) 10%, transparent),
+				transparent 70%
+			);
+	}
+
+	/* Craft UI's raised block: independent face, bevel and bottom extrusion.
+	 * The face sinks on press without moving or shrinking the click target. */
+	.ore-primary {
+		position: relative;
+		isolation: isolate;
+		cursor: pointer;
+		transition-property: color, box-shadow;
+		padding-bottom: 4px;
+		--ore-face: var(--primary);
+		--ore-hi: color-mix(in srgb, var(--primary) 55%, white);
+		--ore-lo: color-mix(in srgb, var(--primary) 80%, #6c4213);
+		--ore-edge: #936018;
+		--ore-depth: 4px;
+	}
+	.ore-primary::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		border: 1px solid #1e1e1f;
+		background: var(--ore-face);
+		box-shadow:
+			inset 0 calc(-1 * var(--ore-depth)) 0 var(--ore-edge),
+			inset 0 calc(-1 * (var(--ore-depth) + 1px)) 0 var(--ore-lo),
+			inset 0 1px 0 var(--ore-hi),
+			inset 1px 0 0 var(--ore-hi),
+			inset -1px 0 0 var(--ore-lo);
+		transition: top 75ms;
+	}
+	.ore-primary:hover {
+		--ore-face: var(--primary-hover);
+	}
+	.ore-primary:active:not([aria-haspopup]) {
+		padding-bottom: 0;
+		translate: none;
+		--ore-depth: 0px;
+		--ore-face: color-mix(in srgb, var(--primary) 90%, #936018);
+	}
+	.ore-primary:active:not([aria-haspopup])::before {
+		top: 4px;
+	}
+
+	.hero-night {
+		background: #0a101c;
+	}
+	.hero-night-sky {
+		position: absolute;
+		inset: 0;
+		z-index: -20;
+		pointer-events: none;
+		background: linear-gradient(180deg, #080f18, #10202c 65%, #253642);
+	}
+	.hero-night-sky::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background:
+			url("/textures/chunk/stars.svg") center top / 1440px 720px repeat;
+		opacity: 0.7;
+	}
+	.hero-moon {
+		position: absolute;
+		top: 36px;
+		right: 13%;
+		width: 52px;
+		height: 52px;
+		background: #dce2de;
+		box-shadow:
+			inset 8px 0 #b4c0c5,
+			inset -8px -8px #c2ccd0,
+			0 0 72px 16px rgb(178 205 228 / 12%);
+	}
+	.hero-moon::after {
+		content: "";
+		position: absolute;
+		inset: 12px 8px 20px 24px;
+		background: #bac6c9;
+		box-shadow: -12px 16px #c6d0d1;
+	}
+
+	/* Fade a background out towards the bottom edge. */
+	.mask-fade-b {
+		mask-image: linear-gradient(180deg, #000 55%, transparent);
+	}
+
+	/* Lift interactive cards slightly; borders warm towards the accent. */
+	.card-lift {
+		transition:
+			transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+			border-color 200ms,
+			box-shadow 200ms;
+	}
+	.card-lift:hover,
+	.card-lift:focus-within {
+		transform: translateY(-2px);
+		border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+		box-shadow: 0 12px 32px -16px
+			color-mix(in oklab, var(--primary) 35%, transparent);
 	}
 
 	.eyebrow {
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
 		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--ember-text);
+	}
+
+	/* A square bullet before a section label, like a single block. */
+	.eyebrow-block {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		font-weight: 600;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
 		color: var(--ember-text);
+	}
+	.eyebrow-block::before {
+		content: "";
+		width: 0.4rem;
+		height: 0.4rem;
+		background: var(--primary);
+		box-shadow: 0 0 10px var(--primary);
+	}
+
+	/* A row of grass blocks along the bottom of a section. Original 8x8 tile at 4x. */
+	/* The surface at night: grass and terrain share one moonlit dimming. */
+	.pixel-ground {
+		height: 32px;
+		background-image: url("/textures/grass-edge.svg");
+		background-size: 32px 32px;
+		background-position: right bottom;
+		background-repeat: repeat-x;
+		image-rendering: pixelated;
+		filter: brightness(0.62) saturate(0.9);
+	}
+
+	/* Rolling plains with oaks and flowers, anchored to the right; 2560 x 288px. */
+	.chunk-surface {
+		height: 288px;
+		background-image: url("/textures/chunk/surface.svg");
+		background-size: 2560px 288px;
+		background-position: right bottom;
+		background-repeat: no-repeat;
+		image-rendering: pixelated;
+		filter: brightness(0.62) saturate(0.9);
+	}
+
+	/*
+	 * Browse pages stand on a strip of the home page's ground: a row of grass
+	 * and one row of dirt that fades into the page. Right-anchored like the
+	 * hero's terrain.
+	 */
+	.listing-ground {
+		height: 64px;
+		background-image:
+			url("/textures/grass-edge.svg"), url("/textures/chunk/dirt.svg");
+		background-size:
+			32px 32px,
+			512px 384px;
+		background-position:
+			right top,
+			right 32px;
+		background-repeat: repeat-x;
+		image-rendering: pixelated;
+		filter: brightness(0.62) saturate(0.9);
+		mask-image: linear-gradient(180deg, #000 45%, transparent);
+	}
+	.listing-night-sky {
+		/* End at the grass so the dirt still fades into the page below. */
+		bottom: 64px;
+	}
+	/* The section's block colour, glowing behind a browse page's title. */
+	.listing-glow {
+		background-image:
+			radial-gradient(
+				50rem 22rem at 12% -20%,
+				color-mix(in oklab, var(--tile) 22%, transparent),
+				transparent 70%
+			),
+			radial-gradient(
+				36rem 20rem at 95% 0%,
+				color-mix(in oklab, var(--tile) 10%, transparent),
+				transparent 70%
+			);
+	}
+
+	/*
+	 * Category tiles: each section gets a block colour (grass, diamond,
+	 * amethyst, redstone) over the washed-back bedrock texture.
+	 */
+	.tile-category {
+		--tile: var(--primary);
+		background-image:
+			radial-gradient(
+				120% 90% at 100% 0%,
+				color-mix(in oklab, var(--tile) 45%, transparent),
+				transparent 65%
+			),
+			linear-gradient(
+				180deg,
+				color-mix(in oklab, var(--tile) 18%, var(--card)),
+				var(--card)
+			);
+	}
+	.tile-grass {
+		--tile: #4fae3f;
+	}
+	.tile-diamond {
+		--tile: #2fc3cf;
+	}
+	.tile-amethyst {
+		--tile: #a275e3;
+	}
+	.tile-redstone {
+		--tile: #e0483a;
+	}
+	.tile-gold {
+		--tile: #f7c548;
+	}
+
+	/*
+	 * The home page as a slice of a chunk: dirt, stone,
+	 * deepslate and bedrock. Textures are original pixel art from
+	 * scripts/generate-chunk-textures.py; one block is 32px. A dark wash over
+	 * each layer keeps text readable, and it deepens with depth.
+	 */
+	.chunk-dirt,
+	.chunk-stone,
+	.chunk-deepslate,
+	.chunk-bedrock,
+	.chunk-edge {
+		background-color: #07080a;
+		image-rendering: pixelated;
+	}
+	/* Identical filtering above and below the hero; only depth adds darkness. */
+	.chunk-dirt {
+		position: relative;
+		isolation: isolate;
+		background: #07080a;
+	}
+	.chunk-dirt::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		background: url("/textures/chunk/dirt.svg") right top / 512px 384px;
+		filter: brightness(0.62) saturate(0.9);
+	}
+	.chunk-dirt::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		pointer-events: none;
+		background: linear-gradient(transparent, rgb(7 8 10 / 74%));
+	}
+	.chunk-stone {
+		background-image:
+			linear-gradient(rgb(7 8 10 / 84%), rgb(7 8 10 / 84%)),
+			url("/textures/chunk/stone.svg");
+		background-size:
+			100% 100%,
+			512px 384px;
+	}
+	.chunk-deepslate {
+		background-image:
+			linear-gradient(rgb(7 8 10 / 82%), rgb(7 8 10 / 82%)),
+			url("/textures/chunk/deepslate.svg");
+		background-size:
+			100% 100%,
+			512px 384px;
+	}
+	.chunk-bedrock {
+		background-image:
+			linear-gradient(180deg, rgb(7 8 10 / 62%), rgb(7 8 10 / 84%) 14rem),
+			url("/textures/chunk/bedrock.svg");
+		background-size:
+			100% 100%,
+			512px 256px;
+	}
+	.chunk-edge {
+		width: 100%;
+		background-repeat: repeat-x;
+	}
+	.chunk-edge-dirt-stone {
+		height: 64px;
+		background-image:
+			linear-gradient(rgb(7 8 10 / 84%), rgb(7 8 10 / 84%)),
+			url("/textures/chunk/edge-dirt-stone.svg");
+		background-size:
+			100% 100%,
+			768px 64px;
+	}
+	.chunk-edge-stone-deepslate {
+		height: 128px;
+		background-image:
+			linear-gradient(rgb(7 8 10 / 84%), rgb(7 8 10 / 82%)),
+			url("/textures/chunk/edge-stone-deepslate.svg");
+		background-size:
+			100% 100%,
+			768px 128px;
+	}
+	.chunk-edge-bedrock {
+		height: 96px;
+		background-color: transparent;
+		/* Shaded inside the SVG, so the ragged top row's gaps stay see-through. */
+		background-image: url("/textures/chunk/edge-bedrock.svg");
+		background-size: 768px 96px;
+	}
+	/* The shared home/listing sky follows the theme before hydration. */
+	.light .hero-night {
+		background: #c6e8fc;
+	}
+	.light .hero-night-sky {
+		background: linear-gradient(180deg, #8bcafa, #c0e5fc 65%, #e0f2fc);
+	}
+	.light .hero-night-sky::before {
+		display: none;
+	}
+	.light .hero-moon {
+		background: #ffe075;
+		border: 8px solid #ffdf72;
+		box-shadow: 0 0 64px 16px rgb(255 224 117 / 30%);
+		outline: 8px solid rgb(255 224 117 / 18%);
+		outline-offset: 8px;
+	}
+	.light .hero-moon::after {
+		inset: 0;
+		background: #fff3b6;
+		box-shadow: none;
+	}
+	.light .pixel-ground,
+	.light .chunk-surface,
+	.light .listing-ground,
+	.light .chunk-dirt::before {
+		filter: none;
+	}
+	/* Keep the branded gold button face against light surfaces. */
+	.light .ore-primary {
+		--primary: #f7c548;
+		--primary-hover: #ffd66e;
+		--primary-foreground: #1d1405;
 	}
 }
 

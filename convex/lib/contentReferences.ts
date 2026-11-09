@@ -7,6 +7,8 @@ import type { QueryCtx } from '../_generated/server'
 export async function resolveProjectReference(ctx: Pick<QueryCtx, 'db'>, reference: string) {
 	const parsed = parseProjectReference(reference)
 	if (parsed) {
+		const short = await ctx.db.query('projects').withIndex('by_publicId', q => q.eq('publicId', reference)).unique()
+		if (short) return normalizeProjectType(short.type) === parsed.type ? short : null
 		const id = ctx.db.normalizeId('projects', parsed.id)
 		const project = id ? await ctx.db.get('projects', id) : null
 		return project && normalizeProjectType(project.type) === parsed.type ? project : null

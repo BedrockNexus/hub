@@ -1,7 +1,6 @@
 'use client'
 
 import { usePaginatedQuery } from 'convex-helpers/react'
-import Link from 'next/link'
 import {
 	parseAsArrayOf,
 	parseAsString,
@@ -24,7 +23,7 @@ import {
 	ServerCard,
 	ServerCardSkeleton,
 } from '@/components/servers/server-card'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 
 const PAGE_SIZE = 24
@@ -162,15 +161,9 @@ function ServersDirectory() {
 
 	return (
 		<ListingLayout
-			action={
-				<Link
-					className={buttonVariants({ variant: 'outline' })}
-					href="/dashboard/servers/add"
-				>
-					List your server
-				</Link>
-			}
+			description="Bedrock servers with live status and player counts. Copy an address and join."
 			title="Servers"
+			tone="grass"
 		>
 			<AdvancedServerSearch
 				filters={filters}

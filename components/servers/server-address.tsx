@@ -59,8 +59,8 @@ export function ServerAddress({
 	return (
 		<div
 			className={cn(
-				'relative z-10 flex min-w-0 items-stretch overflow-hidden rounded-sm bg-background',
-				large ? 'border-2 border-edge' : 'border border-input',
+				'relative z-10 flex min-w-0 items-stretch overflow-hidden rounded-lg border bg-background/60',
+				large && 'border-input',
 				className,
 			)}
 		>
@@ -96,10 +96,8 @@ export function ServerAddress({
 			<button
 				aria-label={`Copy address for ${serverName}`}
 				className={cn(
-					'inline-flex shrink-0 items-center gap-1.5 bg-muted px-3 font-bold font-display text-[13px] uppercase transition-colors hover:bg-accent',
-					large
-						? 'min-h-12 border-edge border-l-2 px-4 text-sm'
-						: 'min-h-10 border-input border-l',
+					'inline-flex shrink-0 items-center gap-1.5 border-l bg-muted/70 px-3 font-display font-semibold text-[13px] transition-colors hover:bg-primary hover:text-primary-foreground',
+					large ? 'min-h-12 px-4 text-sm' : 'min-h-10',
 				)}
 				onClick={copy}
 				type="button"

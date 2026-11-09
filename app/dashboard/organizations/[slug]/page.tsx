@@ -321,6 +321,7 @@ export default function OrganizationOverviewPage() {
 								href={contentEditHref(
 									project.type,
 									project._id,
+									project.publicId,
 								)}
 								key={project._id}
 							>

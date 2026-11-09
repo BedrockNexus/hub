@@ -52,7 +52,7 @@ async function contentFor(
 			category: project.type === 'addon' ? 'Add-on' : 'Resource pack',
 			name: project.name,
 			summary: project.summary,
-			path: contentHref(project.type, project.slug, project._id),
+			path: contentHref(project.type, project.slug, project._id, project.publicId),
 		}
 	}
 	const id = ctx.db.normalizeId('plugins', row.targetId)

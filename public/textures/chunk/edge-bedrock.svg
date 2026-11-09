@@ -1,0 +1,806 @@
+<svg
+	height="24"
+	shape-rendering="crispEdges"
+	viewBox="0 0 192 24"
+	width="192"
+	xmlns="http://www.w3.org/2000/svg"
+>
+	<title>Deepslate to bedrock</title>
+	<defs>
+		<g id="deepslate1">
+			<rect fill="#404146" height="1" width="3" x="0" y="0" />
+			<rect fill="#38393d" height="1" width="1" x="3" y="0" />
+			<rect fill="#55565c" height="1" width="1" x="4" y="0" />
+			<rect fill="#4a4b50" height="1" width="1" x="5" y="0" />
+			<rect fill="#55565c" height="1" width="1" x="6" y="0" />
+			<rect fill="#404146" height="1" width="1" x="7" y="0" />
+			<rect fill="#5d5e64" height="1" width="2" x="0" y="1" />
+			<rect fill="#55565c" height="1" width="1" x="2" y="1" />
+			<rect fill="#38393d" height="1" width="1" x="3" y="1" />
+			<rect fill="#404146" height="1" width="1" x="4" y="1" />
+			<rect fill="#38393d" height="1" width="1" x="5" y="1" />
+			<rect fill="#404146" height="1" width="1" x="6" y="1" />
+			<rect fill="#55565c" height="1" width="1" x="7" y="1" />
+			<rect fill="#4a4b50" height="1" width="1" x="0" y="2" />
+			<rect fill="#55565c" height="1" width="1" x="1" y="2" />
+			<rect fill="#4a4b50" height="1" width="1" x="2" y="2" />
+			<rect fill="#404146" height="1" width="2" x="3" y="2" />
+			<rect fill="#5d5e64" height="1" width="1" x="5" y="2" />
+			<rect fill="#38393d" height="1" width="2" x="6" y="2" />
+			<rect fill="#404146" height="1" width="1" x="0" y="3" />
+			<rect fill="#4a4b50" height="1" width="1" x="1" y="3" />
+			<rect fill="#404146" height="1" width="2" x="2" y="3" />
+			<rect fill="#4a4b50" height="1" width="1" x="4" y="3" />
+			<rect fill="#404146" height="1" width="1" x="5" y="3" />
+			<rect fill="#4a4b50" height="1" width="1" x="6" y="3" />
+			<rect fill="#404146" height="1" width="1" x="7" y="3" />
+			<rect fill="#4a4b50" height="1" width="1" x="0" y="4" />
+			<rect fill="#404146" height="1" width="1" x="1" y="4" />
+			<rect fill="#38393d" height="1" width="1" x="2" y="4" />
+			<rect fill="#4a4b50" height="1" width="2" x="3" y="4" />
+			<rect fill="#404146" height="1" width="2" x="5" y="4" />
+			<rect fill="#4a4b50" height="1" width="1" x="7" y="4" />
+			<rect fill="#4a4b50" height="1" width="1" x="0" y="5" />
+			<rect fill="#38393d" height="1" width="1" x="1" y="5" />
+			<rect fill="#5d5e64" height="1" width="1" x="2" y="5" />
+			<rect fill="#4a4b50" height="1" width="1" x="3" y="5" />
+			<rect fill="#38393d" height="1" width="1" x="4" y="5" />
+			<rect fill="#55565c" height="1" width="1" x="5" y="5" />
+			<rect fill="#38393d" height="1" width="1" x="6" y="5" />
+			<rect fill="#4a4b50" height="1" width="1" x="7" y="5" />
+			<rect fill="#55565c" height="1" width="1" x="0" y="6" />
+			<rect fill="#5d5e64" height="1" width="3" x="1" y="6" />
+			<rect fill="#404146" height="1" width="1" x="4" y="6" />
+			<rect fill="#55565c" height="1" width="1" x="5" y="6" />
+			<rect fill="#4a4b50" height="1" width="1" x="6" y="6" />
+			<rect fill="#55565c" height="1" width="1" x="7" y="6" />
+			<rect fill="#55565c" height="1" width="2" x="0" y="7" />
+			<rect fill="#5d5e64" height="1" width="1" x="2" y="7" />
+			<rect fill="#4a4b50" height="1" width="2" x="3" y="7" />
+			<rect fill="#55565c" height="1" width="1" x="5" y="7" />
+			<rect fill="#4a4b50" height="1" width="1" x="6" y="7" />
+			<rect fill="#38393d" height="1" width="1" x="7" y="7" />
+		</g>
+		<g id="bedrock0">
+			<rect fill="#4b4c50" height="1" width="3" x="0" y="0" />
+			<rect fill="#2e2f32" height="1" width="3" x="3" y="0" />
+			<rect fill="#4b4c50" height="1" width="2" x="6" y="0" />
+			<rect fill="#6c6d70" height="1" width="1" x="0" y="1" />
+			<rect fill="#4b4c50" height="1" width="2" x="1" y="1" />
+			<rect fill="#2e2f32" height="1" width="3" x="3" y="1" />
+			<rect fill="#4b4c50" height="1" width="2" x="6" y="1" />
+			<rect fill="#858689" height="1" width="1" x="0" y="2" />
+			<rect fill="#3a3b3e" height="1" width="1" x="1" y="2" />
+			<rect fill="#4b4c50" height="1" width="1" x="2" y="2" />
+			<rect fill="#6c6d70" height="1" width="3" x="3" y="2" />
+			<rect fill="#858689" height="1" width="1" x="6" y="2" />
+			<rect fill="#4b4c50" height="1" width="1" x="7" y="2" />
+			<rect fill="#858689" height="1" width="1" x="0" y="3" />
+			<rect fill="#4b4c50" height="1" width="2" x="1" y="3" />
+			<rect fill="#6c6d70" height="1" width="3" x="3" y="3" />
+			<rect fill="#858689" height="1" width="1" x="6" y="3" />
+			<rect fill="#4b4c50" height="1" width="1" x="7" y="3" />
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="4" />
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="5" />
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="6" />
+			<rect fill="#4b4c50" height="1" width="1" x="0" y="7" />
+			<rect fill="#6c6d70" height="1" width="3" x="1" y="7" />
+			<rect fill="#3a3b3e" height="1" width="2" x="4" y="7" />
+			<rect fill="#4b4c50" height="1" width="1" x="6" y="7" />
+			<rect fill="#2e2f32" height="1" width="1" x="7" y="7" />
+		</g>
+		<g id="bedrock1">
+			<rect fill="#4b4c50" height="1" width="3" x="0" y="0" />
+			<rect fill="#6c6d70" height="1" width="2" x="3" y="0" />
+			<rect fill="#4b4c50" height="1" width="3" x="5" y="0" />
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="1" />
+			<rect fill="#6c6d70" height="1" width="2" x="0" y="2" />
+			<rect fill="#4b4c50" height="1" width="6" x="2" y="2" />
+			<rect fill="#4b4c50" height="1" width="2" x="0" y="3" />
+			<rect fill="#6c6d70" height="1" width="1" x="2" y="3" />
+			<rect fill="#2e2f32" height="1" width="2" x="3" y="3" />
+			<rect fill="#4b4c50" height="1" width="3" x="5" y="3" />
+			<rect fill="#4b4c50" height="1" width="3" x="0" y="4" />
+			<rect fill="#2e2f32" height="1" width="2" x="3" y="4" />
+			<rect fill="#4b4c50" height="1" width="3" x="5" y="4" />
+			<rect fill="#4b4c50" height="1" width="3" x="0" y="5" />
+			<rect fill="#3a3b3e" height="1" width="2" x="3" y="5" />
+			<rect fill="#4b4c50" height="1" width="2" x="5" y="5" />
+			<rect fill="#232426" height="1" width="1" x="7" y="5" />
+			<rect fill="#4b4c50" height="1" width="7" x="0" y="6" />
+			<rect fill="#232426" height="1" width="1" x="7" y="6" />
+			<rect fill="#4b4c50" height="1" width="4" x="0" y="7" />
+			<rect fill="#3a3b3e" height="1" width="3" x="4" y="7" />
+			<rect fill="#4b4c50" height="1" width="1" x="7" y="7" />
+		</g>
+		<g id="deepslate2">
+			<rect fill="#404146" height="1" width="1" x="0" y="0" />
+			<rect fill="#4a4b50" height="1" width="1" x="1" y="0" />
+			<rect fill="#404146" height="1" width="2" x="2" y="0" />
+			<rect fill="#4a4b50" height="1" width="1" x="4" y="0" />
+			<rect fill="#38393d" height="1" width="2" x="5" y="0" />
+			<rect fill="#5d5e64" height="1" width="1" x="7" y="0" />
+			<rect fill="#38393d" height="1" width="1" x="0" y="1" />
+			<rect fill="#4a4b50" height="1" width="1" x="1" y="1" />
+			<rect fill="#5d5e64" height="1" width="1" x="2" y="1" />
+			<rect fill="#4a4b50" height="1" width="2" x="3" y="1" />
+			<rect fill="#404146" height="1" width="1" x="5" y="1" />
+			<rect fill="#38393d" height="1" width="2" x="6" y="1" />
+			<rect fill="#38393d" height="1" width="1" x="0" y="2" />
+			<rect fill="#55565c" height="1" width="1" x="1" y="2" />
+			<rect fill="#38393d" height="1" width="1" x="2" y="2" />
+			<rect fill="#404146" height="1" width="1" x="3" y="2" />
+			<rect fill="#4a4b50" height="1" width="1" x="4" y="2" />
+			<rect fill="#404146" height="1" width="1" x="5" y="2" />
+			<rect fill="#4a4b50" height="1" width="1" x="6" y="2" />
+			<rect fill="#38393d" height="1" width="1" x="7" y="2" />
+			<rect fill="#404146" height="1" width="1" x="0" y="3" />
+			<rect fill="#38393d" height="1" width="1" x="1" y="3" />
+			<rect fill="#404146" height="1" width="2" x="2" y="3" />
+			<rect fill="#5d5e64" height="1" width="1" x="4" y="3" />
+			<rect fill="#55565c" height="1" width="1" x="5" y="3" />
+			<rect fill="#404146" height="1" width="2" x="6" y="3" />
+			<rect fill="#5d5e64" height="1" width="2" x="0" y="4" />
+			<rect fill="#4a4b50" height="1" width="1" x="2" y="4" />
+			<rect fill="#5d5e64" height="1" width="1" x="3" y="4" />
+			<rect fill="#55565c" height="1" width="2" x="4" y="4" />
+			<rect fill="#4a4b50" height="1" width="1" x="6" y="4" />
+			<rect fill="#404146" height="1" width="1" x="7" y="4" />
+			<rect fill="#4a4b50" height="1" width="1" x="0" y="5" />
+			<rect fill="#404146" height="1" width="1" x="1" y="5" />
+			<rect fill="#38393d" height="1" width="1" x="2" y="5" />
+			<rect fill="#5d5e64" height="1" width="2" x="3" y="5" />
+			<rect fill="#4a4b50" height="1" width="3" x="5" y="5" />
+			<rect fill="#404146" height="1" width="1" x="0" y="6" />
+			<rect fill="#4a4b50" height="1" width="1" x="1" y="6" />
+			<rect fill="#55565c" height="1" width="1" x="2" y="6" />
+			<rect fill="#404146" height="1" width="2" x="3" y="6" />
+			<rect fill="#5d5e64" height="1" width="1" x="5" y="6" />
+			<rect fill="#38393d" height="1" width="1" x="6" y="6" />
+			<rect fill="#404146" height="1" width="1" x="7" y="6" />
+			<rect fill="#4a4b50" height="1" width="1" x="0" y="7" />
+			<rect fill="#5d5e64" height="1" width="1" x="1" y="7" />
+			<rect fill="#404146" height="1" width="1" x="2" y="7" />
+			<rect fill="#38393d" height="1" width="1" x="3" y="7" />
+			<rect fill="#5d5e64" height="1" width="1" x="4" y="7" />
+			<rect fill="#55565c" height="1" width="2" x="5" y="7" />
+			<rect fill="#38393d" height="1" width="1" x="7" y="7" />
+		</g>
+		<g id="bedrock3">
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="0" />
+			<rect fill="#4b4c50" height="1" width="3" x="0" y="1" />
+			<rect fill="#2e2f32" height="1" width="2" x="3" y="1" />
+			<rect fill="#4b4c50" height="1" width="2" x="5" y="1" />
+			<rect fill="#232426" height="1" width="1" x="7" y="1" />
+			<rect fill="#4b4c50" height="1" width="3" x="0" y="2" />
+			<rect fill="#2e2f32" height="1" width="2" x="3" y="2" />
+			<rect fill="#4b4c50" height="1" width="2" x="5" y="2" />
+			<rect fill="#232426" height="1" width="1" x="7" y="2" />
+			<rect fill="#4b4c50" height="1" width="4" x="0" y="3" />
+			<rect fill="#858689" height="1" width="1" x="4" y="3" />
+			<rect fill="#4b4c50" height="1" width="1" x="5" y="3" />
+			<rect fill="#6c6d70" height="1" width="2" x="6" y="3" />
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="4" />
+			<rect fill="#232426" height="1" width="2" x="0" y="5" />
+			<rect fill="#3a3b3e" height="1" width="1" x="2" y="5" />
+			<rect fill="#4b4c50" height="1" width="5" x="3" y="5" />
+			<rect fill="#4b4c50" height="1" width="4" x="0" y="6" />
+			<rect fill="#2e2f32" height="1" width="2" x="4" y="6" />
+			<rect fill="#4b4c50" height="1" width="2" x="6" y="6" />
+			<rect fill="#4b4c50" height="1" width="4" x="0" y="7" />
+			<rect fill="#2e2f32" height="1" width="2" x="4" y="7" />
+			<rect fill="#4b4c50" height="1" width="2" x="6" y="7" />
+		</g>
+		<g id="bedrock2">
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="0" />
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="1" />
+			<rect fill="#4b4c50" height="1" width="3" x="0" y="2" />
+			<rect fill="#232426" height="1" width="2" x="3" y="2" />
+			<rect fill="#4b4c50" height="1" width="3" x="5" y="2" />
+			<rect fill="#4b4c50" height="1" width="8" x="0" y="3" />
+			<rect fill="#4b4c50" height="1" width="1" x="0" y="4" />
+			<rect fill="#3a3b3e" height="1" width="1" x="1" y="4" />
+			<rect fill="#4b4c50" height="1" width="3" x="2" y="4" />
+			<rect fill="#3a3b3e" height="1" width="3" x="5" y="4" />
+			<rect fill="#4b4c50" height="1" width="5" x="0" y="5" />
+			<rect fill="#232426" height="1" width="2" x="5" y="5" />
+			<rect fill="#3a3b3e" height="1" width="1" x="7" y="5" />
+			<rect fill="#4b4c50" height="1" width="1" x="0" y="6" />
+			<rect fill="#232426" height="1" width="1" x="1" y="6" />
+			<rect fill="#4b4c50" height="1" width="2" x="2" y="6" />
+			<rect fill="#6c6d70" height="1" width="4" x="4" y="6" />
+			<rect fill="#4b4c50" height="1" width="1" x="0" y="7" />
+			<rect fill="#232426" height="1" width="1" x="1" y="7" />
+			<rect fill="#4b4c50" height="1" width="4" x="2" y="7" />
+			<rect fill="#6c6d70" height="1" width="2" x="6" y="7" />
+		</g>
+		<g id="deepslate3">
+			<rect fill="#404146" height="1" width="1" x="0" y="0" />
+			<rect fill="#55565c" height="1" width="1" x="1" y="0" />
+			<rect fill="#38393d" height="1" width="1" x="2" y="0" />
+			<rect fill="#55565c" height="1" width="4" x="3" y="0" />
+			<rect fill="#4a4b50" height="1" width="1" x="7" y="0" />
+			<rect fill="#55565c" height="1" width="1" x="0" y="1" />
+			<rect fill="#404146" height="1" width="2" x="1" y="1" />
+			<rect fill="#5d5e64" height="1" width="1" x="3" y="1" />
+			<rect fill="#55565c" height="1" width="1" x="4" y="1" />
+			<rect fill="#4a4b50" height="1" width="1" x="5" y="1" />
+			<rect fill="#55565c" height="1" width="1" x="6" y="1" />
+			<rect fill="#4a4b50" height="1" width="1" x="7" y="1" />
+			<rect fill="#404146" height="1" width="1" x="0" y="2" />
+			<rect fill="#5d5e64" height="1" width="1" x="1" y="2" />
+			<rect fill="#55565c" height="1" width="1" x="2" y="2" />
+			<rect fill="#38393d" height="1" width="3" x="3" y="2" />
+			<rect fill="#404146" height="1" width="1" x="6" y="2" />
+			<rect fill="#38393d" height="1" width="1" x="7" y="2" />
+			<rect fill="#38393d" height="1" width="2" x="0" y="3" />
+			<rect fill="#4a4b50" height="1" width="1" x="2" y="3" />
+			<rect fill="#38393d" height="1" width="1" x="3" y="3" />
+			<rect fill="#55565c" height="1" width="1" x="4" y="3" />
+			<rect fill="#4a4b50" height="1" width="2" x="5" y="3" />
+			<rect fill="#38393d" height="1" width="1" x="7" y="3" />
+			<rect fill="#404146" height="1" width="1" x="0" y="4" />
+			<rect fill="#55565c" height="1" width="1" x="1" y="4" />
+			<rect fill="#4a4b50" height="1" width="2" x="2" y="4" />
+			<rect fill="#5d5e64" height="1" width="1" x="4" y="4" />
+			<rect fill="#404146" height="1" width="3" x="5" y="4" />
+			<rect fill="#55565c" height="1" width="2" x="0" y="5" />
+			<rect fill="#38393d" height="1" width="3" x="2" y="5" />
+			<rect fill="#4a4b50" height="1" width="1" x="5" y="5" />
+			<rect fill="#38393d" height="1" width="1" x="6" y="5" />
+			<rect fill="#5d5e64" height="1" width="1" x="7" y="5" />
+			<rect fill="#5d5e64" height="1" width="1" x="0" y="6" />
+			<rect fill="#404146" height="1" width="1" x="1" y="6" />
+			<rect fill="#55565c" height="1" width="1" x="2" y="6" />
+			<rect fill="#404146" height="1" width="1" x="3" y="6" />
+			<rect fill="#38393d" height="1" width="1" x="4" y="6" />
+			<rect fill="#5d5e64" height="1" width="1" x="5" y="6" />
+			<rect fill="#4a4b50" height="1" width="1" x="6" y="6" />
+			<rect fill="#404146" height="1" width="1" x="7" y="6" />
+			<rect fill="#38393d" height="1" width="1" x="0" y="7" />
+			<rect fill="#55565c" height="1" width="1" x="1" y="7" />
+			<rect fill="#4a4b50" height="1" width="1" x="2" y="7" />
+			<rect fill="#55565c" height="1" width="1" x="3" y="7" />
+			<rect fill="#5d5e64" height="1" width="2" x="4" y="7" />
+			<rect fill="#4a4b50" height="1" width="1" x="6" y="7" />
+			<rect fill="#55565c" height="1" width="1" x="7" y="7" />
+		</g>
+		<g id="deepslate0">
+			<rect fill="#38393d" height="1" width="1" x="0" y="0" />
+			<rect fill="#55565c" height="1" width="1" x="1" y="0" />
+			<rect fill="#4a4b50" height="1" width="1" x="2" y="0" />
+			<rect fill="#55565c" height="1" width="5" x="3" y="0" />
+			<rect fill="#404146" height="1" width="1" x="0" y="1" />
+			<rect fill="#38393d" height="1" width="3" x="1" y="1" />
+			<rect fill="#404146" height="1" width="1" x="4" y="1" />
+			<rect fill="#5d5e64" height="1" width="1" x="5" y="1" />
+			<rect fill="#55565c" height="1" width="1" x="6" y="1" />
+			<rect fill="#404146" height="1" width="1" x="7" y="1" />
+			<rect fill="#38393d" height="1" width="1" x="0" y="2" />
+			<rect fill="#5d5e64" height="1" width="2" x="1" y="2" />
+			<rect fill="#404146" height="1" width="1" x="3" y="2" />
+			<rect fill="#4a4b50" height="1" width="1" x="4" y="2" />
+			<rect fill="#5d5e64" height="1" width="1" x="5" y="2" />
+			<rect fill="#404146" height="1" width="1" x="6" y="2" />
+			<rect fill="#5d5e64" height="1" width="1" x="7" y="2" />
+			<rect fill="#4a4b50" height="1" width="1" x="0" y="3" />
+			<rect fill="#38393d" height="1" width="1" x="1" y="3" />
+			<rect fill="#4a4b50" height="1" width="1" x="2" y="3" />
+			<rect fill="#5d5e64" height="1" width="1" x="3" y="3" />
+			<rect fill="#4a4b50" height="1" width="1" x="4" y="3" />
+			<rect fill="#404146" height="1" width="1" x="5" y="3" />
+			<rect fill="#4a4b50" height="1" width="1" x="6" y="3" />
+			<rect fill="#5d5e64" height="1" width="1" x="7" y="3" />
+			<rect fill="#55565c" height="1" width="1" x="0" y="4" />
+			<rect fill="#5d5e64" height="1" width="1" x="1" y="4" />
+			<rect fill="#4a4b50" height="1" width="4" x="2" y="4" />
+			<rect fill="#38393d" height="1" width="1" x="6" y="4" />
+			<rect fill="#55565c" height="1" width="1" x="7" y="4" />
+			<rect fill="#404146" height="1" width="1" x="0" y="5" />
+			<rect fill="#5d5e64" height="1" width="1" x="1" y="5" />
+			<rect fill="#4a4b50" height="1" width="1" x="2" y="5" />
+			<rect fill="#404146" height="1" width="1" x="3" y="5" />
+			<rect fill="#38393d" height="1" width="1" x="4" y="5" />
+			<rect fill="#4a4b50" height="1" width="1" x="5" y="5" />
+			<rect fill="#404146" height="1" width="2" x="6" y="5" />
+			<rect fill="#55565c" height="1" width="1" x="0" y="6" />
+			<rect fill="#38393d" height="1" width="1" x="1" y="6" />
+			<rect fill="#4a4b50" height="1" width="1" x="2" y="6" />
+			<rect fill="#5d5e64" height="1" width="1" x="3" y="6" />
+			<rect fill="#55565c" height="1" width="1" x="4" y="6" />
+			<rect fill="#38393d" height="1" width="1" x="5" y="6" />
+			<rect fill="#404146" height="1" width="1" x="6" y="6" />
+			<rect fill="#4a4b50" height="1" width="1" x="7" y="6" />
+			<rect fill="#5d5e64" height="1" width="1" x="0" y="7" />
+			<rect fill="#38393d" height="1" width="1" x="1" y="7" />
+			<rect fill="#55565c" height="1" width="1" x="2" y="7" />
+			<rect fill="#5d5e64" height="1" width="1" x="3" y="7" />
+			<rect fill="#404146" height="1" width="1" x="4" y="7" />
+			<rect fill="#38393d" height="1" width="3" x="5" y="7" />
+		</g>
+	</defs>
+	<use href="#deepslate1" x="0" y="8" />
+	<rect fill="#07080a" fill-opacity="0.82" height="8" width="8" x="0" y="8" />
+	<use href="#bedrock0" x="0" y="16" />
+	<rect fill="#07080a" fill-opacity="0.6" height="8" width="8" x="0" y="16" />
+	<use href="#bedrock1" x="8" y="0" />
+	<rect fill="#07080a" fill-opacity="0.5" height="8" width="8" x="8" y="0" />
+	<use href="#deepslate1" x="8" y="8" />
+	<rect fill="#07080a" fill-opacity="0.82" height="8" width="8" x="8" y="8" />
+	<use href="#deepslate2" x="8" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="8"
+		y="16"
+	/>
+	<use href="#deepslate1" x="16" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="16"
+		y="8"
+	/>
+	<use href="#bedrock1" x="16" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="16"
+		y="16"
+	/>
+	<use href="#bedrock1" x="24" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="24"
+		y="8"
+	/>
+	<use href="#bedrock0" x="24" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="24"
+		y="16"
+	/>
+	<use href="#bedrock0" x="32" y="0" />
+	<rect fill="#07080a" fill-opacity="0.5" height="8" width="8" x="32" y="0" />
+	<use href="#bedrock3" x="32" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="32"
+		y="8"
+	/>
+	<use href="#bedrock3" x="32" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="32"
+		y="16"
+	/>
+	<use href="#bedrock1" x="40" y="0" />
+	<rect fill="#07080a" fill-opacity="0.5" height="8" width="8" x="40" y="0" />
+	<use href="#deepslate2" x="40" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="40"
+		y="8"
+	/>
+	<use href="#bedrock0" x="40" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="40"
+		y="16"
+	/>
+	<use href="#bedrock1" x="48" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="48"
+		y="8"
+	/>
+	<use href="#bedrock3" x="48" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="48"
+		y="16"
+	/>
+	<use href="#bedrock2" x="56" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="56"
+		y="8"
+	/>
+	<use href="#bedrock0" x="56" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="56"
+		y="16"
+	/>
+	<use href="#bedrock3" x="64" y="0" />
+	<rect fill="#07080a" fill-opacity="0.5" height="8" width="8" x="64" y="0" />
+	<use href="#deepslate3" x="64" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="64"
+		y="8"
+	/>
+	<use href="#bedrock0" x="64" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="64"
+		y="16"
+	/>
+	<use href="#bedrock3" x="72" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="72"
+		y="8"
+	/>
+	<use href="#bedrock1" x="72" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="72"
+		y="16"
+	/>
+	<use href="#bedrock0" x="80" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="80"
+		y="8"
+	/>
+	<use href="#bedrock1" x="80" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="80"
+		y="16"
+	/>
+	<use href="#bedrock0" x="88" y="0" />
+	<rect fill="#07080a" fill-opacity="0.5" height="8" width="8" x="88" y="0" />
+	<use href="#bedrock0" x="88" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="88"
+		y="8"
+	/>
+	<use href="#bedrock2" x="88" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="88"
+		y="16"
+	/>
+	<use href="#deepslate1" x="96" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="96"
+		y="8"
+	/>
+	<use href="#bedrock0" x="96" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="96"
+		y="16"
+	/>
+	<use href="#deepslate0" x="104" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="104"
+		y="8"
+	/>
+	<use href="#bedrock0" x="104" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="104"
+		y="16"
+	/>
+	<use href="#bedrock1" x="112" y="0" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.5"
+		height="8"
+		width="8"
+		x="112"
+		y="0"
+	/>
+	<use href="#deepslate2" x="112" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="112"
+		y="8"
+	/>
+	<use href="#bedrock3" x="112" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="112"
+		y="16"
+	/>
+	<use href="#bedrock0" x="120" y="0" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.5"
+		height="8"
+		width="8"
+		x="120"
+		y="0"
+	/>
+	<use href="#bedrock0" x="120" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="120"
+		y="8"
+	/>
+	<use href="#deepslate2" x="120" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="120"
+		y="16"
+	/>
+	<use href="#bedrock1" x="128" y="0" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.5"
+		height="8"
+		width="8"
+		x="128"
+		y="0"
+	/>
+	<use href="#deepslate0" x="128" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="128"
+		y="8"
+	/>
+	<use href="#bedrock2" x="128" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="128"
+		y="16"
+	/>
+	<use href="#deepslate0" x="136" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="136"
+		y="8"
+	/>
+	<use href="#bedrock3" x="136" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="136"
+		y="16"
+	/>
+	<use href="#bedrock3" x="144" y="0" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.5"
+		height="8"
+		width="8"
+		x="144"
+		y="0"
+	/>
+	<use href="#bedrock3" x="144" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="144"
+		y="8"
+	/>
+	<use href="#deepslate3" x="144" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="144"
+		y="16"
+	/>
+	<use href="#bedrock0" x="152" y="0" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.5"
+		height="8"
+		width="8"
+		x="152"
+		y="0"
+	/>
+	<use href="#deepslate0" x="152" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="152"
+		y="8"
+	/>
+	<use href="#deepslate3" x="152" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="152"
+		y="16"
+	/>
+	<use href="#bedrock2" x="160" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="160"
+		y="8"
+	/>
+	<use href="#deepslate3" x="160" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="160"
+		y="16"
+	/>
+	<use href="#bedrock2" x="168" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="168"
+		y="8"
+	/>
+	<use href="#bedrock0" x="168" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="168"
+		y="16"
+	/>
+	<use href="#bedrock0" x="176" y="0" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.5"
+		height="8"
+		width="8"
+		x="176"
+		y="0"
+	/>
+	<use href="#bedrock1" x="176" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.55"
+		height="8"
+		width="8"
+		x="176"
+		y="8"
+	/>
+	<use href="#deepslate0" x="176" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="176"
+		y="16"
+	/>
+	<use href="#bedrock1" x="184" y="0" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.5"
+		height="8"
+		width="8"
+		x="184"
+		y="0"
+	/>
+	<use href="#deepslate2" x="184" y="8" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.82"
+		height="8"
+		width="8"
+		x="184"
+		y="8"
+	/>
+	<use href="#bedrock1" x="184" y="16" />
+	<rect
+		fill="#07080a"
+		fill-opacity="0.6"
+		height="8"
+		width="8"
+		x="184"
+		y="16"
+	/>
+</svg>

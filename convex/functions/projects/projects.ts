@@ -12,6 +12,7 @@ import {
 	snapshotPatch,
 	submissionView,
 } from '../../lib/submissions'
+import { allocateProjectPublicId } from '../../lib/projectPublicIds'
 import { resolveProjectReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
@@ -839,7 +840,9 @@ export const create = mutation({
 
 		const now = Date.now()
 
+		const publicId = await allocateProjectPublicId(ctx, args.type)
 		const projectId = await ctx.db.insert('projects', {
+			publicId,
 			type: normalizeProjectType(args.type),
 			name: args.name,
 			slug,
@@ -869,7 +872,7 @@ export const create = mutation({
 			args.description,
 		)
 
-		return { id: projectId, slug }
+		return { id: projectId, slug, publicId }
 	},
 })
 

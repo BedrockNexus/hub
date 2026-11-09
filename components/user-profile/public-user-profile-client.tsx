@@ -135,7 +135,7 @@ export default function PublicUserProfilePage() {
 				</div>
 				<div className="container relative mx-auto flex flex-col gap-5 px-4 pb-7 md:px-6">
 					<div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-						<div className="extrude -mt-16 shrink-0 rounded-md border-[3px] border-edge bg-stone">
+						<div className="-mt-16 shrink-0 rounded-md border-[3px] border-edge bg-stone">
 							<UserAvatarImage
 								avatarClassName="size-32"
 								image={profile.image}

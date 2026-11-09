@@ -3,7 +3,6 @@
 import { SearchRemoveIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { usePaginatedQuery } from 'convex-helpers/react'
-import Link from 'next/link'
 import {
 	parseAsArrayOf,
 	parseAsString,
@@ -25,7 +24,7 @@ import {
 	ProjectCard,
 	ProjectCardSkeleton,
 } from '@/components/projects/project-card'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import {
 	Empty,
 	EmptyContent,
@@ -36,7 +35,6 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
-import { contentDashboard } from '@/lib/content-routes'
 import {
 	PROJECT_TYPE_LABELS,
 	PROJECT_TYPE_PLURAL_LABELS,
@@ -203,16 +201,13 @@ function ProjectsDirectory({ type }: { type: ProjectType }) {
 
 	return (
 		<ListingLayout
-			action={
-				<Link
-					className={buttonVariants({ variant: 'outline' })}
-					href={`${contentDashboard(type)}/add`}
-				>
-					Publish {type === 'addon' ? 'an' : 'a'}{' '}
-					{label.toLowerCase()}
-				</Link>
+			description={
+				type === 'resource_pack'
+					? 'Textures, sounds and interfaces from independent creators. Every release is reviewed.'
+					: 'Behavior and resource packs that add to the game. Every release is reviewed before it goes live.'
 			}
 			title={plural}
+			tone={type === 'addon' ? 'diamond' : 'amethyst'}
 		>
 			<div>
 				<AdvancedProjectSearch

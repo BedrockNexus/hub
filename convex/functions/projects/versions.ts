@@ -81,7 +81,7 @@ function toPublicRelease(
 		createdAt: version.createdAt,
 		downloadUrl: contentDownloadHref(
 			project.type,
-			projectReference(project.type, project._id),
+			projectReference(project.type, project._id, project.publicId),
 			version.version,
 		),
 	}
@@ -108,7 +108,7 @@ function toCreatorRelease(
 		downloadUrl: isValidatedRelease(version)
 			? contentDownloadHref(
 					project.type,
-					projectReference(project.type, project._id),
+					projectReference(project.type, project._id, project.publicId),
 					version.version,
 				)
 			: undefined,
@@ -219,7 +219,7 @@ export const getDownloadPath = query({
 		if (!project || !isPublicProject(project)) return null
 		return contentDownloadHref(
 			project.type,
-			projectReference(project.type, project._id),
+			projectReference(project.type, project._id, project.publicId),
 			version.version,
 		)
 	},
@@ -246,7 +246,7 @@ export const getPublicByVersion = query({
 			...toPublicRelease(version, project),
 			project: {
 				name: project.name,
-				reference: projectReference(project.type, project._id),
+				reference: projectReference(project.type, project._id, project.publicId),
 				slug: project.slug,
 				type: project.type,
 			},
@@ -829,7 +829,7 @@ export const createDownloadUrl = mutation({
 				normalizeProjectType(project.type) === 'addon'
 					? 'addons'
 					: 'resource-packs',
-			reference: projectReference(project.type, project._id),
+			reference: projectReference(project.type, project._id, project.publicId),
 			version: version.version,
 			requesterKey,
 			counted: countResult.ok,

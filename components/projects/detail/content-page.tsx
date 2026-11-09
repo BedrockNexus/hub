@@ -97,7 +97,7 @@ export async function contentMetadata(
 		release?.changelog || project.summary,
 	)
 	const path =
-		contentHref(type, project.slug, project._id) +
+		contentHref(type, project.slug, project._id, project.publicId) +
 		legacyContentSection(section)
 	return {
 		title,
@@ -128,13 +128,13 @@ export async function ContentPage({
 		}
 	}
 	if (
-		slug !== projectReference(type, project._id) ||
+		slug !== projectReference(type, project._id, project.publicId) ||
 		section?.[0] === 'versions' ||
 		section?.[0] === 'changelog'
 	) {
 		permanentRedirect(
 			withContentSearch(
-				contentHref(type, project.slug, project._id) +
+				contentHref(type, project.slug, project._id, project.publicId) +
 					legacyContentSection(section),
 				(await searchParams) ?? {},
 			),
@@ -145,7 +145,9 @@ export async function ContentPage({
 		'@type': 'SoftwareApplication',
 		name: project.name,
 		description: project.summary,
-		url: absoluteUrl(contentHref(type, project.slug, project._id)),
+		url: absoluteUrl(
+			contentHref(type, project.slug, project._id, project.publicId),
+		),
 		image: project.bannerUrl || project.iconUrl || undefined,
 		applicationCategory: 'GameApplication',
 		operatingSystem: 'Minecraft Bedrock Edition',

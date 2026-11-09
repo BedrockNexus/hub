@@ -31,9 +31,12 @@ export async function ContentSettingsPage({
 		notFound()
 	}
 	// Normalize old slug-based edit links, after checking ownership and type.
-	if (id !== projectReference(type, item._id) || section?.[0] === 'edit') {
+	if (
+		id !== projectReference(type, item._id, item.publicId) ||
+		section?.[0] === 'edit'
+	) {
 		redirect(
-			contentEditHref(type, item._id) +
+			contentEditHref(type, item._id, item.publicId) +
 				legacyContentSection(section, true),
 		)
 	}

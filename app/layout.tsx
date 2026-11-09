@@ -136,16 +136,21 @@ export default async function RootLayout({
 
 	return (
 		<html
-			className={`${displayFont.variable} ${sansFont.variable} ${monoFont.variable}`}
+			className={`dark ${displayFont.variable} ${sansFont.variable} ${monoFont.variable}`}
 			lang="en"
 			suppressHydrationWarning
 		>
 			<body className="antialiased">
+				{/*
+				 * Dark only for now. The light palette and day sky stay in
+				 * globals.css, unused, until light mode is reworked.
+				 */}
 				<ThemeProvider
 					attribute="class"
-					defaultTheme="system"
+					defaultTheme="dark"
 					disableTransitionOnChange
-					enableSystem
+					enableSystem={false}
+					forcedTheme="dark"
 					nonce={nonce}
 				>
 					<TooltipProvider>

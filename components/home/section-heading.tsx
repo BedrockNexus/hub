@@ -4,27 +4,36 @@ import Link from 'next/link'
 
 export function SectionHeading({
 	title,
+	description,
 	href,
 	linkLabel,
 }: {
 	title: string
+	description?: string
 	href?: string
 	linkLabel?: string
 }) {
 	return (
-		<div className="flex flex-wrap items-end justify-between gap-3">
-			<h2 className="font-bold text-[clamp(1.625rem,3vw,2.25rem)] leading-tight">
-				{title}
-			</h2>
+		<div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+			<div className="flex flex-col gap-1.5">
+				<h2 className="text-balance font-bold text-[clamp(1.5rem,2.6vw,2rem)] leading-tight tracking-[-0.015em]">
+					{title}
+				</h2>
+				{description ? (
+					<p className="max-w-[60ch] text-muted-foreground">
+						{description}
+					</p>
+				) : null}
+			</div>
 			{href && linkLabel ? (
 				<Link
-					className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-ember-text hover:text-foreground"
+					className="group inline-flex h-9 items-center gap-1.5 rounded-md border bg-card px-4 font-medium text-sm transition-colors hover:border-primary/60 hover:text-primary"
 					href={href}
 				>
 					{linkLabel}
 					<HugeiconsIcon
 						aria-hidden
-						className="size-4"
+						className="size-4 transition-transform group-hover:translate-x-0.5"
 						icon={ArrowRight02Icon}
 					/>
 				</Link>

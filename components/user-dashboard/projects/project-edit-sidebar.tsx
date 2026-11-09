@@ -108,7 +108,11 @@ export function ProjectEditSidebar({
 							(item) => normalizeProjectType(item.type) === type,
 						)
 						.map((item) => ({
-							id: projectReference(item.type, item._id),
+							id: projectReference(
+								item.type,
+								item._id,
+								item.publicId,
+							),
 							name: item.name,
 							imageUrl: item.iconUrl ?? undefined,
 							subtitle: item.summary,
@@ -122,7 +126,12 @@ export function ProjectEditSidebar({
 			publicHref={
 				project?.status === 'published' &&
 				project.moderationStatus === 'approved'
-					? contentHref(project.type, project.slug, project._id)
+					? contentHref(
+							project.type,
+							project.slug,
+							project._id,
+							project.publicId,
+						)
 					: undefined
 			}
 			sections={SECTIONS}

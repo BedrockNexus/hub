@@ -217,7 +217,7 @@ export function AddProjectForm({ type }: { type: ProjectType }) {
 			})
 
 			toast.success(`${label} draft created`)
-			router.push(contentEditHref(type, project.id))
+			router.push(contentEditHref(type, project.id, project.publicId))
 		} catch (error) {
 			toast.error(
 				userFacingError(

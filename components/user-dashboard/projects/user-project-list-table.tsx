@@ -56,6 +56,7 @@ interface ProjectRow extends CreatorListingInput {
 	_id: Id<'projects'>
 	name: string
 	slug: string
+	publicId?: string
 	type: StoredProjectType
 	status?: ProjectLifecycleStatus
 	categories: (ProjectCategory | null)[]
@@ -218,6 +219,7 @@ export function ProjectListTable({
 						href={contentEditHref(
 							row.original.type,
 							row.original._id,
+							row.original.publicId,
 						)}
 					>
 						{row.original.name}
@@ -467,7 +469,11 @@ export function ProjectListTable({
 				cell: ({ row }) => {
 					const item = row.original
 					const state = creatorListingState(item)
-					const editHref = contentEditHref(item.type, item._id)
+					const editHref = contentEditHref(
+						item.type,
+						item._id,
+						item.publicId,
+					)
 					return (
 						<ListingRowActions
 							deletion={
@@ -491,6 +497,7 @@ export function ProjectListTable({
 											item.type,
 											item.slug,
 											item._id,
+											item.publicId,
 										)
 									: undefined
 							}

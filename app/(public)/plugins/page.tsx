@@ -110,15 +110,9 @@ export default async function ExplorePage({
 	)
 	return (
 		<ListingLayout
-			action={
-				<Link
-					className={buttonVariants({ variant: 'outline' })}
-					href="/dashboard/plugins/new"
-				>
-					Publish a plugin
-				</Link>
-			}
+			description="Plugins for Bedrock server software, built from public source code."
 			title="Plugins"
+			tone="redstone"
 		>
 			<Suspense>
 				<PluginSearchFilters

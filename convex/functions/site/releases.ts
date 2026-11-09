@@ -61,7 +61,7 @@ async function latestContentRelease(
 					fileSize: release.fileSize,
 					gameVersions: release.gameVersions ?? [],
 					sha256: release.validationReport?.sha256 ?? null,
-					downloadPath: contentDownloadHref(project.type, projectReference(project.type, project._id), release.version),
+					downloadPath: contentDownloadHref(project.type, projectReference(project.type, project._id, project.publicId), release.version),
 				}
 			: null,
 	}

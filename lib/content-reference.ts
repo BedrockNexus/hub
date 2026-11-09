@@ -4,7 +4,17 @@ import {
 } from './project-artifacts'
 
 /** Stable route identity; names and slugs remain editable display metadata. */
-export function projectReference(type: StoredProjectType, id: string) {
+export function projectReference(
+	type: StoredProjectType,
+	id: string,
+	publicId?: string,
+) {
+	if (
+		publicId &&
+		parseProjectReference(publicId)?.type === normalizeProjectType(type)
+	) {
+		return publicId
+	}
 	const prefix = normalizeProjectType(type) === 'addon' ? 'a_' : 'rp_'
 	return id.startsWith(prefix) ? id : `${prefix}${id}`
 }

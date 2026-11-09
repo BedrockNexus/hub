@@ -99,6 +99,8 @@ export const tables = {
 		.index('by_sort_order', ['sortOrder']),
 
 	projects: defineTable({
+		// Immutable public route identity; optional until backfilled.
+		publicId: v.optional(v.string()),
 		...submissionFields,
 		submittedVersionIds: v.optional(v.array(v.id('projectVersions'))),
 		// Type
@@ -169,6 +171,7 @@ export const tables = {
 		updatedAt: v.number(),
 	})
 		.index('by_submission_status', ['submissionStatus', 'submittedAt'])
+		.index('by_publicId', ['publicId'])
 		.index('by_slug', ['slug'])
 		.index('by_status', ['status'])
 		.index('by_type_status', ['type', 'status'])

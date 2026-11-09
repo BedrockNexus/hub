@@ -258,6 +258,7 @@ export const sitemapEntries = query({
         v.object({
             _id: v.id('projects'),
             slug: v.string(),
+            publicId: v.optional(v.string()),
             type: projectDiscoveryType,
             updatedAt: v.number(),
         }),
@@ -278,6 +279,7 @@ export const sitemapEntries = query({
 				? [{
                     _id: project._id,
                     slug: project.slug,
+                    publicId: project.publicId,
                     type: normalizeProjectType(project.type),
                     updatedAt: project.updatedAt,
                 }]

@@ -15,8 +15,9 @@ export function contentHref(
 	type: StoredProjectType,
 	slug: string,
 	id?: string,
+	publicId?: string,
 ) {
-	return `${contentDirectory(type)}/${encodeURIComponent(id ? projectReference(type, id) : slug)}`
+	return `${contentDirectory(type)}/${encodeURIComponent(id ? projectReference(type, id, publicId) : slug)}`
 }
 
 export function contentDashboard(type: StoredProjectType) {
@@ -31,8 +32,12 @@ export function contentDownloadHref(
 	return `${contentDirectory(type)}/${encodeURIComponent(reference)}/download/${encodeURIComponent(version)}`
 }
 
-export function contentEditHref(type: StoredProjectType, id: string) {
-	return `${contentDashboard(type)}/${encodeURIComponent(projectReference(type, id))}`
+export function contentEditHref(
+	type: StoredProjectType,
+	id: string,
+	publicId?: string,
+) {
+	return `${contentDashboard(type)}/${encodeURIComponent(projectReference(type, id, publicId))}`
 }
 
 export type ContentSearchParams = Record<string, string | string[] | undefined>

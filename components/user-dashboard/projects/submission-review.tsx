@@ -42,7 +42,7 @@ export function ProjectSubmissionReview({ id }: { id: Id<'projects'> }) {
 	if (!project) {
 		return <p>Listing not found or unavailable.</p>
 	}
-	const base = contentEditHref(project.type, id)
+	const base = contentEditHref(project.type, id, project.publicId)
 	const checks = projectSubmissionChecklist({
 		...project,
 		hasGallery: !!gallery?.length,

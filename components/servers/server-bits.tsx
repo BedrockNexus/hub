@@ -19,7 +19,7 @@ export function ServerStatusLabel({
 					className,
 				)}
 			>
-				<span className="size-2 rounded-full bg-online" />
+				<span className="size-2 rounded-[2px] bg-online" />
 				Online
 			</span>
 		)
@@ -31,7 +31,7 @@ export function ServerStatusLabel({
 				className,
 			)}
 		>
-			<span className="size-2 rounded-full border-2 border-offline" />
+			<span className="size-2 rounded-[2px] border-2 border-offline" />
 			{online === false ? 'Offline' : 'Not checked yet'}
 		</span>
 	)
@@ -107,7 +107,7 @@ export function RatingLabel({
 	)
 }
 
-/** Square logo tile with the block bevel; falls back to the initial. */
+/** Flat square logo; falls back to the initial. */
 export function LogoTile({
 	name,
 	src,
@@ -122,7 +122,7 @@ export function LogoTile({
 	return (
 		<div
 			className={cn(
-				'tile-bevel relative grid shrink-0 place-items-center overflow-hidden rounded-md bg-stone font-bold font-display text-white',
+				'relative grid shrink-0 place-items-center overflow-hidden rounded-md bg-stone font-bold font-display text-white',
 				className,
 			)}
 			style={{ width: size, height: size, fontSize: size / 2 }}
@@ -144,7 +144,7 @@ export function LogoTile({
 
 export function TagChip({ children }: { children: React.ReactNode }) {
 	return (
-		<span className="inline-flex h-6 items-center rounded-sm border bg-muted px-2 font-medium text-muted-foreground text-xs">
+		<span className="inline-flex h-6 items-center rounded-sm bg-muted px-2 font-medium text-muted-foreground text-xs">
 			{children}
 		</span>
 	)

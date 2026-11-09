@@ -4,12 +4,10 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import type { PropsWithChildren } from "react"
 import { usernamePlugin } from "@better-auth-ui/core/plugins"
-import { useTheme } from "next-themes"
 
 import { authClient } from "@/lib/auth-client"
 import { deleteUserPlugin } from "@/lib/delete-user-plugin"
 import { organizationPlugin } from "@/lib/organization-plugin"
-import { themePlugin } from "@/lib/theme-plugin"
 import { AuthProvider } from "./auth-provider"
 
 function getOrganizationSlug(pathname: string) {
@@ -41,7 +39,6 @@ export function NextAuthProvider({ children }: PropsWithChildren) {
       authClient={authClient}
       plugins={[
         usernamePlugin(),
-        themePlugin({ useTheme }),
         deleteUserPlugin(),
         organizationPlugin({
           slug: organizationSlug,

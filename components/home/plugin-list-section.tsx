@@ -33,7 +33,7 @@ function PluginListBody({
 	}
 	if (result.page.length === 0) {
 		return (
-			<p className="rounded-md border border-dashed px-6 py-12 text-center text-muted-foreground">
+			<p className="rounded-lg border border-dashed bg-card/40 px-6 py-14 text-center text-muted-foreground">
 				No plugins published yet.{' '}
 				<Link
 					className="font-semibold text-ember-text hover:text-foreground"

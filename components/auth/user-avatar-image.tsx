@@ -34,7 +34,7 @@ export function UserAvatarImage({
 		>
 			{avatarUrl ? <AvatarImage alt={username} src={avatarUrl} /> : null}
 			<AvatarFallback
-				className="tile-bevel rounded-[inherit] bg-stone font-bold font-display text-white"
+				className="rounded-[inherit] bg-stone font-bold font-display text-white"
 				style={{
 					fontSize: Math.max(10, Math.round(resolvedSize * 0.4)),
 				}}

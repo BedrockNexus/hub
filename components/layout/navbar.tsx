@@ -26,7 +26,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const DESKTOP_LINK_CLASS =
-	'border-transparent border-b-2 py-2 font-display font-semibold text-[15px] text-muted-foreground transition-colors hover:text-foreground'
+	'rounded-md px-3.5 py-1.5 font-display font-semibold text-[15px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
 const MOBILE_LINK_CLASS =
 	'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-muted-foreground'
 
@@ -62,7 +62,7 @@ function ToolsMenu({
 					isActive &&
 						(mobile
 							? 'bg-primary text-primary-foreground'
-							: 'border-primary text-foreground'),
+							: 'bg-accent text-foreground shadow-[inset_0_-2px_0_var(--primary)]'),
 				)}
 			>
 				{mobile ? (
@@ -144,14 +144,14 @@ export function Navbar({
 
 	return (
 		<>
-			<header className="hidden border-b bg-background/95 backdrop-blur lg:block">
+			<header className="sticky top-0 z-40 hidden border-b bg-background/75 backdrop-blur-xl lg:block">
 				<nav
 					aria-label="Primary navigation"
-					className="container mx-auto flex h-18 items-center gap-8 px-4 md:px-6"
+					className="container mx-auto flex h-16 items-center gap-6 px-4 md:px-6"
 				>
 					<BrandMark imageClassName="w-36" priority withIcon />
 
-					<div className="flex items-center gap-6">
+					<div className="flex items-center gap-1">
 						{desktopNavigation.map((item) => {
 							const isActive = isActiveRoute(pathname, item.href)
 
@@ -161,7 +161,7 @@ export function Navbar({
 									className={cn(
 										DESKTOP_LINK_CLASS,
 										isActive &&
-											'border-primary text-foreground',
+											'bg-accent text-foreground shadow-[inset_0_-2px_0_var(--primary)]',
 									)}
 									href={item.href}
 									key={item.href}
@@ -180,7 +180,7 @@ export function Navbar({
 				</nav>
 			</header>
 
-			<header className="flex h-16 items-center justify-between gap-3 border-b bg-background px-4 lg:hidden">
+			<header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur-xl lg:hidden">
 				<BrandMark imageClassName="w-28" priority withIcon />
 			</header>
 

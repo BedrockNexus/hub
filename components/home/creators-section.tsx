@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 
 const LINK_CLASS =
-	'inline-flex min-h-11 items-center gap-1.5 font-semibold text-ember-text hover:text-foreground'
+	"mt-1 inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary after:absolute after:inset-0 after:content-[''] hover:underline"
 
 const LISTING_STEPS = [
 	{
@@ -32,14 +32,20 @@ export function CreatorsSection({
 	pluginsEnabled?: boolean
 }) {
 	return (
-		<section className="container mx-auto flex flex-col gap-6 px-4 pt-14 pb-20 md:px-6">
-			<h2 className="font-bold text-[clamp(1.625rem,3vw,2.25rem)] leading-tight">
+		<section className="container mx-auto flex flex-col gap-6 px-4 pt-16 pb-24 md:px-6">
+			<h2 className="font-bold text-[clamp(1.5rem,2.6vw,2rem)] leading-tight tracking-[-0.015em]">
 				Build on Bedrock Nexus
 			</h2>
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-				<div className="flex flex-col gap-6 rounded-md border bg-card p-6 lg:row-span-2 lg:p-8">
+				<div className="relative isolate flex flex-col gap-7 overflow-hidden rounded-lg border bg-card p-6 lg:row-span-2 lg:p-9">
+					<div
+						aria-hidden
+						className="hero-ambient absolute inset-0 -z-10"
+					/>
 					<div className="flex flex-col gap-2">
-						<h3 className="font-bold text-2xl">Own a server?</h3>
+						<h3 className="font-bold text-[1.75rem] leading-tight tracking-tight">
+							Own a server?
+						</h3>
 						<p className="max-w-prose text-muted-foreground">
 							Listing is free. Verified owners get a badge and
 							their server ranks with live player counts.
@@ -51,7 +57,7 @@ export function CreatorsSection({
 								className="flex flex-col gap-2"
 								key={step.title}
 							>
-								<span className="extrude grid size-9 place-items-center rounded-sm border-2 border-edge bg-primary font-bold font-display text-primary-foreground">
+								<span className="grid size-9 place-items-center rounded-md bg-primary/15 font-bold font-display text-primary ring-1 ring-primary/30">
 									{index + 1}
 								</span>
 								<span className="font-bold font-display">
@@ -75,10 +81,10 @@ export function CreatorsSection({
 					</Link>
 				</div>
 
-				<div className="flex gap-4 rounded-md border bg-card p-5">
+				<div className="card-lift relative flex gap-4 rounded-lg border bg-card p-6">
 					<HugeiconsIcon
 						aria-hidden
-						className="mt-1 size-6 shrink-0 text-ember-text"
+						className="size-11 shrink-0 rounded-md bg-primary/12 p-2.5 text-primary"
 						icon={CubeIcon}
 					/>
 					<div className="flex flex-col gap-1.5">
@@ -104,10 +110,10 @@ export function CreatorsSection({
 				</div>
 
 				{pluginsEnabled ? (
-					<div className="flex gap-4 rounded-md border bg-card p-5">
+					<div className="card-lift relative flex gap-4 rounded-lg border bg-card p-6">
 						<HugeiconsIcon
 							aria-hidden
-							className="mt-1 size-6 shrink-0 text-ember-text"
+							className="size-11 shrink-0 rounded-md bg-primary/12 p-2.5 text-primary"
 							icon={PlugSocketIcon}
 						/>
 						<div className="flex flex-col gap-1.5">

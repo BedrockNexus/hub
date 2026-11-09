@@ -79,7 +79,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	}))
 
 	const projectEntries: MetadataRoute.Sitemap = projects.map((project) => ({
-		url: absoluteUrl(contentHref(project.type, project.slug, project._id)),
+		url: absoluteUrl(
+			contentHref(
+				project.type,
+				project.slug,
+				project._id,
+				project.publicId,
+			),
+		),
 		lastModified: new Date(project.updatedAt),
 		changeFrequency: 'daily',
 		priority: 0.8,

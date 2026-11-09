@@ -44,6 +44,7 @@ export function toPublicProject(project: Doc<'projects'>) {
 		_creationTime: project._creationTime,
 		status: project.status,
 		type: project.type,
+		publicId: project.publicId,
 		name: project.name,
 		slug: project.slug,
 		summary: project.summary,

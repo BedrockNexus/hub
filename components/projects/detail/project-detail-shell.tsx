@@ -105,7 +105,7 @@ function ProjectHero({
 		<section className="border-b bg-surface-sunken">
 			<div className="container mx-auto flex flex-col gap-5 px-4 pt-7 pb-8 md:px-6">
 				<div className="flex flex-wrap items-center gap-6">
-					<div className="tile-bevel extrude relative grid size-32 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
+					<div className="relative grid size-32 shrink-0 place-items-center overflow-hidden rounded-md bg-stone text-white">
 						{content.iconUrl ? (
 							<Image
 								alt=""
