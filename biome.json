@@ -11,6 +11,8 @@
       "!.vscode",
       "!components/ui",
       "!components/dice-ui",
+      "!components/charts",
+      "!components/shimmering-text.tsx",
       "!components/ba-ui",
       "!components/data-table",
       "!lib/data-table-*.ts",

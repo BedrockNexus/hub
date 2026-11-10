@@ -369,13 +369,18 @@ export const tables = {
 			'averageRating',
 		]),
 
-	// One row per project per UTC day that had activity. Feeds trending and,
-	// later, creator analytics; rows are never rewritten after their day ends.
+	// One row per project per UTC day that had activity. Feeds trending and
+	// creator analytics; rows are never rewritten after their day ends.
 	projectDailyStats: defineTable({
 		projectId: v.id('projects'),
 		dayKey: v.string(), // YYYY-MM-DD
-		downloads: v.number(),
+		downloads: v.number(), // counted downloads from every source
 		favourites: v.number(), // net saves that day
+		// Of `downloads`, those through the public API (launchers); the rest
+		// came from the website. Undefined on days before this was recorded.
+		apiDownloads: v.optional(v.number()),
+		// Detail page views, one per visitor per day (functions/site/engagement).
+		views: v.optional(v.number()),
 	}).index('by_projectId_and_dayKey', ['projectId', 'dayKey']),
 
 	projectReviews: defineTable({

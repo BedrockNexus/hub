@@ -19,6 +19,7 @@ import { format, formatDistanceToNowStrict } from 'date-fns'
 import type { Route } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
+import { RecordView } from '@/components/analytics/record-view'
 import {
 	DetailTabs,
 	ExternalLinkRow,
@@ -557,6 +558,7 @@ export function PluginDetailShell({
 
 	return (
 		<main className="flex-1">
+			<RecordView id={project.projectId} kind="plugin" />
 			<PluginHero detail={detail} downloadable={downloadable} />
 
 			<div className="container mx-auto grid gap-7 px-4 pt-7 pb-18 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">

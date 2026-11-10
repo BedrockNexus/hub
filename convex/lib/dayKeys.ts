@@ -20,3 +20,17 @@ export function recentDayKeys(now: number, count: number): string[] {
 export function utcDaysBetween(earlier: number, later: number): number {
 	return Math.floor(later / DAY_MS) - Math.floor(earlier / DAY_MS)
 }
+
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+export function isDayKey(value: string): boolean {
+	return DAY_KEY.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+}
+
+/** The `count` UTC days ending on `endDay` (YYYY-MM-DD), oldest first. */
+export function dayKeysEndingAt(endDay: string, count: number): string[] {
+	const end = Date.parse(`${endDay}T00:00:00Z`)
+	return Array.from({ length: count }, (_, index) =>
+		utcDayKey(end - (count - 1 - index) * DAY_MS),
+	)
+}

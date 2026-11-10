@@ -651,6 +651,15 @@ export const tables = {
 		.index('by_plugin_id_and_is_active', ['pluginId', 'isActive'])
 		.index('by_plugin_id_and_user_id', ['pluginId', 'userId']),
 
+	// One row per plugin per UTC day that had activity, for creator analytics.
+	pluginDailyStats: defineTable({
+		pluginId: v.id('plugins'),
+		dayKey: v.string(), // YYYY-MM-DD
+		downloads: v.number(), // counted downloads from every source
+		apiDownloads: v.number(), // of those, through the public API
+		views: v.number(), // detail page views, one per visitor per day
+	}).index('by_pluginId_and_dayKey', ['pluginId', 'dayKey']),
+
 	pluginDownloads: defineTable({
 		projectId: v.id('plugins'),
 		versionId: v.id('pluginVersions'),

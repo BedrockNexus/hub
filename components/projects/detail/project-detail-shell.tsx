@@ -13,6 +13,7 @@ import type { FunctionReturnType } from 'convex/server'
 import { formatDistanceToNowStrict } from 'date-fns'
 import Image from 'next/image'
 import Link from 'next/link'
+import { RecordView } from '@/components/analytics/record-view'
 import { DetailTabs } from '@/components/detail/detail-parts'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { ProjectAbout } from '@/components/projects/detail/project-about'
@@ -330,6 +331,7 @@ export function ProjectDetailShell({
 
 	return (
 		<main className="flex-1">
+			<RecordView id={content._id} kind="project" />
 			<ProjectHero content={content} latestRelease={latestRelease} />
 
 			<div className="container mx-auto grid gap-7 px-4 pt-7 pb-18 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">

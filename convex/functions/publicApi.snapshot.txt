@@ -86,6 +86,7 @@ mutation functions/servers/software:generateLogoUploadUrl
 mutation functions/servers/software:remove
 mutation functions/servers/software:removeLogo
 mutation functions/servers/software:update
+mutation functions/site/engagement:record
 mutation functions/site/favourites:toggleProject
 mutation functions/site/favourites:toggleServer
 mutation functions/site/gameVersions:create
@@ -208,6 +209,9 @@ query    functions/servers/software:listEnabled
 query    functions/servers/status:getStatus
 query    functions/servers/status:getStatusBatch
 query    functions/site/audit:list
+query    functions/site/creatorAnalytics:forPlugin
+query    functions/site/creatorAnalytics:forProject
+query    functions/site/creatorAnalytics:forServer
 query    functions/site/creators:listPopular
 query    functions/site/creators:search
 query    functions/site/creators:sitemapEntries

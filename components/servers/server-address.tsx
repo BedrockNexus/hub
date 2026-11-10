@@ -4,6 +4,7 @@ import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { sendEngagement } from '@/lib/engagement'
 import { cn } from '@/lib/utils'
 
 /** Bedrock's default port; it is shown dimmed and still copied. */
@@ -20,12 +21,15 @@ export function formatServerAddress(host: string, port: number) {
 export function ServerAddress({
 	host,
 	port,
+	serverId,
 	serverName,
 	size = 'default',
 	className,
 }: {
 	host: string
 	port: number
+	/** When set, a copy counts towards the server's analytics. */
+	serverId?: string
 	serverName: string
 	size?: 'default' | 'lg'
 	className?: string
@@ -46,6 +50,9 @@ export function ServerAddress({
 			await navigator.clipboard.writeText(formatServerAddress(host, port))
 			setCopied(true)
 			toast.success('Server address copied')
+			if (serverId) {
+				sendEngagement('address_copy', 'server', serverId)
+			}
 			if (timeout.current) {
 				clearTimeout(timeout.current)
 			}

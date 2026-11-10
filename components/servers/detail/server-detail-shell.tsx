@@ -15,6 +15,7 @@ import type { FunctionReturnType } from 'convex/server'
 import { formatDistanceToNowStrict } from 'date-fns'
 import Image from 'next/image'
 import Link from 'next/link'
+import { RecordView } from '@/components/analytics/record-view'
 import {
 	DetailTabs,
 	ExternalLinkRow,
@@ -124,6 +125,7 @@ function ServerHero({ server, status, online }: ServerPartProps) {
 						className="min-w-0 flex-[1_1_20rem]"
 						host={server.ipAddress}
 						port={server.port}
+						serverId={server._id}
 						serverName={server.name}
 						size="lg"
 					/>
@@ -315,6 +317,7 @@ export function ServerDetailShell({
 
 	return (
 		<main className="flex-1">
+			<RecordView id={server._id} kind="server" />
 			<ServerHero online={online} server={server} status={status} />
 
 			<div className="container mx-auto grid gap-7 px-4 pt-7 pb-18 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">

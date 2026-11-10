@@ -821,6 +821,7 @@ export const createDownloadUrl = mutation({
 			})
 			await updateProjectDownloadStats(ctx, version.projectId, {
 				recordDownload: true,
+				source: args.source ?? 'website',
 			})
 		}
 
@@ -951,7 +952,7 @@ export const finalizeVersionRemoval = internalMutation({
 async function updateProjectDownloadStats(
 	ctx: MutationCtx,
 	projectId: Id<'projects'>,
-	options: { recordDownload?: boolean } = {},
+	options: { recordDownload?: boolean; source?: 'website' | 'api' } = {},
 ) {
 	const versions = await ctx.db
 		.query('projectVersions')
@@ -969,7 +970,7 @@ async function updateProjectDownloadStats(
 
 	const stats = await ensureProjectStats(ctx, projectId)
 	if (options.recordDownload) {
-		await recordProjectDownload(ctx, projectId)
+		await recordProjectDownload(ctx, projectId, options.source)
 	}
 
 	const totalDownloadsToday = options.recordDownload

@@ -105,6 +105,7 @@ export function ServerCard({ server }: { server: ServerListItem }) {
 					className="relative z-10 mt-auto"
 					host={server.ipAddress}
 					port={server.port}
+					serverId={server._id}
 					serverName={server.name}
 				/>
 				<div className="flex items-center justify-between gap-2">
@@ -156,6 +157,7 @@ export function ServerRow({
 				className="min-w-52 flex-[0_1_300px]"
 				host={server.ipAddress}
 				port={server.port}
+				serverId={server._id}
 				serverName={server.name}
 			/>
 			<div className="flex w-28 flex-col gap-1">

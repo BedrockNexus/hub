@@ -65,6 +65,12 @@ const limits = {
 		period: 24 * HOUR,
 	},
 
+	// Page views and server address copies, per requester across all content
+	// (functions/site/engagement). Over the limit they are dropped, not errors.
+	engagement: { kind: 'token bucket', rate: 120, period: MINUTE, capacity: 40 },
+	// Counts each event once per requester per item per day.
+	engagementCount: { kind: 'fixed window', rate: 1, period: 24 * HOUR },
+
 	// Plugin registry (functions/plugins). Per user unless noted.
 	// Per hashed client address and plugin.
 	pluginDownload: { kind: 'token bucket', rate: 30, period: MINUTE, capacity: 10 },

@@ -70,6 +70,38 @@
 	--radius-4xl: calc(var(--radius) + 16px);
 	--color-brand: var(--brand);
 	--color-highlight: var(--highlight);
+	--color-chart-line-primary: var(--chart-line-primary);
+	--color-chart-line-secondary: var(--chart-line-secondary);
+	--color-chart-brush-border: var(--chart-brush-border);
+	--color-chart-tooltip-background: var(--chart-tooltip-background);
+	--color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+	--color-chart-tooltip-muted: var(--chart-tooltip-muted);
+	--color-chart-scale-02: var(--chart-scale-02);
+	--color-chart-scale-03: var(--chart-scale-03);
+	--color-chart-scale-04: var(--chart-scale-04);
+	--color-chart-scale-05: var(--chart-scale-05);
+	--color-chart-segment-line: var(--chart-segment-line);
+	--color-chart-segment-background: var(--chart-segment-background);
+	--color-chart-marker-badge-foreground: var(--chart-marker-badge-foreground);
+	--color-chart-marker-badge-background: var(--chart-marker-badge-background);
+	--color-chart-indicator-secondary-color: var(
+		--chart-indicator-secondary-color
+	);
+	--color-chart-indicator-color: var(--chart-indicator-color);
+	--color-chart-scale-pattern-color: var(--chart-scale-pattern-color);
+	--color-chart-scale-01: var(--chart-scale-01);
+	--color-chart-scale-mix: var(--chart-scale-mix);
+	--color-chart-label: var(--chart-label);
+	--color-chart-marker-foreground: var(--chart-marker-foreground);
+	--color-chart-marker-border: var(--chart-marker-border);
+	--color-chart-marker-background: var(--chart-marker-background);
+	--color-chart-grid: var(--chart-grid);
+	--color-chart-crosshair: var(--chart-crosshair);
+	--color-chart-foreground-muted: var(--chart-foreground-muted);
+	--color-chart-foreground: var(--chart-foreground);
+	--color-chart-background: var(--chart-background);
+	--color-chart-negative: var(--chart-negative);
+	--color-chart-positive: var(--chart-positive);
 }
 
 :root,
@@ -126,6 +158,38 @@
 	--offline: #6b7280;
 	--surface-sunken: #0a0c0f;
 	--glow: rgb(247 197 72 / 14%);
+
+	/* Bklit charts (components/charts): gold first, diamond second. */
+	--chart-line-primary: #f7c548;
+	--chart-line-secondary: #2fc3cf;
+	--chart-positive: #4ade80;
+	--chart-negative: #f27a6a;
+	--chart-background: #15181e;
+	--chart-foreground: #9199a7;
+	--chart-foreground-muted: #6b7486;
+	--chart-label: #9199a7;
+	--chart-grid: #252a33;
+	--chart-crosshair: #4a5160;
+	--chart-brush-border: #252a33;
+	--chart-tooltip-background: #181b22;
+	--chart-tooltip-foreground: #eceef2;
+	--chart-tooltip-muted: #9199a7;
+	--chart-marker-background: #232833;
+	--chart-marker-border: #323844;
+	--chart-marker-foreground: #eceef2;
+	--chart-marker-badge-background: #eceef2;
+	--chart-marker-badge-foreground: #0d0f13;
+	--chart-indicator-color: #eceef2;
+	--chart-indicator-secondary-color: #0d0f13;
+	--chart-segment-background: rgb(247 197 72 / 6%);
+	--chart-segment-line: rgb(236 238 242 / 25%);
+	--chart-scale-mix: #15181e;
+	--chart-scale-01: #232833;
+	--chart-scale-02: color-mix(in oklab, #f7c548 35%, #15181e);
+	--chart-scale-03: color-mix(in oklab, #f7c548 55%, #15181e);
+	--chart-scale-04: color-mix(in oklab, #f7c548 78%, #15181e);
+	--chart-scale-05: #f7c548;
+	--chart-scale-pattern-color: #15181e;
 }
 
 :root.light {

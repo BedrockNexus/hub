@@ -18,6 +18,7 @@ import { utcDayKey, utcMonthKey } from './dayKeys'
  *   (called from updateProjectReleaseSummary)
  * - a save or unsave                   -> adjust*Favourites
  * - a counted download                 -> recordProjectDownload
+ * - a counted page view                -> recordProjectView
  * - a status check                     -> recordServerCheck
  *
  * Fields added after content already existed stay undefined until
@@ -141,7 +142,12 @@ export async function syncProject(ctx: MutationCtx, project: Doc<'projects'>) {
 async function adjustProjectDay(
 	ctx: MutationCtx,
 	projectId: Id<'projects'>,
-	change: { downloads?: number; favourites?: number },
+	change: {
+		downloads?: number
+		apiDownloads?: number
+		favourites?: number
+		views?: number
+	},
 ) {
 	const dayKey = utcDayKey(Date.now())
 	const day = await ctx.db
@@ -154,6 +160,10 @@ async function adjustProjectDay(
 		await ctx.db.patch(day._id, {
 			downloads: day.downloads + (change.downloads ?? 0),
 			favourites: day.favourites + (change.favourites ?? 0),
+			...(change.apiDownloads
+				? { apiDownloads: (day.apiDownloads ?? 0) + change.apiDownloads }
+				: {}),
+			...(change.views ? { views: (day.views ?? 0) + change.views } : {}),
 		})
 		return
 	}
@@ -162,6 +172,8 @@ async function adjustProjectDay(
 		dayKey,
 		downloads: change.downloads ?? 0,
 		favourites: change.favourites ?? 0,
+		apiDownloads: change.apiDownloads ?? 0,
+		views: change.views ?? 0,
 	})
 }
 
@@ -169,8 +181,20 @@ async function adjustProjectDay(
 export async function recordProjectDownload(
 	ctx: MutationCtx,
 	projectId: Id<'projects'>,
+	source: 'website' | 'api' = 'website',
 ) {
-	await adjustProjectDay(ctx, projectId, { downloads: 1 })
+	await adjustProjectDay(ctx, projectId, {
+		downloads: 1,
+		apiDownloads: source === 'api' ? 1 : 0,
+	})
+}
+
+/** Adds one counted detail page view to today's activity for the project. */
+export async function recordProjectView(
+	ctx: MutationCtx,
+	projectId: Id<'projects'>,
+) {
+	await adjustProjectDay(ctx, projectId, { views: 1 })
 }
 
 /** Call after the favourite row was inserted (+1) or deleted (-1). */

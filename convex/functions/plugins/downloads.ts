@@ -11,6 +11,7 @@ import { projectOwnerKey } from '../../lib/plugins/aggregates'
 import { createPluginDashboardId } from '../../../lib/plugins/plugin-dashboard-id'
 import { getCdnObjectUrl } from '../../lib/r2'
 import { rateLimiter } from '../../lib/plugins/rateLimits'
+import { adjustPluginDay } from '../../lib/dailyStats'
 
 const notFound = () =>
 	new ConvexError({
@@ -138,6 +139,10 @@ export const resolveAndRecord = mutation({
 				await ctx.db.patch(project._id, { downloadCount: project.downloadCount + 1 })
 			}
 			await ownerDownloadCounts.add(ctx, projectOwnerKey(project.ownerType, project.ownerId), 1)
+			await adjustPluginDay(ctx, project._id, {
+				downloads: 1,
+				apiDownloads: args.source === 'api' ? 1 : 0,
+			})
 		}
 		const repository = await ctx.db.get(project.repositoryId)
 		if (repository) await scheduleDownloadEvent(ctx, {

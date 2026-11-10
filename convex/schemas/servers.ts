@@ -264,6 +264,10 @@ export const tables = {
 		peakPlayers: v.number(),
 		latencySum: v.number(),
 		latencySamples: v.number(),
+		// One per visitor per day each (functions/site/engagement). A row can
+		// exist with zero checks when a visit came before the first check.
+		views: v.optional(v.number()),
+		addressCopies: v.optional(v.number()),
 	}).index('by_serverId_and_dayKey', ['serverId', 'dayKey']),
 
 	// ===========================================================================
