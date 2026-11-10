@@ -1,221 +1,112 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckmarkCircle02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation } from 'convex/react'
+import type { Route } from 'next'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { type Resolver, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
-	Stepper,
-	StepperContent,
-	StepperDescription,
-	StepperIndicator,
-	StepperItem,
-	StepperList,
-	StepperNext,
-	StepperPrev,
-	StepperSeparator,
-	StepperTitle,
-	StepperTrigger,
-	useStepper,
-} from '@/components/dice-ui/stepper'
-import { Button } from '@/components/ui/button'
-import { FieldGroup } from '@/components/ui/field'
+	Field,
+	FieldError,
+	FieldGroup,
+	FieldLabel,
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { ProjectBasicFields } from '@/components/user-dashboard/projects/fields/project-basic-fields'
+import { Textarea } from '@/components/ui/textarea'
 import {
-	createProjectCategoryToggler,
-	ProjectCategoryPicker,
-} from '@/components/user-dashboard/projects/fields/project-category-picker'
-import { ProjectLinksFields } from '@/components/user-dashboard/projects/fields/project-links-fields'
-import { ProjectTypeFields } from '@/components/user-dashboard/projects/fields/project-type-fields'
+	CreateListingFooter,
+	CreateListingShell,
+} from '@/components/user-dashboard/create/create-listing-shell'
+import { OwnerField } from '@/components/user-dashboard/fields/owner-field'
 import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import { contentEditHref } from '@/lib/content-routes'
 import { PROJECT_TYPE_LABELS, type ProjectType } from '@/lib/project-artifacts'
 import {
 	PROJECT_FORM_DEFAULTS,
-	type ProjectFormData,
 	projectFormSchema,
 	projectMetadataFromForm,
 } from '@/lib/schemas/projects'
 import { userFacingError } from '@/lib/user-facing-error'
 
-const STEPS = [
-	{
-		value: 'core',
-		title: 'Core Info',
-		description: 'Details and categories',
-	},
-	{
-		value: 'details',
-		title: 'Links',
-		description: 'Support and source links',
-	},
-] as const
+const createSchema = projectFormSchema.pick({
+	organizationId: true,
+	name: true,
+	summary: true,
+})
 
-function StepperNavigation({ isSubmitting }: { isSubmitting: boolean }) {
-	const currentValue = useStepper((state) => state.value)
-	const steps = useStepper((state) => state.steps)
-
-	const stepKeys = Array.from(steps.keys())
-	const currentIndex = currentValue ? stepKeys.indexOf(currentValue) : 0
-	const isLastStep = currentIndex === stepKeys.length - 1
-
-	return (
-		<div className="mt-8 flex flex-col-reverse gap-3 border-t pt-6 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-			<StepperPrev asChild disabled={isSubmitting}>
-				<Button
-					className="w-full sm:w-auto"
-					type="button"
-					variant="outline"
-				>
-					Previous
-				</Button>
-			</StepperPrev>
-			<span className="text-center text-muted-foreground text-sm sm:col-start-2">
-				Step {currentIndex + 1} of {stepKeys.length}
-			</span>
-			{isLastStep ? (
-				<Button
-					className="w-full sm:col-start-3 sm:ml-auto sm:w-auto"
-					disabled={isSubmitting}
-					type="submit"
-				>
-					{isSubmitting ? (
-						<>
-							<Spinner className="size-4" />
-							Creating...
-						</>
-					) : (
-						<>
-							<HugeiconsIcon
-								className="size-4"
-								icon={CheckmarkCircle02Icon}
-							/>
-							Create Draft
-						</>
-					)}
-				</Button>
-			) : (
-				<StepperNext asChild disabled={isSubmitting}>
-					<Button
-						className="w-full sm:col-start-3 sm:ml-auto sm:w-auto"
-						type="button"
-					>
-						Next
-					</Button>
-				</StepperNext>
-			)}
-		</div>
-	)
+interface CreateFormData {
+	organizationId?: string
+	name: string
+	summary: string
 }
 
-export function AddProjectForm({ type }: { type: ProjectType }) {
+const SUMMARY_MAX = 150
+
+const PLACEHOLDERS: Record<ProjectType, { name: string; summary: string }> = {
+	addon: {
+		name: 'Better Furniture',
+		summary: 'Adds 40 craftable chairs, tables and lamps.',
+	},
+	resource_pack: {
+		name: 'Soft Pastel 16x',
+		summary: 'A calm pastel take on the default textures.',
+	},
+}
+
+const LIST_HREF: Record<ProjectType, Route> = {
+	addon: '/dashboard/addons',
+	resource_pack: '/dashboard/resource-packs',
+}
+
+/**
+ * Creates an addon or resource pack draft from a name and a summary. The
+ * description, categories, images and files are added from its dashboard,
+ * where a checklist shows what is left before it can be submitted.
+ */
+export function AddProjectForm({
+	type,
+	showPlugins,
+}: {
+	type: ProjectType
+	showPlugins: boolean
+}) {
 	const label = PROJECT_TYPE_LABELS[type]
 	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
-
-	const form = useForm<ProjectFormData>({
-		// Project schema unions/coercions can infer a slightly wider resolver type.
-		// Keep explicit cast so field components stay strongly typed to ProjectFormData.
-		resolver: zodResolver(
-			projectFormSchema,
-		) as unknown as Resolver<ProjectFormData>,
-		defaultValues: { ...PROJECT_FORM_DEFAULTS, type },
-		mode: 'onChange',
-	})
-	const selectedType = type
-	const categories = useQuery(api.functions.projects.categories.list, {
-		projectType: selectedType,
-	})
 	const createContent = useMutation(api.functions.projects.projects.create)
 
+	const form = useForm<CreateFormData>({
+		resolver: zodResolver(createSchema),
+		defaultValues: { organizationId: undefined, name: '', summary: '' },
+		mode: 'onTouched',
+	})
+	const summary = useWatch({ control: form.control, name: 'summary' })
 	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
 
-	const toggleCategory = createProjectCategoryToggler(
-		() => form.getValues('categoryIds'),
-		form.setValue,
-	)
-
-	const getStepFields = (stepValue: string): (keyof ProjectFormData)[] => {
-		switch (stepValue) {
-			case 'core':
-				return [
-					'type',
-					'name',
-					'summary',
-					'description',
-					'categoryIds',
-					'behaviorPackIncluded',
-					'resourcePackIncluded',
-					'experimentalFeaturesRequired',
-					'addonDependencies',
-					'resourcePackResolution',
-					'resourcePackContentTypes',
-				]
-			case 'details':
-				return [
-					'sourceUrl',
-					'websiteUrl',
-					'issueTrackerUrl',
-					'wikiUrl',
-					'discordUrl',
-					'donationUrl',
-				]
-			default:
-				return []
-		}
-	}
-
-	const handleValidate = async (
-		nextValue: string,
-		direction: 'next' | 'prev',
-	): Promise<boolean> => {
-		if (direction === 'prev') {
-			return true
-		}
-
-		const nextIndex = STEPS.findIndex((s) => s.value === nextValue)
-		if (nextIndex <= 0) {
-			return true
-		}
-
-		const currentStep = STEPS[nextIndex - 1]
-		const fields = getStepFields(currentStep.value)
-		return await form.trigger(fields)
-	}
-
-	const onSubmit = async (data: ProjectFormData) => {
+	const onSubmit = async (data: CreateFormData) => {
 		setIsSubmitting(true)
 		try {
-			const ownerType: 'user' | 'organization' = data.organizationId
-				? 'organization'
-				: 'user'
-			// ownerId is required by the mutation args, but ignored for user-owned projects.
-			const ownerId = data.organizationId ?? '__self__'
-
 			const project = await createContent({
 				type,
-				name: data.name,
-				summary: data.summary,
-				description: data.description,
-				categoryIds: data.categoryIds as Id<'projectCategories'>[],
-				metadata: projectMetadataFromForm(data),
-				sourceUrl: data.sourceUrl || undefined,
-				websiteUrl: data.websiteUrl || undefined,
-				issueTrackerUrl: data.issueTrackerUrl || undefined,
-				wikiUrl: data.wikiUrl || undefined,
-				discordUrl: data.discordUrl || undefined,
-				donationUrl: data.donationUrl || undefined,
-				ownerType: ownerType as 'user' | 'organization',
-				ownerId,
+				name: data.name.trim(),
+				summary: data.summary.trim(),
+				// The pack details start from the usual defaults.
+				metadata: projectMetadataFromForm({
+					...PROJECT_FORM_DEFAULTS,
+					type,
+				}),
+				ownerType: data.organizationId ? 'organization' : 'user',
+				// Ignored for listings you own yourself.
+				ownerId: data.organizationId ?? '__self__',
 			})
-
+			// The draft exists now; leaving is no longer losing anything.
+			form.reset(data)
 			toast.success(`${label} draft created`)
 			router.push(contentEditHref(type, project.id, project.publicId))
 		} catch (error) {
@@ -225,112 +116,98 @@ export function AddProjectForm({ type }: { type: ProjectType }) {
 					`Failed to create ${label.toLowerCase()}`,
 				),
 			)
-		} finally {
 			setIsSubmitting(false)
 		}
 	}
 
 	return (
-		<div className="space-y-6">
-			<div className="mb-8 flex items-center gap-4">
-				<div className="flex flex-col gap-1">
-					<h1 className="font-bold text-2xl tracking-tight">
-						Create New {label}
-					</h1>
-					<p className="text-muted-foreground text-sm">
-						Share your Minecraft Bedrock {label.toLowerCase()} with
-						the community
-					</p>
-				</div>
-			</div>
-
-			<form onSubmit={form.handleSubmit(onSubmit)}>
-				<Stepper
-					className="gap-8"
-					defaultValue="core"
-					disabled={isSubmitting}
-					onValidate={handleValidate}
-				>
-					<StepperList className="overflow-x-auto pb-1">
-						{STEPS.map((step) => (
-							<StepperItem key={step.value} value={step.value}>
-								<StepperTrigger>
-									<StepperIndicator />
-									<div className="flex flex-col gap-px">
-										<StepperTitle>
-											{step.title}
-										</StepperTitle>
-										<StepperDescription>
-											{step.description}
-										</StepperDescription>
-									</div>
-								</StepperTrigger>
-								<StepperSeparator />
-							</StepperItem>
-						))}
-					</StepperList>
-
-					<StepperContent value="core">
-						<div className="space-y-6">
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Basic Info
-								</h3>
-								<FieldGroup>
-									<ProjectBasicFields
-										contentType={type}
-										control={form.control}
-									/>
-								</FieldGroup>
-								<p className="text-muted-foreground text-sm">
-									After creating your draft, add an icon,
-									screenshots, and your first release.
-								</p>
-							</div>
-
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Categories
-								</h3>
-								<ProjectCategoryPicker
-									categories={categories}
-									control={form.control}
-									onToggle={toggleCategory}
-									watch={form.watch}
+		<CreateListingShell kind={type} showPlugins={showPlugins}>
+			<form
+				className="flex flex-col gap-9"
+				noValidate
+				onSubmit={form.handleSubmit(onSubmit)}
+			>
+				<FieldGroup className="gap-5">
+					<Controller
+						control={form.control}
+						name="organizationId"
+						render={({ field }) => (
+							<OwnerField
+								onChange={field.onChange}
+								value={field.value}
+							/>
+						)}
+					/>
+					<Controller
+						control={form.control}
+						name="name"
+						render={({ field, fieldState }) => (
+							<Field data-invalid={fieldState.invalid}>
+								<FieldLabel htmlFor="name">Name</FieldLabel>
+								<Input
+									{...field}
+									aria-invalid={fieldState.invalid}
+									autoComplete="off"
+									className="h-11"
+									disabled={isSubmitting}
+									id="name"
+									placeholder={PLACEHOLDERS[type].name}
 								/>
-							</div>
+								<FieldError errors={[fieldState.error]} />
+							</Field>
+						)}
+					/>
+					<Controller
+						control={form.control}
+						name="summary"
+						render={({ field, fieldState }) => (
+							<Field data-invalid={fieldState.invalid}>
+								<div className="flex items-baseline justify-between gap-3">
+									<FieldLabel htmlFor="summary">
+										One-line summary
+									</FieldLabel>
+									<span
+										aria-hidden
+										className="text-muted-foreground text-xs tabular-nums"
+									>
+										{summary.length} / {SUMMARY_MAX}
+									</span>
+								</div>
+								<Textarea
+									{...field}
+									aria-invalid={fieldState.invalid}
+									className="min-h-22 resize-none"
+									disabled={isSubmitting}
+									id="summary"
+									maxLength={SUMMARY_MAX}
+									placeholder={PLACEHOLDERS[type].summary}
+									rows={3}
+								/>
+								<FieldError errors={[fieldState.error]} />
+							</Field>
+						)}
+					/>
+				</FieldGroup>
 
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									{label} Details
-								</h3>
-								<ProjectTypeFields form={form} />
-							</div>
-						</div>
-					</StepperContent>
-
-					<StepperContent value="details">
-						<div className="space-y-6">
-							<p className="text-muted-foreground text-sm">
-								Optional step. You can add these now or update
-								later.
-							</p>
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Links
-								</h3>
-								<FieldGroup>
-									<ProjectLinksFields
-										control={form.control}
-									/>
-								</FieldGroup>
-							</div>
-						</div>
-					</StepperContent>
-
-					<StepperNavigation isSubmitting={isSubmitting} />
-				</Stepper>
+				<CreateListingFooter note="Next: description, categories, images and your first file.">
+					<Link
+						className={buttonVariants({ variant: 'ghost' })}
+						href={LIST_HREF[type]}
+					>
+						Cancel
+					</Link>
+					<Button disabled={isSubmitting} type="submit">
+						{isSubmitting ? (
+							<>
+								<Spinner className="size-4" />
+								Creating...
+							</>
+						) : (
+							'Create draft'
+						)}
+					</Button>
+				</CreateListingFooter>
 			</form>
-		</div>
+		</CreateListingShell>
 	)
 }

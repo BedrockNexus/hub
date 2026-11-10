@@ -40,6 +40,19 @@ export interface EditSection {
 	title: string
 	icon: IconType
 	exactMatch?: boolean
+	/** Sidebar heading the section is listed under. */
+	group: string
+}
+
+/** Sections by group, groups in the order they first appear. */
+function groupSections(sections: readonly EditSection[]) {
+	const groups = new Map<string, EditSection[]>()
+	for (const section of sections) {
+		const list = groups.get(section.group) ?? []
+		list.push(section)
+		groups.set(section.group, list)
+	}
+	return [...groups]
 }
 
 export type ListingStatus =
@@ -167,34 +180,36 @@ export function ListingEditSidebar({
 					</div>
 				) : null}
 
-				<SidebarGroup>
-					<SidebarGroupLabel>Settings</SidebarGroupLabel>
-					<SidebarGroupContent>
-						<SidebarMenu>
-							{sections.map((section) => (
-								<SidebarMenuItem key={section.id}>
-									<SidebarMenuButton
-										isActive={isActive(section)}
-										render={
-											<Link
-												href={
-													`${editPath}${section.id}` as Route
-												}
+				{groupSections(sections).map(([group, items]) => (
+					<SidebarGroup key={group}>
+						<SidebarGroupLabel>{group}</SidebarGroupLabel>
+						<SidebarGroupContent>
+							<SidebarMenu>
+								{items.map((section) => (
+									<SidebarMenuItem key={section.id}>
+										<SidebarMenuButton
+											isActive={isActive(section)}
+											render={
+												<Link
+													href={
+														`${editPath}${section.id}` as Route
+													}
+												/>
+											}
+											tooltip={section.title}
+										>
+											<HugeiconsIcon
+												icon={section.icon}
+												size={16}
 											/>
-										}
-										tooltip={section.title}
-									>
-										<HugeiconsIcon
-											icon={section.icon}
-											size={16}
-										/>
-										<span>{section.title}</span>
-									</SidebarMenuButton>
-								</SidebarMenuItem>
-							))}
-						</SidebarMenu>
-					</SidebarGroupContent>
-				</SidebarGroup>
+											<span>{section.title}</span>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+								))}
+							</SidebarMenu>
+						</SidebarGroupContent>
+					</SidebarGroup>
+				))}
 			</SidebarContent>
 
 			<SidebarFooter>

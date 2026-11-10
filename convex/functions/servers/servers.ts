@@ -899,7 +899,8 @@ export const create = mutation({
 		description: v.optional(v.string()),
 		ipAddress: v.string(),
 		port: v.number(),
-		categoryIds: v.array(v.id('serverCategories')),
+		// Optional on a draft; required before the server is submitted.
+		categoryIds: v.optional(v.array(v.id('serverCategories'))),
 		website: v.optional(v.string()),
 		discordUrl: v.optional(v.string()),
 		storeUrl: v.optional(v.string()),
@@ -915,6 +916,7 @@ export const create = mutation({
 		if (!user) {
 			throw new Error('You must be logged in to create a server')
 		}
+		const categoryIds = args.categoryIds ?? []
 
 		// Determine ownership
 		const ownerType = args.organizationId
@@ -932,7 +934,10 @@ export const create = mutation({
 			user._id,
 			'Too many servers created. Please wait before creating another server.',
 		)
-		validateServerFields(args)
+		validateServerFields({
+			...args,
+			categoryIds: categoryIds.length ? categoryIds : undefined,
+		})
 		const address = parseServerAddress(args.ipAddress, args.port)
 		await assertAddressAvailable(ctx, address)
 		const verificationProof = await consumeVerificationProof(
@@ -963,7 +968,7 @@ export const create = mutation({
 			ipAddress: address.host,
 			port: address.port,
 			addressKey: address.key,
-			categoryIds: args.categoryIds,
+			categoryIds,
 			website: args.website,
 			discordUrl: args.discordUrl,
 			storeUrl: args.storeUrl,
@@ -1068,6 +1073,15 @@ export const update = mutation({
 		if (args.status === 'published' && !server.verifiedAt) {
 			throw new Error(
 				'Server ownership must be verified before publishing',
+			)
+		}
+		if (
+			args.status === 'published' &&
+			server.status === 'draft' &&
+			(args.categoryIds ?? server.categoryIds).length === 0
+		) {
+			throw new Error(
+				'Pick at least one category before submitting your server',
 			)
 		}
 

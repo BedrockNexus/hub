@@ -4,8 +4,8 @@ import { expect, test } from '@playwright/test'
 const env = process.env
 const CONTENT_SECTIONS_PATTERN = /Addon sections|Resource Pack sections/
 
-const ADD_NEW_SERVER_HEADING_PATTERN = /add new server/i
-const CREATE_NEW_PROJECT_HEADING_PATTERN = /create new addon/i
+const ADD_NEW_SERVER_HEADING_PATTERN = /what are you sharing/i
+const CREATE_NEW_PROJECT_HEADING_PATTERN = /what are you sharing/i
 const DRAG_DROP_PATTERN = /drag & drop/i
 const GALLERY_TAB_PATTERN = /gallery/i
 const GALLERY_URL_PATTERN = /\/gallery$/

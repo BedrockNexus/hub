@@ -7,16 +7,15 @@ import { useEffect, useState } from 'react'
 import { type Resolver, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
+import { SaveBar } from '@/components/user-dashboard/save-bar'
 import { ServerConnectionFields } from '@/components/user-dashboard/servers/fields/server-connection-fields'
 import {
 	ServerOwnershipVerification,
 	type VerifiedServerTarget,
 } from '@/components/user-dashboard/servers/server-ownership-verification'
+import { SettingsPageHeader } from '@/components/user-dashboard/settings-card'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import {
@@ -163,15 +162,10 @@ export function ConnectionSettingsForm({
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-			<div>
-				<h2 className="font-semibold text-lg tracking-tight">
-					Connection Details
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					How players connect to your server
-				</p>
-			</div>
-			<Separator />
+			<SettingsPageHeader
+				description="How players connect to your server."
+				title="Connection"
+			/>
 			<FieldGroup>
 				<ServerConnectionFields control={form.control} />
 			</FieldGroup>
@@ -190,22 +184,17 @@ export function ConnectionSettingsForm({
 					/>
 				</div>
 			) : null}
-			<div className="flex justify-end border-t pt-6">
-				<Button
-					className="w-full sm:w-auto"
-					disabled={isSaveDisabled}
-					type="submit"
-				>
-					{isSubmitting ? (
-						<>
-							<Spinner className="size-4" />
-							Saving...
-						</>
-					) : (
-						'Save Changes'
-					)}
-				</Button>
-			</div>
+			<SaveBar
+				blockedMessage={
+					needsVerification && !isVerified
+						? 'Verify the new address to save it'
+						: undefined
+				}
+				canSave={!isSaveDisabled}
+				dirty={isDirty}
+				isSubmitting={isSubmitting || isVerificationBusy}
+				onDiscard={() => form.reset()}
+			/>
 		</form>
 	)
 }

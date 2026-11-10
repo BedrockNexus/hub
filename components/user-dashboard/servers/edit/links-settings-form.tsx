@@ -5,12 +5,11 @@ import { useMutation, useQuery } from 'convex/react'
 import { useEffect, useState } from 'react'
 import { type Resolver, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
+import { SaveBar } from '@/components/user-dashboard/save-bar'
 import { ServerLinksFields } from '@/components/user-dashboard/servers/fields/server-links-fields'
+import { SettingsPageHeader } from '@/components/user-dashboard/settings-card'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import {
@@ -129,32 +128,19 @@ export function LinksSettingsForm({
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-			<div>
-				<h2 className="font-semibold text-lg tracking-tight">Links</h2>
-				<p className="text-muted-foreground text-sm">
-					Manage public links for your server
-				</p>
-			</div>
-			<Separator />
+			<SettingsPageHeader
+				description="Manage public links for your server."
+				title="Links"
+			/>
 			<FieldGroup>
 				<ServerLinksFields control={form.control} />
 			</FieldGroup>
-			<div className="flex justify-end border-t pt-6">
-				<Button
-					className="w-full sm:w-auto"
-					disabled={isSaveDisabled}
-					type="submit"
-				>
-					{isSubmitting ? (
-						<>
-							<Spinner className="size-4" />
-							Saving...
-						</>
-					) : (
-						'Save Changes'
-					)}
-				</Button>
-			</div>
+			<SaveBar
+				canSave={!isSaveDisabled}
+				dirty={isDirty}
+				isSubmitting={isSubmitting}
+				onDiscard={() => form.reset()}
+			/>
 		</form>
 	)
 }

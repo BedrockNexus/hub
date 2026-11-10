@@ -1,8 +1,7 @@
 'use client'
 
 import {
-	CheckmarkCircle01Icon,
-	GridIcon,
+	Analytics01Icon,
 	Image02Icon,
 	InformationCircleIcon,
 	LicenseIcon,
@@ -16,7 +15,6 @@ import type * as React from 'react'
 import type { Sidebar } from '@/components/ui/sidebar'
 import {
 	type EditSection,
-	type ListingAction,
 	ListingEditSidebar,
 } from '@/components/user-dashboard/edit-sidebar/listing-edit-sidebar'
 import { ListingSwitcher } from '@/components/user-dashboard/edit-sidebar/listing-switcher'
@@ -35,17 +33,48 @@ import {
 } from '@/lib/project-artifacts'
 
 const SECTIONS: readonly EditSection[] = [
-	{ id: '', title: 'General', icon: InformationCircleIcon, exactMatch: true },
-	{ id: '/description', title: 'Description', icon: TextIcon },
-	{ id: '/categories', title: 'Categories', icon: GridIcon },
-	{ id: '/links', title: 'Links', icon: Link04Icon },
-	{ id: '/license', title: 'License', icon: LicenseIcon },
-	{ id: '/gallery', title: 'Gallery', icon: Image02Icon },
-	{ id: '/versions', title: 'Versions', icon: Package01Icon },
 	{
-		id: '/review',
-		title: 'Preview & submission',
-		icon: CheckmarkCircle01Icon,
+		id: '',
+		title: 'General',
+		icon: InformationCircleIcon,
+		exactMatch: true,
+		group: 'Listing',
+	},
+	{
+		id: '/description',
+		title: 'Description',
+		icon: TextIcon,
+		group: 'Listing',
+	},
+	{
+		id: '/gallery',
+		title: 'Gallery',
+		icon: Image02Icon,
+		group: 'Listing',
+	},
+	{
+		id: '/links',
+		title: 'Links',
+		icon: Link04Icon,
+		group: 'Listing',
+	},
+	{
+		id: '/license',
+		title: 'License',
+		icon: LicenseIcon,
+		group: 'Listing',
+	},
+	{
+		id: '/versions',
+		title: 'Versions',
+		icon: Package01Icon,
+		group: 'Releases',
+	},
+	{
+		id: '/analytics',
+		title: 'Analytics',
+		icon: Analytics01Icon,
+		group: 'Insights',
 	},
 ]
 
@@ -61,17 +90,8 @@ export function ProjectEditSidebar({
 	const deleteProject = useMutation(api.functions.projects.projects.remove)
 
 	const state = project ? creatorListingState(project) : null
-	const action: ListingAction | undefined = state?.canSubmit
-		? {
-				label: 'Review & submit',
-				icon: CheckmarkCircle01Icon,
-				href: `${BASE_PATH}/${id}/review`,
-			}
-		: undefined
-
 	return (
 		<ListingEditSidebar
-			action={action}
 			backLabel={`Back to ${PROJECT_TYPE_PLURAL_LABELS[type]}`}
 			basePath={BASE_PATH}
 			deletion={

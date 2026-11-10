@@ -28,7 +28,7 @@ const DASHBOARD = /\/dashboard(?:\?|$)/
 const SUBMIT = /^(?:(?:Submit|Resubmit) for review|Submit updates)$/
 const CLAIMED_BY_ANOTHER = /assigned to another/i
 const CLAIM = /^(?:Claim|Release) review$/
-const SAVE = /^Save Changes$/
+const SAVE = /^Save changes$/
 /**
  * Rethrow a failed Convex call with the text a person would be shown.
  * Production hides `message`; ConvexError keeps it in `data`.
@@ -106,9 +106,11 @@ test.describe('publishing acceptance', () => {
 		await page.goto(
 			listing.kind === 'server' ? listing.edit : `${listing.edit}/review`,
 		)
+		// Servers are submitted from the checklist beside the settings: a
+		// sidebar on wide screens, a bar that opens on narrow ones.
 		if (listing.kind === 'server' && mobile) {
 			await page
-				.getByRole('button', { name: 'Toggle Sidebar', exact: true })
+				.getByRole('button', { name: 'Show steps', exact: true })
 				.click()
 		}
 		await page.getByRole('button', { name: SUBMIT }).last().click()
@@ -411,9 +413,10 @@ test.describe('publishing acceptance', () => {
 			)
 			await input.fill(summary)
 			await creator.getByRole('button', { name: SAVE }).click()
+			// The save bar goes away once nothing is left to save.
 			await expect(
 				creator.getByRole('button', { name: SAVE }),
-			).toBeDisabled()
+			).toHaveCount(0)
 			await savedSummary(listing, summary)
 			await submit(creator, listing, mobile)
 			await moderator.goto(listing.review)
@@ -470,9 +473,10 @@ test.describe('publishing acceptance', () => {
 				)
 				.fill(draftSummary)
 			await creator.getByRole('button', { name: SAVE }).click()
+			// The save bar goes away once nothing is left to save.
 			await expect(
 				creator.getByRole('button', { name: SAVE }),
-			).toBeDisabled()
+			).toHaveCount(0)
 			await savedSummary(listing, draftSummary)
 			await submit(creator, listing, mobile)
 			await visitor.goto(listing.public)

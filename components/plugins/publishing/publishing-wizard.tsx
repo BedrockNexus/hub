@@ -16,7 +16,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { MarkdownEditor } from '@/components/editor/markdown-editor'
-import { PluginIconField } from '@/components/plugins/publishing/plugin-icon-field'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +29,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
+import {
+	CreateListingFooter,
+	CreateListingShell,
+} from '@/components/user-dashboard/create/create-listing-shell'
 import { PluginReviewNotice } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
 import { SettingsSection } from '@/components/user-dashboard/settings-section'
 import { api } from '@/convex/_generated/api'
@@ -39,9 +42,6 @@ import { formatBytes, formatRegistryDate } from '@/lib/plugins/format-registry'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 import {
 	CHANGELOG_MAX_LENGTH,
-	DESCRIPTION_MAX_LENGTH,
-	type ProjectMetadataInput,
-	projectMetadataSchema,
 	releaseSubmissionSchema,
 	releaseTagFor,
 } from '@/lib/plugins/publishing/metadata'
@@ -95,124 +95,12 @@ function useBusy() {
 	return { busy, run }
 }
 
-/** The details of a new plugin, prefilled from its repository. */
-function MetadataForm({
-	draft,
-	repository,
-	busy,
-	submitLabel,
-	onSave,
-}: {
-	draft: Doc<'pluginPublishingDrafts'>
-	repository?: { fullName: string; defaultBranch: string }
-	busy: boolean
-	submitLabel: string
-	onSave: (metadata: ProjectMetadataInput) => Promise<void>
-}) {
-	const [metadata, setMetadata] = useState<ProjectMetadataInput>({
-		name: draft.name,
-		slug: draft.slug,
-		summary: draft.summary,
-		description: draft.description,
-	})
-	const [validationError, setValidationError] = useState<string | null>(null)
-
-	function update<Field extends keyof ProjectMetadataInput>(
-		field: Field,
-		value: ProjectMetadataInput[Field],
-	) {
-		setMetadata((current) => ({ ...current, [field]: value }))
-	}
-
-	return (
-		<form
-			className="grid gap-5 sm:grid-cols-2"
-			onSubmit={async (event) => {
-				event.preventDefault()
-				const result = projectMetadataSchema.safeParse(metadata)
-				if (!result.success) {
-					setValidationError(
-						result.error.issues[0]?.message ?? 'Check the details.',
-					)
-					return
-				}
-				setValidationError(null)
-				await onSave(result.data)
-			}}
-		>
-			<div className="flex flex-col gap-2 sm:col-span-2">
-				<Label>Icon</Label>
-				<PluginIconField
-					disabled={busy}
-					draftId={draft._id}
-					iconUrl={draft.iconUrl}
-					name={metadata.name || draft.name}
-				/>
-			</div>
-			<div className="space-y-2">
-				<Label htmlFor="plugin-name">Name</Label>
-				<Input
-					disabled={busy}
-					id="plugin-name"
-					onChange={(event) => update('name', event.target.value)}
-					value={metadata.name}
-				/>
-			</div>
-			<div className="space-y-2">
-				<Label htmlFor="plugin-slug">Slug</Label>
-				<Input
-					disabled={busy}
-					id="plugin-slug"
-					onChange={(event) => update('slug', event.target.value)}
-					value={metadata.slug}
-				/>
-			</div>
-			<div className="space-y-2 sm:col-span-2">
-				<Label htmlFor="plugin-summary">Summary</Label>
-				<Input
-					disabled={busy}
-					id="plugin-summary"
-					onChange={(event) => update('summary', event.target.value)}
-					placeholder="One sentence about what the plugin does"
-					value={metadata.summary}
-				/>
-			</div>
-			<div className="space-y-2 sm:col-span-2">
-				<Label id="plugin-description-label">Description</Label>
-				<MarkdownEditor
-					disabled={busy}
-					labelledBy="plugin-description-label"
-					maxLength={DESCRIPTION_MAX_LENGTH}
-					onChange={(value) =>
-						update('description', value || undefined)
-					}
-					placeholder="Describe your plugin in detail..."
-					relativeUrlBase={
-						repository
-							? {
-									images: `https://raw.githubusercontent.com/${repository.fullName}/${encodeURIComponent(repository.defaultBranch)}/`,
-									links: `https://github.com/${repository.fullName}/blob/${encodeURIComponent(repository.defaultBranch)}/`,
-								}
-							: undefined
-					}
-					value={metadata.description ?? ''}
-				/>
-			</div>
-			{validationError ? (
-				<p className="text-destructive text-sm sm:col-span-2">
-					{validationError}
-				</p>
-			) : null}
-			<div className="flex justify-end sm:col-span-2">
-				<Button disabled={busy} type="submit">
-					{submitLabel}
-				</Button>
-			</div>
-		</form>
-	)
-}
-
-/** Step 1 and 2: pick a repository, then confirm the prefilled details. */
+/**
+ * Creating a plugin: pick a public repository the GitHub App can read. The
+ * draft's name, summary and description are filled in from the repository
+ * and can be changed from the plugin's dashboard; the next step is choosing
+ * a build workflow.
+ */
 export function AddPluginFlow() {
 	const auth = useConvexAuth()
 	const router = useRouter()
@@ -220,22 +108,11 @@ export function AddPluginFlow() {
 		api.functions.plugins.github.installations.listMine,
 		auth.isAuthenticated ? {} : 'skip',
 	)
-	const drafts = useQuery(
-		api.functions.plugins.publishing.model.listMine,
-		auth.isAuthenticated ? {} : 'skip',
-	)
 	const startFromRepository = useAction(
 		api.functions.plugins.publishing.actions.startFromRepository,
 	)
-	const saveMetadata = useMutation(
-		api.functions.plugins.publishing.model.saveMetadata,
-	)
 	const [repositoryId, setRepositoryId] =
 		useState<Id<'githubRepositories'> | null>(null)
-	const [draftId, setDraftId] = useState<Id<'pluginPublishingDrafts'> | null>(
-		null,
-	)
-	const [step, setStep] = useState<'repository' | 'details'>('repository')
 	const { busy, run } = useBusy()
 	const repositories = (
 		installations?.flatMap((installation) => installation.repositories) ??
@@ -244,155 +121,108 @@ export function AddPluginFlow() {
 		(repository) =>
 			!repository.isPrivate && repository.accessStatus === 'granted',
 	)
-	const repository = repositories.find((item) => item._id === repositoryId)
-	const draft = drafts?.find((entry) => entry.draft._id === draftId)?.draft
-
-	if (step === 'details') {
-		return (
-			<section
-				aria-labelledby="plugin-details-heading"
-				className="max-w-3xl space-y-6"
-			>
-				<Button
-					disabled={busy !== null}
-					onClick={() => setStep('repository')}
-					variant="outline"
-				>
-					Back
-				</Button>
-				<div className="space-y-1">
-					<h2
-						className="font-semibold text-lg"
-						id="plugin-details-heading"
-					>
-						Plugin details
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						Filled in from{' '}
-						{repository?.fullName ?? 'the repository'}. Edit
-						anything before continuing.
-					</p>
-				</div>
-				{draft ? (
-					<MetadataForm
-						busy={busy !== null}
-						draft={draft}
-						key={draft._id}
-						onSave={(metadata) =>
-							run('metadata', async () => {
-								if (!repository) {
-									throw new Error(
-										'The selected repository is no longer available.',
-									)
-								}
-								await saveMetadata({
-									draftId: draft._id,
-									...metadata,
-								})
-								router.push(
-									`/dashboard/plugins/${createPluginDashboardId(repository.githubRepositoryId)}/workflow` as Route,
-								)
-							})
-						}
-						repository={repository}
-						submitLabel={
-							busy === 'metadata' ? 'Saving...' : 'Continue'
-						}
-					/>
-				) : (
-					<p className="text-muted-foreground text-sm" role="status">
-						Loading plugin details...
-					</p>
-				)}
-			</section>
-		)
-	}
 
 	return (
-		<div className="max-w-lg space-y-4">
+		<CreateListingShell
+			intro="Pick the repository to publish from. We fill in the name, summary and description from it, and you can change them after."
+			kind="plugin"
+			showPlugins
+		>
 			{auth.isLoading || installations === undefined ? (
 				<p className="text-muted-foreground text-sm" role="status">
 					Loading repositories...
 				</p>
 			) : repositories.length === 0 ? (
-				<>
-					<p className="text-muted-foreground text-sm">
-						Install the GitHub App and give it access to the public
-						repository you want to publish.
-					</p>
+				<div className="flex flex-col items-start gap-4 rounded-lg border bg-card p-5">
+					<div className="space-y-1">
+						<h2 className="font-semibold">Connect GitHub</h2>
+						<p className="text-muted-foreground text-sm">
+							Install the BedrockNexus GitHub App and give it
+							access to the public repository you want to publish.
+						</p>
+					</div>
 					<a className={buttonVariants()} href="/api/github/install">
+						<HugeiconsIcon className="size-4" icon={GithubIcon} />
 						Install GitHub App
 					</a>
-				</>
+				</div>
 			) : (
 				<form
-					className="space-y-4"
+					className="flex flex-col gap-9"
 					onSubmit={(event) => {
 						event.preventDefault()
-						if (!repositoryId || busy !== null) {
+						const repository = repositories.find(
+							(item) => item._id === repositoryId,
+						)
+						if (!repository || busy !== null) {
 							return
 						}
 						void run('start', async () => {
-							setDraftId(
-								await startFromRepository({ repositoryId }),
+							await startFromRepository({
+								repositoryId: repository._id,
+							})
+							router.push(
+								`/dashboard/plugins/${createPluginDashboardId(repository.githubRepositoryId)}/workflow` as Route,
 							)
-							setStep('details')
 						})
 					}}
 				>
-					<div className="space-y-2">
-						<Label htmlFor="publishing-repository">
-							Choose a repository
-						</Label>
-						<Select
-							disabled={busy !== null}
-							items={repositories.map((item) => ({
-								value: item._id,
-								label: item.fullName,
-							}))}
-							onValueChange={(value) =>
-								setRepositoryId(
-									value as Id<'githubRepositories'> | null,
-								)
-							}
-							value={repositoryId}
-						>
-							<SelectTrigger
-								className="w-full"
-								id="publishing-repository"
+					<fieldset className="flex flex-col gap-3">
+						<div className="flex items-baseline justify-between gap-3">
+							<legend className="font-medium text-sm">
+								Repository
+							</legend>
+							<a
+								className="text-primary text-sm hover:underline"
+								href="/api/github/install"
 							>
-								<SelectValue placeholder="Choose a public repository" />
-							</SelectTrigger>
-							<SelectContent>
-								{repositories.map((item) => (
-									<SelectItem key={item._id} value={item._id}>
+								Add another repository
+							</a>
+						</div>
+						<div className="overflow-hidden rounded-lg border bg-card">
+							{repositories.map((item) => (
+								<label
+									className="flex cursor-pointer items-center gap-3 border-t px-4 py-3.5 first:border-t-0 has-checked:bg-muted/40"
+									key={item._id}
+								>
+									<input
+										checked={repositoryId === item._id}
+										className="size-4 accent-primary"
+										disabled={busy !== null}
+										name="repository"
+										onChange={() =>
+											setRepositoryId(item._id)
+										}
+										type="radio"
+										value={item._id}
+									/>
+									<span className="min-w-0 truncate font-mono text-sm">
 										{item.fullName}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-					<p className="text-muted-foreground text-xs">
-						Missing a repository?{' '}
-						<a
-							className="text-primary hover:underline"
-							href="/api/github/install"
+									</span>
+								</label>
+							))}
+						</div>
+					</fieldset>
+
+					<CreateListingFooter note="Next: pick a build workflow, then the rest of the listing.">
+						<Link
+							className={buttonVariants({ variant: 'ghost' })}
+							href="/dashboard/plugins"
 						>
-							Change GitHub App access
-						</a>
-						.
-					</p>
-					<Button
-						disabled={!repositoryId || busy !== null}
-						type="submit"
-					>
-						{busy === 'start'
-							? 'Reading repository...'
-							: 'Continue'}
-					</Button>
+							Cancel
+						</Link>
+						<Button
+							disabled={!repositoryId || busy !== null}
+							type="submit"
+						>
+							{busy === 'start'
+								? 'Reading repository...'
+								: 'Create draft'}
+						</Button>
+					</CreateListingFooter>
 				</form>
 			)}
-		</div>
+		</CreateListingShell>
 	)
 }
 

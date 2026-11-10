@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import { Controller, type Resolver, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { MarkdownEditor } from '@/components/editor/markdown-editor'
-import { Button } from '@/components/ui/button'
 import {
 	Field,
 	FieldDescription,
@@ -14,9 +13,9 @@ import {
 	FieldGroup,
 	FieldLabel,
 } from '@/components/ui/field'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
+import { SaveBar } from '@/components/user-dashboard/save-bar'
+import { SettingsPageHeader } from '@/components/user-dashboard/settings-card'
 import { api } from '@/convex/_generated/api'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
 import {
@@ -120,15 +119,10 @@ export function ServerDescriptionSettingsForm({
 
 	return (
 		<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-			<div>
-				<h2 className="font-semibold text-lg tracking-tight">
-					Description
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Write the full server description shown on the public page
-				</p>
-			</div>
-			<Separator />
+			<SettingsPageHeader
+				description="Write the full server description shown on the public page."
+				title="Description"
+			/>
 			<FieldGroup>
 				<Controller
 					control={form.control}
@@ -157,22 +151,12 @@ export function ServerDescriptionSettingsForm({
 					)}
 				/>
 			</FieldGroup>
-			<div className="flex justify-end border-t pt-6">
-				<Button
-					className="w-full sm:w-auto"
-					disabled={isSaveDisabled}
-					type="submit"
-				>
-					{isSubmitting ? (
-						<>
-							<Spinner className="size-4" />
-							Saving...
-						</>
-					) : (
-						'Save Changes'
-					)}
-				</Button>
-			</div>
+			<SaveBar
+				canSave={!isSaveDisabled}
+				dirty={isDirty}
+				isSubmitting={isSubmitting}
+				onDiscard={() => form.reset()}
+			/>
 		</form>
 	)
 }

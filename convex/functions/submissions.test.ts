@@ -247,10 +247,19 @@ describe('server submission revisions', () => {
 		const t = createTest()
 		const owner = await signIn(t, 'creator')
 		const admin = await signIn(t, 'moderator', 'admin')
+		const categoryId = await t.run((ctx) =>
+			ctx.db.insert('serverCategories', {
+				name: 'Survival',
+				slug: 'survival',
+				sortOrder: 0,
+				isActive: true,
+			}),
+		)
 		const id = await insertServer(t, {
 			slug: 'first-server',
 			ownerId: owner.userId,
 			status: 'draft',
+			categoryIds: [categoryId],
 		})
 		await t.run((ctx) => ctx.db.patch(id, { verifiedAt: 1 }))
 		await owner.mutation(api.functions.servers.servers.update, {

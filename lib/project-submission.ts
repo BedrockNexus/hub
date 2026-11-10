@@ -8,7 +8,6 @@ interface SubmissionDetails {
 	hasValidatedRelease: boolean
 	iconUrl?: string
 	license?: string
-	metadata?: unknown
 	hasGallery?: boolean
 }
 
@@ -35,26 +34,20 @@ export function projectSubmissionChecklist(project: SubmissionDetails) {
 			).success,
 		},
 		{
-			label: 'At least one category',
-			section: '/categories',
+			label: 'Categories',
+			section: '#categories',
 			required: true,
 			complete: project.categoryIds.length > 0,
 		},
 		{
-			label: 'Validated release eligible for review',
+			label: 'A checked release file',
 			section: '/versions',
 			required: true,
 			complete: project.hasValidatedRelease,
 		},
 		{
-			label: 'Content details and requirements',
-			section: '',
-			required: false,
-			complete: !!project.metadata,
-		},
-		{
-			label: 'Listing icon',
-			section: '',
+			label: 'Icon',
+			section: '#icon',
 			required: false,
 			complete: !!project.iconUrl,
 		},

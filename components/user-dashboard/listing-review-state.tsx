@@ -36,7 +36,7 @@ export function ListingReviewBadge({ status }: { status: ReviewState }) {
 export function ListingReviewNotice({
 	listing,
 	children,
-	submitStep = 'open Review & submit',
+	submitStep = 'use Submit in the checklist',
 }: {
 	listing: CreatorListingInput
 	children?: React.ReactNode
@@ -44,7 +44,19 @@ export function ListingReviewNotice({
 	submitStep?: string
 }) {
 	const state = creatorListingState(listing)
-	let message = `Save your changes, then ${submitStep} to check your listing and send it to the moderators.`
+	// A draft that has never been sent needs no banner: the General page's
+	// "Finish your listing" checklist and the sidebar status say what is next.
+	if (
+		state.review === 'not_submitted' &&
+		state.canSubmit &&
+		!state.locked &&
+		!state.reason &&
+		!listing.hasPendingVersions &&
+		!children
+	) {
+		return null
+	}
+	let message = `Save your changes, then ${submitStep} to send your listing to the moderators.`
 	if (state.locked) {
 		message =
 			'Your submission is awaiting moderator review. Editing is locked until a moderator decides.'

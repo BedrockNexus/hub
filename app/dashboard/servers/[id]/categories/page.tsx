@@ -1,15 +1,14 @@
-import { CategoriesSettingsForm } from '@/components/user-dashboard/servers/edit/categories-settings-form'
+import { redirect } from 'next/navigation'
 import { canonicalServerSettings } from '@/lib/canonical-content'
+import { serverReference } from '@/lib/server-routes'
 
-interface CategoriesPageProps {
-	params: Promise<{
-		id: string
-	}>
-}
-
-export default async function CategoriesPage({ params }: CategoriesPageProps) {
+// Categories moved to the General page; keep old links working.
+export default async function CategoriesPage({
+	params,
+}: {
+	params: Promise<{ id: string }>
+}) {
 	const { id } = await params
-	await canonicalServerSettings(id, '/categories')
-
-	return <CategoriesSettingsForm id={id} />
+	const server = await canonicalServerSettings(id, '')
+	redirect(`/dashboard/servers/${serverReference(server)}`)
 }

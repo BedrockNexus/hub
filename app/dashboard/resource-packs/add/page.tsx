@@ -1,4 +1,13 @@
 import { AddProjectForm } from '@/components/user-dashboard/projects/add-project-form'
-export default function Page() {
-	return <AddProjectForm key="resource-packs" type="resource_pack" />
+import { getSiteFeatures } from '@/lib/site-settings'
+
+export default async function Page() {
+	const features = await getSiteFeatures()
+	return (
+		<AddProjectForm
+			key="resource-packs"
+			showPlugins={features.pluginsEnabled}
+			type="resource_pack"
+		/>
+	)
 }

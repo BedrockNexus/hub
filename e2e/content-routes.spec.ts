@@ -139,42 +139,32 @@ test('existing addon detail links redirect, and tabs stay within the addon secti
 
 test.describe('signed-in type-specific forms', () => {
 	test.use({ storageState: process.env.E2E_AUTH_STORAGE || undefined })
-	test('forms contain only their own content details', async ({ page }) => {
+	test('each create screen starts the kind it is for', async ({ page }) => {
 		test.skip(
 			!process.env.E2E_AUTH_STORAGE,
 			'Set E2E_AUTH_STORAGE to a signed-in storage state',
 		)
-		await page.goto('/dashboard/addons/add')
-		await expect(
-			page.getByRole('heading', {
-				name: 'Create New Addon',
-				exact: true,
-			}),
-		).toBeVisible()
-		await expect(
-			page.getByLabel('Addon Name', { exact: false }),
-		).toBeVisible()
-		await expect(
-			page.getByText('Behavior Pack Included', { exact: false }),
-		).toBeVisible()
-		await expect(
-			page.getByRole('combobox', { name: 'Project Type' }),
-		).toHaveCount(0)
-		await page.goto('/dashboard/resource-packs/add')
-		await expect(
-			page.getByRole('heading', {
-				name: 'Create New Resource Pack',
-				exact: true,
-			}),
-		).toBeVisible()
-		await expect(
-			page.getByLabel('Resource Pack Name', { exact: false }),
-		).toBeVisible()
-		await expect(
-			page.getByText('Resolution', { exact: true }),
-		).toBeVisible()
-		await expect(
-			page.getByText('Behavior Pack Included', { exact: false }),
-		).toHaveCount(0)
+		for (const [path, kind] of [
+			['/dashboard/addons/add', 'Addon'],
+			['/dashboard/resource-packs/add', 'Resource pack'],
+		] as const) {
+			await page.goto(path)
+			await expect(
+				page.getByRole('heading', {
+					name: 'What are you sharing?',
+					exact: true,
+				}),
+			).toBeVisible()
+			await expect(
+				page
+					.getByRole('navigation', { name: 'What you are creating' })
+					.locator('a[aria-current="page"]'),
+			).toContainText(kind)
+			await expect(page.getByLabel('Name', { exact: true })).toBeVisible()
+			// Pack details are set from the dashboard after creating.
+			await expect(
+				page.getByText('Behavior pack', { exact: false }),
+			).toHaveCount(0)
+		}
 	})
 })

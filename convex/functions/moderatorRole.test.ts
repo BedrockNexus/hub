@@ -15,10 +15,19 @@ describe('moderator role', () => {
 		const t = createTest()
 		const owner = await signIn(t, 'owner')
 		const moderator = await signIn(t, 'mod', 'moderator')
+		const categoryId = await t.run((ctx) =>
+			ctx.db.insert('serverCategories', {
+				name: 'Survival',
+				slug: 'survival',
+				sortOrder: 0,
+				isActive: true,
+			}),
+		)
 		const id = await insertServer(t, {
 			slug: 'moderated-server',
 			ownerId: owner.userId,
 			status: 'draft',
+			categoryIds: [categoryId],
 		})
 		await t.run((ctx) => ctx.db.patch(id, { verifiedAt: 1 }))
 		await owner.mutation(api.functions.servers.servers.update, {

@@ -12,8 +12,8 @@ import {
 	repositoryUrlBase,
 	usePluginForEdit,
 } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
+import { SaveBar } from '@/components/user-dashboard/save-bar'
 import {
-	SaveChangesButton,
 	SettingsSection,
 	SettingsSkeleton,
 } from '@/components/user-dashboard/settings-section'
@@ -52,9 +52,12 @@ function DescriptionForm({ plugin }: { plugin: PluginForEdit }) {
 		<SettingsSection
 			description="The long description on your plugin page, written in Markdown like a GitHub README"
 			footer={
-				<SaveChangesButton
-					disabled={!isDirty || plugin.locked}
+				<SaveBar
+					blockedMessage="This plugin is in review, so its details are locked"
+					canSave={!plugin.locked}
+					dirty={isDirty}
 					isSubmitting={isSubmitting}
+					onDiscard={() => setDescription(draft.description ?? '')}
 				/>
 			}
 			onSubmit={async (event) => {

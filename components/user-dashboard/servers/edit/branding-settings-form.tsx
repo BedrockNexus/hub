@@ -3,12 +3,11 @@
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
+import { SaveBar } from '@/components/user-dashboard/save-bar'
 import { ServerBrandingFields } from '@/components/user-dashboard/servers/fields/server-branding-fields'
+import { SettingsPageHeader } from '@/components/user-dashboard/settings-card'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
@@ -120,15 +119,10 @@ export function BrandingSettingsForm({
 
 	return (
 		<form className="space-y-6" onSubmit={onSubmit}>
-			<div>
-				<h2 className="font-semibold text-lg tracking-tight">
-					Branding
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Upload a logo and banner for your server
-				</p>
-			</div>
-			<Separator />
+			<SettingsPageHeader
+				description="Upload a logo and banner for your server."
+				title="Branding"
+			/>
 			<FieldGroup>
 				<ServerBrandingFields
 					currentBannerUrl={server.bannerUrl}
@@ -150,22 +144,16 @@ export function BrandingSettingsForm({
 					serverName={server.name}
 				/>
 			</FieldGroup>
-			<div className="flex justify-end border-t pt-6">
-				<Button
-					className="w-full sm:w-auto"
-					disabled={isSubmitting || !hasChanges}
-					type="submit"
-				>
-					{isSubmitting ? (
-						<>
-							<Spinner className="size-4" />
-							Saving...
-						</>
-					) : (
-						'Save Changes'
-					)}
-				</Button>
-			</div>
+			<SaveBar
+				dirty={hasChanges}
+				isSubmitting={isSubmitting}
+				onDiscard={() => {
+					setPendingLogoR2Key(undefined)
+					setPendingBannerR2Key(undefined)
+					setRemoveLogo(false)
+					setRemoveBanner(false)
+				}}
+			/>
 		</form>
 	)
 }

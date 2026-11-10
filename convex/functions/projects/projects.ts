@@ -783,15 +783,17 @@ export const listAdmin = moderatorQuery({
 // =============================================================================
 
 /**
- * Create new project
+ * Create a new project draft. Only the name and summary are needed to start;
+ * the description and categories can be added later and are checked when the
+ * draft is submitted for review.
  */
 export const create = mutation({
 	args: {
 		type: projectType,
 		name: v.string(),
 		summary: v.string(),
-		description: v.string(),
-		categoryIds: v.array(v.id('projectCategories')),
+		description: v.optional(v.string()),
+		categoryIds: v.optional(v.array(v.id('projectCategories'))),
 		tags: v.optional(v.array(v.string())),
 		metadata: v.optional(projectMetadata),
 		sourceUrl: v.optional(v.string()),
@@ -808,7 +810,14 @@ export const create = mutation({
 		if (!user) {
 			throw new Error('You must be logged in to create a project')
 		}
-		validateProjectFields(args)
+		const description = args.description ?? ''
+		const categoryIds = args.categoryIds ?? []
+		validateProjectFields({
+			...args,
+			// Both may be left empty on a draft.
+			description: description.trim() ? description : undefined,
+			categoryIds: categoryIds.length ? categoryIds : undefined,
+		})
 
 		const ownerType = args.ownerType
 		const ownerId = ownerType === 'user' ? user._id : args.ownerId
@@ -823,7 +832,7 @@ export const create = mutation({
 			user._id,
 			'Too many projects created. Please wait before creating another project.',
 		)
-		await assertCategoriesMatchProjectType(ctx, args.categoryIds, args.type)
+		await assertCategoriesMatchProjectType(ctx, categoryIds, args.type)
 		assertMetadataMatchesProjectType(args.type, args.metadata)
 
 		const slug = generateSlug(args.name)
@@ -847,8 +856,8 @@ export const create = mutation({
 			name: args.name,
 			slug,
 			summary: args.summary,
-			description: args.description,
-			categoryIds: args.categoryIds,
+			description,
+			categoryIds,
 			tags: normalizeTagsField(args.tags),
 			metadata: args.metadata,
 			sourceUrl: args.sourceUrl,
@@ -869,7 +878,7 @@ export const create = mutation({
 			ctx,
 			'projects',
 			projectId,
-			args.description,
+			description,
 		)
 
 		return { id: projectId, slug, publicId }

@@ -15,7 +15,7 @@ import type { Id } from '@/convex/_generated/dataModel'
 import { useMinute } from '@/hooks/use-minute'
 import { creatorListingState } from '@/lib/creator-listing-state'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
-import { projectMetadataSchema } from '@/lib/plugins/publishing/metadata'
+import { pluginSubmissionChecklist } from '@/lib/plugins/plugin-submission'
 import { usePluginForEdit } from './edit/plugin-edit-data'
 export function PluginSubmissionReview({
 	draftId,
@@ -42,62 +42,10 @@ export function PluginSubmissionReview({
 		...plugin.project,
 		locked: plugin.locked,
 	})
-	const checks = [
-		{
-			label: 'Name and summary',
-			section: '',
-			complete: projectMetadataSchema.safeParse(draft).success,
-			required: true,
-		},
-		{
-			label: 'Build workflow installed',
-			section: '/workflow',
-			complete: !!draft.workflowInstalled,
-			required: true,
-		},
-		{
-			label: 'Build available for submission',
-			section: '/versions',
-			complete: !!builds?.some(
-				(build) =>
-					build.publishable &&
-					(!build.release ||
-						['changesRequested', 'preparationFailed'].includes(
-							build.release.status,
-						)),
-			),
-			required: true,
-		},
-		{
-			label: 'Description',
-			section: '/description',
-			complete: !!draft.description?.trim(),
-			required: false,
-		},
-		{
-			label: 'At least one category',
-			section: '/categories',
-			complete: !!draft.categoryIds?.length,
-			required: false,
-		},
-		{
-			label: 'Listing icon',
-			section: '',
-			complete: !!draft.iconUrl,
-			required: false,
-		},
-		{
-			label: 'License',
-			section: '/license',
-			complete: !!draft.license,
-			required: false,
-		},
-	]
-	checks.push({
-		label: 'Screenshots',
-		section: '/gallery',
-		complete: !!gallery?.length,
-		required: false,
+	const checks = pluginSubmissionChecklist({
+		draft,
+		builds,
+		hasGallery: !!gallery?.length,
 	})
 	const ready = checks.every((check) => !check.required || check.complete)
 	return (
@@ -118,32 +66,30 @@ export function PluginSubmissionReview({
 					moderationReason: plugin.moderationNote,
 				}}
 			/>
-			<ListingSubmissionChecklist basePath={base} checks={checks}>
-				{state.canSubmit ? (
-					<>
-						<p className="text-muted-foreground text-sm">
-							Choose a build, enter its version and changelog,
-							then submit it for moderator review. Your saved
-							listing is reviewed with that version.
-						</p>
-						{ready ? (
-							<Button
-								nativeButton={false}
-								render={<Link href={`${base}/versions`} />}
-							>
-								{state.review === 'changes_requested' ||
-								state.review === 'rejected'
-									? 'Choose a build to resubmit'
-									: 'Choose a build to submit'}
-							</Button>
-						) : (
-							<p className="text-muted-foreground text-sm">
-								Complete the required items before submitting.
-							</p>
-						)}
-					</>
+			<ListingSubmissionChecklist
+				basePath={base}
+				checks={checks}
+				title="Submission checklist"
+			>
+				{state.canSubmit && ready ? (
+					<Button
+						nativeButton={false}
+						render={<Link href={`${base}/versions`} />}
+					>
+						{state.review === 'changes_requested' ||
+						state.review === 'rejected'
+							? 'Choose a build to resubmit'
+							: 'Choose a build to submit'}
+					</Button>
 				) : null}
 			</ListingSubmissionChecklist>
+			{state.canSubmit ? (
+				<p className="text-muted-foreground text-sm">
+					Choose a build, enter its version and changelog, then submit
+					it for moderator review. Your saved listing is reviewed with
+					that version.
+				</p>
+			) : null}
 			<div className="border-t pt-6">
 				<p className="mb-3 text-muted-foreground text-sm">
 					Private preview of saved content

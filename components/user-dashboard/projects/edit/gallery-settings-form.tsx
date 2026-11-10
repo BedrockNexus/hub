@@ -4,6 +4,7 @@ import { useQuery } from 'convex/react'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { GalleryManager } from '@/components/user-dashboard/gallery/gallery-manager'
+import { SettingsPageHeader } from '@/components/user-dashboard/settings-card'
 import { api } from '@/convex/_generated/api'
 
 interface ProjectGallerySettingsFormProps {
@@ -49,15 +50,10 @@ export function ProjectGallerySettingsForm({
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h2 className="font-semibold text-lg tracking-tight">
-					Gallery
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Add screenshots of your listing to showcase it to users
-				</p>
-			</div>
-			<Separator />
+			<SettingsPageHeader
+				description="Add screenshots of your listing to showcase it to users."
+				title="Gallery"
+			/>
 			<GalleryManager entityId={project._id} kind="project" />
 		</div>
 	)

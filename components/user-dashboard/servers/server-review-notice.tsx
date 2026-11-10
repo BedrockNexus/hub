@@ -21,10 +21,5 @@ export function ServerReviewNotice({ id }: { id: string }) {
 	if (!(needsAction && state.reason)) {
 		return null
 	}
-	return (
-		<ListingReviewNotice
-			listing={server}
-			submitStep="use the submit button in the server menu"
-		/>
-	)
+	return <ListingReviewNotice listing={server} />
 }

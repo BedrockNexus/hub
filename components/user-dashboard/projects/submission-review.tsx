@@ -87,21 +87,19 @@ export function ProjectSubmissionReview({ id }: { id: Id<'projects'> }) {
 				</p>
 			</div>
 
-			<ListingSubmissionChecklist basePath={base} checks={checks}>
+			<ListingSubmissionChecklist
+				basePath={base}
+				checks={checks}
+				title="Submission checklist"
+			>
 				{canSubmit ? (
-					<>
-						<p className="text-muted-foreground text-sm">
-							Submission starts moderator review. Files become
-							public after validation and approval.
-						</p>
-						<Button
-							disabled={!ready || submitting}
-							onClick={submit}
-							type="button"
-						>
-							{submitting ? 'Submitting...' : submitLabel}
-						</Button>
-					</>
+					<Button
+						disabled={!ready || submitting}
+						onClick={submit}
+						type="button"
+					>
+						{submitting ? 'Submitting...' : submitLabel}
+					</Button>
 				) : (
 					<p className="text-muted-foreground text-sm">
 						{statusMessage}

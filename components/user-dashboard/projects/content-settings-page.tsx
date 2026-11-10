@@ -1,10 +1,16 @@
 import { notFound, redirect } from 'next/navigation'
+import { ProjectAnalytics } from '@/components/user-dashboard/analytics/content-analytics'
+import { ProjectChecklist } from '@/components/user-dashboard/finish-listing'
+import { ListingEditFrame } from '@/components/user-dashboard/listing-edit-frame'
 import { api } from '@/convex/_generated/api'
 import { fetchAuthQuery } from '@/lib/auth-server'
 import { projectReference } from '@/lib/content-reference'
 import { contentEditHref, legacyContentSection } from '@/lib/content-routes'
-import { normalizeProjectType, type ProjectType } from '@/lib/project-artifacts'
-import { ProjectCategoriesSettingsForm } from './edit/categories-settings-form'
+import {
+	normalizeProjectType,
+	PROJECT_TYPE_LABELS,
+	type ProjectType,
+} from '@/lib/project-artifacts'
 import { ProjectDescriptionSettingsForm } from './edit/description-settings-form'
 import { ProjectGallerySettingsForm } from './edit/gallery-settings-form'
 import { ProjectGeneralSettingsForm } from './edit/general-settings-form'
@@ -48,7 +54,8 @@ export async function ContentSettingsPage({
 			case 'description':
 				return <ProjectDescriptionSettingsForm id={item._id} />
 			case 'categories':
-				return <ProjectCategoriesSettingsForm id={item._id} />
+				// Categories moved to the General page; keep old links working.
+				return redirect(contentEditHref(type, item._id, item.publicId))
 			case 'links':
 				return <ProjectLinksSettingsForm id={item._id} />
 			case 'license':
@@ -64,6 +71,17 @@ export async function ContentSettingsPage({
 				)
 			case 'review':
 				return <ProjectSubmissionReview id={item._id} />
+			case 'analytics':
+				return (
+					<ProjectAnalytics
+						isPublic={
+							item.status === 'published' &&
+							item.moderationStatus === 'approved'
+						}
+						label={PROJECT_TYPE_LABELS[type].toLowerCase()}
+						projectId={item._id}
+					/>
+				)
 			case 'versions/add':
 				return (
 					<div className="space-y-6">
@@ -86,6 +104,13 @@ export async function ContentSettingsPage({
 		}
 	})()
 	return (
-		<ProjectReviewBoundary id={item._id}>{content}</ProjectReviewBoundary>
+		<ListingEditFrame
+			rail={<ProjectChecklist id={item._id} variant="rail" />}
+			strip={<ProjectChecklist id={item._id} variant="strip" />}
+		>
+			<ProjectReviewBoundary id={item._id}>
+				{content}
+			</ProjectReviewBoundary>
+		</ListingEditFrame>
 	)
 }

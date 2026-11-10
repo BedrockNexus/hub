@@ -28,10 +28,9 @@ export function ProjectIconField({
 }: ProjectIconFieldProps) {
 	return (
 		<Field>
-			<FieldLabel>Project Icon</FieldLabel>
+			<FieldLabel>Icon</FieldLabel>
 			<FieldDescription>
-				Optional square image, recommended 256x256. PNG, JPG or GIF. Max
-				2MB.
+				A square image, 256 × 256 works best.
 			</FieldDescription>
 			<IconUpload
 				currentImageUrl={currentIconUrl}

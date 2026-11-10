@@ -1,13 +1,11 @@
 import type { FormEventHandler, ReactNode } from 'react'
 
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
+import { SettingsPageHeader } from '@/components/user-dashboard/settings-card'
 
 /**
  * One settings page of a server, project or plugin: a heading, then the
- * fields, then the save button. With `onSubmit` it is the form itself.
+ * fields, then the footer (a SaveBar). With `onSubmit` it is the form itself.
  */
 export function SettingsSection({
 	title,
@@ -24,17 +22,9 @@ export function SettingsSection({
 }) {
 	const content = (
 		<>
-			<div>
-				<h2 className="font-semibold text-lg tracking-tight">
-					{title}
-				</h2>
-				<p className="text-muted-foreground text-sm">{description}</p>
-			</div>
-			<Separator />
+			<SettingsPageHeader description={description} title={title} />
 			{children}
-			{footer ? (
-				<div className="flex justify-end border-t pt-6">{footer}</div>
-			) : null}
+			{footer}
 		</>
 	)
 	return onSubmit ? (
@@ -43,31 +33,6 @@ export function SettingsSection({
 		</form>
 	) : (
 		<div className="space-y-6">{content}</div>
-	)
-}
-
-export function SaveChangesButton({
-	isSubmitting,
-	disabled,
-}: {
-	isSubmitting: boolean
-	disabled?: boolean
-}) {
-	return (
-		<Button
-			className="w-full sm:w-auto"
-			disabled={isSubmitting || disabled}
-			type="submit"
-		>
-			{isSubmitting ? (
-				<>
-					<Spinner className="size-4" />
-					Saving...
-				</>
-			) : (
-				'Save Changes'
-			)}
-		</Button>
 	)
 }
 

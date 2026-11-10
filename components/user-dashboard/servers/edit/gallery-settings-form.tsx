@@ -4,6 +4,7 @@ import { useQuery } from 'convex/react'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { GalleryManager } from '@/components/user-dashboard/gallery/gallery-manager'
+import { SettingsPageHeader } from '@/components/user-dashboard/settings-card'
 import { api } from '@/convex/_generated/api'
 
 interface GallerySettingsFormProps {
@@ -47,15 +48,10 @@ export function GallerySettingsForm({ id }: GallerySettingsFormProps) {
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h2 className="font-semibold text-lg tracking-tight">
-					Gallery
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Add screenshots of your server to attract players
-				</p>
-			</div>
-			<Separator />
+			<SettingsPageHeader
+				description="Add screenshots of your server to attract players."
+				title="Gallery"
+			/>
 			<GalleryManager entityId={server._id} kind="server" />
 		</div>
 	)

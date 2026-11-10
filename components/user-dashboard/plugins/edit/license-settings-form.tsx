@@ -16,8 +16,8 @@ import {
 	PluginReviewNotice,
 	usePluginForEdit,
 } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
+import { SaveBar } from '@/components/user-dashboard/save-bar'
 import {
-	SaveChangesButton,
 	SettingsSection,
 	SettingsSkeleton,
 } from '@/components/user-dashboard/settings-section'
@@ -52,9 +52,12 @@ function LicenseForm({ plugin }: { plugin: PluginForEdit }) {
 		<SettingsSection
 			description="Set the license shown on your plugin page"
 			footer={
-				<SaveChangesButton
-					disabled={!isDirty || plugin.locked}
+				<SaveBar
+					blockedMessage="This plugin is in review, so its details are locked"
+					canSave={!plugin.locked}
+					dirty={isDirty}
 					isSubmitting={isSubmitting}
+					onDiscard={() => setLicense(draft.license ?? '')}
 				/>
 			}
 			onSubmit={async (event) => {

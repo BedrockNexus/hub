@@ -1,13 +1,12 @@
 'use client'
 
 import {
-	GridIcon,
+	Analytics01Icon,
 	Image02Icon,
 	InformationCircleIcon,
 	Link04Icon,
 	PaintBoardIcon,
 	TextIcon,
-	ViewIcon,
 	ViewOffSlashIcon,
 	Wifi01Icon,
 } from '@hugeicons/core-free-icons'
@@ -29,13 +28,49 @@ import { userFacingError } from '@/lib/user-facing-error'
 const BASE_PATH = '/dashboard/servers'
 
 const SECTIONS: readonly EditSection[] = [
-	{ id: '', title: 'General', icon: InformationCircleIcon, exactMatch: true },
-	{ id: '/description', title: 'Description', icon: TextIcon },
-	{ id: '/connection', title: 'Connection', icon: Wifi01Icon },
-	{ id: '/branding', title: 'Branding', icon: PaintBoardIcon },
-	{ id: '/categories', title: 'Categories', icon: GridIcon },
-	{ id: '/links', title: 'Links', icon: Link04Icon },
-	{ id: '/gallery', title: 'Gallery', icon: Image02Icon },
+	{
+		id: '',
+		title: 'General',
+		icon: InformationCircleIcon,
+		exactMatch: true,
+		group: 'Listing',
+	},
+	{
+		id: '/description',
+		title: 'Description',
+		icon: TextIcon,
+		group: 'Listing',
+	},
+	{
+		id: '/branding',
+		title: 'Branding',
+		icon: PaintBoardIcon,
+		group: 'Listing',
+	},
+	{
+		id: '/gallery',
+		title: 'Gallery',
+		icon: Image02Icon,
+		group: 'Listing',
+	},
+	{
+		id: '/links',
+		title: 'Links',
+		icon: Link04Icon,
+		group: 'Listing',
+	},
+	{
+		id: '/connection',
+		title: 'Connection',
+		icon: Wifi01Icon,
+		group: 'Server',
+	},
+	{
+		id: '/analytics',
+		title: 'Analytics',
+		icon: Analytics01Icon,
+		group: 'Insights',
+	},
 ]
 
 function errorMessage(error: unknown, fallback: string) {
@@ -68,23 +103,12 @@ export function ServerEditSidebar({
 		}
 	}
 
+	// Submitting is done from the checklist beside each page.
 	let action: ListingAction | undefined
 	if (
-		server?.submissionStatus !== 'pending' &&
-		(server?.status === 'draft' ||
-			(server?.status === 'published' && !!server.draftChangesJson))
-	) {
-		action = {
-			label:
-				server?.status === 'published'
-					? 'Submit updates'
-					: 'Submit for review',
-			icon: ViewIcon,
-			onRun: () => setStatus('published'),
-		}
-	} else if (
 		server?.status === 'published' &&
-		server.submissionStatus !== 'pending'
+		server.submissionStatus !== 'pending' &&
+		!server.draftChangesJson
 	) {
 		action = {
 			label: 'Move to draft',

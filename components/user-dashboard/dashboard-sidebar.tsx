@@ -8,6 +8,7 @@ import { OrgSidebar } from '@/components/user-dashboard/organizations/org-sideba
 import { PluginEditSidebar } from '@/components/user-dashboard/plugins/plugin-edit-sidebar'
 import { ProjectEditSidebar } from '@/components/user-dashboard/projects/project-edit-sidebar'
 import { ServerEditSidebar } from '@/components/user-dashboard/servers/server-edit-sidebar'
+import { isFocusedDashboardPath } from '@/lib/dashboard-focus'
 
 // An item's settings live at /dashboard/<type>/<id>/…, apart from the add
 // pages (and the GitHub repositories page for plugins).
@@ -34,6 +35,10 @@ interface DashboardSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function DashboardSidebar({ socials, ...props }: DashboardSidebarProps) {
 	const pathname = usePathname()
+	if (isFocusedDashboardPath(pathname)) {
+		// Create screens are shown on their own.
+		return null
+	}
 	const editMatch = pathname.match(SERVER_EDIT_PATTERN)
 	const projectEditMatch = pathname.match(PROJECT_EDIT_PATTERN)
 	const orgMatch = pathname.match(ORG_PATTERN)

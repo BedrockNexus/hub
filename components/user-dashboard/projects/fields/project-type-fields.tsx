@@ -20,6 +20,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { SettingsRow } from '@/components/user-dashboard/settings-card'
 import {
 	RESOURCE_PACK_CONTENT_LABELS,
 	RESOURCE_PACK_CONTENT_TYPES,
@@ -46,17 +47,17 @@ function BooleanSetting({
 			control={form.control}
 			name={name}
 			render={({ field }) => (
-				<div className="flex items-start justify-between gap-4 rounded-md border p-4">
-					<div className="space-y-1">
-						<FieldLabel htmlFor={name}>{label}</FieldLabel>
-						<FieldDescription>{description}</FieldDescription>
-					</div>
+				<SettingsRow
+					description={description}
+					htmlFor={name}
+					label={label}
+				>
 					<Switch
 						checked={field.value as boolean}
 						id={name}
 						onCheckedChange={field.onChange}
 					/>
-				</div>
+				</SettingsRow>
 			)}
 		/>
 	)
@@ -74,33 +75,36 @@ export function ProjectTypeFields({
 	})
 
 	if (type === 'addon') {
+		// Rows of a flush SettingsCard (see the General page).
 		return (
-			<div className="space-y-4">
+			<>
 				<BooleanSetting
-					description="The download contains a behavior pack."
+					description="Game logic, mobs, items"
 					form={form}
-					label="Behavior pack included"
+					label="Behavior pack"
 					name="behaviorPackIncluded"
 				/>
 				<BooleanSetting
-					description="The download contains a resource pack."
+					description="Textures, models, sounds"
 					form={form}
-					label="Resource pack included"
+					label="Resource pack"
 					name="resourcePackIncluded"
 				/>
 				<BooleanSetting
-					description="Players must enable experimental features for the addon to work."
+					description="Players must turn them on in world settings"
 					form={form}
-					label="Experimental features required"
+					label="Needs experimental features"
 					name="experimentalFeaturesRequired"
 				/>
 
-				<Field>
-					<div className="flex items-center justify-between gap-3">
-						<div>
+				<Field className="px-5 py-3 sm:px-6">
+					<div className="flex min-h-10 items-center justify-between gap-4">
+						<div className="space-y-0.5">
 							<FieldLabel>Dependencies</FieldLabel>
 							<FieldDescription>
-								Other packs or projects required by this addon.
+								{dependencies.fields.length
+									? 'Packs players also need.'
+									: 'None. Add packs players also need.'}
 							</FieldDescription>
 						</div>
 						<Button
@@ -163,7 +167,7 @@ export function ProjectTypeFields({
 						/>
 					) : null}
 				</Field>
-			</div>
+			</>
 		)
 	}
 

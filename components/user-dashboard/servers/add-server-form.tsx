@@ -1,408 +1,337 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckmarkCircle02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation } from 'convex/react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { type Resolver, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
-	Stepper,
-	StepperContent,
-	StepperDescription,
-	StepperIndicator,
-	StepperItem,
-	StepperList,
-	StepperNext,
-	StepperPrev,
-	StepperSeparator,
-	StepperTitle,
-	StepperTrigger,
-	useStepper,
-} from '@/components/dice-ui/stepper'
-import { Button } from '@/components/ui/button'
-import { FieldGroup } from '@/components/ui/field'
+	Field,
+	FieldError,
+	FieldGroup,
+	FieldLabel,
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { ServerBasicFields } from '@/components/user-dashboard/servers/fields/server-basic-fields'
+import { Textarea } from '@/components/ui/textarea'
 import {
-	createCategoryToggler,
-	ServerCategoryPicker,
-} from '@/components/user-dashboard/servers/fields/server-category-picker'
-import { ServerConnectionFields } from '@/components/user-dashboard/servers/fields/server-connection-fields'
-import { ServerLinksFields } from '@/components/user-dashboard/servers/fields/server-links-fields'
-import { ServerMetadataFields } from '@/components/user-dashboard/servers/fields/server-metadata-fields'
+	CreateListingFooter,
+	CreateListingShell,
+} from '@/components/user-dashboard/create/create-listing-shell'
+import { OwnerField } from '@/components/user-dashboard/fields/owner-field'
 import {
 	ServerOwnershipVerification,
 	type VerifiedServerTarget,
 } from '@/components/user-dashboard/servers/server-ownership-verification'
 import { api } from '@/convex/_generated/api'
-import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
-import {
-	SERVER_FORM_DEFAULTS,
-	type ServerFormData,
-	serverFormSchema,
-} from '@/lib/schemas/server'
+import { serverFormSchema } from '@/lib/schemas/server'
+import { serverReference } from '@/lib/server-routes'
 import { userFacingError } from '@/lib/user-facing-error'
 
-// Steps configuration
-const STEPS = [
-	{
-		value: 'core',
-		title: 'Core Info',
-		description: 'Name, connection, and categories',
-	},
-	{ value: 'verify', title: 'Verify', description: 'Prove server ownership' },
-	{
-		value: 'details',
-		title: 'Optional Details',
-		description: 'Branding and links you can add later',
-	},
-] as const
+const createSchema = serverFormSchema.pick({
+	organizationId: true,
+	name: true,
+	smallDescription: true,
+	ipAddress: true,
+	port: true,
+})
 
-// Navigation component that uses stepper context
-function StepperNavigation({ isSubmitting }: { isSubmitting: boolean }) {
-	const currentValue = useStepper((state) => state.value)
-	const steps = useStepper((state) => state.steps)
-
-	const stepKeys = Array.from(steps.keys())
-	const currentIndex = currentValue ? stepKeys.indexOf(currentValue) : 0
-	const isLastStep = currentIndex === stepKeys.length - 1
-
-	return (
-		<div className="mt-8 flex flex-col-reverse gap-3 border-t pt-6 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-			<StepperPrev asChild disabled={isSubmitting}>
-				<Button
-					className="w-full sm:w-auto"
-					type="button"
-					variant="outline"
-				>
-					Previous
-				</Button>
-			</StepperPrev>
-			<span className="text-center text-muted-foreground text-sm sm:col-start-2">
-				Step {currentIndex + 1} of {stepKeys.length}
-			</span>
-			{isLastStep ? (
-				<Button
-					className="w-full sm:col-start-3 sm:ml-auto sm:w-auto"
-					disabled={isSubmitting}
-					type="submit"
-				>
-					{isSubmitting ? (
-						<>
-							<Spinner className="size-4" />
-							Creating...
-						</>
-					) : (
-						<>
-							<HugeiconsIcon
-								className="size-4"
-								icon={CheckmarkCircle02Icon}
-							/>
-							Create Draft
-						</>
-					)}
-				</Button>
-			) : (
-				<StepperNext asChild disabled={isSubmitting}>
-					<Button
-						className="w-full sm:col-start-3 sm:ml-auto sm:w-auto"
-						type="button"
-					>
-						Next
-					</Button>
-				</StepperNext>
-			)}
-		</div>
-	)
+interface CreateFormData {
+	organizationId?: string
+	name: string
+	smallDescription: string
+	ipAddress: string
+	port: number
 }
 
-function optionalSoftwareId(value: string | undefined) {
-	return value ? (value as Id<'serverSoftware'>) : undefined
-}
+const SUMMARY_MAX = 150
 
-export function AddServerForm() {
+/**
+ * Creates a server draft in two steps: the name, summary and address, then
+ * proof that you run the server. Everything else (description, categories,
+ * branding, links) is added from the server's dashboard.
+ */
+export function AddServerForm({ showPlugins }: { showPlugins: boolean }) {
 	const router = useRouter()
+	const [step, setStep] = useState<'details' | 'verify'>('details')
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [verifiedTarget, setVerifiedTarget] =
 		useState<VerifiedServerTarget | null>(null)
 	const [isVerificationBusy, setIsVerificationBusy] = useState(false)
-
-	// Convex
-	const categories = useQuery(api.functions.servers.categories.list, {})
 	const createServer = useMutation(api.functions.servers.servers.create)
 
-	const form = useForm<ServerFormData>({
-		resolver: zodResolver(
-			serverFormSchema,
-		) as unknown as Resolver<ServerFormData>,
-		defaultValues: SERVER_FORM_DEFAULTS,
-		mode: 'onChange',
+	const form = useForm<CreateFormData>({
+		resolver: zodResolver(createSchema) as never,
+		defaultValues: {
+			organizationId: undefined,
+			name: '',
+			smallDescription: '',
+			ipAddress: '',
+			port: 19_132,
+		},
+		mode: 'onTouched',
 	})
-	const hasUnsavedChanges = form.formState.isDirty
+	useUnsavedChangesWarning(form.formState.isDirty && !isSubmitting)
 
-	useUnsavedChangesWarning(hasUnsavedChanges && !isSubmitting)
-
-	const toggleCategory = createCategoryToggler(
-		() => form.getValues('categoryIds'),
-		form.setValue,
-	)
-
-	// Get fields to validate for step
-	const getStepFields = (stepValue: string): (keyof ServerFormData)[] => {
-		switch (stepValue) {
-			case 'core':
-				return [
-					'name',
-					'smallDescription',
-					'ipAddress',
-					'port',
-					'categoryIds',
-				]
-			case 'verify':
-				return [] // Custom validation
-			case 'details':
-				return ['website', 'discordUrl', 'storeUrl', 'wikiUrl']
-			default:
-				return []
-		}
-	}
-
-	const watchedIpAddress = form.watch('ipAddress')
-	const watchedPort = Number(form.watch('port'))
+	const [summary, ipAddress, rawPort] = useWatch({
+		control: form.control,
+		name: ['smallDescription', 'ipAddress', 'port'],
+	})
+	const port = Number(rawPort)
 	const isVerified =
 		!!verifiedTarget &&
-		verifiedTarget.ipAddress === watchedIpAddress &&
-		verifiedTarget.port === watchedPort
+		verifiedTarget.ipAddress === ipAddress &&
+		verifiedTarget.port === port
 
+	// A proof only covers the address it was made for.
 	useEffect(() => {
 		if (
 			verifiedTarget &&
-			(verifiedTarget.ipAddress !== watchedIpAddress ||
-				verifiedTarget.port !== watchedPort)
+			(verifiedTarget.ipAddress !== ipAddress ||
+				verifiedTarget.port !== port)
 		) {
 			setVerifiedTarget(null)
-			toast.info('Server address changed. Please verify it again.')
 		}
-	}, [verifiedTarget, watchedIpAddress, watchedPort])
+	}, [verifiedTarget, ipAddress, port])
 
-	// Validation handler for stepper navigation
-	const handleValidate = async (
-		nextValue: string,
-		direction: 'next' | 'prev',
-	): Promise<boolean> => {
-		// Always allow going back
-		if (direction === 'prev') {
-			return true
+	const goToVerify = async () => {
+		const valid = await form.trigger([
+			'name',
+			'smallDescription',
+			'ipAddress',
+			'port',
+		])
+		if (valid) {
+			setStep('verify')
+			window.scrollTo({ top: 0 })
 		}
-
-		// Find current step index based on next step
-		const nextIndex = STEPS.findIndex((s) => s.value === nextValue)
-		if (nextIndex <= 0) {
-			return true
-		}
-
-		const currentStep = STEPS[nextIndex - 1]
-
-		// Special handling for core step -> verify step
-		if (currentStep.value === 'core') {
-			const fields = getStepFields(currentStep.value)
-			const isValid = await form.trigger(fields)
-			if (!isValid) {
-				return false
-			}
-
-			return true
-		}
-
-		// Special handling for verify step -> details step
-		if (currentStep.value === 'verify') {
-			if (!isVerified) {
-				toast.error('Please verify server ownership before continuing')
-				return false
-			}
-			return true
-		}
-
-		const fields = getStepFields(currentStep.value)
-		return await form.trigger(fields)
 	}
 
-	const onSubmit = async (data: ServerFormData) => {
-		const currentPort = Number(data.port)
-		const verificationMatches =
-			!!verifiedTarget &&
-			verifiedTarget.ipAddress === data.ipAddress &&
-			verifiedTarget.port === currentPort
-
-		if (!verificationMatches) {
-			toast.error('Verify this exact server address before creating it')
+	const onSubmit = async (data: CreateFormData) => {
+		if (!isVerified) {
+			toast.error('Verify this server address before creating it')
 			return
 		}
-
 		setIsSubmitting(true)
 		try {
 			await createServer({
-				name: data.name,
-				smallDescription: data.smallDescription,
-				description: data.description || undefined,
-				ipAddress: data.ipAddress,
-				port: currentPort,
-				categoryIds: data.categoryIds as Id<'serverCategories'>[],
-				website: data.website || undefined,
-				discordUrl: data.discordUrl || undefined,
-				storeUrl: data.storeUrl || undefined,
-				wikiUrl: data.wikiUrl || undefined,
-				region: data.region || undefined,
-				language: data.language.length > 0 ? data.language : undefined,
-				gameVersions:
-					data.gameVersions.length > 0
-						? data.gameVersions
-						: undefined,
-				softwareId: optionalSoftwareId(data.softwareId),
+				name: data.name.trim(),
+				smallDescription: data.smallDescription.trim(),
+				ipAddress: data.ipAddress.trim(),
+				port: Number(data.port),
 				organizationId: data.organizationId || undefined,
 			})
-
-			toast.success('Server draft created!')
-			router.push('/dashboard/servers')
+			form.reset(data)
+			toast.success('Server draft created')
+			router.push(
+				`/dashboard/servers/${encodeURIComponent(
+					serverReference({
+						ipAddress: data.ipAddress.trim(),
+						port: Number(data.port),
+					}),
+				)}`,
+			)
 		} catch (error) {
 			toast.error(userFacingError(error, 'Failed to create server draft'))
-		} finally {
 			setIsSubmitting(false)
 		}
 	}
 
-	return (
-		<div className="space-y-6">
-			<div className="mb-8 flex items-center gap-4">
-				<div className="flex flex-col gap-1">
-					<h1 className="font-bold text-2xl tracking-tight">
-						Add New Server
-					</h1>
-					<p className="text-muted-foreground text-sm">
-						Register your Minecraft Bedrock server
-					</p>
-				</div>
-			</div>
-
-			<form onSubmit={form.handleSubmit(onSubmit)}>
-				<Stepper
-					className="gap-8"
-					defaultValue="core"
-					disabled={isSubmitting || isVerificationBusy}
-					onValidate={handleValidate}
+	if (step === 'verify') {
+		return (
+			<CreateListingShell
+				eyebrow="Step 2 of 2"
+				hideKinds
+				intro="This stops people listing servers that are not theirs. It takes a minute, and you can remove the code afterwards."
+				kind="server"
+				showPlugins={showPlugins}
+				title="Prove you own the server"
+			>
+				<form
+					className="flex flex-col gap-9"
+					noValidate
+					onSubmit={form.handleSubmit(onSubmit)}
 				>
-					<StepperList className="overflow-x-auto pb-1">
-						{STEPS.map((step) => (
-							<StepperItem key={step.value} value={step.value}>
-								<StepperTrigger>
-									<StepperIndicator />
-									<div className="flex flex-col gap-px">
-										<StepperTitle>
-											{step.title}
-										</StepperTitle>
-										<StepperDescription>
-											{step.description}
-										</StepperDescription>
-									</div>
-								</StepperTrigger>
-								<StepperSeparator />
-							</StepperItem>
-						))}
-					</StepperList>
-					<StepperContent value="core">
-						<div className="space-y-6">
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Basic Info
-								</h3>
-								<FieldGroup>
-									<ServerBasicFields control={form.control} />
-								</FieldGroup>
-							</div>
+					<ServerOwnershipVerification
+						ipAddress={ipAddress}
+						onBusyChange={setIsVerificationBusy}
+						onVerified={setVerifiedTarget}
+						port={port}
+						verified={isVerified}
+					/>
+					<CreateListingFooter
+						note={
+							isVerified
+								? 'Verified. Create the draft to continue.'
+								: 'Verify the server to create the draft.'
+						}
+					>
+						<Button
+							disabled={isSubmitting || isVerificationBusy}
+							onClick={() => setStep('details')}
+							type="button"
+							variant="ghost"
+						>
+							Back
+						</Button>
+						<Button
+							disabled={
+								!isVerified ||
+								isSubmitting ||
+								isVerificationBusy
+							}
+							type="submit"
+						>
+							{isSubmitting ? (
+								<>
+									<Spinner className="size-4" />
+									Creating...
+								</>
+							) : (
+								'Create draft'
+							)}
+						</Button>
+					</CreateListingFooter>
+				</form>
+			</CreateListingShell>
+		)
+	}
 
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Server Details
-								</h3>
-								<FieldGroup>
-									<ServerMetadataFields
-										control={form.control}
-										disabled={isSubmitting}
-									/>
-								</FieldGroup>
-							</div>
-
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Connection
-								</h3>
-								<FieldGroup>
-									<ServerConnectionFields
-										control={form.control}
-									/>
-								</FieldGroup>
-							</div>
-
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Categories
-								</h3>
-								<ServerCategoryPicker
-									categories={categories}
-									control={form.control}
-									onToggle={toggleCategory}
-									watch={form.watch}
+	return (
+		<CreateListingShell kind="server" showPlugins={showPlugins}>
+			<form
+				className="flex flex-col gap-9"
+				noValidate
+				onSubmit={async (event) => {
+					event.preventDefault()
+					await goToVerify()
+				}}
+			>
+				<FieldGroup className="gap-5">
+					<Controller
+						control={form.control}
+						name="organizationId"
+						render={({ field }) => (
+							<OwnerField
+								onChange={field.onChange}
+								value={field.value}
+							/>
+						)}
+					/>
+					<Controller
+						control={form.control}
+						name="name"
+						render={({ field, fieldState }) => (
+							<Field data-invalid={fieldState.invalid}>
+								<FieldLabel htmlFor="name">Name</FieldLabel>
+								<Input
+									{...field}
+									aria-invalid={fieldState.invalid}
+									autoComplete="off"
+									className="h-11"
+									id="name"
+									placeholder="Skyblock Isles"
 								/>
-							</div>
-						</div>
-					</StepperContent>
-
-					<StepperContent value="verify">
-						<ServerOwnershipVerification
-							ipAddress={watchedIpAddress}
-							onBusyChange={setIsVerificationBusy}
-							onVerified={setVerifiedTarget}
-							port={watchedPort}
-							verified={isVerified}
+								<FieldError errors={[fieldState.error]} />
+							</Field>
+						)}
+					/>
+					<Controller
+						control={form.control}
+						name="smallDescription"
+						render={({ field, fieldState }) => (
+							<Field data-invalid={fieldState.invalid}>
+								<div className="flex items-baseline justify-between gap-3">
+									<FieldLabel htmlFor="smallDescription">
+										One-line summary
+									</FieldLabel>
+									<span
+										aria-hidden
+										className="text-muted-foreground text-xs tabular-nums"
+									>
+										{summary.length} / {SUMMARY_MAX}
+									</span>
+								</div>
+								<Textarea
+									{...field}
+									aria-invalid={fieldState.invalid}
+									className="min-h-22 resize-none"
+									id="smallDescription"
+									maxLength={SUMMARY_MAX}
+									placeholder="Skyblock with weekly island contests."
+									rows={3}
+								/>
+								<FieldError errors={[fieldState.error]} />
+							</Field>
+						)}
+					/>
+					<div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_8rem]">
+						<Controller
+							control={form.control}
+							name="ipAddress"
+							render={({ field, fieldState }) => (
+								<Field data-invalid={fieldState.invalid}>
+									<FieldLabel htmlFor="ipAddress">
+										Server address
+									</FieldLabel>
+									<Input
+										{...field}
+										aria-invalid={fieldState.invalid}
+										autoCapitalize="none"
+										autoComplete="off"
+										className="h-11"
+										id="ipAddress"
+										placeholder="play.example.net"
+										spellCheck={false}
+									/>
+									<FieldError errors={[fieldState.error]} />
+								</Field>
+							)}
 						/>
-					</StepperContent>
+						<Controller
+							control={form.control}
+							name="port"
+							render={({ field, fieldState }) => (
+								<Field data-invalid={fieldState.invalid}>
+									<FieldLabel htmlFor="port">Port</FieldLabel>
+									<Input
+										{...field}
+										aria-invalid={fieldState.invalid}
+										className="h-11"
+										id="port"
+										inputMode="numeric"
+										onChange={(event) =>
+											field.onChange(
+												event.target.value === ''
+													? ''
+													: event.target
+															.valueAsNumber,
+											)
+										}
+										type="number"
+										value={field.value ?? ''}
+									/>
+									<FieldError errors={[fieldState.error]} />
+								</Field>
+							)}
+						/>
+					</div>
+				</FieldGroup>
 
-					<StepperContent value="details">
-						<div className="space-y-6">
-							<p className="text-muted-foreground text-sm">
-								This step is optional. You can publish a clean
-								draft now and add branding or links later from
-								server settings.
-							</p>
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Branding
-								</h3>
-								<p className="rounded-md border bg-muted/40 p-4 text-muted-foreground text-sm">
-									Branding uploads are available after the
-									draft is created so files can be stored
-									under the final server folder.
-								</p>
-							</div>
-
-							<div className="space-y-4">
-								<h3 className="font-semibold text-base">
-									Links
-								</h3>
-								<FieldGroup>
-									<ServerLinksFields control={form.control} />
-								</FieldGroup>
-							</div>
-						</div>
-					</StepperContent>
-
-					<StepperNavigation isSubmitting={isSubmitting} />
-				</Stepper>
+				<CreateListingFooter note="Step 1 of 2. Next you prove you own the server.">
+					<Link
+						className={buttonVariants({ variant: 'ghost' })}
+						href="/dashboard/servers"
+					>
+						Cancel
+					</Link>
+					<Button type="submit">Continue</Button>
+				</CreateListingFooter>
 			</form>
-		</div>
+		</CreateListingShell>
 	)
 }

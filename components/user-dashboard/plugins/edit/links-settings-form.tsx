@@ -16,8 +16,8 @@ import {
 	PluginReviewNotice,
 	usePluginForEdit,
 } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
+import { SaveBar } from '@/components/user-dashboard/save-bar'
 import {
-	SaveChangesButton,
 	SettingsSection,
 	SettingsSkeleton,
 } from '@/components/user-dashboard/settings-section'
@@ -75,9 +75,12 @@ function LinksForm({ plugin }: { plugin: PluginForEdit }) {
 		<SettingsSection
 			description="Shown on your plugin page next to the source code. Empty links are hidden"
 			footer={
-				<SaveChangesButton
-					disabled={!isDirty || plugin.locked}
+				<SaveBar
+					blockedMessage="This plugin is in review, so its details are locked"
+					canSave={!plugin.locked}
+					dirty={isDirty}
 					isSubmitting={isSubmitting}
+					onDiscard={() => setLinks(saved)}
 				/>
 			}
 			onSubmit={async (event) => {

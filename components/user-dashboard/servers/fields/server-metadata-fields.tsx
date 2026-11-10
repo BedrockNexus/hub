@@ -33,6 +33,18 @@ import {
 	type ServerFormData,
 } from '@/lib/schemas/server'
 
+/**
+ * Base UI clears a multi select when Escape is pressed with its list closed.
+ * Escape should only close the list, so that change is ignored.
+ */
+function keepOnEscape<T>(onChange: (value: T) => void) {
+	return (value: T, details: { reason: string }) => {
+		if (details.reason !== 'escape-key') {
+			onChange(value)
+		}
+	}
+}
+
 interface ServerMetadataFieldsProps {
 	control: Control<ServerFormData>
 	disabled?: boolean
@@ -187,7 +199,7 @@ export function ServerMetadataFields({
 							disabled={disabled}
 							items={[...SERVER_LANGUAGE_OPTIONS]}
 							multiple
-							onValueChange={field.onChange}
+							onValueChange={keepOnEscape(field.onChange)}
 							value={field.value ?? []}
 						>
 							<ComboboxChips aria-invalid={fieldState.invalid}>
@@ -252,7 +264,7 @@ export function ServerMetadataFields({
 									disabled={disabled || !activeGameVersions}
 									items={gameVersionValues}
 									multiple
-									onValueChange={field.onChange}
+									onValueChange={keepOnEscape(field.onChange)}
 									value={field.value ?? []}
 								>
 									<ComboboxChips
