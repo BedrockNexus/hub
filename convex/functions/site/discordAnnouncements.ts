@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { contentHref } from '../../../lib/content-routes'
 import type { AnnouncementContent } from '../../../lib/discord-announcements'
 import { createPluginDashboardId } from '../../../lib/plugins/plugin-dashboard-id'
-import { serverHref } from '../../../lib/server-routes'
+import { serverHref, serverReference } from '../../../lib/server-routes'
 import { internal } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import {
@@ -10,6 +10,7 @@ import {
 	internalMutation,
 	type MutationCtx,
 } from '../../_generated/server'
+import { getCdnObjectUrl } from '../../lib/r2'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
 	getPublishedReleaseKey,
@@ -33,6 +34,10 @@ async function contentFor(
 					name: server.name,
 					summary: server.smallDescription,
 					path: serverHref(server),
+					iconUrl: server.logoR2Key ? getCdnObjectUrl(server.logoR2Key) ?? undefined : undefined,
+					bannerUrl: server.bannerR2Key ? getCdnObjectUrl(server.bannerR2Key) ?? undefined : undefined,
+					address: serverReference(server),
+					publishedAt: server.publishedAt,
 				}
 			: null
 	}
@@ -53,6 +58,10 @@ async function contentFor(
 			name: project.name,
 			summary: project.summary,
 			path: contentHref(project.type, project.slug, project._id, project.publicId),
+			iconUrl: project.iconR2Key ? getCdnObjectUrl(project.iconR2Key) ?? undefined : undefined,
+			bannerUrl: project.bannerR2Key ? getCdnObjectUrl(project.bannerR2Key) ?? undefined : undefined,
+			version: version.version,
+			publishedAt: project.publishedAt,
 		}
 	}
 	const id = ctx.db.normalizeId('plugins', row.targetId)
@@ -73,7 +82,11 @@ async function contentFor(
 		.query('pluginReleases')
 		.withIndex('by_version_id', (q) => q.eq('versionId', versionId))
 		.first()
-	const repository = await ctx.db.get(plugin.repositoryId)
+	const [repository, version, software] = await Promise.all([
+		ctx.db.get(plugin.repositoryId),
+		ctx.db.get(versionId),
+		ctx.db.get(plugin.softwareId),
+	])
 	if (!release?.cdnKey || release.status !== 'published' || !repository)
 		return null
 	return {
@@ -81,6 +94,10 @@ async function contentFor(
 		name: plugin.name,
 		summary: plugin.summary,
 		path: `/plugins/${createPluginDashboardId(repository.githubRepositoryId)}`,
+		iconUrl: plugin.iconUrl,
+		version: version?.version,
+		software: software?.name,
+		publishedAt: plugin.publishedAt,
 	}
 }
 
@@ -94,6 +111,12 @@ const contentValidator = v.object({
 	name: v.string(),
 	summary: v.string(),
 	path: v.string(),
+	iconUrl: v.optional(v.string()),
+	bannerUrl: v.optional(v.string()),
+	version: v.optional(v.string()),
+	software: v.optional(v.string()),
+	address: v.optional(v.string()),
+	publishedAt: v.optional(v.number()),
 })
 
 export const prepare = internalMutation({

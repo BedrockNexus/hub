@@ -3,6 +3,12 @@ export interface AnnouncementContent {
 	name: string
 	summary: string
 	path: string
+	iconUrl?: string
+	bannerUrl?: string
+	version?: string
+	software?: string
+	address?: string
+	publishedAt?: number
 }
 
 const WEBHOOK_PATH = /^\/api\/(?:v\d+\/)?webhooks\/\d+\/[A-Za-z0-9_-]+$/
@@ -30,23 +36,67 @@ export function discordWebhookUrl(value: string) {
 	return url.toString()
 }
 
+/** Ignore unavailable artwork rather than failing an otherwise valid announcement. */
+function artworkUrl(value?: string) {
+	if (!value) {
+		return undefined
+	}
+	try {
+		const url = new URL(value)
+		return url.protocol === 'https:' && !url.username && !url.password
+			? url.toString()
+			: undefined
+	} catch {
+		return undefined
+	}
+}
+
 export function discordAnnouncementBody(
 	content: AnnouncementContent,
 	siteUrl: string,
 ) {
 	const origin = new URL(siteUrl).origin
+	const icon = new URL('/icon.png', origin).toString()
+	const thumbnail = artworkUrl(content.iconUrl)
+	const banner = artworkUrl(content.bannerUrl)
+	const fields: { name: string; value: string; inline: boolean }[] = []
+	for (const [name, value] of [
+		['Version', content.version],
+		['Server software', content.software],
+		['Server address', content.address],
+	] as const) {
+		if (value?.trim()) {
+			fields.push({
+				name,
+				value: value.trim().slice(0, 256),
+				inline: true,
+			})
+		}
+	}
+	const date =
+		content.publishedAt === undefined ? null : new Date(content.publishedAt)
 	return {
+		username: 'BedrockNexus',
+		avatar_url: icon,
 		allowed_mentions: { parse: [] as string[] },
 		embeds: [
 			{
-				title: `New ${content.category.toLowerCase()}: ${content.name}`.slice(
-					0,
-					256,
-				),
-				description: content.summary.slice(0, 1000),
+				author: {
+					name: `New ${content.category.toLowerCase()} on BedrockNexus`,
+					url: origin,
+					icon_url: icon,
+				},
+				title: content.name.trim().slice(0, 256),
+				description: content.summary.trim().slice(0, 1000),
 				url: new URL(content.path, origin).toString(),
-				color: 0x22_c5_5e,
-				footer: { text: 'BedrockNexus' },
+				color: 0xf7_c5_48,
+				...(thumbnail ? { thumbnail: { url: thumbnail } } : {}),
+				...(banner ? { image: { url: banner } } : {}),
+				...(fields.length ? { fields } : {}),
+				...(date && Number.isFinite(date.getTime())
+					? { timestamp: date.toISOString() }
+					: {}),
+				footer: { text: `${new URL(origin).host} | Minecraft Bedrock` },
 			},
 		],
 	}

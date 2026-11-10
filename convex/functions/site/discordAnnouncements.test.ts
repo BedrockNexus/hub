@@ -63,6 +63,17 @@ describe('first-publication announcements', () => {
 		).toMatchObject({ attempt: 1, content: { category: 'Server' } })
 	})
 
+	it('prepares permanent public artwork and the server address', async () => {
+		vi.stubEnv('R2_CDN_PUBLIC_URL', 'https://cdn.example.com')
+		const t = createTest()
+		const { serverId, announcementId } = await firstServer(t)
+		await t.run(ctx => ctx.db.patch(serverId, { logoR2Key: 'media/logo.png', bannerR2Key: 'media/banner.png' }))
+		const result = await t.mutation(internal.functions.site.discordAnnouncements.prepare, { id: announcementId })
+		expect(result?.content).toMatchObject({ iconUrl: 'https://cdn.example.com/media/logo.png', bannerUrl: 'https://cdn.example.com/media/banner.png' })
+		expect(result?.content.address).toBeTruthy()
+		expect(result?.content.publishedAt).toBeTypeOf('number')
+	})
+
 	it('does not announce existing content, republishing, or edits after enabling', async () => {
 		const t = createTest()
 		const serverId = await insertServer(t, { slug: 'existing' })
@@ -181,6 +192,7 @@ describe('first-publication announcements', () => {
 			).toMatchObject({
 				content: {
 					category: type === 'addon' ? 'Add-on' : 'Resource pack',
+					version: '1.0.0',
 				},
 			})
 		},

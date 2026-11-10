@@ -9,8 +9,13 @@ pack or plugin. It is disabled unless both Convex deployment variables are set:
   first publications. Keep this unset in development and automated testing.
 
 Messages use the deployment's `SITE_URL`, with `https://bedrocknexus.com` as the
-fallback. Each embed contains the listing name, summary, category and canonical
-page link. Mentions are disabled, including `@everyone` and role mentions.
+fallback. Announcements use the BedrockNexus avatar and gold embed accent, with
+an announcement label, linked listing title, summary, and publication timestamp.
+Available listing icons appear as thumbnails and banners as wide artwork. Server
+addresses, release versions, and plugin server software appear as compact fields.
+Artwork uses permanent public CDN URLs; unavailable artwork is omitted rather
+than adding expiring private URLs. Mentions remain disabled, including
+`@everyone` and role mentions.
 
 ## Publication rules
 
