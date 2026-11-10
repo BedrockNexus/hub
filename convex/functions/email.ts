@@ -1,76 +1,66 @@
 import { Resend } from '@convex-dev/resend'
-import { EmailVerificationEmail } from '@better-auth-ui/react/email'
 import { render } from '@react-email/render'
 import { v } from 'convex/values'
-import { components } from '../_generated/api'
-import { internalAction } from '../_generated/server'
+import type { ReactElement } from 'react'
 import {
 	ResetPasswordEmailTemplate,
+	VerificationEmailTemplate,
 } from '../../components/email/email-template'
+import { components } from '../_generated/api'
+import { internalAction } from '../_generated/server'
 
 const resend = new Resend(components.resend, { testMode: false })
 const EMAIL_FROM =
 	process.env.EMAIL_FROM || 'BedrockNexus <noreply@bedrocknexus.com>'
 
-async function sendHtmlEmail(
+/** Sends a template as HTML with a plain-text copy for clients that want one. */
+async function sendTemplateEmail(
 	ctx: Parameters<typeof resend.sendEmail>[0],
-	params: { to: string; subject: string; html: string },
+	params: { to: string; subject: string; template: ReactElement },
 ): Promise<void> {
+	const [html, text] = await Promise.all([
+		render(params.template),
+		render(params.template, { plainText: true }),
+	])
 	await resend.sendEmail(ctx, {
 		from: EMAIL_FROM,
 		to: params.to,
 		subject: params.subject,
-		html: params.html,
+		html,
+		text,
 	})
 }
 
-export const sendVerificationEmail = internalAction({
-	args: {
-		to: v.string(),
-		siteUrl: v.string(),
-		url: v.string(),
-	},
-	handler: async (ctx, args) => {
-		const html = await render(
-			EmailVerificationEmail({
-				url: args.url,
-				appName: 'BedrockNexus',
-				email: args.to,
-				expirationMinutes: 60,
-				logoURL: {
-					light: `${args.siteUrl}/icon.svg`,
-					dark: `${args.siteUrl}/icon.svg`,
-				},
-				poweredBy: true,
-			}),
-		)
+const linkEmailArgs = {
+	to: v.string(),
+	siteUrl: v.string(),
+	url: v.string(),
+}
 
-		await sendHtmlEmail(ctx, {
+export const sendVerificationEmail = internalAction({
+	args: linkEmailArgs,
+	handler: async (ctx, args) => {
+		await sendTemplateEmail(ctx, {
 			to: args.to,
 			subject: 'Verify your BedrockNexus email',
-			html,
+			template: VerificationEmailTemplate({
+				siteUrl: args.siteUrl,
+				url: args.url,
+			}),
 		})
 	},
 })
 
 export const sendResetPasswordEmail = internalAction({
-	args: {
-		to: v.string(),
-		siteUrl: v.string(),
-		url: v.string(),
-	},
+	args: linkEmailArgs,
 	handler: async (ctx, args) => {
-		const html = await render(
-			ResetPasswordEmailTemplate({
+		await sendTemplateEmail(ctx, {
+			to: args.to,
+			subject: 'Reset your BedrockNexus password',
+			template: ResetPasswordEmailTemplate({
 				siteUrl: args.siteUrl,
 				url: args.url,
 			}),
-		)
-
-		await sendHtmlEmail(ctx, {
-			to: args.to,
-			subject: 'Reset your BedrockNexus password',
-			html,
 		})
 	},
 })

@@ -6,7 +6,12 @@ import {
 import { convex } from '@convex-dev/better-auth/plugins'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
-import { admin, organization, username } from 'better-auth/plugins'
+import {
+	admin,
+	organization,
+	twoFactor,
+	username,
+} from 'better-auth/plugins'
 import { runqora } from 'runqora/better-auth'
 import { api, components, internal } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
@@ -45,6 +50,23 @@ async function runInternalAction(
 	}
 
 	throw new Error('runAction is not available in this context')
+}
+
+/**
+ * The link in a verification email opens the site's /verify-email page, not
+ * Better Auth's endpoint. The page confirms the token from the browser, logs
+ * the person in and shows what happened. A direct link to the endpoint is
+ * used up by mail scanners that open links before the person does, and it
+ * redirects without a word when the token has expired.
+ */
+function verificationPageUrl(endpointUrl: string, token: string): string {
+	const page = new URL('/verify-email', siteUrl)
+	page.searchParams.set('token', token)
+	const callbackURL = new URL(endpointUrl).searchParams.get('callbackURL')
+	if (callbackURL) {
+		page.searchParams.set('callbackURL', callbackURL)
+	}
+	return page.toString()
 }
 
 const authFunctions: AuthFunctions = internal.auth
@@ -199,14 +221,14 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			sendOnSignUp: true,
 			sendOnSignIn: false,
 			autoSignInAfterVerification: true,
-			sendVerificationEmail: async ({ user, url }) => {
+			sendVerificationEmail: async ({ user, url, token }) => {
 				await runInternalAction(
 					ctx,
 					internal.functions.email.sendVerificationEmail,
 					{
 						to: user.email,
 						siteUrl,
-						url,
+						url: verificationPageUrl(url, token),
 					},
 				)
 			},
@@ -270,6 +292,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			username(),
 			organization(),
 			admin(),
+			// Codes from an authenticator app, plus one-time backup codes.
+			// The issuer is the name shown in the authenticator app.
+			twoFactor({ issuer: 'BedrockNexus' }),
 			...(runqoraSecret ? [runqora({ secret: runqoraSecret })] : []),
 		],
 	} satisfies BetterAuthOptions

@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { usernamePlugin } from "@/lib/username-plugin"
 import { cn } from "@/lib/utils"
+import { useSignInContinuation } from "@/hooks/use-sign-in-continuation"
 
 export type SignInUsernameProps = {
   className?: string
@@ -63,11 +64,11 @@ export function SignInUsername({
     redirectTo,
     socialProviders,
     viewPaths,
-    navigate,
     Link
   } = useAuth()
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
+  const continueSignIn = useSignInContinuation()
 
   const { localization: usernameLocalization } = useAuthPlugin(usernamePlugin)
 
@@ -102,7 +103,7 @@ export function SignInUsername({
 
         resetFetchOptions()
       },
-      onSuccess: () => navigate({ to: redirectTo })
+      onSuccess: (data) => continueSignIn(data)
     })
 
   const { mutate: signInUsername, isPending: isSignInUsernamePending } =
@@ -112,7 +113,7 @@ export function SignInUsername({
         toast.error(error.error?.message || error.message)
         resetFetchOptions()
       },
-      onSuccess: () => navigate({ to: redirectTo })
+      onSuccess: (data) => continueSignIn(data)
     })
 
   const signInMutating = useIsMutating({

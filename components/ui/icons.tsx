@@ -12,6 +12,7 @@ import {
 	ChevronsUpDown as ChevronsUpDownData,
 	Clock as ClockData,
 	Copy as CopyData,
+	Download as DownloadData,
 	Eye as EyeData,
 	EyeOff as EyeOffData,
 	FileArchive as FileArchiveData,
@@ -21,6 +22,7 @@ import {
 	FileText as FileTextData,
 	FileVideoIcon as FileVideoData,
 	Filter as FilterData,
+	KeyRound as KeyRoundData,
 	Link2 as LinkData,
 	LogOut as LogOutData,
 	Monitor as MonitorData,
@@ -30,11 +32,14 @@ import {
 	Pencil as PencilData,
 	Plug as PlugData,
 	PlusSignCircleIcon,
+	Printer as PrinterData,
 	Search as SearchData,
 	SearchIcon as SearchIconData,
 	Send as SendData,
 	Settings as SettingsData,
 	Settings2 as Settings2Data,
+	ShieldAlert as ShieldAlertData,
+	ShieldCheck as ShieldCheckData,
 	Smartphone as SmartphoneData,
 	Star as StarData,
 	Sun as SunData,
@@ -70,6 +75,7 @@ export const ChevronsRight = createIcon(ChevronsRightData)
 export const ChevronsUpDown = createIcon(ChevronsUpDownData)
 export const Clock = createIcon(ClockData)
 export const Copy = createIcon(CopyData)
+export const Download = createIcon(DownloadData)
 export const Eye = createIcon(EyeData)
 export const EyeOff = createIcon(EyeOffData)
 export const FileArchiveIcon = createIcon(FileArchiveData)
@@ -80,6 +86,7 @@ export const FileIcon = createIcon(FileData)
 export const FileTextIcon = createIcon(FileTextData)
 export const FileVideoIcon = createIcon(FileVideoData)
 export const Filter = createIcon(FilterData)
+export const KeyRound = createIcon(KeyRoundData)
 export const Link2 = createIcon(LinkData)
 export const Link2Off = createIcon(UnlinkData)
 export const LogOut = createIcon(LogOutData)
@@ -90,11 +97,14 @@ export const PaletteIcon = createIcon(PaletteData)
 export const Pencil = createIcon(PencilData)
 export const Plug = createIcon(PlugData)
 export const PlusCircle = createIcon(PlusSignCircleIcon)
+export const Printer = createIcon(PrinterData)
 export const Search = createIcon(SearchData)
 export const SearchIcon = createIcon(SearchIconData)
 export const Send = createIcon(SendData)
 export const Settings = createIcon(SettingsData)
 export const Settings2 = createIcon(Settings2Data)
+export const ShieldAlert = createIcon(ShieldAlertData)
+export const ShieldCheck = createIcon(ShieldCheckData)
 export const Smartphone = createIcon(SmartphoneData)
 export const Star = createIcon(StarData)
 export const Sun = createIcon(SunData)

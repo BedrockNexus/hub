@@ -8,6 +8,7 @@ import { usernamePlugin } from "@better-auth-ui/core/plugins"
 import { authClient } from "@/lib/auth-client"
 import { deleteUserPlugin } from "@/lib/delete-user-plugin"
 import { organizationPlugin } from "@/lib/organization-plugin"
+import { twoFactorPlugin } from "@/lib/two-factor-plugin"
 import { AuthProvider } from "./auth-provider"
 
 function getOrganizationSlug(pathname: string) {
@@ -39,6 +40,16 @@ export function NextAuthProvider({ children }: PropsWithChildren) {
       authClient={authClient}
       plugins={[
         usernamePlugin(),
+        twoFactorPlugin({
+          // The site says "log in", not "sign in".
+          localization: {
+            twoFactorDescription:
+              "Add a second step to logging in, so a stolen password is not enough",
+            emailedCodeDescription:
+              "We emailed you a code. Enter it to finish logging in",
+            backToSignIn: "Back to login"
+          }
+        }),
         deleteUserPlugin(),
         organizationPlugin({
           slug: organizationSlug,
@@ -51,7 +62,10 @@ export function NextAuthProvider({ children }: PropsWithChildren) {
         })
       ]}
       emailAndPassword={{
-        name: false
+        name: false,
+        // New accounts must confirm their email before they can log in, so
+        // registering ends on the "check your email" page.
+        requireEmailVerification: true
       }}
       basePaths={{
         auth: "",

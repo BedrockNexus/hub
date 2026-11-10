@@ -94,6 +94,7 @@ const MAINTENANCE_EXEMPT_PATHS = [
 	'/admin',
 	'/moderation',
 	'/login',
+	'/two-factor',
 	'/forgot-password',
 	'/reset-password',
 	'/verify-email',

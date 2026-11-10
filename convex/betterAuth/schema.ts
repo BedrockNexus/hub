@@ -26,6 +26,7 @@ export const tables = {
 		banned: v.optional(v.union(v.null(), v.boolean())),
 		banReason: v.optional(v.union(v.null(), v.string())),
 		banExpires: v.optional(v.union(v.null(), v.number())),
+		twoFactorEnabled: v.optional(v.union(v.null(), v.boolean())),
 	})
 		.index('email_name', ['email', 'name'])
 		.index('name', ['name'])
@@ -112,6 +113,14 @@ export const tables = {
 		.index('role', ['role'])
 		.index('status', ['status'])
 		.index('inviterId', ['inviterId']),
+	twoFactor: defineTable({
+		secret: v.string(),
+		backupCodes: v.string(),
+		userId: v.string(),
+		verified: v.optional(v.union(v.null(), v.boolean())),
+		failedVerificationCount: v.optional(v.union(v.null(), v.number())),
+		lockedUntil: v.optional(v.union(v.null(), v.number())),
+	}).index('userId', ['userId']),
 	rateLimit: defineTable({
 		key: v.string(),
 		count: v.number(),

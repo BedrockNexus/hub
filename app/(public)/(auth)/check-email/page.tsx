@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { AwaitVerification } from '@/components/auth/await-verification'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { isAuthenticated } from '@/lib/auth-server'
 
@@ -28,7 +29,7 @@ export default async function CheckEmailPage({
 				<CardContent className="space-y-4 text-muted-foreground text-sm">
 					<p>
 						We sent a verification link to your email address. Open
-						it to finish setting up your account.
+						it to verify your email and log in.
 					</p>
 					<p>
 						Didn&apos;t get it? Check spam or{' '}
@@ -42,6 +43,7 @@ export default async function CheckEmailPage({
 					</p>
 				</CardContent>
 			</Card>
+			<AwaitVerification />
 		</div>
 	)
 }

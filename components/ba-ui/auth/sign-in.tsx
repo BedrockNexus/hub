@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
+import { useSignInContinuation } from "@/hooks/use-sign-in-continuation"
 import {
   ProviderButtons,
   type SocialLayout
@@ -59,11 +60,11 @@ export function SignIn({
     redirectTo,
     socialProviders,
     viewPaths,
-    navigate,
     Link
   } = useAuth()
 
   const { fetchOptions, resetFetchOptions } = useFetchOptions()
+  const continueSignIn = useSignInContinuation()
 
   const [password, setPassword] = useState("")
 
@@ -97,7 +98,7 @@ export function SignIn({
 
         resetFetchOptions()
       },
-      onSuccess: () => navigate({ to: redirectTo })
+      onSuccess: (data) => continueSignIn(data)
     }
   )
 
