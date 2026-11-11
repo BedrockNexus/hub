@@ -33,7 +33,7 @@ export function OrganizationInvitationsEmpty({
         </span>
       </div>
 
-      <Button size="sm" onClick={onInvitePress}>
+      <Button onClick={onInvitePress}>
         {organizationLocalization.inviteMember}
       </Button>
     </div>

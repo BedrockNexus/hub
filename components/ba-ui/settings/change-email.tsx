@@ -97,7 +97,7 @@ export function ChangeEmail({ className }: ChangeEmailProps) {
           </CardContent>
 
           <CardFooter>
-            <Button type="submit" size="sm" disabled={isPending || !session}>
+            <Button type="submit" disabled={isPending || !session}>
               {isPending && <Spinner />}
 
               {localization.settings.updateEmail}

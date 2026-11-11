@@ -52,7 +52,6 @@ export function TwoFactorSettings({ className }: TwoFactorSettingsProps) {
 
         <Button
           className="shrink-0"
-          size="sm"
           variant={isEnabled ? "destructive" : "default"}
           disabled={isPending}
           onClick={() =>
@@ -84,7 +83,6 @@ export function TwoFactorSettings({ className }: TwoFactorSettingsProps) {
           {isEnabled && backupCodesEnabled && (
             <Button
               className="self-start"
-              size="sm"
               variant="outline"
               onClick={() => setRegenerateOpen(true)}
             >

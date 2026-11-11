@@ -113,7 +113,6 @@ export function ActiveSession({ activeSession }: ActiveSessionProps) {
         <Button
           className="ml-auto shrink-0"
           variant="outline"
-          size="sm"
           onClick={() =>
             isCurrentSession
               ? navigate({

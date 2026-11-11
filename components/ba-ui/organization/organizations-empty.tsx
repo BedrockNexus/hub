@@ -30,7 +30,7 @@ export function OrganizationsEmpty({ onCreatePress }: OrganizationsEmptyProps) {
         </span>
       </div>
 
-      <Button size="sm" onClick={onCreatePress}>
+      <Button onClick={onCreatePress}>
         {organizationLocalization.createOrganization}
       </Button>
     </div>

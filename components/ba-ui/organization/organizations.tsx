@@ -47,7 +47,6 @@ export function Organizations({ className }: OrganizationsProps) {
 
             <Button
               className="shrink-0"
-              size="sm"
               disabled={organizationsPending}
               onClick={() => setCreateOpen(true)}
             >

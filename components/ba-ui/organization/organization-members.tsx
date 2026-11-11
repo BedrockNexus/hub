@@ -149,7 +149,6 @@ export function OrganizationMembers({
 
         <Button
           className="shrink-0"
-          size="sm"
           disabled={isPending}
           onClick={() => setInviteOpen(true)}
         >
@@ -175,7 +174,7 @@ export function OrganizationMembers({
           </InputGroup>
 
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button size="sm" variant="outline" disabled={isPending} />}><Filter />{organizationLocalization.role}</DropdownMenuTrigger>
+            <DropdownMenuTrigger render={<Button variant="outline" disabled={isPending} />}><Filter />{organizationLocalization.role}</DropdownMenuTrigger>
 
             <DropdownMenuContent align="start">
               <DropdownMenuRadioGroup

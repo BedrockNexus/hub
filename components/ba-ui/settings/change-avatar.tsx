@@ -113,7 +113,7 @@ export function ChangeAvatar({ className }: ChangeAvatarProps) {
         </Button>
 
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="secondary" size="sm" disabled={!session || isPending} />}>{isPending && <Spinner />}{localization.settings.changeAvatar}</DropdownMenuTrigger>
+          <DropdownMenuTrigger render={<Button variant="secondary" disabled={!session || isPending} />}>{isPending && <Spinner />}{localization.settings.changeAvatar}</DropdownMenuTrigger>
 
           <DropdownMenuContent className="min-w-fit">
             <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>

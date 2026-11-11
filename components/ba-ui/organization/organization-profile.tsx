@@ -118,7 +118,6 @@ export function OrganizationProfile({ className }: OrganizationProfileProps) {
             <Button
               type="submit"
               disabled={isPending || !activeOrganization}
-              size="sm"
               className="mt-1 w-fit"
             >
               {isPending && <Spinner />}

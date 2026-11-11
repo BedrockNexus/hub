@@ -57,7 +57,6 @@ export function BackupCodes({ codes }: BackupCodesProps) {
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
-          size="sm"
           variant="outline"
           aria-label={
             copied
@@ -76,7 +75,6 @@ export function BackupCodes({ codes }: BackupCodesProps) {
 
         <Button
           type="button"
-          size="sm"
           variant="outline"
           onClick={() =>
             downloadTextFile(getBackupCodesText(), "backup-codes.txt")
@@ -88,7 +86,6 @@ export function BackupCodes({ codes }: BackupCodesProps) {
 
         <Button
           type="button"
-          size="sm"
           variant="outline"
           onClick={() => printTextFile(getBackupCodesText())}
         >

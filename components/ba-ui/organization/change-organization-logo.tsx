@@ -144,7 +144,7 @@ export function ChangeOrganizationLogo({
         </Button>
 
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button type="button" disabled={!activeOrganization || isPending} size="sm" variant="secondary" />}>{isPending && <Spinner />}{organizationLocalization.changeLogo}</DropdownMenuTrigger>
+          <DropdownMenuTrigger render={<Button type="button" disabled={!activeOrganization || isPending} variant="secondary" />}>{isPending && <Spinner />}{organizationLocalization.changeLogo}</DropdownMenuTrigger>
 
           <DropdownMenuContent align="start" className="min-w-fit">
             <DropdownMenuItem onSelect={() => fileInputRef.current?.click()}>

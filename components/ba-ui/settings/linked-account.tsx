@@ -96,7 +96,6 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
           <Button
             className="ml-auto shrink-0"
             variant="outline"
-            size="sm"
             onClick={() => unlinkAccount({ providerId: account.providerId })}
             disabled={isUnlinking}
             aria-label={localization.settings.unlinkProvider.replace(
@@ -113,7 +112,6 @@ export function LinkedAccount({ account, provider }: LinkedAccountProps) {
           <Button
             className="ml-auto shrink-0"
             variant="outline"
-            size="sm"
             onClick={() =>
               linkSocial({
                 provider,

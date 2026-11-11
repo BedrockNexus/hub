@@ -55,7 +55,6 @@ export function OrganizationRow({ organization }: OrganizationRowProps) {
       <Button
         className="ml-auto shrink-0"
         variant="outline"
-        size="sm"
         disabled={setActivePending}
         onClick={manageOrganization}
         aria-label={organizationLocalization.manage}

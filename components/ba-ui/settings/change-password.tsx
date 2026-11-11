@@ -99,7 +99,6 @@ function SetPassword({ className }: { className?: string }) {
           </div>
 
           <Button
-            size="sm"
             disabled={isPending || !session}
             onClick={handleSetPassword}
           >
@@ -355,7 +354,7 @@ function ChangePasswordForm({
           </CardContent>
 
           <CardFooter>
-            <Button type="submit" size="sm" disabled={isPending || !session}>
+            <Button type="submit" disabled={isPending || !session}>
               {isPending && <Spinner />}
 
               {localization.settings.updatePassword}

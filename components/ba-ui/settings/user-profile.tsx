@@ -139,7 +139,7 @@ export function UserProfile({ className }: UserProfileProps) {
           </CardContent>
 
           <CardFooter>
-            <Button type="submit" size="sm" disabled={isPending || !session}>
+            <Button type="submit" disabled={isPending || !session}>
               {isPending && <Spinner />}
 
               {localization.settings.saveChanges}

@@ -61,7 +61,6 @@ export function UserInvitationRow({ invitation }: UserInvitationRowProps) {
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <Button
           variant="outline"
-          size="sm"
           disabled={isAccepting || isRejecting}
           onClick={() => acceptInvitation({ invitationId: invitation.id })}
         >

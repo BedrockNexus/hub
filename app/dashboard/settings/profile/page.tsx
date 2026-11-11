@@ -1,10 +1,5 @@
-import { UserProfile } from '@/components/ba-ui/settings/user-profile'
-import { ExtendedProfileForm } from '@/components/user-dashboard/profile/extended-profile-form'
+import { ProfileSettingsForm } from '@/components/user-dashboard/profile/profile-settings-form'
+
 export default function ProfilePage() {
-	return (
-		<div className="space-y-4">
-			<UserProfile />
-			<ExtendedProfileForm />
-		</div>
-	)
+	return <ProfileSettingsForm />
 }

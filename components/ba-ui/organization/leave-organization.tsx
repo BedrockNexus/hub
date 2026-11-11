@@ -40,7 +40,6 @@ export function LeaveOrganization() {
 
       <Button
         disabled={!activeOrganization}
-        size="sm"
         variant="outline"
         className="text-destructive"
         onClick={() => setConfirmOpen(true)}

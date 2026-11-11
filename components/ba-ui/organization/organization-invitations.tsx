@@ -150,7 +150,7 @@ export function OrganizationInvitations({
           </InputGroup>
 
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button size="sm" variant="outline" disabled={isPending} />}><Filter />{organizationLocalization.role}</DropdownMenuTrigger>
+            <DropdownMenuTrigger render={<Button variant="outline" disabled={isPending} />}><Filter />{organizationLocalization.role}</DropdownMenuTrigger>
 
             <DropdownMenuContent align="start">
               <DropdownMenuRadioGroup
@@ -171,7 +171,7 @@ export function OrganizationInvitations({
           </DropdownMenu>
 
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button size="sm" variant="outline" disabled={isPending} />}><Filter />{organizationLocalization.status}</DropdownMenuTrigger>
+            <DropdownMenuTrigger render={<Button variant="outline" disabled={isPending} />}><Filter />{organizationLocalization.status}</DropdownMenuTrigger>
 
             <DropdownMenuContent align="start">
               <DropdownMenuRadioGroup
