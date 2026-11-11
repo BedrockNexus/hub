@@ -121,9 +121,9 @@ export default async function TrendingPage() {
 						</li>
 						<li>
 							Addons and resource packs are ordered by counted
-							downloads and saves from the last 7 days. Recent
-							days count more, a save counts as three downloads,
-							and a release in the last week gives a small lift.
+							downloads from the last 7 days. Recent days count
+							more, and a release in the last week gives a small
+							lift.
 						</li>
 						<li>
 							Scores are refreshed every hour. Nobody can pay for

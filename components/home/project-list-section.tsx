@@ -26,7 +26,7 @@ export function ProjectListSection({
 }: {
 	title: string
 	type: ProjectType
-	sort: 'downloads' | 'trending' | 'updated' | 'newest' | 'rating' | 'saved'
+	sort: 'downloads' | 'trending' | 'updated' | 'newest' | 'rating'
 	count?: number
 	href: string
 	linkLabel: string

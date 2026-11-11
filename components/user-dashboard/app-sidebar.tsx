@@ -4,7 +4,6 @@ import {
 	BlueskyIcon,
 	DashboardBrowsingIcon,
 	DiscordIcon,
-	FavouriteIcon,
 	InstagramIcon,
 	OfficeIcon,
 	PaintBrush01Icon,
@@ -60,11 +59,6 @@ const data = {
 			title: 'Organizations',
 			url: '/dashboard/organizations',
 			icon: OfficeIcon,
-		},
-		{
-			title: 'Saved',
-			url: '/dashboard/saved',
-			icon: FavouriteIcon,
 		},
 	],
 	navSettings: [

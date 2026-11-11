@@ -25,7 +25,6 @@ export const PROJECT_SORTS = [
 	'updated',
 	'newest',
 	'rating',
-	'saved',
 ] as const
 export type ProjectSortOption = (typeof PROJECT_SORTS)[number]
 export interface ProjectSearchFilters {
@@ -51,7 +50,6 @@ const sortOptions: { value: ProjectSortOption; label: string }[] = [
 	{ value: 'updated', label: 'Recently updated' },
 	{ value: 'newest', label: 'Newest' },
 	{ value: 'rating', label: 'Top rated' },
-	{ value: 'saved', label: 'Most saved' },
 ]
 const resolutionOptions = RESOURCE_PACK_RESOLUTIONS.map((value) => ({
 	value,

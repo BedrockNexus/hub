@@ -19,7 +19,7 @@ export function ServerListSection({
 	linkLabel,
 }: {
 	title: string
-	sort: 'players' | 'trending' | 'rating' | 'newest' | 'saved'
+	sort: 'players' | 'trending' | 'rating' | 'newest'
 	count?: number
 	href: string
 	linkLabel: string

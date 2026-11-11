@@ -95,7 +95,6 @@ export function ProjectAnalytics({
 									data.totals.downloads,
 								),
 							},
-							{ label: 'Net saves', value: data.totals.saves },
 							{
 								label: 'All-time downloads',
 								value: data.totals.allTimeDownloads,

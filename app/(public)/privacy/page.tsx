@@ -63,7 +63,7 @@ export default function PrivacyPage() {
 					Verify server ownership and maintain live server status.
 				</li>
 				<li>Moderate content and communicate review decisions.</li>
-				<li>Show public download, review, and favourite counts.</li>
+				<li>Show public download and review counts.</li>
 				<li>Prevent abuse, enforce limits, and protect the service.</li>
 				<li>Send account verification and password-reset messages.</li>
 				<li>
