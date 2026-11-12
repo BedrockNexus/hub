@@ -194,6 +194,7 @@ query    functions/servers/gallery:listMine
 query    functions/servers/gallery:listPublic
 query    functions/servers/listing:browse
 query    functions/servers/listing:sitemapEntries
+query    functions/servers/ping:findListing
 query    functions/servers/reviews:getStats
 query    functions/servers/reviews:getUserReview
 query    functions/servers/reviews:list

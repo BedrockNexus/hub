@@ -54,6 +54,7 @@ import type * as functions_servers_gallery from "../functions/servers/gallery.js
 import type * as functions_servers_index from "../functions/servers/index.js";
 import type * as functions_servers_listing from "../functions/servers/listing.js";
 import type * as functions_servers_migrations from "../functions/servers/migrations.js";
+import type * as functions_servers_ping from "../functions/servers/ping.js";
 import type * as functions_servers_reviews from "../functions/servers/reviews.js";
 import type * as functions_servers_servers from "../functions/servers/servers.js";
 import type * as functions_servers_software from "../functions/servers/software.js";
@@ -188,6 +189,7 @@ declare const fullApi: ApiFromModules<{
   "functions/servers/index": typeof functions_servers_index;
   "functions/servers/listing": typeof functions_servers_listing;
   "functions/servers/migrations": typeof functions_servers_migrations;
+  "functions/servers/ping": typeof functions_servers_ping;
   "functions/servers/reviews": typeof functions_servers_reviews;
   "functions/servers/servers": typeof functions_servers_servers;
   "functions/servers/software": typeof functions_servers_software;

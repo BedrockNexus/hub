@@ -12,9 +12,16 @@ export interface BedrockStatusResponse {
 		online: number
 	}
 	port?: number
+	/** The IPv6 port a RakNet server advertises. */
+	portV6?: number
 	protocolVersion?: number
 	serverId?: string
+	/** Which ways of connecting answered; Bedrock 26.60+ uses NetherNet only. */
+	transports?: { nethernet: boolean; raknet: boolean }
 	version?: string
+	/** `motd` and `mapName` with their `§` formatting codes kept. */
+	motdRaw?: string
+	mapNameRaw?: string
 }
 
 export class BedrockApiError extends Error {
@@ -79,5 +86,7 @@ export async function fetchBedrockStatus(
 		...data,
 		motd: stripMinecraftFormatting(data.motd),
 		mapName: stripMinecraftFormatting(data.mapName),
+		motdRaw: data.motd?.trim() || undefined,
+		mapNameRaw: data.mapName?.trim() || undefined,
 	} as BedrockStatusResponse
 }
