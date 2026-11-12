@@ -1,7 +1,6 @@
 import { UserGroupIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
-import { HeroBackdrop } from '@/components/home/hero-backdrop'
 import { HeroSearch } from '@/components/home/hero-search'
 import { TrendingPanel } from '@/components/home/trending-panel'
 import { pluginsNavigation, publicNavigation } from '@/lib/site'
@@ -38,7 +37,6 @@ export async function Hero({
 				aria-hidden
 				className="hero-ambient mask-fade-b absolute inset-0 -z-10"
 			/>
-			<HeroBackdrop pluginsEnabled={pluginsEnabled} />
 			<div className="container mx-auto grid grid-cols-1 items-center gap-12 px-4 pt-14 pb-20 md:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16 lg:pt-20 lg:pb-44">
 				<div className="flex flex-col items-start gap-6">
 					<p className="eyebrow-block">The Bedrock community hub</p>

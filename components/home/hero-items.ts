@@ -61,8 +61,7 @@ function interleave(lists: HeroItem[][]) {
 
 /**
  * Trending servers, addons and resource packs plus the newest plugins,
- * mixed together. The hero panel and backdrop both call this; identical
- * query arguments mean Convex keeps one subscription per list.
+ * mixed together, for the hero's trending panel.
  */
 export function useHeroItems(pluginsEnabled: boolean) {
 	const servers = useQuery(api.functions.servers.listing.browse, {
