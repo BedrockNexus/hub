@@ -1,72 +1,67 @@
-// @vitest-environment node
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
-import { AdminModerationActions } from '@/components/admin-dashboard/admin-moderation-actions'
-
-vi.mock('convex/react', () => ({ useMutation: () => vi.fn() }))
+import { describe, expect, it } from 'vitest'
+import {
+	type ListingState,
+	listingOptions,
+} from '@/components/admin-dashboard/review/listing-decision'
 
 describe.each(['server', 'project', 'plugin'] as const)(
-	'%s shared moderation controls',
+	'%s moderation decisions',
 	(contentType) => {
-		function render(
-			status: 'draft' | 'under_review' | 'published',
-			moderationStatus: 'approved' | 'pending' | 'flagged' = 'approved',
-			wasPublished = false,
-		) {
-			return renderToStaticMarkup(
-				createElement(AdminModerationActions, {
-					contentId: 'example',
-					contentName: 'Example',
-					contentType,
-					status,
-					moderationStatus,
-					wasPublished,
-				}),
-			).replace(/<[^>]*>/g, '')
+		function labels(state: Partial<ListingState>) {
+			return listingOptions({
+				contentType,
+				status: 'published',
+				moderationStatus: 'approved',
+				wasPublished: false,
+				canApprove: true,
+				...state,
+			}).options.map((option) => option.label)
 		}
 		it('offers flag and unpublish for public listings', () => {
-			const text = render('published')
-			expect(text).toContain('Flag')
-			expect(text).toContain('Unpublish')
+			expect(labels({})).toEqual(
+				expect.arrayContaining(['Flag for review', 'Unpublish']),
+			)
 		})
-		it('offers approval, feedback, and rejection for pending listings', () => {
-			const text = render('under_review', 'pending')
-			for (const label of ['Approve', 'Request changes', 'Reject']) {
-				expect(text).toContain(label)
-			}
+		it('offers approval, feedback, and rejection for a new listing', () => {
+			expect(
+				labels({ status: 'under_review', moderationStatus: 'pending' }),
+			).toEqual(['Approve listing', 'Request changes', 'Reject listing'])
 		})
-		it('offers submission decisions alongside listing controls for a public update', () => {
-			const text = renderToStaticMarkup(
-				createElement(AdminModerationActions, {
-					contentId: 'example',
-					contentName: 'Example',
-					contentType,
-					status: 'published',
-					moderationStatus: 'approved',
-					wasPublished: true,
-					submissionStatus: 'pending',
-					submissionRevision: 4,
-				}),
-			).replace(/<[^>]*>/g, '')
-			for (const label of [
-				'Approve',
+		it('reviews an update to a live listing, which can still be taken down', () => {
+			expect(
+				labels({ wasPublished: true, submissionStatus: 'pending' }),
+			).toEqual([
+				'Approve changes',
 				'Request changes',
-				'Reject',
-				'Flag',
+				'Reject changes',
+				'Flag for review',
 				'Unpublish',
-			]) {
-				expect(text).toContain(label)
-			}
-			expect(text).not.toContain('Restore')
+			])
 		})
 		it('offers restoration after unpublishing', () => {
-			expect(render('draft', 'approved', true)).toContain('Restore')
+			expect(labels({ status: 'draft', wasPublished: true })).toContain(
+				'Restore listing',
+			)
 		})
 		it('offers restoration and feedback for flagged listings', () => {
-			const text = render('under_review', 'flagged', true)
-			expect(text).toContain('Restore')
-			expect(text).toContain('Request changes')
+			const options = labels({
+				status: 'under_review',
+				moderationStatus: 'flagged',
+				wasPublished: true,
+			})
+			expect(options).toContain('Restore listing')
+			expect(options).toContain('Request changes')
+		})
+		it('says why a listing cannot be approved yet', () => {
+			const approve = listingOptions({
+				contentType,
+				status: 'under_review',
+				moderationStatus: 'pending',
+				wasPublished: false,
+				canApprove: false,
+				approveDisabledReason: 'A file is required.',
+			}).options[0]
+			expect(approve.unavailable).toBe('A file is required.')
 		})
 	},
 )

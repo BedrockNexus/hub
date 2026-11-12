@@ -3,6 +3,30 @@ import { defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 // =============================================================================
+// RELEASE CONTENT CHECKS (reported by the artifact validator)
+// =============================================================================
+
+/** One file inside a release, as listed by the validator. */
+export const releaseFile = v.object({
+	path: v.string(),
+	size: v.number(),
+	crc32: v.number(),
+})
+
+/** Something a moderator should look at; findings never reject a file. */
+export const releaseFinding = v.object({
+	code: v.string(),
+	level: v.union(v.literal('warning'), v.literal('info')),
+	message: v.string(),
+	paths: v.optional(v.array(v.string())),
+})
+
+export const releaseScriptModule = v.object({
+	name: v.string(),
+	version: v.optional(v.string()),
+})
+
+// =============================================================================
 // PROJECT TYPE
 // =============================================================================
 
@@ -238,6 +262,12 @@ export const tables = {
 				width: v.optional(v.number()),
 				height: v.optional(v.number()),
 				sha256: v.optional(v.string()),
+				// Content checks, from validator checks version 1 on. The
+				// file list itself is in projectVersionFiles.
+				checksVersion: v.optional(v.number()),
+				fileCount: v.optional(v.number()),
+				scriptModules: v.optional(v.array(releaseScriptModule)),
+				findings: v.optional(v.array(releaseFinding)),
 			}),
 		),
 		validatedAt: v.optional(v.number()),
@@ -278,6 +308,14 @@ export const tables = {
 			'standaloneReviewPending',
 			'createdAt',
 		]),
+
+	/** The files inside a release, compared between versions in review. */
+	projectVersionFiles: defineTable({
+		versionId: v.id('projectVersions'),
+		files: v.array(releaseFile),
+		// More files than were listed (very large packs).
+		truncated: v.boolean(),
+	}).index('by_versionId', ['versionId']),
 
 	projectArtifactUploads: defineTable({
 		projectId: v.id('projects'),

@@ -8,21 +8,13 @@ import {
 	PuzzleIcon,
 	ServerStack03Icon,
 } from '@hugeicons/core-free-icons'
+import { useQuery } from 'convex/react'
 import { usePathname } from 'next/navigation'
 import type * as React from 'react'
-import { AdminReviewSidebar } from '@/components/admin-dashboard/admin-review-sidebar'
 import { SidebarNav } from '@/components/sidebar/sidebar-nav'
 import { Sidebar, SidebarContent } from '@/components/ui/sidebar'
+import { api } from '@/convex/_generated/api'
 import { adminReviewTarget } from '@/lib/admin-review-navigation'
-
-const REVIEW_ITEMS = [
-	{
-		title: 'Awaiting review',
-		url: '/moderation',
-		icon: CheckmarkCircle01Icon,
-		exactMatch: true,
-	},
-]
 
 const CONTENT_ITEMS = [
 	{
@@ -56,31 +48,46 @@ const ADMIN_ITEMS = [
 	},
 ]
 
+function QueueNav() {
+	const queue = useQuery(api.functions.moderation.work.queue, {})
+	const waiting = queue?.rows.length
+	return (
+		<SidebarNav
+			basePath="/moderation"
+			groupLabel="Moderation"
+			items={[
+				{
+					title: 'Review queue',
+					url: '/moderation',
+					icon: CheckmarkCircle01Icon,
+					exactMatch: true,
+					badge: waiting
+						? `${waiting}${queue?.more ? '+' : ''}`
+						: undefined,
+				},
+			]}
+		/>
+	)
+}
+
+/**
+ * Review pages have their own way back to the queue and use the full width,
+ * so the sidebar is left out there.
+ */
 export function ModerationSidebar({
 	isAdmin,
 	...props
 }: React.ComponentProps<typeof Sidebar> & { isAdmin: boolean }) {
-	const target = adminReviewTarget(usePathname())
-	if (target) {
-		return (
-			<AdminReviewSidebar
-				key={`${target.kind}/${target.id}`}
-				target={target}
-				{...props}
-			/>
-		)
+	if (adminReviewTarget(usePathname())) {
+		return null
 	}
 	return (
 		<Sidebar collapsible="icon" variant="floating" {...props}>
 			<SidebarContent>
+				<QueueNav />
 				<SidebarNav
 					basePath="/moderation"
-					groupLabel="Moderation"
-					items={REVIEW_ITEMS}
-				/>
-				<SidebarNav
-					basePath="/moderation"
-					groupLabel="Content"
+					groupLabel="All content"
 					items={CONTENT_ITEMS}
 				/>
 				{isAdmin ? (

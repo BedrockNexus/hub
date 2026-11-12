@@ -61,6 +61,8 @@ import {
 } from '../../../lib/project-artifacts'
 import { updateProjectReleaseSummary } from './artifactValidation'
 import { removePicksFor } from '../site/picks'
+import { deleteVersionFiles } from '../../lib/projectVersionFiles'
+import { isStandaloneReleaseReview } from '../../lib/releaseReviewQueue'
 
 // =============================================================================
 // TYPES
@@ -305,6 +307,7 @@ async function deleteProjectFiles(ctx: MutationCtx, project: Doc<'projects'>) {
 		} else if (!version.uploadR2Key) {
 			await r2.deleteObject(ctx, version.r2Key)
 		}
+		await deleteVersionFiles(ctx, version._id)
 		await ctx.db.delete(version._id)
 	}
 }
@@ -762,11 +765,27 @@ export const listAdmin = moderatorQuery({
 				const iconUrl = await resolveProjectIconUrl(item)
 				const bannerUrl = await resolveProjectBannerUrl(item)
 				const ownerLabels = await resolveProjectOwnerLabels(ctx, item)
+				// A release of a live listing waiting for its own review.
+				const pendingRelease = await ctx.db
+					.query('projectVersions')
+					.withIndex('by_project_and_standalone_review_pending', (q) =>
+						q.eq('projectId', item._id).eq('standaloneReviewPending', true),
+					)
+					.first()
 
 				return {
 					...item,
 					iconUrl,
 					bannerUrl,
+					pendingVersion:
+						pendingRelease &&
+						isStandaloneReleaseReview(item, pendingRelease)
+							? {
+									id: pendingRelease._id,
+									version: pendingRelease.version,
+									since: pendingRelease.createdAt,
+								}
+							: undefined,
 					categories: categories.filter(Boolean),
 					averageRating: stats?.averageRating ?? 0,
 					reviewCount: stats?.reviewCount ?? 0,

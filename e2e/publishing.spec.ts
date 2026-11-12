@@ -27,8 +27,19 @@ const LOGIN = /\/login(?:\?|$)/
 const DASHBOARD = /\/dashboard(?:\?|$)/
 const SUBMIT = /^(?:(?:Submit|Resubmit) for review|Submit updates)$/
 const CLAIMED_BY_ANOTHER = /assigned to another/i
-const CLAIM = /^(?:Claim|Release) review$/
+const CLAIM = /^(?:Claim|Release)$/
 const SAVE = /^Save changes$/
+/** The decision panel's option and its send button, by decision. */
+const DECISIONS = {
+	Approve: {
+		option: /^Approve (?:listing|changes)/,
+		send: /^Approve (?:listing|changes)$/,
+	},
+	'Request changes': {
+		option: /^Request changes/,
+		send: /^Send back to the creator$/,
+	},
+}
 /**
  * Rethrow a failed Convex call with the text a person would be shown.
  * Production hides `message`; ConvexError keeps it in `data`.
@@ -118,22 +129,22 @@ test.describe('publishing acceptance', () => {
 	}
 	async function decide(
 		page: Page,
-		decision: 'Approve' | 'Request changes',
+		decision: keyof typeof DECISIONS,
 		reason?: string,
 	) {
-		await page
-			.getByRole('complementary', { name: 'Review decision' })
-			.getByRole('button', { name: decision, exact: true })
+		const panel = page.getByRole('complementary', {
+			name: 'Review decision',
+		})
+		await panel
+			.getByRole('radio', { name: DECISIONS[decision].option })
 			.click()
-		const dialog = page.getByRole('dialog')
-		await expect(dialog).toBeVisible()
 		if (reason) {
-			await dialog.getByLabel('Reason for creator').fill(reason)
+			await panel.getByLabel('Message to the creator').fill(reason)
 		}
-		await dialog
-			.getByRole('button', { name: decision, exact: true })
+		await panel
+			.getByRole('button', { name: DECISIONS[decision].send })
 			.click()
-		await expect(dialog).not.toBeVisible()
+		await expect(panel.getByRole('heading', { name: 'Done' })).toBeVisible()
 	}
 	test.beforeAll(async ({ baseURL }, info) => {
 		test.setTimeout(300_000)
@@ -244,7 +255,7 @@ test.describe('publishing acceptance', () => {
 			} else {
 				await expect(
 					page.getByRole('heading', {
-						name: 'Awaiting review',
+						name: 'Review queue',
 						exact: true,
 					}),
 				).toBeVisible()
@@ -346,11 +357,11 @@ test.describe('publishing acceptance', () => {
 			})
 			await expect(bar.getByRole('button', { name: CLAIM })).toBeEnabled()
 			await bar
-				.getByRole('button', { name: 'Claim review', exact: true })
+				.getByRole('button', { name: 'Claim', exact: true })
 				.click()
 			await expect(
 				bar.getByRole('button', {
-					name: 'Release review',
+					name: 'Release',
 					exact: true,
 				}),
 			).toBeEnabled()

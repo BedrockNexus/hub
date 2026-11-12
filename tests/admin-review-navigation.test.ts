@@ -3,7 +3,7 @@ import {
 	adminReviewTarget,
 	moderationReviewHref,
 	reviewedReleaseId,
-	reviewSectionFor,
+	reviewTabFor,
 } from '../lib/admin-review-navigation'
 
 describe('moderation review navigation', () => {
@@ -57,17 +57,17 @@ describe('moderation review navigation', () => {
 	})
 	it('opens direct version links while allowing navigation away without losing the selected version', () => {
 		const hash = '#release-version-id'
-		expect(reviewSectionFor(null, hash)).toBe('versions')
+		expect(reviewTabFor(null, hash)).toBe('files')
 		expect(reviewedReleaseId(null, hash)).toBe('version-id')
-		expect(reviewSectionFor('description', hash)).toBe('description')
-		expect(reviewSectionFor('history', hash)).toBe('history')
+		expect(reviewTabFor('listing', hash)).toBe('listing')
+		expect(reviewTabFor('history', hash)).toBe('history')
 		expect(reviewedReleaseId('selected-version', hash)).toBe(
 			'selected-version',
 		)
 		expect(reviewedReleaseId('listing', hash)).toBeNull()
 	})
-	it('defaults to the listing overview without a release link', () => {
-		expect(reviewSectionFor(null, '')).toBe('overview')
+	it("leaves the tab to the page's default without a release link", () => {
+		expect(reviewTabFor(null, '')).toBeNull()
 		expect(reviewedReleaseId(null, '#unrelated')).toBeNull()
 	})
 })

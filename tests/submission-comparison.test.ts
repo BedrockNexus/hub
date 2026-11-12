@@ -49,7 +49,7 @@ describe('submission comparison presentation', () => {
 			'Removed',
 			'Old name',
 			'New name',
-			'Last approved',
+			'Approved',
 			'Submitted',
 			'Not provided',
 		]) {

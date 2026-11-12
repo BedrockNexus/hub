@@ -1,260 +1,234 @@
 'use client'
 
-import {
-	ArrowLeft02Icon,
-	CheckmarkCircle01Icon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
-import Image from 'next/image'
-import Link from 'next/link'
+import type { FunctionReturnType } from 'convex/server'
+import type { ReactNode } from 'react'
 import {
 	LifecycleStatusBadge,
 	ModerationStatusBadge,
 } from '@/components/admin-dashboard/admin-content-status'
-import { AdminModerationActions } from '@/components/admin-dashboard/admin-moderation-actions'
-import { GalleryGrid } from '@/components/detail/gallery-grid'
-import { RichTextViewer } from '@/components/editor/rich-text-viewer'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useAdminReviewNavigation } from '@/hooks/use-admin-review-navigation'
-import { AdminReviewShell, ReviewSectionPanel } from './admin-review-shell'
-import { AdminSubmissionHistory } from './admin-submission-history'
-import { SubmissionMetadata } from './submission-metadata'
+import type { ReviewTab } from '@/lib/admin-review-navigation'
+import { formatDate } from '@/lib/format'
+import {
+	SubmissionChanges,
+	SubmissionHistory,
+	useCurrentComparison,
+} from './admin-submission-history'
+import { ListingDecision } from './review/listing-decision'
+import { ListingPreview } from './review/listing-preview'
+import { ownerLabel } from './review/owner'
+import {
+	ReviewChip,
+	ReviewLayout,
+	type ReviewTabItem,
+	WaitingChip,
+} from './review/review-layout'
+import {
+	ClaimCard,
+	FactsCard,
+	FeedbackCard,
+	useReviewAssignment,
+} from './review/review-rail'
+
+type ServerReview = NonNullable<
+	FunctionReturnType<typeof api.functions.servers.servers.getAdminReview>
+>
+
+const dateTime = (value?: number) =>
+	value
+		? formatDate(value, {
+				month: 'short',
+				hour: 'numeric',
+				minute: '2-digit',
+			})
+		: undefined
+
+function verification(server: ServerReview) {
+	if (!server.verifiedAt) {
+		return <span className="text-destructive">Not verified</span>
+	}
+	const method = server.verificationMethod?.replace('_', ' ')
+	return `Verified${method ? ` by ${method}` : ''} on ${formatDate(server.verifiedAt, { month: 'short' })}`
+}
 
 export function AdminServerReview({ serverId }: { serverId: string }) {
-	const nav = useAdminReviewNavigation()
 	const server = useQuery(api.functions.servers.servers.getAdminReview, {
 		id: serverId as Id<'servers'>,
 	})
-
 	if (server === undefined) {
 		return <Skeleton className="h-[70svh] w-full rounded-md" />
 	}
-
 	if (!server) {
 		return (
-			<Card>
-				<CardContent className="py-16 text-center">
-					<h1 className="font-semibold text-xl">Server not found</h1>
-				</CardContent>
-			</Card>
+			<div className="py-16 text-center">
+				<h1 className="font-semibold text-xl">Server not found</h1>
+			</div>
+		)
+	}
+	return <ServerReviewPage server={server} />
+}
+
+function ServerReviewPage({ server }: { server: ServerReview }) {
+	const nav = useAdminReviewNavigation()
+	const pending = server.submissionStatus === 'pending'
+	const isUpdate = Boolean(server.publishedAt)
+	const revision = server.submissionRevision ?? 0
+	const scope = { contentId: server._id, contentType: 'server' as const }
+	const comparison = useCurrentComparison(scope, server.submissionRevision)
+	const review = useReviewAssignment({
+		contentId: server._id,
+		revision,
+		pending,
+	})
+	const showChanges = Boolean(comparison && !comparison.firstSubmission)
+	const tabs: ReviewTabItem[] = [
+		...(showChanges
+			? [
+					{
+						id: 'changes' as const,
+						label: 'Changes',
+						count: comparison?.fields.length,
+					},
+				]
+			: []),
+		{ id: 'listing', label: 'Listing preview' },
+		{ id: 'history', label: 'History' },
+	]
+	const fallback: ReviewTab = showChanges ? 'changes' : 'listing'
+	const tab =
+		nav.tab && tabs.some((item) => item.id === nav.tab) ? nav.tab : fallback
+
+	let panel: ReactNode
+	if (tab === 'changes') {
+		panel = <SubmissionChanges comparison={comparison} />
+	} else if (tab === 'history') {
+		panel = <SubmissionHistory {...scope} />
+	} else {
+		panel = (
+			<ListingPreview
+				awaitingReview={pending}
+				bannerUrl={server.bannerUrl}
+				description={server.description || server.smallDescription}
+				details={[
+					[
+						'Address',
+						<span className="font-mono text-[13px]" key="address">
+							{server.ipAddress}:{server.port}
+						</span>,
+					],
+					['Ownership', verification(server)],
+					['Software', server.software?.name],
+					['Region', server.region],
+					['Game versions', server.gameVersions?.join(', ')],
+					[
+						'Categories',
+						server.categories
+							.map((category) => category?.name)
+							.filter(Boolean)
+							.join(', '),
+					],
+					['Languages', server.language?.join(', ')],
+					['Tags', server.tags?.join(', ')],
+				]}
+				gallery={server.gallery}
+				links={[
+					['Website', server.website],
+					['Discord', server.discordUrl],
+					['Store', server.storeUrl],
+					['Wiki', server.wikiUrl],
+				]}
+				summary={
+					server.description ? server.smallDescription : undefined
+				}
+			/>
 		)
 	}
 
 	return (
-		<AdminReviewShell
-			actions={
-				<AdminModerationActions
-					contentId={server._id}
-					contentName={server.name}
-					contentType="server"
-					moderationStatus={server.moderationStatus}
-					status={server.status}
-					submissionRevision={server.submissionRevision}
-					submissionStatus={server.submissionStatus}
-					wasPublished={Boolean(server.publishedAt)}
-				/>
+		<ReviewLayout
+			activeTab={tab}
+			back={
+				pending
+					? { href: '/moderation', label: 'Review queue' }
+					: { href: '/moderation/servers', label: 'Servers' }
 			}
-			header={
-				<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-					<div className="space-y-3">
-						<Button
-							nativeButton={false}
-							render={<Link href="/moderation/servers" />}
-							variant="ghost"
-						>
-							<HugeiconsIcon
-								className="size-4"
-								icon={ArrowLeft02Icon}
-							/>
-							Servers
-						</Button>
-						<div className="flex items-center gap-4">
-							{server.logoUrl ? (
-								<Image
-									alt={`${server.name} logo`}
-									className="size-16 rounded-md border object-cover"
-									height={64}
-									src={server.logoUrl}
-									width={64}
-								/>
+			iconUrl={server.logoUrl}
+			meta={
+				<>
+					<span>
+						Server · by{' '}
+						<span className="text-foreground">
+							{ownerLabel(server.owner)}
+						</span>
+					</span>
+					{pending ? (
+						<>
+							<ReviewChip>
+								{isUpdate
+									? `Listing update · revision ${revision}`
+									: 'New listing'}
+							</ReviewChip>
+							<WaitingChip since={server.submittedAt} />
+							{isUpdate ? (
+								<span>Stays live while you review</span>
 							) : null}
-							<div>
-								<h1 className="font-semibold text-2xl">
-									{server.name}
-								</h1>
-								<p className="text-muted-foreground text-sm">
-									{server.ipAddress}:{server.port}
-								</p>
-							</div>
-						</div>
-						<div className="flex flex-wrap gap-2">
+						</>
+					) : (
+						<>
 							<LifecycleStatusBadge status={server.status} />
 							<ModerationStatusBadge
 								status={server.moderationStatus}
 							/>
-							{server.verifiedAt ? (
-								<Badge variant="secondary">
-									<HugeiconsIcon
-										className="size-3.5"
-										icon={CheckmarkCircle01Icon}
-									/>
-									Ownership verified
-								</Badge>
-							) : (
-								<Badge variant="destructive">
-									Not verified
-								</Badge>
-							)}
-						</div>
-					</div>
-				</div>
+						</>
+					)}
+				</>
 			}
-			identity={{
-				contentId: server._id,
-				revision: server.submissionRevision ?? 0,
-				pending: server.submissionStatus === 'pending',
-			}}
-			note={server.submissionReason ?? server.moderationReason}
-			server
-			submissionRevision={server.submissionRevision}
-			submissionStatus={server.submissionStatus}
-			submittedAt={server.submittedAt}
+			name={server.name}
+			onTabChange={nav.selectTab}
+			rail={
+				<>
+					<ClaimCard review={review} />
+					<ListingDecision
+						canApprove
+						contentId={server._id}
+						contentType="server"
+						locked={review.locked}
+						moderationStatus={server.moderationStatus}
+						status={server.status}
+						submissionRevision={server.submissionRevision}
+						submissionStatus={server.submissionStatus}
+						wasPublished={isUpdate}
+					/>
+					<FeedbackCard
+						text={
+							server.submissionReason ?? server.moderationReason
+						}
+					/>
+					<FactsCard
+						rows={[
+							['Creator', ownerLabel(server.owner)],
+							[
+								'Address',
+								<span
+									className="font-mono text-[13px] [overflow-wrap:anywhere]"
+									key="address"
+								>
+									{server.ipAddress}:{server.port}
+								</span>,
+							],
+							['Ownership', verification(server)],
+							['Submitted', dateTime(server.submittedAt)],
+						]}
+					/>
+				</>
+			}
+			tabs={tabs}
 		>
-			<ReviewSectionPanel
-				active={
-					nav.section === 'overview' || nav.section === 'versions'
-				}
-			>
-				<div className="space-y-6">
-					{server.bannerUrl ? (
-						<Image
-							alt={`${server.name} banner`}
-							className="aspect-[3/1] w-full rounded-md border object-cover"
-							height={400}
-							src={server.bannerUrl}
-							width={1200}
-						/>
-					) : null}
-					<Card>
-						<CardHeader>
-							<CardTitle className="text-base">
-								Submission details
-							</CardTitle>
-						</CardHeader>
-						<CardContent className="grid gap-6 text-sm sm:grid-cols-2 xl:grid-cols-3">
-							<div>
-								<p className="text-muted-foreground">Owner</p>
-								<p>
-									{server.owner?.type === 'organization'
-										? server.owner.name
-										: server.owner?.displayUsername ||
-											server.owner?.username ||
-											'Unknown user'}
-								</p>
-							</div>
-							<div>
-								<p className="text-muted-foreground">
-									Verification
-								</p>
-								<p>
-									{server.verificationMethod
-										? server.verificationMethod.replace(
-												'_',
-												' ',
-											)
-										: 'Not verified'}
-								</p>
-							</div>
-							<div>
-								<p className="text-muted-foreground">Region</p>
-								<p>{server.region || 'Not provided'}</p>
-							</div>
-							<div>
-								<p className="text-muted-foreground">
-									Game versions
-								</p>
-								<p>
-									{server.gameVersions?.join(', ') ||
-										'Not provided'}
-								</p>
-							</div>
-						</CardContent>
-					</Card>
-				</div>
-			</ReviewSectionPanel>
-			<ReviewSectionPanel active={nav.section === 'changes'}>
-				<AdminSubmissionHistory
-					contentId={server._id}
-					contentType="server"
-					mode="changes"
-					revision={server.submissionRevision}
-				/>
-			</ReviewSectionPanel>
-			<ReviewSectionPanel active={nav.section === 'description'}>
-				<Card>
-					<CardHeader>
-						<CardTitle>Description</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<RichTextViewer
-							content={
-								server.description || server.smallDescription
-							}
-						/>
-					</CardContent>
-				</Card>
-			</ReviewSectionPanel>
-			<ReviewSectionPanel active={nav.section === 'gallery'}>
-				<Card>
-					<CardHeader>
-						<CardTitle>Gallery</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<GalleryGrid
-							emptyDescription="No screenshots were supplied."
-							emptyTitle="No gallery images"
-							items={server.gallery}
-						/>
-					</CardContent>
-				</Card>
-			</ReviewSectionPanel>
-
-			<ReviewSectionPanel active={nav.section === 'links'}>
-				<SubmissionMetadata
-					fields={[
-						['Software', server.software?.name],
-						[
-							'Categories',
-							server.categories
-								.map((category) => category?.name)
-								.filter(Boolean)
-								.join(', '),
-						],
-						['Languages', server.language?.join(', ')],
-						['Tags', server.tags?.join(', ')],
-					]}
-					links={[
-						['Website', server.website],
-						['Discord', server.discordUrl],
-						['Store', server.storeUrl],
-						['Wiki', server.wikiUrl],
-					]}
-				/>
-			</ReviewSectionPanel>
-			<ReviewSectionPanel active={nav.section === 'history'}>
-				<AdminSubmissionHistory
-					contentId={server._id}
-					contentType="server"
-					mode="history"
-					revision={server.submissionRevision}
-				/>
-			</ReviewSectionPanel>
-		</AdminReviewShell>
+			{panel}
+		</ReviewLayout>
 	)
 }

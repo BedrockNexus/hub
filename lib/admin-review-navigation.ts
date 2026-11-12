@@ -1,14 +1,6 @@
-export const REVIEW_SECTIONS = [
-	{ id: 'overview', title: 'Overview' },
-	{ id: 'changes', title: 'Submitted changes' },
-	{ id: 'description', title: 'Description' },
-	{ id: 'gallery', title: 'Gallery' },
-	{ id: 'versions', title: 'Versions & files' },
-	{ id: 'links', title: 'Links & licence' },
-	{ id: 'history', title: 'Moderation history' },
-] as const
-export type ReviewSection = (typeof REVIEW_SECTIONS)[number]['id']
-export const REVIEW_SECTION_IDS = REVIEW_SECTIONS.map((section) => section.id)
+/** The tabs of a review page. `files` is Versions for releases, Server for servers. */
+export const REVIEW_TABS = ['changes', 'listing', 'files', 'history'] as const
+export type ReviewTab = (typeof REVIEW_TABS)[number]
 const REVIEW_PATH =
 	/^\/moderation\/(addons|resource-packs|plugins|servers)\/([^/]+)\/?$/
 type ReviewKind = 'projects' | 'plugins' | 'servers'
@@ -50,11 +42,12 @@ export function moderationReviewHref(
 	const release = releaseId ? `#release-${releaseId}` : ''
 	return `${moderationCollectionHref(kind, projectType)}/${id}${release}`
 }
-export function reviewSectionFor(
-	section: ReviewSection | null,
+/** The tab a review opens on; null leaves it to the page's default. */
+export function reviewTabFor(
+	tab: ReviewTab | null,
 	hash: string,
-): ReviewSection {
-	return section ?? (hash.startsWith('#release-') ? 'versions' : 'overview')
+): ReviewTab | null {
+	return tab ?? (hash.startsWith('#release-') ? 'files' : null)
 }
 export function reviewedReleaseId(selected: string | null, hash: string) {
 	if (selected === 'listing') {

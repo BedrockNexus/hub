@@ -4,12 +4,13 @@ import type { DiscordIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { ComponentPropsWithoutRef } from 'react'
+import type { ComponentPropsWithoutRef, ReactNode } from 'react'
 import {
 	SidebarGroup,
 	SidebarGroupContent,
 	SidebarGroupLabel,
 	SidebarMenu,
+	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from '@/components/ui/sidebar'
@@ -29,6 +30,8 @@ export function SidebarNav({
 		url: string
 		icon: HugeIcon
 		exactMatch?: boolean
+		/** A count shown at the end of the item. */
+		badge?: ReactNode
 	}[]
 	groupLabel: string
 	basePath?: string
@@ -68,6 +71,11 @@ export function SidebarNav({
 								<HugeiconsIcon icon={item.icon} size={16} />
 								<span>{item.title}</span>
 							</SidebarMenuButton>
+							{item.badge ? (
+								<SidebarMenuBadge>
+									{item.badge}
+								</SidebarMenuBadge>
+							) : null}
 						</SidebarMenuItem>
 					))}
 				</SidebarMenu>

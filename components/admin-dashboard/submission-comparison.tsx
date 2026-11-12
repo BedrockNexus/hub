@@ -1,7 +1,6 @@
 import Image from 'next/image'
 import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
-import { Badge } from '@/components/ui/badge'
 
 export interface ComparedField {
 	key: string
@@ -136,23 +135,23 @@ function ComparedValues({
 	firstSubmission: boolean
 }) {
 	return (
-		<div className="grid gap-4 pt-4 md:grid-cols-2">
+		<div className="grid gap-px bg-border md:grid-cols-2">
 			<section
-				aria-label={`Last approved ${field.label}`}
-				className="min-w-0 rounded-md border bg-muted/20 p-4"
+				aria-label={`Approved ${field.label}`}
+				className="min-w-0 space-y-2 bg-card px-4.5 py-3.5"
 			>
-				<h4 className="mb-3 font-medium text-muted-foreground text-xs">
-					{firstSubmission
-						? 'No approved listing yet'
-						: 'Last approved'}
+				<h4 className="text-muted-foreground text-xs uppercase tracking-wide">
+					{firstSubmission ? 'No approved listing yet' : 'Approved'}
 				</h4>
-				<FieldValue field={field} value={field.before} />
+				<div className="text-muted-foreground">
+					<FieldValue field={field} value={field.before} />
+				</div>
 			</section>
 			<section
 				aria-label={`Submitted ${field.label}`}
-				className="min-w-0 rounded-md border border-primary/25 p-4"
+				className="min-w-0 space-y-2 bg-card px-4.5 py-3.5"
 			>
-				<h4 className="mb-3 font-medium text-primary text-xs">
+				<h4 className="text-primary text-xs uppercase tracking-wide">
 					Submitted
 				</h4>
 				<FieldValue field={field} value={field.after} />
@@ -160,6 +159,26 @@ function ComparedValues({
 		</div>
 	)
 }
+
+/** Long values start folded, so short changes stay in view. */
+function isLong(field: ComparedField) {
+	return (
+		['description', 'gallery', 'release'].includes(field.kind) ||
+		field.key === 'metadata'
+	)
+}
+
+function FieldTitle({ field }: { field: ComparedField }) {
+	return (
+		<span className="flex items-center gap-2.5 font-semibold text-[15px]">
+			{field.label}
+			<span className="rounded bg-muted px-2 py-px font-normal text-muted-foreground text-xs">
+				{changeLabel(field)}
+			</span>
+		</span>
+	)
+}
+
 export function SubmissionComparison({
 	comparison,
 }: {
@@ -173,46 +192,44 @@ export function SubmissionComparison({
 		)
 	}
 	return (
-		<div className="divide-y">
-			{comparison.fields.map((field) => {
-				const status = changeLabel(field)
-				const title = (
-					<span className="flex items-center gap-2 font-medium text-sm">
-						{field.label}
-						<Badge variant="outline">{status}</Badge>
-					</span>
-				)
-				if (
-					['description', 'gallery', 'release'].includes(
-						field.kind,
-					) ||
-					field.key === 'metadata'
-				) {
-					return (
-						<details
-							className="py-4 first:pt-0 last:pb-0"
-							key={field.key}
-						>
-							<summary className="cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
-								{title}
-							</summary>
+		<div className="flex flex-col gap-4">
+			{comparison.fields.map((field) =>
+				isLong(field) ? (
+					<details
+						className="group overflow-hidden rounded-lg border bg-card"
+						key={field.key}
+					>
+						<summary className="flex min-h-13 cursor-pointer items-center justify-between gap-3 px-4.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+							<FieldTitle field={field} />
+							<span className="text-[13.5px] text-primary group-open:hidden">
+								Compare
+							</span>
+							<span className="hidden text-[13.5px] text-primary group-open:inline">
+								Hide
+							</span>
+						</summary>
+						<div className="border-t">
 							<ComparedValues
 								field={field}
 								firstSubmission={comparison.firstSubmission}
 							/>
-						</details>
-					)
-				}
-				return (
-					<div className="py-4 first:pt-0 last:pb-0" key={field.key}>
-						{title}
+						</div>
+					</details>
+				) : (
+					<section
+						className="overflow-hidden rounded-lg border bg-card"
+						key={field.key}
+					>
+						<div className="border-b px-4.5 py-3.5">
+							<FieldTitle field={field} />
+						</div>
 						<ComparedValues
 							field={field}
 							firstSubmission={comparison.firstSubmission}
 						/>
-					</div>
-				)
-			})}
+					</section>
+				),
+			)}
 		</div>
 	)
 }

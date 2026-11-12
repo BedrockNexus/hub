@@ -2,9 +2,10 @@
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { useSyncExternalStore } from 'react'
 import {
-	REVIEW_SECTION_IDS,
+	REVIEW_TABS,
+	type ReviewTab,
 	reviewedReleaseId,
-	reviewSectionFor,
+	reviewTabFor,
 } from '@/lib/admin-review-navigation'
 
 function subscribe(listener: () => void) {
@@ -21,19 +22,20 @@ export function useAdminReviewNavigation() {
 	const hash = useSyncExternalStore(subscribe, getHash, getServerHash)
 	const [state, setState] = useQueryStates(
 		{
-			section: parseAsStringLiteral(REVIEW_SECTION_IDS),
+			section: parseAsStringLiteral(REVIEW_TABS),
 			release: parseAsString,
 		},
 		{ history: 'push', shallow: true },
 	)
 	return {
-		section: reviewSectionFor(state.section, hash),
+		/** The chosen tab, or null for the page's default. */
+		tab: reviewTabFor(state.section, hash),
 		releaseId: reviewedReleaseId(state.release, hash),
-		selectSection: (section: (typeof REVIEW_SECTION_IDS)[number]) =>
-			setState({ section }),
+		selectTab: (section: ReviewTab) => setState({ section }),
+		/** Opens one version's review. */
 		selectRelease: (release: string) =>
-			setState({ section: 'versions', release }),
-		selectListing: () =>
-			setState({ section: 'overview', release: 'listing' }),
+			setState({ section: null, release }),
+		/** Leaves a version's review for the listing's. */
+		selectListing: () => setState({ section: null, release: 'listing' }),
 	}
 }

@@ -8,6 +8,13 @@ import { authedMutation, authedQuery, moderatorMutation, moderatorQuery } from '
 import { authComponent } from '../../auth'
 import schema from '../../schema'
 import { contentType } from '../../schemas/moderation'
+import { components } from '../../_generated/api'
+import { resolveCdnObjectUrl } from '../../lib/r2'
+
+/** How long a claim keeps a review for one moderator. */
+const CLAIM_HOLD_MS = 30 * 60 * 1000
+const ICON_URL_EXPIRES_IN = 60 * 60 * 24
+
 type QueueRow = {
 	id: string
 	name: string
@@ -15,10 +22,50 @@ type QueueRow = {
 	packType?: string
 	projectId?: Id<'projects'>
 	version?: string
+	fileSize?: number
+	/** True when the listing is already public and this changes it. */
+	isUpdate: boolean
+	iconUrl?: string
+	owner?: string
 	revision: number
 	submittedAt: number
 	assignee?: string
 	mine: boolean
+}
+
+/** The display name of a listing's owner, cached for one queue read. */
+function ownerNames(ctx: QueryCtx) {
+	const cache = new Map<string, Promise<string | undefined>>()
+	const lookup = async (ownerType: string, ownerId: string) => {
+		if (ownerType === 'organization') {
+			const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+				model: 'organization',
+				where: [{ field: '_id', value: ownerId }],
+			})) as { name?: string } | null
+			return org?.name
+		}
+		const user = (await authComponent.getAnyUserById(ctx, ownerId)) as
+			| { displayUsername?: string; username?: string; name?: string }
+			| null
+		return user?.displayUsername || user?.username || user?.name
+	}
+	return (ownerType: string, ownerId: string) => {
+		const key = `${ownerType}:${ownerId}`
+		let name = cache.get(key)
+		if (!name) {
+			name = lookup(ownerType, ownerId).catch(() => undefined)
+			cache.set(key, name)
+		}
+		return name
+	}
+}
+
+async function iconOf(item: Record<string, unknown>) {
+	const key = item.iconR2Key ?? item.logoR2Key
+	if (typeof key === 'string') {
+		return resolveCdnObjectUrl(key, ICON_URL_EXPIRES_IN)
+	}
+	return typeof item.iconUrl === 'string' ? item.iconUrl : undefined
 }
 async function reviewAssignment(
 	ctx: QueryCtx,
@@ -42,6 +89,7 @@ async function reviewAssignment(
 				'Deleted account'
 			: undefined,
 		mine: active?.assignedTo === me,
+		expiresAt: active ? active.claimedAt + CLAIM_HOLD_MS : undefined,
 	}
 }
 const args = {
@@ -55,7 +103,11 @@ const args = {
 }
 export const assignment = moderatorQuery({
 	args,
-	returns: v.object({ assignee: v.optional(v.string()), mine: v.boolean() }),
+	returns: v.object({
+		assignee: v.optional(v.string()),
+		mine: v.boolean(),
+		expiresAt: v.optional(v.number()),
+	}),
 	handler: async (ctx, input) =>
 		reviewAssignment(ctx, input.contentId, input.revision, ctx.moderator._id),
 })
@@ -71,16 +123,22 @@ export const queue = moderatorQuery({
 				name: v.string(),
 				projectId: v.optional(v.id('projects')),
 				version: v.optional(v.string()),
+				fileSize: v.optional(v.number()),
+				isUpdate: v.boolean(),
+				iconUrl: v.optional(v.string()),
+				owner: v.optional(v.string()),
 				type: contentType,
 				packType: v.optional(v.string()),
 				revision: v.number(),
 				submittedAt: v.number(),
 				assignee: v.optional(v.string()),
 				mine: v.boolean(),
+				expiresAt: v.optional(v.number()),
 			}),
 		),
 	}),
 	handler: async (ctx) => {
+		const ownerName = ownerNames(ctx)
 		const groups = await Promise.all([
 			ctx.db
 				.query('servers')
@@ -123,6 +181,9 @@ export const queue = moderatorQuery({
 								? ('project' as const)
 								: ('server' as const),
 					packType: 'type' in item ? item.type : undefined,
+					isUpdate: Boolean(item.publishedAt),
+					iconUrl: await iconOf(item),
+					owner: await ownerName(item.ownerType, item.ownerId),
 					revision: item.submissionRevision ?? 0,
 					submittedAt: item.submittedAt ?? item._creationTime,
 					...assignment,
@@ -143,6 +204,10 @@ export const queue = moderatorQuery({
 				id: release._id,
 				projectId: project._id,
 				version: release.version,
+				fileSize: release.fileSize,
+				isUpdate: true,
+				iconUrl: await iconOf(project),
+				owner: await ownerName(project.ownerType, project.ownerId),
 				name: project.name,
 				type: 'project',
 				packType: project.type,
@@ -207,7 +272,7 @@ export const claim = moderatorMutation({
 				claimedAt: Date.now(),
 			})
 			await ctx.scheduler.runAfter(
-				30 * 60 * 1000,
+				CLAIM_HOLD_MS,
 				internal.functions.moderation.work.expireClaim,
 				{ id },
 			)

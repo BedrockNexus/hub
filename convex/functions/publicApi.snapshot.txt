@@ -8,6 +8,7 @@ action   functions/plugins/publishing/actions:startFromRepository
 action   functions/plugins/publishing/actions:syncBuilds
 action   functions/plugins/workflowCatalog:refresh
 action   functions/projects/artifactDelivery:remove
+action   functions/projects/releaseReview:getReleaseDownloadUrl
 action   functions/servers/software:confirmLogoUpload
 action   functions/servers/status:refreshStatus
 action   functions/servers/verification:generateCode
@@ -172,6 +173,8 @@ query    functions/projects/projects:listAdmin
 query    functions/projects/projects:listByOrganization
 query    functions/projects/projects:listMyContent
 query    functions/projects/projects:listPendingModeration
+query    functions/projects/releaseReview:getFileChanges
+query    functions/projects/releaseReview:getReleaseFile
 query    functions/projects/reviews:getStats
 query    functions/projects/reviews:getUserReview
 query    functions/projects/reviews:list

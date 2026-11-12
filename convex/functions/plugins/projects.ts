@@ -6,6 +6,7 @@ import { ConvexError, v } from 'convex/values'
 import schema from '../../schema'
 import { MAX_GALLERY_IMAGES } from '../../lib/gallery'
 import { resolveCdnObjectUrl } from '../../lib/r2'
+import { ownerDisplayName } from '../../lib/ownerName'
 
 import type { Doc } from '../../_generated/dataModel'
 import type { QueryCtx } from '../../_generated/server'
@@ -254,6 +255,11 @@ const adminPluginValidator = v.object({
 	reviewVersion: v.optional(v.string()),
 	downloadCount: v.number(),
 	updatedAt: v.number(),
+	submissionStatus: v.optional(submissionStatus),
+	submittedAt: v.optional(v.number()),
+	publishedAt: v.optional(v.number()),
+	iconUrl: v.optional(v.string()),
+	ownerName: v.optional(v.string()),
 })
 
 export const listAdmin = moderatorQuery({
@@ -297,6 +303,15 @@ export const listAdmin = moderatorQuery({
 					reviewVersion: latestRelease?.version,
 					downloadCount: project.downloadCount,
 					updatedAt: project.updatedAt,
+					submissionStatus: project.submissionStatus,
+					submittedAt: project.submittedAt,
+					publishedAt: project.publishedAt,
+					iconUrl: project.iconUrl,
+					ownerName: await ownerDisplayName(
+						ctx,
+						project.ownerType,
+						project.ownerId,
+					),
 				}
 			}),
 		)

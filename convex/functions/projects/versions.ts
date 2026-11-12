@@ -42,6 +42,7 @@ import {
 import { recordReleaseActivity } from '../../lib/activity'
 import { recordAdminAction } from '../../lib/audit'
 import { ensureProjectStats, recordProjectDownload } from '../../lib/discovery'
+import { deleteVersionFiles } from '../../lib/projectVersionFiles'
 
 const VERSION_DOWNLOAD_URL_EXPIRES_IN = 60 * 5
 const ARTIFACT_UPLOAD_EXPIRES_IN_MS = 1000 * 60 * 60 * 24
@@ -942,6 +943,7 @@ export const finalizeVersionRemoval = internalMutation({
 			}
 		}
 
+		await deleteVersionFiles(ctx, args.id)
 		await ctx.db.delete(args.id)
 		await updateProjectDownloadStats(ctx, version.projectId)
 

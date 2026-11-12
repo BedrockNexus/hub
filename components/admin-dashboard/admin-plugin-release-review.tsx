@@ -10,7 +10,6 @@ import { PluginReviewStatusBadge } from '@/components/admin-dashboard/plugin-rev
 import type { ReviewVersionRow } from '@/components/admin-dashboard/review-versions-table'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/convex/_generated/api'
 import { userFacingError } from '@/lib/user-facing-error'
 
@@ -18,7 +17,6 @@ type Review = NonNullable<
 	FunctionReturnType<typeof api.functions.plugins.projects.getAdminReview>
 >
 type Release = Review['releases'][number]
-type Decision = 'approve' | 'changes' | 'reject'
 
 function errorMessage(error: unknown) {
 	if (
@@ -170,22 +168,12 @@ function AdminPluginReleaseActions({
 	submissionRevision?: number
 	publicationBlocked: boolean
 }) {
-	const approve = useMutation(
-		api.functions.plugins.publishing.model.approveReview,
-	)
-	const requestChanges = useMutation(
-		api.functions.plugins.publishing.model.requestReviewChanges,
-	)
-	const reject = useMutation(
-		api.functions.plugins.publishing.model.rejectReview,
-	)
 	const retry = useMutation(
 		api.functions.plugins.publishing.model.retryPublishing,
 	)
 	const getDownload = useAction(
 		api.functions.plugins.publishing.actions.getReviewDownloadUrl,
 	)
-	const [note, setNote] = useState('')
 	const [busy, setBusy] = useState(false)
 	const assignment = useQuery(api.functions.moderation.work.assignment, {
 		contentId: release.projectId,
@@ -202,32 +190,6 @@ function AdminPluginReleaseActions({
 		} finally {
 			setBusy(false)
 		}
-	}
-	async function decide(decision: Decision) {
-		const reason = note.trim()
-		if (decision !== 'approve' && !reason) {
-			toast.error('Add a reason before requesting changes or rejecting.')
-			return
-		}
-		await attempt(async () => {
-			const releaseId = release._id
-			const expectedRevision = submissionRevision
-			if (decision === 'approve') {
-				await approve({
-					releaseId,
-					expectedRevision,
-					...(reason ? { note: reason } : {}),
-				})
-				toast.success('Approved. The version goes live in a moment.')
-			} else if (decision === 'changes') {
-				await requestChanges({ releaseId, reason, expectedRevision })
-				toast.success('Changes requested.')
-			} else {
-				await reject({ releaseId, reason, expectedRevision })
-				toast.success('Submission rejected.')
-			}
-			setNote('')
-		})
 	}
 	const download = release.uploadKey ? (
 		<Button
@@ -275,44 +237,15 @@ function AdminPluginReleaseActions({
 			</div>
 		)
 	}
-	if (release.status !== 'inReview') {
-		return download
-	}
-	return (
-		<div className="space-y-3">
-			<Textarea
-				aria-label={`Review note for version ${release.version}`}
-				disabled={reviewDisabled}
-				maxLength={500}
-				onChange={(event) => setNote(event.target.value)}
-				placeholder="Optional approval note, or the reason for changes or rejection"
-				value={note}
-			/>
-			<div className="flex flex-wrap justify-between gap-2">
-				<div>{download}</div>
-				<div className="flex flex-wrap gap-2">
-					<Button
-						disabled={reviewDisabled}
-						onClick={() => decide('reject')}
-						variant="destructive"
-					>
-						Reject
-					</Button>
-					<Button
-						disabled={reviewDisabled}
-						onClick={() => decide('changes')}
-						variant="outline"
-					>
-						Request changes
-					</Button>
-					<Button
-						disabled={publicationDisabled}
-						onClick={() => decide('approve')}
-					>
-						Approve and publish
-					</Button>
-				</div>
+	if (release.status === 'inReview') {
+		return (
+			<div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+				<p className="text-muted-foreground">
+					Decide on this version in the panel on the right.
+				</p>
+				{download}
 			</div>
-		</div>
-	)
+		)
+	}
+	return download
 }

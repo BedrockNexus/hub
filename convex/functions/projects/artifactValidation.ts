@@ -12,6 +12,16 @@ import { syncProject } from '../../lib/discovery'
 import { cdnR2, uploadsR2 } from '../../lib/r2'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
 import { wakeAnnouncement } from '../../lib/discordAnnouncements'
+import {
+	saveVersionFiles,
+	storedValidationReport,
+	type ValidatorReport,
+} from '../../lib/projectVersionFiles'
+import {
+	releaseFile,
+	releaseFinding,
+	releaseScriptModule,
+} from '../../schemas/projects'
 
 const MAX_SUPPORTED_GAME_VERSIONS = 200
 
@@ -27,22 +37,17 @@ const validationReport = v.object({
 	width: v.optional(v.number()),
 	height: v.optional(v.number()),
 	sha256: v.optional(v.string()),
+	checksVersion: v.optional(v.number()),
+	fileCount: v.optional(v.number()),
+	scriptModules: v.optional(v.array(releaseScriptModule)),
+	findings: v.optional(v.array(releaseFinding)),
 })
 
 interface ValidatorResult {
 	valid: boolean
 	code?: string
 	error?: string
-	report?: {
-		type: string
-		fileSize: number
-		entryCount?: number
-		totalUncompressedSize?: number
-		manifestCount?: number
-		width?: number
-		height?: number
-		sha256?: string
-	}
+	report?: ValidatorReport
 }
 
 function getValidatorConfig() {
@@ -131,6 +136,9 @@ export const applyValidationResult = internalMutation({
 		code: v.optional(v.string()),
 		error: v.optional(v.string()),
 		report: v.optional(validationReport),
+		files: v.optional(
+			v.object({ files: v.array(releaseFile), truncated: v.boolean() }),
+		),
 		deleteArtifact: v.boolean(),
 	},
 	handler: async (ctx, args) => {
@@ -143,6 +151,7 @@ export const applyValidationResult = internalMutation({
 			validationReport: args.report,
 			validatedAt: Date.now(),
 		})
+		await saveVersionFiles(ctx, version._id, args.files)
 		if (args.deleteArtifact) {
 			if (version.uploadR2Key) {
 				await uploadsR2.deleteObject(ctx, version.uploadR2Key)
@@ -394,12 +403,14 @@ export const validateVersion = internalAction({
 			}
 			const result = (await response.json()) as ValidatorResult
 			if (result.valid && result.report) {
+				const { report, files } = storedValidationReport(result.report)
 				await ctx.runMutation(
 					internal.functions.projects.artifactValidation.applyValidationResult,
 					{
 						versionId: args.versionId,
 						status: 'valid',
-						report: result.report,
+						report,
+						files,
 						deleteArtifact: false,
 					},
 				)
