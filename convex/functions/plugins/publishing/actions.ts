@@ -48,6 +48,7 @@ import {
 } from '../../../lib/r2Keys'
 import {
 	createGitHubApp,
+	isBranchRuleViolation,
 	requireGitHubAppConfig,
 	throwGitHubApiError,
 } from '../github/lib/app'
@@ -178,6 +179,101 @@ async function blobShaAt(
 	}
 }
 
+/** The branch BedrockNexus proposes workflow changes from. */
+const WORKFLOW_PR_BRANCH = 'bedrocknexus/publishing-workflow'
+
+/**
+ * For a protected default branch: puts the workflow on its own branch and
+ * opens (or reuses) a pull request into the default branch. The draft is not
+ * marked installed; once the creator merges, installing again finds the file
+ * already on the default branch and records that commit.
+ */
+async function proposeWorkflowPullRequest(
+	octokit: Octokit,
+	repository: Doc<'githubRepositories'>,
+	file: { path: string; content: string },
+	updating: boolean,
+) {
+	const owner = repository.ownerLogin
+	const repo = repository.name
+	const base = await octokit.rest.git.getRef({
+		owner,
+		repo,
+		ref: `heads/${repository.defaultBranch}`,
+	})
+	const baseSha = base.data.object.sha
+	// Start the branch fresh from the default branch each time, so the pull
+	// request only ever contains the workflow file.
+	try {
+		await octokit.rest.git.updateRef({
+			owner,
+			repo,
+			ref: `heads/${WORKFLOW_PR_BRANCH}`,
+			sha: baseSha,
+			force: true,
+		})
+	} catch (error) {
+		if (!isGitHubStatus(error, 422) && !isGitHubStatus(error, 404)) {
+			throw error
+		}
+		await octokit.rest.git.createRef({
+			owner,
+			repo,
+			ref: `refs/heads/${WORKFLOW_PR_BRANCH}`,
+			sha: baseSha,
+		})
+	}
+	const existing = await blobShaAt(
+		octokit,
+		repository,
+		file.path,
+		WORKFLOW_PR_BRANCH,
+	)
+	const commit = await octokit.rest.repos.createOrUpdateFileContents({
+		owner,
+		repo,
+		path: file.path,
+		branch: WORKFLOW_PR_BRANCH,
+		message: updating
+			? 'ci: update BedrockNexus publishing workflow'
+			: 'ci: install BedrockNexus publishing workflow',
+		content: Buffer.from(file.content).toString('base64'),
+		...(existing ? { sha: existing.sha } : {}),
+	})
+	const open = await octokit.rest.pulls.list({
+		owner,
+		repo,
+		head: `${owner}:${WORKFLOW_PR_BRANCH}`,
+		base: repository.defaultBranch,
+		state: 'open',
+		per_page: 1,
+	})
+	const pullRequest =
+		open.data[0] ??
+		(
+			await octokit.rest.pulls.create({
+				owner,
+				repo,
+				head: WORKFLOW_PR_BRANCH,
+				base: repository.defaultBranch,
+				title: updating
+					? 'Update the BedrockNexus publishing workflow'
+					: 'Add the BedrockNexus publishing workflow',
+				body: [
+					`${repository.defaultBranch} only accepts changes through pull requests, so BedrockNexus opened this one instead of committing directly.`,
+					'',
+					`It ${updating ? 'updates' : 'adds'} \`${file.path}\`, which builds your plugin on every push so you can publish releases on BedrockNexus.`,
+					'',
+					'After you merge it, go back to BedrockNexus and click **Install workflow** again to finish setup.',
+				].join('\n'),
+			})
+		).data
+	return {
+		commitSha: commit.data.commit.sha ?? baseSha,
+		url: pullRequest.html_url,
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -258,6 +354,8 @@ export const installWorkflow = action({
 		url: v.string(),
 		updated: v.boolean(),
 		templateVersion: v.number(),
+		/** Set when the default branch is protected: merge this to finish. */
+		pullRequestUrl: v.optional(v.string()),
 	}),
 	handler: async (
 		ctx,
@@ -267,6 +365,7 @@ export const installWorkflow = action({
 		url: string
 		updated: boolean
 		templateVersion: number
+		pullRequestUrl?: string
 	}> => {
 		const tokenIdentifier = await requireTokenIdentifier(ctx)
 		await enforceRateLimit(ctx, 'workflowInstall', tokenIdentifier)
@@ -360,17 +459,53 @@ export const installWorkflow = action({
 				}
 			}
 
-			const commit = await octokit.rest.repos.createOrUpdateFileContents({
-				owner: repository.ownerLogin,
-				repo: repository.name,
-				path: generated.path,
-				branch: repository.defaultBranch,
-				message: existing
-					? 'ci: update BedrockNexus publishing workflow'
-					: 'ci: install BedrockNexus publishing workflow',
-				content: Buffer.from(generated.content).toString('base64'),
-				...(existing ? { sha: existing.sha } : {}),
-			})
+			let commit: Awaited<
+				ReturnType<typeof octokit.rest.repos.createOrUpdateFileContents>
+			>
+			try {
+				commit = await octokit.rest.repos.createOrUpdateFileContents({
+					owner: repository.ownerLogin,
+					repo: repository.name,
+					path: generated.path,
+					branch: repository.defaultBranch,
+					message: existing
+						? 'ci: update BedrockNexus publishing workflow'
+						: 'ci: install BedrockNexus publishing workflow',
+					content: Buffer.from(generated.content).toString('base64'),
+					...(existing ? { sha: existing.sha } : {}),
+				})
+			} catch (error) {
+				if (!isBranchRuleViolation(error)) {
+					throw error
+				}
+				const proposal = await proposeWorkflowPullRequest(
+					octokit,
+					repository,
+					generated,
+					existing !== undefined,
+				).catch((proposalError: unknown) => {
+					if (isBranchRuleViolation(proposalError)) {
+						throw new ConvexError({
+							code: 'WORKFLOW_BRANCH_PROTECTED',
+							message: `${repository.defaultBranch} only accepts pull requests, and your repository rules also stopped BedrockNexus from opening one. Add the BedrockNexus app to the rules' bypass list, or commit ${generated.path} yourself.`,
+						})
+					}
+					if (isGitHubStatus(proposalError, 403)) {
+						throw new ConvexError({
+							code: 'WORKFLOW_PULL_REQUEST_FORBIDDEN',
+							message: `${repository.defaultBranch} only accepts pull requests, and the BedrockNexus app can't open one yet. Accept the app's updated permissions on GitHub, then try again.`,
+						})
+					}
+					throw proposalError
+				})
+				return {
+					commitSha: proposal.commitSha,
+					url: proposal.url,
+					updated: false,
+					templateVersion: template.version,
+					pullRequestUrl: proposal.url,
+				}
+			}
 			const commitSha = commit.data.commit.sha
 			const workflowBlobSha = commit.data.content?.sha
 			if (!commitSha || !workflowBlobSha) {

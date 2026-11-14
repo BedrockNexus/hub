@@ -280,7 +280,7 @@ export function PluginWorkflowManager({
 
 	return (
 		<SettingsSection
-			description={`Pick the workflow for your plugin’s server software. BedrockNexus commits it to ${repository.defaultBranch}, and from then on every push builds your plugin on GitHub. Installing again updates it to the newest version`}
+			description={`Pick the workflow for your plugin’s server software. BedrockNexus commits it to ${repository.defaultBranch}, or opens a pull request if that branch is protected, and from then on every push builds your plugin on GitHub. Installing again updates it to the newest version`}
 			title="Workflow"
 		>
 			<PluginReviewNotice plugin={project} />
@@ -368,6 +368,23 @@ export function PluginWorkflowManager({
 								const result = await installWorkflow({
 									draftId: draft._id,
 								})
+								const { pullRequestUrl } = result
+								if (pullRequestUrl) {
+									toast.info('Pull request opened', {
+										description: `${repository.defaultBranch} only accepts pull requests. Merge it on GitHub, then click Install workflow again.`,
+										duration: 20_000,
+										action: {
+											label: 'Open',
+											onClick: () =>
+												window.open(
+													pullRequestUrl,
+													'_blank',
+													'noopener,noreferrer',
+												),
+										},
+									})
+									return
+								}
 								toast.success(
 									result.updated
 										? 'Workflow committed. Your next push builds the plugin.'

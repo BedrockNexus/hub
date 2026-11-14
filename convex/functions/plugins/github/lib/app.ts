@@ -65,7 +65,28 @@ function getErrorProperty(error: unknown, property: string) {
 	return Reflect.get(error, property)
 }
 
+/**
+ * True when GitHub refused a write because of branch protection or a
+ * repository ruleset, for example "Changes must be made through a pull
+ * request". Those come back as 409 (rulesets) or 422/403 (classic branch
+ * protection), so the message decides.
+ */
+export function isBranchRuleViolation(error: unknown) {
+	const status = getErrorProperty(error, 'status')
+	if (status !== 403 && status !== 409 && status !== 422) {
+		return false
+	}
+	const message = error instanceof Error ? error.message : ''
+	return /repository rule violations|protected branch|must be made through a pull request/i.test(
+		message,
+	)
+}
+
 export function throwGitHubApiError(error: unknown): never {
+	// Already a message meant for the user.
+	if (error instanceof ConvexError) {
+		throw error
+	}
 	const status = getErrorProperty(error, 'status')
 	const response = getErrorProperty(error, 'response')
 	const responseHeaders =
