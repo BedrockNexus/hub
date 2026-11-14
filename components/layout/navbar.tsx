@@ -1,7 +1,11 @@
 'use client'
 
-import { ArrowDown01Icon, Settings02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import {
+	ArrowDown01Icon,
+	Layers01Icon,
+	Settings02Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -39,17 +43,28 @@ function isActiveRoute(pathname: string, url: string) {
 	return pathname === url || pathname.startsWith(`${url}/`)
 }
 
-/** Server Ping and future tools, in one menu. */
-function ToolsMenu({
+interface MenuLink {
+	href: string
+	label: string
+	icon: IconSvgElement
+	description?: string
+}
+
+/** A group of links behind one nav button (Tools; Projects on phones). */
+function NavMenu({
 	pathname,
+	label,
+	icon,
+	items,
 	mobile = false,
 }: {
 	pathname: string
+	label: string
+	icon: IconSvgElement
+	items: readonly MenuLink[]
 	mobile?: boolean
 }) {
-	const isActive = toolsNavigation.some((item) =>
-		isActiveRoute(pathname, item.href),
-	)
+	const isActive = items.some((item) => isActiveRoute(pathname, item.href))
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
@@ -71,16 +86,16 @@ function ToolsMenu({
 						<HugeiconsIcon
 							aria-hidden
 							className="size-5"
-							icon={Settings02Icon}
+							icon={icon}
 							strokeWidth={2}
 						/>
 						<span className="truncate font-medium text-[11px]">
-							Tools
+							{label}
 						</span>
 					</>
 				) : (
 					<>
-						Tools
+						{label}
 						<HugeiconsIcon
 							aria-hidden
 							className="size-3.5"
@@ -96,9 +111,14 @@ function ToolsMenu({
 				sideOffset={mobile ? 12 : 8}
 			>
 				<DropdownMenuGroup>
-					{toolsNavigation.map((item) => (
+					{items.map((item) => (
 						<DropdownMenuItem
-							className="items-start gap-3 py-2"
+							className={cn(
+								'gap-3 py-2',
+								item.description && 'items-start',
+								isActiveRoute(pathname, item.href) &&
+									'bg-accent text-accent-foreground',
+							)}
 							key={item.href}
 							nativeButton={false}
 							render={(props) => (
@@ -107,16 +127,18 @@ function ToolsMenu({
 						>
 							<HugeiconsIcon
 								aria-hidden
-								className="mt-0.5"
+								className={cn(item.description && 'mt-0.5')}
 								icon={item.icon}
 							/>
 							<span className="flex flex-col gap-0.5">
 								<span className="font-medium">
 									{item.label}
 								</span>
-								<span className="text-muted-foreground text-xs">
-									{item.description}
-								</span>
+								{item.description ? (
+									<span className="text-muted-foreground text-xs">
+										{item.description}
+									</span>
+								) : null}
 							</span>
 						</DropdownMenuItem>
 					))}
@@ -140,7 +162,9 @@ export function Navbar({
 	const desktopNavigation = pluginsEnabled
 		? [...publicNavigation, pluginsNavigation]
 		: publicNavigation
-	const mobileNavigation = [homeNavigation, ...desktopNavigation]
+	// Phones fit five buttons, so the content listings share one menu.
+	const [serversNavigation, ...contentNavigation] = desktopNavigation
+	const mobileNavigation = [homeNavigation, serversNavigation]
 	const accountLinks = useAccountLinks(initialPluginsEnabled)
 
 	return (
@@ -171,7 +195,12 @@ export function Navbar({
 								</Link>
 							)
 						})}
-						<ToolsMenu pathname={pathname} />
+						<NavMenu
+							icon={Settings02Icon}
+							items={toolsNavigation}
+							label="Tools"
+							pathname={pathname}
+						/>
 					</div>
 
 					<div className="ml-auto flex items-center gap-2.5">
@@ -214,14 +243,25 @@ export function Navbar({
 									strokeWidth={2}
 								/>
 								<span className="max-w-full truncate font-medium text-[11px]">
-									{item.href === '/resource-packs'
-										? 'Packs'
-										: item.label}
+									{item.label}
 								</span>
 							</Link>
 						)
 					})}
-					<ToolsMenu mobile pathname={pathname} />
+					<NavMenu
+						icon={Layers01Icon}
+						items={contentNavigation}
+						label="Projects"
+						mobile
+						pathname={pathname}
+					/>
+					<NavMenu
+						icon={Settings02Icon}
+						items={toolsNavigation}
+						label="Tools"
+						mobile
+						pathname={pathname}
+					/>
 					<div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 text-muted-foreground">
 						<UserButton
 							align="center"
