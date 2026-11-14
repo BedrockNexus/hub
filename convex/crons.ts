@@ -61,6 +61,51 @@ crons.interval(
 	{},
 )
 
+// Notification email digests (functions/social/digest.ts), 15:00 UTC.
+crons.cron(
+	'send-daily-notification-digests',
+	'0 15 * * *',
+	internal.functions.social.digest.queue,
+	{ frequency: 'daily' },
+)
+
+crons.cron(
+	'send-weekly-notification-digests',
+	'0 15 * * 1',
+	internal.functions.social.digest.queue,
+	{ frequency: 'weekly' },
+)
+
+crons.cron(
+	'purge-old-notifications',
+	'45 4 * * *',
+	internal.functions.social.notifications.purgeOld,
+	{},
+)
+
+crons.cron(
+	'purge-old-download-events',
+	'0 5 * * *',
+	internal.functions.site.downloadLog.purgeOld,
+	{},
+)
+
+// Server health scores (functions/servers/intelligence.ts), after the day
+// rolls over in UTC.
+crons.cron(
+	'recompute-server-health',
+	'20 0 * * *',
+	internal.functions.servers.intelligence.recomputeHealth,
+	{},
+)
+
+crons.cron(
+	'purge-server-intelligence',
+	'30 4 * * *',
+	internal.functions.servers.status.purgeServerIntelligence,
+	{},
+)
+
 crons.cron(
 	'purge-server-status-history',
 	'15 4 * * *',

@@ -51,6 +51,31 @@ const limits = {
 		period: MINUTE,
 		capacity: 20,
 	},
+	// Follows, collections and notification settings (functions/social).
+	followMutation: {
+		kind: 'token bucket',
+		rate: 120,
+		period: MINUTE,
+		capacity: 30,
+	},
+	collectionMutation: {
+		kind: 'token bucket',
+		rate: 240,
+		period: HOUR,
+		capacity: 60,
+	},
+	collectionCreate: {
+		kind: 'token bucket',
+		rate: 20,
+		period: 24 * HOUR,
+		capacity: 10,
+	},
+	networkCreate: {
+		kind: 'token bucket',
+		rate: 10,
+		period: 24 * HOUR,
+		capacity: 5,
+	},
 	// Per requester (user or hashed client address), across all releases.
 	versionDownload: {
 		kind: 'token bucket',

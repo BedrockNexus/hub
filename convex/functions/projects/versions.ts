@@ -42,7 +42,15 @@ import {
 import { recordReleaseActivity } from '../../lib/activity'
 import { recordAdminAction } from '../../lib/audit'
 import { ensureProjectStats, recordProjectDownload } from '../../lib/discovery'
+import { recordDownloadEvent } from '../../lib/downloadEvents'
 import { deleteVersionFiles } from '../../lib/projectVersionFiles'
+import {
+	checkDeclaredDependencies,
+	declaredDependencyValidator,
+	listDeclaredDependencies,
+	listReleaseDependencies,
+	saveDeclaredDependencies,
+} from '../../lib/releaseDependencies'
 
 const VERSION_DOWNLOAD_URL_EXPIRES_IN = 60 * 5
 const ARTIFACT_UPLOAD_EXPIRES_IN_MS = 1000 * 60 * 60 * 24
@@ -78,6 +86,11 @@ function toPublicRelease(
 		fileSize: version.fileSize,
 		sha256: version.validationReport?.sha256,
 		gameVersions: version.gameVersions,
+		minEngineVersion: version.minEngineVersion,
+		breakingChanges: version.breakingChanges === true,
+		// Trust indicators: every public release passed both.
+		validated: version.validationStatus === 'valid',
+		reviewed: version.reviewStatus === 'approved',
 		downloads: version.downloads,
 		createdAt: version.createdAt,
 		downloadUrl: contentDownloadHref(
@@ -99,6 +112,8 @@ function toCreatorRelease(
 		fileName: version.fileName,
 		fileSize: version.fileSize,
 		gameVersions: version.gameVersions,
+		minEngineVersion: version.minEngineVersion,
+		breakingChanges: version.breakingChanges === true,
 		downloads: version.downloads,
 		createdAt: version.createdAt,
 		validationStatus: version.validationStatus,
@@ -321,6 +336,8 @@ export const listPendingReleases = moderatorQuery({
 			fileName: v.string(),
 			fileSize: v.number(),
 			gameVersions: v.optional(v.array(v.string())),
+			minEngineVersion: v.optional(v.string()),
+			breakingChanges: v.boolean(),
 			downloads: v.number(),
 			createdAt: v.number(),
 			validationStatus: v.optional(
@@ -547,6 +564,8 @@ export const create = mutation({
 		changelog: v.optional(v.string()),
 		uploadId: v.id('projectArtifactUploads'),
 		gameVersions: v.optional(v.array(v.string())),
+		dependencies: v.optional(v.array(declaredDependencyValidator)),
+		breakingChanges: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => {
 		const { project, user } = await assertCanManageProject(
@@ -554,6 +573,8 @@ export const create = mutation({
 			args.projectId,
 			'You must be logged in to publish releases',
 		)
+		// Checked before anything is written, so a bad link fails cleanly.
+		await checkDeclaredDependencies(ctx, project._id, args.dependencies ?? [])
 		assertSubmissionEditable(project)
 
 		const upload = await ctx.db.get(args.uploadId)
@@ -641,6 +662,7 @@ export const create = mutation({
 			fileSize,
 			artifactId: upload.artifactId,
 			gameVersions: gameVersions.length > 0 ? gameVersions : undefined,
+			breakingChanges: args.breakingChanges === true ? true : undefined,
 			downloads: 0,
 			validationStatus: 'pending',
 			validationAttempts: 0,
@@ -653,6 +675,9 @@ export const create = mutation({
 			createdAt: now,
 		})
 		const submittedRelease = await ctx.db.get('projectVersions', versionId)
+		if (submittedRelease && args.dependencies?.length) {
+			await saveDeclaredDependencies(ctx, submittedRelease, args.dependencies)
+		}
 		await recordSubmission(ctx, {
 			content: project,
 			details: project,
@@ -676,6 +701,64 @@ export const create = mutation({
 		)
 
 		return { ok: true as const, version, versionId }
+	},
+})
+
+/** Dependencies and the breaking-changes flag can be corrected at any time. */
+export const updateReleaseDetails = mutation({
+	args: {
+		versionId: v.id('projectVersions'),
+		dependencies: v.array(declaredDependencyValidator),
+		breakingChanges: v.boolean(),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const version = await ctx.db.get(args.versionId)
+		if (!version) throw new ConvexError('Release not found')
+		await assertCanManageProject(
+			ctx,
+			version.projectId,
+			'You must be logged in to edit releases',
+		)
+		await saveDeclaredDependencies(ctx, version, args.dependencies)
+		await ctx.db.patch(version._id, {
+			breakingChanges: args.breakingChanges ? true : undefined,
+		})
+		return null
+	},
+})
+
+/** What a public release needs or conflicts with, for its page. */
+export const listPublicDependencies = query({
+	args: { versionId: v.id('projectVersions') },
+	handler: async (ctx, args) => {
+		const version = await ctx.db.get(args.versionId)
+		if (!version || !isPublicRelease(version)) return []
+		const project = await ctx.db.get(version.projectId)
+		if (!project || !isPublicProject(project)) return []
+		return listReleaseDependencies(ctx, version)
+	},
+})
+
+/** The dependencies a publisher declared, for the release form. */
+export const getReleaseDetailsForEdit = query({
+	args: { versionId: v.id('projectVersions') },
+	handler: async (ctx, args) => {
+		const version = await ctx.db.get(args.versionId)
+		if (!version) return null
+		await assertCanManageProject(
+			ctx,
+			version.projectId,
+			'You must be logged in to edit releases',
+		)
+		return {
+			breakingChanges: version.breakingChanges === true,
+			minEngineVersion: version.minEngineVersion,
+			dependencies: await listDeclaredDependencies(ctx, version._id),
+			detected: (await listReleaseDependencies(ctx, version)).filter(
+				(item) => item.source === 'manifest',
+			),
+		}
 	},
 })
 
@@ -826,6 +909,14 @@ export const createDownloadUrl = mutation({
 			})
 		}
 
+		await recordDownloadEvent(ctx, {
+			targetType: 'project',
+			projectId: version.projectId,
+			versionId: version._id,
+			requesterKey,
+			source: args.source ?? 'website',
+			counted: countResult.ok,
+		})
 		await scheduleDownloadEvent(ctx, {
 			section:
 				normalizeProjectType(project.type) === 'addon'

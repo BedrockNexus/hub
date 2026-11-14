@@ -42,7 +42,7 @@ export const recomputeProjects = internalMutation({
 				.collect()
 			const byDay = new Map(rows.map((row) => [row.dayKey, row]))
 			const days = dayKeys.map(
-				(dayKey) => byDay.get(dayKey) ?? { downloads: 0, favourites: 0 },
+				(dayKey) => byDay.get(dayKey) ?? { downloads: 0, follows: 0 },
 			)
 
 			const trendingScore = projectTrendingScore(

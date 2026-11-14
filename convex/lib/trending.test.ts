@@ -5,7 +5,7 @@ import {
 	sumDownloads,
 } from './trending'
 
-const quiet = { downloads: 0, favourites: 0 }
+const quiet = { downloads: 0, follows: 0 }
 
 function serverWeek(playersPerCheck: number, online = true) {
 	return Array.from({ length: 7 }, () => ({
@@ -23,9 +23,9 @@ describe('projectTrendingScore', () => {
 	})
 
 	test('counts recent days more than older ones', () => {
-		const today = projectTrendingScore([{ downloads: 100, favourites: 0 }], null)
+		const today = projectTrendingScore([{ downloads: 100, follows: 0 }], null)
 		const sixDaysAgo = projectTrendingScore(
-			[quiet, quiet, quiet, quiet, quiet, quiet, { downloads: 100, favourites: 0 }],
+			[quiet, quiet, quiet, quiet, quiet, quiet, { downloads: 100, follows: 0 }],
 			null,
 		)
 
@@ -34,22 +34,22 @@ describe('projectTrendingScore', () => {
 	})
 
 	test('ignores activity older than the 7-day window', () => {
-		const days = [...Array.from({ length: 7 }, () => quiet), { downloads: 500, favourites: 9 }]
+		const days = [...Array.from({ length: 7 }, () => quiet), { downloads: 500, follows: 9 }]
 		expect(projectTrendingScore(days, null)).toBe(0)
 	})
 
-	test('weighs a save as three downloads', () => {
-		expect(projectTrendingScore([{ downloads: 0, favourites: 10 }], null)).toBe(
-			projectTrendingScore([{ downloads: 30, favourites: 0 }], null),
+	test('weighs a follow as three downloads', () => {
+		expect(projectTrendingScore([{ downloads: 0, follows: 10 }], null)).toBe(
+			projectTrendingScore([{ downloads: 30, follows: 0 }], null),
 		)
 	})
 
-	test('never lets a day of net unsaves pull the score down', () => {
-		expect(projectTrendingScore([{ downloads: 10, favourites: -4 }], null)).toBe(10)
+	test('never lets a day of net unfollows pull the score down', () => {
+		expect(projectTrendingScore([{ downloads: 10, follows: -4 }], null)).toBe(10)
 	})
 
 	test('boosts a fresh release by up to 25%, fading out by day 7', () => {
-		const days = [{ downloads: 100, favourites: 0 }]
+		const days = [{ downloads: 100, follows: 0 }]
 		expect(projectTrendingScore(days, 0)).toBe(125)
 		expect(projectTrendingScore(days, 7)).toBe(100)
 		expect(projectTrendingScore(days, 30)).toBe(100)
@@ -60,17 +60,17 @@ describe('projectTrendingScore', () => {
 
 	test('gives the same score for the same history', () => {
 		const days = [
-			{ downloads: 12, favourites: 2 },
-			{ downloads: 7, favourites: 0 },
-			{ downloads: 31, favourites: 5 },
+			{ downloads: 12, follows: 2 },
+			{ downloads: 7, follows: 0 },
+			{ downloads: 31, follows: 5 },
 		]
 		expect(projectTrendingScore(days, 2)).toBe(projectTrendingScore(days, 2))
 	})
 
 	test('sums downloads across the window only', () => {
 		const days = [
-			...Array.from({ length: 7 }, () => ({ downloads: 2, favourites: 0 })),
-			{ downloads: 99, favourites: 0 },
+			...Array.from({ length: 7 }, () => ({ downloads: 2, follows: 0 })),
+			{ downloads: 99, follows: 0 },
 		]
 		expect(sumDownloads(days)).toBe(14)
 	})

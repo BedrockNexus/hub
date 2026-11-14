@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import { SideCard } from '@/components/detail/detail-parts'
+import {
+	type ListingTargetType,
+	OwnerFollowButton,
+} from '@/components/social/social-buttons'
 
 export interface OwnerCardUser {
 	type: 'user'
@@ -24,8 +28,11 @@ export type OwnerCardOwner = OwnerCardUser | OwnerCardOrganization
  */
 export function OwnerCard({
 	owner,
+	listing,
 }: {
 	owner: OwnerCardOwner | null | undefined
+	/** The listing this card is on, so visitors can follow its owner. */
+	listing?: { targetType: ListingTargetType; targetId: string }
 }) {
 	if (!owner || (owner.type === 'user' && !owner.username)) {
 		return null
@@ -62,6 +69,13 @@ export function OwnerCard({
 					</span>
 				</span>
 			</Link>
+			{listing ? (
+				<OwnerFollowButton
+					className="mt-3 w-full"
+					listingId={listing.targetId}
+					listingType={listing.targetType}
+				/>
+			) : null}
 		</SideCard>
 	)
 }

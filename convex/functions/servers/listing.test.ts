@@ -11,7 +11,7 @@ interface Extras {
 	stats?: Partial<
 		Pick<
 			Doc<'serverStats'>,
-			'averageRating' | 'favouriteCount' | 'trendingScore'
+			'averageRating' | 'followerCount' | 'trendingScore'
 		>
 	>
 }
@@ -137,7 +137,7 @@ describe('server listing', () => {
 			{ slug: 'old-favourite', publishedAt: 100 },
 			{
 				players: 10,
-				stats: { averageRating: 5, favouriteCount: 40, trendingScore: 1 },
+				stats: { averageRating: 5, followerCount: 40, trendingScore: 1 },
 			},
 		)
 		await addServer(
@@ -145,14 +145,14 @@ describe('server listing', () => {
 			{ slug: 'rising', publishedAt: 200 },
 			{
 				players: 10,
-				stats: { averageRating: 3, favouriteCount: 5, trendingScore: 9 },
+				stats: { averageRating: 3, followerCount: 5, trendingScore: 9 },
 			},
 		)
 		await addServer(
 			t,
 			{ slug: 'brand-new', publishedAt: 300 },
 			// Never checked: missing from "Most players" only.
-			{ stats: { averageRating: 4, favouriteCount: 1, trendingScore: 4 } },
+			{ stats: { averageRating: 4, followerCount: 1, trendingScore: 4 } },
 		)
 
 		expect(await slugs(t, { sort: 'trending' })).toEqual([

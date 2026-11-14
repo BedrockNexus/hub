@@ -8,6 +8,7 @@ import { SideCard } from '@/components/detail/detail-parts'
 import { PluginGrid } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
+import { FollowButton } from '@/components/social/social-buttons'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 import {
@@ -114,7 +115,11 @@ export default async function OrganizationPage({
 							</p>
 						</div>
 					</div>
-					<div className="flex gap-2">
+					<div className="flex flex-wrap gap-2">
+						<FollowButton
+							targetId={organization.id}
+							targetType="organization"
+						/>
 						{organization.website ? (
 							<Link
 								className={buttonVariants({

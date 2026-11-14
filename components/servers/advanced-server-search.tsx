@@ -11,7 +11,13 @@ import {
 import { ListingSearch } from '@/components/listings/listing-search'
 import { api } from '@/convex/_generated/api'
 
-export const SERVER_SORTS = ['players', 'trending', 'rating', 'newest'] as const
+export const SERVER_SORTS = [
+	'players',
+	'trending',
+	'rating',
+	'newest',
+	'followers',
+] as const
 export type SortOption = (typeof SERVER_SORTS)[number]
 export const SERVER_STATUSES = ['online', 'offline'] as const
 export type ServerStatusFilter = (typeof SERVER_STATUSES)[number]
@@ -39,6 +45,7 @@ export const SERVER_SORT_OPTIONS: { value: SortOption; label: string }[] = [
 	{ value: 'trending', label: 'Trending' },
 	{ value: 'rating', label: 'Top rated' },
 	{ value: 'newest', label: 'Newest' },
+	{ value: 'followers', label: 'Most followed' },
 ]
 const STATUS_OPTIONS: { value: ServerStatusFilter; label: string }[] = [
 	{ value: 'online', label: 'Online' },

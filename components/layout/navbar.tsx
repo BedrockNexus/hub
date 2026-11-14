@@ -9,6 +9,7 @@ import { UserButton } from '@/components/ba-ui/user/user-button'
 import { BrandMark } from '@/components/brand-mark'
 import { useAccountLinks } from '@/components/layout/account-links'
 import { CreateMenu } from '@/components/layout/create-menu'
+import { NotificationBell } from '@/components/social/notification-bell'
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -174,6 +175,7 @@ export function Navbar({
 					</div>
 
 					<div className="ml-auto flex items-center gap-2.5">
+						<NotificationBell />
 						<CreateMenu />
 						<UserButton links={accountLinks} size="icon" />
 					</div>
@@ -182,6 +184,7 @@ export function Navbar({
 
 			<header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur-xl lg:hidden">
 				<BrandMark imageClassName="w-28" priority withIcon />
+				<NotificationBell />
 			</header>
 
 			<nav

@@ -12,7 +12,7 @@ export default function PrivacyPage() {
 	return (
 		<LegalPage
 			description="This policy explains what information Bedrock Nexus handles when you browse the site, create an account, or publish community content."
-			lastUpdated="July 16, 2026"
+			lastUpdated="November 13, 2026"
 			title="Privacy Policy"
 		>
 			<h2>Information we collect</h2>
@@ -35,6 +35,12 @@ export default function PrivacyPage() {
 					Content you submit, including servers, projects,
 					organizations, reviews, descriptions, galleries, and
 					downloadable files.
+				</li>
+				<li>
+					What you follow, which is public as a follower count; your
+					private library; collections, which are shown according to
+					the visibility you choose; and your notifications and
+					notification settings, kept for 90 days.
 				</li>
 				<li>
 					Server connection and ownership-verification information,
@@ -63,7 +69,12 @@ export default function PrivacyPage() {
 					Verify server ownership and maintain live server status.
 				</li>
 				<li>Moderate content and communicate review decisions.</li>
-				<li>Show public download and review counts.</li>
+				<li>Show public download, review, and follower counts.</li>
+				<li>
+					Tell you about new releases and listings from what you
+					follow, on the site and, only if you turn it on, in a daily
+					or weekly email digest you can stop from any digest.
+				</li>
 				<li>Prevent abuse, enforce limits, and protect the service.</li>
 				<li>Send account verification and password-reset messages.</li>
 				<li>
@@ -74,10 +85,11 @@ export default function PrivacyPage() {
 			<h2>Public information</h2>
 			<p>
 				Published profiles, organizations, servers, projects, reviews,
-				and associated media are public. Public information may be
-				indexed by search engines and shared by other users. Draft and
-				review-stage content is limited to authorized owners,
-				organization members, and moderators.
+				public collections, and associated media are public. Follower
+				counts are public; who follows whom is not shown. Public
+				information may be indexed by search engines and shared by other
+				users. Draft and review-stage content is limited to authorized
+				owners, organization members, and moderators.
 			</p>
 
 			<h2>Service providers</h2>

@@ -139,6 +139,8 @@ export const tables = {
 		// When it was left out of listings for being offline too long; cleared by
 		// its next successful status check. See isListedServer.
 		offlineHiddenAt: v.optional(v.number()),
+		// The network page this server is grouped under (serverNetworks).
+		networkId: v.optional(v.id('serverNetworks')),
 
 		// Name, summary, tags, category and software names; see lib/discovery.ts.
 		searchText: v.optional(v.string()),
@@ -154,6 +156,7 @@ export const tables = {
 		.index('by_address_key', ['addressKey'])
 		.index('by_ipAddress_and_port', ['ipAddress', 'port'])
 		.index('by_softwareId', ['softwareId'])
+		.index('by_networkId', ['networkId'])
 		.searchIndex('search_servers', {
 			searchField: 'name',
 			filterFields: ['status', 'categoryIds', 'tags'],
@@ -230,10 +233,15 @@ export const tables = {
 		isPublic: v.optional(v.boolean()),
 		softwareId: v.optional(v.id('serverSoftware')),
 		publishedAt: v.optional(v.number()),
+		// Library saves (private; no longer read by any listing order).
 		favouriteCount: v.optional(v.number()),
+		// Public follows (lib/follows.ts); the "Most followed" order.
+		followerCount: v.optional(v.number()),
 		avgPlayers7d: v.optional(v.number()),
 		peakPlayers7d: v.optional(v.number()),
 		uptime7d: v.optional(v.number()), // 0-1
+		// Latest daily health score, 0-100; undefined until enough history.
+		healthScore: v.optional(v.number()),
 		trendingScore: v.optional(v.number()),
 
 		// Timestamps
@@ -244,7 +252,7 @@ export const tables = {
 		.index('by_isPublic_and_trendingScore', ['isPublic', 'trendingScore'])
 		.index('by_isPublic_and_publishedAt', ['isPublic', 'publishedAt'])
 		.index('by_isPublic_and_averageRating', ['isPublic', 'averageRating'])
-		.index('by_isPublic_and_favouriteCount', ['isPublic', 'favouriteCount'])
+		.index('by_isPublic_and_followerCount', ['isPublic', 'followerCount'])
 		.index('by_isPublic_and_avgPlayers7d', ['isPublic', 'avgPlayers7d'])
 		.index('by_isPublic_and_softwareId_and_avgPlayers7d', [
 			'isPublic',
@@ -269,6 +277,67 @@ export const tables = {
 		views: v.optional(v.number()),
 		addressCopies: v.optional(v.number()),
 	}).index('by_serverId_and_dayKey', ['serverId', 'dayKey']),
+
+	// One row per server per hour (start of the hour, ms), like the daily
+	// rows. Feeds the 24-hour and 7-day charts; purged after 35 days.
+	serverHourlyStats: defineTable({
+		serverId: v.id('servers'),
+		hourStart: v.number(),
+		checks: v.number(),
+		checksOnline: v.number(),
+		playerSum: v.number(),
+		peakPlayers: v.number(),
+		latencySum: v.number(),
+		latencySamples: v.number(),
+	})
+		.index('by_serverId_and_hourStart', ['serverId', 'hourStart'])
+		.index('by_hourStart', ['hourStart']),
+
+	// What happened to a server, detected from its status checks.
+	serverEvents: defineTable({
+		serverId: v.id('servers'),
+		kind: v.union(
+			v.literal('offline'),
+			v.literal('online'),
+			v.literal('version_changed'),
+			v.literal('player_record'),
+		),
+		at: v.number(),
+		// `online`: how long it was down. `player_record`: the new record.
+		durationMs: v.optional(v.number()),
+		players: v.optional(v.number()),
+		// `version_changed`: from and to.
+		fromVersion: v.optional(v.string()),
+		toVersion: v.optional(v.string()),
+	})
+		.index('by_serverId_and_at', ['serverId', 'at'])
+		.index('by_at', ['at']),
+
+	// Daily health score per server (lib/serverHealth.ts); the latest one is
+	// also on serverStats.healthScore.
+	serverHealthSnapshots: defineTable({
+		serverId: v.id('servers'),
+		dayKey: v.string(),
+		score: v.number(), // 0-100
+		uptime30d: v.number(), // 0-1
+		avgLatency30d: v.optional(v.number()),
+		incidents30d: v.number(),
+	}).index('by_serverId_and_dayKey', ['serverId', 'dayKey']),
+
+	// Several servers run by one owner, shown together on one page.
+	serverNetworks: defineTable({
+		ownerType: v.union(v.literal('user'), v.literal('organization')),
+		ownerId: v.string(),
+		publicId: v.string(), // route reference, `n_...`
+		name: v.string(),
+		description: v.optional(v.string()),
+		website: v.optional(v.string()),
+		createdBy: v.string(),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index('by_owner', ['ownerType', 'ownerId'])
+		.index('by_publicId', ['publicId']),
 
 	// ===========================================================================
 	// SERVER STATUS CACHE
@@ -295,6 +364,15 @@ export const tables = {
 		checksTotal: v.number(),
 		checksOnline: v.number(),
 		uptimePercent: v.number(),
+
+		// Incident detection (lib/serverEvents.ts). A streak of failed checks
+		// opens an incident once it is long enough; the next success closes it.
+		failingSince: v.optional(v.number()),
+		consecutiveFailures: v.optional(v.number()),
+		incidentOpenSince: v.optional(v.number()),
+		// Highest player count seen, and when a record was last announced.
+		peakPlayersEver: v.optional(v.number()),
+		lastRecordEventAt: v.optional(v.number()),
 
 		// Whether the server is published; lets the busiest-servers listing
 		// read this table in index order. Maintained by lib/discovery.ts.

@@ -2,6 +2,7 @@
 
 import {
 	BlueskyIcon,
+	Clock01Icon,
 	DashboardBrowsingIcon,
 	DiscordIcon,
 	InstagramIcon,
@@ -50,6 +51,11 @@ function getOrgNav(slug: string) {
 				title: 'Members',
 				url: `${base}/members`,
 				icon: UserGroupIcon,
+			},
+			{
+				title: 'History',
+				url: `${base}/history`,
+				icon: Clock01Icon,
 			},
 		],
 		navSettings: [

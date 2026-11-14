@@ -1,5 +1,5 @@
 import { paginationOptsValidator } from 'convex/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { action, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
@@ -92,6 +92,36 @@ function getUserDisplayName(user: BetterAuthUser): string {
 // PROFILE MUTATIONS
 // =============================================================================
 
+const GAME_VERSION = /^\d{1,3}(\.\d{1,4}){1,3}$/
+
+/** A Bedrock version such as "1.21.80", or undefined to clear it. */
+function cleanGameVersion(value: string | undefined) {
+	const version = value?.trim()
+	if (!version) return undefined
+	if (!GAME_VERSION.test(version)) {
+		throw new ConvexError('Choose a Minecraft version from the list')
+	}
+	return version
+}
+
+/**
+ * The Bedrock version the signed-in user plays, for marking compatible
+ * releases. Private: never part of the public profile.
+ */
+export const getMyMinecraftVersion = query({
+	args: {},
+	returns: v.union(v.string(), v.null()),
+	handler: async (ctx) => {
+		const user = await authComponent.safeGetAuthUser(ctx)
+		if (!user) return null
+		const profile = await ctx.db
+			.query('userProfiles')
+			.withIndex('by_user', (q) => q.eq('userId', user._id))
+			.first()
+		return profile?.minecraftVersion ?? null
+	},
+})
+
 /**
  * Update the current user's profile (bio)
  */
@@ -102,6 +132,7 @@ export const updateProfile = mutation({
 		location: v.optional(v.string()),
 		website: v.optional(v.string()),
 		minecraftUsername: v.optional(v.string()),
+		minecraftVersion: v.optional(v.string()),
 		socials: v.optional(socialsValidator),
 		bannerR2Key: v.optional(v.string()),
 	},
@@ -138,6 +169,7 @@ export const updateProfile = mutation({
 			location: args.location?.trim().slice(0, 80) || undefined,
 			website: args.website?.trim() || undefined,
 			minecraftUsername: args.minecraftUsername?.trim().slice(0, 32) || undefined,
+			minecraftVersion: cleanGameVersion(args.minecraftVersion),
 			socials: args.socials,
 			bannerR2Key: nextBanner,
 			updatedAt: now,
@@ -239,6 +271,7 @@ export const getMyProfile = query({
 			location: profile?.location ?? '',
 			website: profile?.website ?? '',
 			minecraftUsername: profile?.minecraftUsername ?? '',
+			minecraftVersion: profile?.minecraftVersion ?? '',
 			socials: profile?.socials ?? {},
 			bannerR2Key: profile?.bannerR2Key,
 			bannerUrl: profile?.bannerR2Key ? await resolveCdnObjectUrl(profile.bannerR2Key, R2_IMAGE_URL_EXPIRES_IN) : undefined,

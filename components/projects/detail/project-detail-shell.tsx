@@ -23,6 +23,7 @@ import { ProjectReviews } from '@/components/projects/detail/project-reviews'
 import { ProjectSidebar } from '@/components/projects/detail/project-sidebar'
 import { ProjectVersionDownloadButton } from '@/components/projects/detail/project-version-download-button'
 import { RatingLabel } from '@/components/servers/server-bits'
+import { ListingSocialActions } from '@/components/social/social-buttons'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
@@ -84,6 +85,33 @@ type PublicRelease = FunctionReturnType<
 	typeof api.functions.projects.versions.listPublic
 >[number]
 
+/** Whether the latest release declares the version the visitor plays. */
+function VersionMatch({
+	declared,
+	mine,
+}: {
+	declared: string[]
+	mine: string | null | undefined
+}) {
+	if (!mine || declared.length === 0) {
+		return null
+	}
+	const matches = declared.includes(mine)
+	return (
+		<p
+			className={
+				matches
+					? 'text-center font-medium text-online text-sm'
+					: 'text-center text-muted-foreground text-sm'
+			}
+		>
+			{matches
+				? `Made for your version (${mine})`
+				: `Not marked for your version (${mine})`}
+		</p>
+	)
+}
+
 function ProjectHero({
 	content,
 	latestRelease,
@@ -94,6 +122,11 @@ function ProjectHero({
 	const typeKey = normalizeProjectType(content.type)
 	const typeLabel = PROJECT_TYPE_LABELS[typeKey]
 	const latest = content.latestVersion
+	const myVersion = useQuery(
+		api.functions.site.users.getMyMinecraftVersion,
+		{},
+	)
+	const declared = latest?.gameVersions ?? []
 	const extension = latest?.fileName?.split('.').pop()
 	const releaseFacts = [
 		latest ? `v${latest.version}` : null,
@@ -193,20 +226,26 @@ function ProjectHero({
 						</div>
 					</div>
 					<div className="flex w-full flex-col gap-2.5 lg:w-72">
-						{latestRelease?.downloadUrl ? (
-							<ProjectVersionDownloadButton
-								buttonClassName="w-full"
-								className="w-full"
-								downloadUrl={latestRelease.downloadUrl}
-								label="Download"
-								size="xl"
-								variant="brand"
+						<div className="flex gap-2">
+							{latestRelease?.downloadUrl ? (
+								<ProjectVersionDownloadButton
+									buttonClassName="w-full"
+									className="min-w-0 flex-1"
+									downloadUrl={latestRelease.downloadUrl}
+									label="Download"
+									size="xl"
+									variant="brand"
+								/>
+							) : (
+								<p className="flex min-w-0 flex-1 items-center justify-center rounded-sm border border-dashed px-3 text-center text-muted-foreground text-sm">
+									No downloadable release yet
+								</p>
+							)}
+							<ListingSocialActions
+								targetId={content._id}
+								targetType="project"
 							/>
-						) : (
-							<p className="rounded-sm border border-dashed px-4 py-3 text-center text-muted-foreground text-sm">
-								No downloadable release yet
-							</p>
-						)}
+						</div>
 						{releaseFacts.length > 0 ? (
 							<p className="flex flex-wrap justify-center gap-x-3 font-mono text-muted-foreground text-xs">
 								{releaseFacts.map((fact) => (
@@ -214,6 +253,7 @@ function ProjectHero({
 								))}
 							</p>
 						) : null}
+						<VersionMatch declared={declared} mine={myVersion} />
 					</div>
 				</div>
 			</div>
@@ -379,6 +419,7 @@ export function ProjectDetailShell({
 					licenseCustom={content.licenseCustom}
 					metadata={content.metadata}
 					owner={content.owner}
+					projectId={content._id}
 					publishedAt={content.publishedAt}
 					sourceUrl={content.sourceUrl}
 					tags={content.tags}

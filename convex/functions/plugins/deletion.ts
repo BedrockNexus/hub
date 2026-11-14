@@ -24,6 +24,7 @@ import {
 import { enforceRateLimit } from '../../lib/plugins/rateLimits'
 import { r2 } from '../../lib/r2'
 import { deleteIcon } from './icons'
+import { auditListingWrite } from '../../lib/orgAudit'
 
 const PURGE_BATCH_SIZE = 100
 
@@ -120,6 +121,7 @@ export const deleteProject = authedMutation({
 		await projectDownloadCounts.reset(ctx, project._id)
 		await projectsBySoftware.deleteIfExists(ctx, project)
 		await projectsByOwner.deleteIfExists(ctx, project)
+		await auditListingWrite(ctx, 'plugin', project, null)
 		await syncPluginOwners(ctx, project, null)
 
 		const drafts = await ctx.db

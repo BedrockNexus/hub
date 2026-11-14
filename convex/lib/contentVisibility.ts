@@ -17,6 +17,13 @@ export function isPublicProject(project: ProjectVisibility): boolean {
 	)
 }
 
+export function isPublicPlugin(plugin: {
+	visibility: string
+	status: string
+}): boolean {
+	return plugin.visibility === 'public' && plugin.status === 'published'
+}
+
 export function isPublicServer(server: ServerVisibility): boolean {
 	return server.status === 'published'
 }

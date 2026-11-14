@@ -4,6 +4,7 @@ import { components } from '../../_generated/api'
 import type { DataModel, Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { syncPluginOwners } from '../creatorListings'
+import { auditListingWrite } from '../orgAudit'
 
 type PublishedProjectKey = [
 	Doc<'plugins'>['visibility'],
@@ -56,6 +57,7 @@ export async function replaceProjectAggregates(
 	await projectsBySoftware.replace(ctx, oldProject, newProject)
 	await projectsByOwner.replace(ctx, oldProject, newProject)
 	await syncPluginOwners(ctx, oldProject, newProject)
+	await auditListingWrite(ctx, 'plugin', oldProject, newProject)
 }
 
 export async function countPublishedProjectsForSoftware(

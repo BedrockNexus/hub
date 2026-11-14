@@ -6,9 +6,9 @@
  * Nothing here may ever read payment, sponsorship, subscription, or featured
  * status: rankings are not for sale.
  *
- * Projects: counted downloads and saves from the last 7 days, where each day
- * further back counts for 75% of the day after it, and a save is worth three
- * downloads. A release in the last 7 days adds up to 25%, fading to nothing
+ * Projects: counted downloads and new follows from the last 7 days, where
+ * each day further back counts for 75% of the day after it, and a follow is
+ * worth three downloads. Private library saves do not count. A release in the last 7 days adds up to 25%, fading to nothing
  * by day 7. Downloads are already de-duplicated per person per release per
  * day before they reach this point.
  *
@@ -21,7 +21,7 @@
 export const TRENDING_WINDOW_DAYS = 7
 
 const DAILY_DECAY = 0.75
-const SAVE_WEIGHT = 3
+const FOLLOW_WEIGHT = 3
 const RELEASE_BOOST = 0.25
 const MIN_UPTIME = 0.5
 // Growth is measured against at least this many players, so going from 1 to
@@ -32,7 +32,8 @@ const MIN_GROWTH = -0.5
 
 export interface ProjectDay {
 	downloads: number
-	favourites: number
+	/** Net new follows that day; missing on days before follows existed. */
+	follows?: number
 }
 
 export interface ServerDay {
@@ -60,7 +61,7 @@ export function projectTrendingScore(
 		const day = days[daysAgo]
 		if (!day) continue
 		const weighted =
-			Math.max(0, day.downloads) + SAVE_WEIGHT * Math.max(0, day.favourites)
+			Math.max(0, day.downloads) + FOLLOW_WEIGHT * Math.max(0, day.follows ?? 0)
 		activity += weighted * DAILY_DECAY ** daysAgo
 	}
 

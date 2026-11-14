@@ -327,13 +327,11 @@ describe('public queries', () => {
 			})
 		})
 
-		const saved = await member.query(
-			api.functions.site.favourites.listMine,
-			{},
-		)
+		const saved = await member.query(api.functions.social.library.listMine, {
+			paginationOpts: { numItems: 10, cursor: null },
+		})
 
-		expect(saved.servers).toHaveLength(1)
-		expect(saved.projects).toHaveLength(1)
+		expect(saved.page.filter(Boolean)).toHaveLength(2)
 		expectNothingPrivate(saved)
 	})
 

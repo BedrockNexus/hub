@@ -15,6 +15,7 @@ import { afterServerWrite } from '../../lib/activity'
 import { isListedServer } from '../../lib/contentVisibility'
 import { recordServerCheck } from '../../lib/discovery'
 import { enforceRateLimit } from '../../lib/rateLimits'
+import { detectServerEvents, recordServerHour } from '../../lib/serverEvents'
 
 // Spacing between scheduled status checks (5-minute cron window).
 const PING_STAGGER_MS = 150
@@ -250,11 +251,20 @@ export const internalUpdateStatus = internalMutation({
 			playerCount: args.playerCount ?? 0,
 			latency: args.latency,
 		})
+		const check = {
+			checkedAt: now,
+			online: args.online,
+			playerCount: args.online ? (args.playerCount ?? 0) : 0,
+			latency: args.latency,
+			version: args.version,
+		}
+		await recordServerHour(ctx, args.serverId, check)
 
 		const existing = await ctx.db
 			.query('serverStatus')
 			.withIndex('by_server', (q) => q.eq('serverId', args.serverId))
 			.unique()
+		const incident = await detectServerEvents(ctx, server, existing, check)
 
 		// A server never seen online is measured from when it was listed.
 		const lastSeen =
@@ -294,6 +304,7 @@ export const internalUpdateStatus = internalMutation({
 				checksOnline,
 				uptimePercent,
 				isPublic,
+				...incident,
 			})
 		} else {
 			await ctx.db.insert('serverStatus', {
@@ -311,6 +322,7 @@ export const internalUpdateStatus = internalMutation({
 				checksOnline: args.online ? 1 : 0,
 				uptimePercent: args.online ? 100 : 0,
 				isPublic,
+				...incident,
 			})
 		}
 	},
@@ -528,6 +540,67 @@ export const deleteServerHistory = internalMutation({
 				0,
 				internal.functions.servers.status.deleteServerHistory,
 				{ serverId: args.serverId },
+			)
+			return
+		}
+
+		// Hourly totals, events and health snapshots (Phase 5).
+		const more = [
+			...(await ctx.db
+				.query('serverHourlyStats')
+				.withIndex('by_serverId_and_hourStart', (q) =>
+					q.eq('serverId', args.serverId),
+				)
+				.take(STATUS_HISTORY_DELETE_BATCH)),
+			...(await ctx.db
+				.query('serverEvents')
+				.withIndex('by_serverId_and_at', (q) => q.eq('serverId', args.serverId))
+				.take(STATUS_HISTORY_DELETE_BATCH)),
+			...(await ctx.db
+				.query('serverHealthSnapshots')
+				.withIndex('by_serverId_and_dayKey', (q) =>
+					q.eq('serverId', args.serverId),
+				)
+				.take(STATUS_HISTORY_DELETE_BATCH)),
+		]
+		for (const row of more) {
+			await ctx.db.delete(row._id)
+		}
+		if (more.length > 0) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.status.deleteServerHistory,
+				{ serverId: args.serverId },
+			)
+		}
+	},
+})
+
+/** Daily: hourly totals older than 35 days and events older than a year. */
+export const purgeServerIntelligence = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const now = Date.now()
+		const hours = await ctx.db
+			.query('serverHourlyStats')
+			.withIndex('by_hourStart', (q) =>
+				q.lt('hourStart', now - 35 * 24 * 60 * 60 * 1000),
+			)
+			.take(STATUS_HISTORY_DELETE_BATCH)
+		for (const row of hours) await ctx.db.delete(row._id)
+		const events = await ctx.db
+			.query('serverEvents')
+			.withIndex('by_at', (q) => q.lt('at', now - 365 * 24 * 60 * 60 * 1000))
+			.take(STATUS_HISTORY_DELETE_BATCH)
+		for (const row of events) await ctx.db.delete(row._id)
+		if (
+			hours.length === STATUS_HISTORY_DELETE_BATCH ||
+			events.length === STATUS_HISTORY_DELETE_BATCH
+		) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.status.purgeServerIntelligence,
+				{},
 			)
 		}
 	},

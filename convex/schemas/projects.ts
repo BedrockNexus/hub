@@ -287,8 +287,14 @@ export const tables = {
 		reviewedAt: v.optional(v.number()),
 		reviewedBy: v.optional(v.string()),
 
-		// Compatibility
+		// Compatibility. `gameVersions` is what the creator declares;
+		// `minEngineVersion` is the highest min_engine_version in the pack
+		// manifests, read by the validator (structural, not a gameplay test).
 		gameVersions: v.optional(v.array(v.string())),
+		minEngineVersion: v.optional(v.string()),
+		// The creator says this release breaks worlds, packs or add-ons that
+		// used an earlier one. Owners of listings that depend on it are told.
+		breakingChanges: v.optional(v.boolean()),
 
 		downloads: v.number(),
 
@@ -308,6 +314,54 @@ export const tables = {
 			'standaloneReviewPending',
 			'createdAt',
 		]),
+
+	/**
+	 * The packs inside a release, from their manifests (validator). Lets
+	 * manifest dependencies resolve to BedrockNexus listings and the launcher
+	 * recognise packs a player already has installed.
+	 */
+	releasePacks: defineTable({
+		versionId: v.id('projectVersions'),
+		projectId: v.id('projects'),
+		uuid: v.string(), // lower case
+		version: v.optional(v.string()), // e.g. "1.2.0"
+		kind: v.union(
+			v.literal('behavior'),
+			v.literal('resources'),
+			v.literal('skins'),
+			v.literal('world'),
+			v.literal('other'),
+		),
+	})
+		.index('by_uuid', ['uuid'])
+		.index('by_versionId', ['versionId'])
+		.index('by_projectId', ['projectId']),
+
+	/**
+	 * What a release needs, works with, or breaks. `creator` rows are declared
+	 * when publishing; `manifest` rows come from pack manifest dependencies and
+	 * resolve to listings by pack UUID when read.
+	 */
+	releaseDependencies: defineTable({
+		versionId: v.id('projectVersions'),
+		projectId: v.id('projects'),
+		kind: v.union(
+			v.literal('required'),
+			v.literal('optional'),
+			v.literal('incompatible'),
+		),
+		source: v.union(v.literal('creator'), v.literal('manifest')),
+		// One of: a BedrockNexus listing, an external link, or a pack UUID.
+		dependencyProjectId: v.optional(v.id('projects')),
+		dependencyPluginId: v.optional(v.id('plugins')),
+		externalName: v.optional(v.string()),
+		externalUrl: v.optional(v.string()),
+		packUuid: v.optional(v.string()),
+		packVersion: v.optional(v.string()),
+	})
+		.index('by_versionId', ['versionId'])
+		.index('by_dependencyProjectId', ['dependencyProjectId'])
+		.index('by_packUuid', ['packUuid']),
 
 	/** The files inside a release, compared between versions in review. */
 	projectVersionFiles: defineTable({
@@ -361,7 +415,10 @@ export const tables = {
 		type: v.optional(projectDiscoveryType),
 		publishedAt: v.optional(v.number()),
 		lastReleaseAt: v.optional(v.number()),
+		// Library saves (private; no longer read by any listing order).
 		favouriteCount: v.optional(v.number()),
+		// Public follows (lib/follows.ts); the "Most followed" order.
+		followerCount: v.optional(v.number()),
 		downloads7d: v.optional(v.number()),
 		trendingScore: v.optional(v.number()),
 
@@ -374,7 +431,7 @@ export const tables = {
 		.index('by_isPublic_and_trendingScore', ['isPublic', 'trendingScore'])
 		.index('by_isPublic_and_lastReleaseAt', ['isPublic', 'lastReleaseAt'])
 		.index('by_isPublic_and_publishedAt', ['isPublic', 'publishedAt'])
-		.index('by_isPublic_and_favouriteCount', ['isPublic', 'favouriteCount'])
+		.index('by_isPublic_and_followerCount', ['isPublic', 'followerCount'])
 		.index('by_isPublic_and_averageRating', ['isPublic', 'averageRating'])
 		.index('by_isPublic_and_type_and_totalDownloads', [
 			'isPublic',
@@ -396,10 +453,10 @@ export const tables = {
 			'type',
 			'publishedAt',
 		])
-		.index('by_isPublic_and_type_and_favouriteCount', [
+		.index('by_isPublic_and_type_and_followerCount', [
 			'isPublic',
 			'type',
-			'favouriteCount',
+			'followerCount',
 		])
 		.index('by_isPublic_and_type_and_averageRating', [
 			'isPublic',
@@ -413,7 +470,9 @@ export const tables = {
 		projectId: v.id('projects'),
 		dayKey: v.string(), // YYYY-MM-DD
 		downloads: v.number(), // counted downloads from every source
-		favourites: v.number(), // net saves that day
+		favourites: v.number(), // net library saves that day (not ranked on)
+		// Net new follows that day; trending reads this. Undefined before follows.
+		follows: v.optional(v.number()),
 		// Of `downloads`, those through the public API (launchers); the rest
 		// came from the website. Undefined on days before this was recorded.
 		apiDownloads: v.optional(v.number()),

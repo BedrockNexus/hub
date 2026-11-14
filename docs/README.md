@@ -13,6 +13,7 @@ lives in [TODO.md](../TODO.md); regression checks live in [TESTING.md](../TESTIN
 | [Storage](./STORAGE.md) | Private uploads, CDN promotion and object cleanup |
 | [Listing identities](./LISTING_ROUTE_IDS.md) | Stable URLs and compatibility redirects |
 | [Analytics and downloads](./ANALYTICS_AND_DOWNLOADS.md) | Convex totals, OpenPanel configuration and event meaning |
+| [Follows and server intelligence](./FOLLOWS_AND_SERVER_INTELLIGENCE.md) | Follows, library, collections, notifications, release dependencies, incidents and health scores |
 | [Schema maintenance](./SCHEMA_MAINTENANCE.md) | Unused fields, data audits and staged retirement |
 | [Plugin workflow catalog](./PLUGIN_WORKFLOW_CATALOG.md) | Official repository, automatic refresh and installed revision tracking |
 | [Discord announcements](./DISCORD_ANNOUNCEMENTS.md) | First-publication events, secret configuration and delivery retries |

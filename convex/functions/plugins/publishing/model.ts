@@ -15,6 +15,7 @@ import {
 	stageAnnouncement,
 	wakeAnnouncement,
 } from '../../../lib/discordAnnouncements'
+import { notifyPluginRelease } from '../../../lib/notificationEvents'
 import { assertOptionalHttpUrl } from '../../../lib/contentValidation'
 import { parsePluginDashboardId } from '../../../../lib/plugins/plugin-dashboard-id'
 import {
@@ -1738,7 +1739,7 @@ export const finishPublishing = internalMutation({
 		) {
 			await deleteIcon(ctx, draft._id, project.iconUrl)
 		}
-		await patchProject(ctx, project, {
+		const published = await patchProject(ctx, project, {
 			...(isNewest ? { latestVersionId: versionId } : {}),
 			...details,
 			visibility: 'public',
@@ -1756,6 +1757,13 @@ export const finishPublishing = internalMutation({
 		if (!project.publishedAt)
 			await stageAnnouncement(ctx, 'plugin', project._id)
 		await wakeAnnouncement(ctx, 'plugin', project._id)
+		await notifyPluginRelease(
+			ctx,
+			published,
+			versionId,
+			release.version,
+			project.publishedAt !== undefined,
+		)
 		await ctx.scheduler.runAfter(
 			0,
 			internal.functions.plugins.publishing.actions.createGitHubRelease,

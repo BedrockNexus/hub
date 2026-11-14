@@ -178,24 +178,23 @@ describe('project listing fields', () => {
 	})
 })
 
-describe('saves', () => {
-	it('counts saves and unsaves on the project and the day', async () => {
+describe('follows', () => {
+	it('counts follows and unfollows on the project and the day', async () => {
 		const t = createTest()
-		const projectId = await insertProject(t, { slug: 'saved' })
+		const projectId = await insertProject(t, { slug: 'followed' })
 		const alice = await signIn(t, 'alice')
 		const bob = await signIn(t, 'bob')
+		const target = { targetType: 'project' as const, targetId: projectId }
 
-		await alice.mutation(api.functions.site.favourites.toggleProject, { projectId })
-		await bob.mutation(api.functions.site.favourites.toggleProject, { projectId })
-		await bob.mutation(api.functions.site.favourites.toggleProject, { projectId })
+		await alice.mutation(api.functions.social.follows.toggle, target)
+		await bob.mutation(api.functions.social.follows.toggle, target)
+		await bob.mutation(api.functions.social.follows.toggle, target)
 
 		const [stats] = await projectStats(t, projectId)
-		expect(stats.favouriteCount).toBe(1)
+		expect(stats.followerCount).toBe(1)
 		expect(
-			await alice.query(api.functions.site.favourites.getProjectState, {
-				projectId,
-			}),
-		).toEqual({ isFavourite: true, count: 1 })
+			await alice.query(api.functions.social.follows.getState, target),
+		).toEqual({ isFollowing: true, count: 1 })
 		const days = await t.run(async (ctx) =>
 			ctx.db.query('projectDailyStats').collect(),
 		)
@@ -204,42 +203,29 @@ describe('saves', () => {
 				projectId,
 				dayKey: utcDayKey(Date.now()),
 				downloads: 0,
-				favourites: 1,
+				follows: 1,
 			}),
 		])
 	})
 
-	it('counts existing saves exactly the first time older content is saved', async () => {
+	it('keeps library saves private and out of every count', async () => {
 		const t = createTest()
-		const serverId = await insertServer(t, { slug: 'old-server' })
-		// Content that predates the counter: saves exist, no count is stored.
-		await t.run(async (ctx) => {
-			await ctx.db.insert('serverStats', {
-				serverId,
-				totalIpCopies: 0,
-				averageRating: 0,
-				reviewCount: 0,
-				updatedAt: 1,
-			})
-			for (const userId of ['u1', 'u2', 'u3']) {
-				await ctx.db.insert('favourites', {
-					userId,
-					targetType: 'server',
-					serverId,
-					createdAt: 1,
-				})
-			}
-		})
+		const serverId = await insertServer(t, { slug: 'saved-server' })
 		const carol = await signIn(t, 'carol')
-		expect(
-			await carol.query(api.functions.site.favourites.getServerState, { serverId }),
-		).toEqual({ isFavourite: false, count: 3 })
+		const target = { targetType: 'server' as const, targetId: serverId }
 
-		await carol.mutation(api.functions.site.favourites.toggleServer, { serverId })
+		expect(await carol.mutation(api.functions.social.library.toggle, target)).toBe(true)
+		expect(await carol.query(api.functions.social.library.getState, target)).toEqual({ saved: true })
+		expect(await t.query(api.functions.social.library.getState, target)).toEqual({ saved: false })
 
 		const stats = await serverStats(t, serverId)
-		expect(stats).toHaveLength(1)
-		expect(stats[0].favouriteCount).toBe(4)
+		expect(stats[0]?.followerCount ?? 0).toBe(0)
+		const library = await carol.query(api.functions.social.library.listMine, {
+			paginationOpts: { numItems: 10, cursor: null },
+		})
+		expect(library.page).toEqual([
+			expect.objectContaining({ targetType: 'server', targetId: serverId, kind: 'Server' }),
+		])
 	})
 })
 
@@ -283,7 +269,8 @@ describe('daily activity and trending', () => {
 					projectId,
 					dayKey: today,
 					downloads: 10,
-					favourites: 2,
+					favourites: 0,
+					follows: 2,
 				})
 				await ctx.db.insert('projectDailyStats', {
 					projectId,

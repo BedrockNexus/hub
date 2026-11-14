@@ -16,6 +16,13 @@ import { AdditionalField } from '@/components/ba-ui/auth/additional-field'
 import { ChangeAvatar } from '@/components/ba-ui/settings/change-avatar'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { SaveBar } from '@/components/user-dashboard/save-bar'
@@ -47,6 +54,7 @@ function profileFromForm(data: FormData, bannerR2Key: string | undefined) {
 		location: get('location'),
 		website: get('website'),
 		minecraftUsername: get('minecraftUsername'),
+		minecraftVersion: get('minecraftVersion'),
 		bannerR2Key,
 		socials: {
 			discord: optional('discord'),
@@ -92,6 +100,17 @@ export function ProfileSettingsForm() {
 		onError: () => undefined,
 	})
 	const profile = useQuery(api.functions.site.users.getMyProfile, {})
+	const activeVersions = useQuery(
+		api.functions.site.gameVersions.listActive,
+		{},
+	)
+	// A saved version that is no longer offered stays selectable.
+	const gameVersions = [
+		...new Set([
+			...(activeVersions ?? []).map((item) => item.version),
+			...(profile?.minecraftVersion ? [profile.minecraftVersion] : []),
+		]),
+	].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
 	const updateProfile = useMutation(api.functions.site.users.updateProfile)
 	const generateUploadUrl = useMutation(
 		api.functions.site.users.generateProfileBannerUploadUrl,
@@ -106,7 +125,7 @@ export function ProfileSettingsForm() {
 	const [bannerKey, setBannerKey] = useState<string | undefined>()
 	const [bannerPreview, setBannerPreview] = useState<string | undefined>()
 
-	if (!(profile && session)) {
+	if (!(profile && session && activeVersions)) {
 		return (
 			<div className="space-y-6">
 				<Skeleton className="h-14 w-72" />
@@ -251,6 +270,41 @@ export function ProfileSettingsForm() {
 							maxLength={32}
 							name="minecraftUsername"
 						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="minecraft-version">
+							Minecraft version you play
+						</FieldLabel>
+						<Select
+							defaultValue={profile.minecraftVersion ?? null}
+							disabled={saving}
+							items={[
+								{ value: null, label: 'Not set' },
+								...gameVersions.map((version) => ({
+									value: version,
+									label: version,
+								})),
+							]}
+							name="minecraftVersion"
+						>
+							<SelectTrigger
+								className="w-full"
+								id="minecraft-version"
+							>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={null}>Not set</SelectItem>
+								{gameVersions.map((version) => (
+									<SelectItem key={version} value={version}>
+										{version}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<FieldDescription>
+							Private. Marks releases made for your version.
+						</FieldDescription>
 					</Field>
 				</div>
 			</SettingsCard>

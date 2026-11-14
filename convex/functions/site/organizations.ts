@@ -1,10 +1,12 @@
 import { paginationOptsValidator } from 'convex/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { action, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { toPublicProject, toPublicServer } from '../../lib/publicContent'
-import { adminQuery } from '../../lib/functions'
+import { adminQuery, authedQuery } from '../../lib/functions'
+import { ownerDisplayName } from '../../lib/ownerName'
+import { getOrganizationRole } from '../../lib/permissions'
 import type { ActionCtx, MutationCtx, QueryCtx } from '../../_generated/server'
 import { isListedServer, isPublicProject } from '../../lib/contentVisibility'
 import { validateImageObjectMetadata } from '../../lib/media'
@@ -511,5 +513,56 @@ export const getAdminOrganizationStats = adminQuery({
 			ownedContentCount: organizationServers.length + organizationProjects.length,
 			isPartial: !complete,
 		}
+	},
+})
+
+/**
+ * The organization's audit history, newest first. Members only; actor names
+ * are resolved for display.
+ */
+export const listAuditEvents = authedQuery({
+	args: {
+		organizationId: v.string(),
+		paginationOpts: paginationOptsValidator,
+	},
+	handler: async (ctx, args) => {
+		const role =
+			args.organizationId.length <= 64
+				? await getOrganizationRole(ctx, args.organizationId, ctx.user._id)
+				: null
+		if (role === null && ctx.user.role !== 'admin') {
+			throw new ConvexError('Only members can see the organization history')
+		}
+		const result = await ctx.db
+			.query('organizationAuditEvents')
+			.withIndex('by_organizationId_and_createdAt', (q) =>
+				q.eq('organizationId', args.organizationId),
+			)
+			.order('desc')
+			.paginate({
+				...args.paginationOpts,
+				numItems: Math.min(args.paginationOpts.numItems, 50),
+			})
+		const names = new Map<string, string | undefined>()
+		const page = await Promise.all(
+			result.page.map(async (event) => {
+				if (event.actorId && !names.has(event.actorId)) {
+					names.set(
+						event.actorId,
+						await ownerDisplayName(ctx, 'user', event.actorId),
+					)
+				}
+				return {
+					_id: event._id,
+					action: event.action,
+					targetType: event.targetType,
+					targetLabel: event.targetLabel,
+					detail: event.detail,
+					actorName: event.actorId ? names.get(event.actorId) : undefined,
+					createdAt: event.createdAt,
+				}
+			}),
+		)
+		return { ...result, page }
 	},
 })

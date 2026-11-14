@@ -10,6 +10,8 @@ import { isPublicProject, isPublicServer } from './contentVisibility'
 import { syncProjectOwners, syncServerOwners } from './creatorListings'
 import { isPublicRelease } from './projectReleases'
 import { stageAnnouncement, wakeAnnouncement } from './discordAnnouncements'
+import { notifyProjectPublished, notifyServerPublished } from './notificationEvents'
+import { auditListingWrite } from './orgAudit'
 
 /**
  * The public activity feed shown on creator profiles. Entries are written
@@ -79,6 +81,8 @@ export async function afterServerWrite(
 	) {
 		await wakeAnnouncement(ctx, 'server', after._id)
 	}
+	await notifyServerPublished(ctx, before, after)
+	await auditListingWrite(ctx, 'server', before, after)
 }
 
 /**
@@ -129,6 +133,8 @@ export async function afterProjectWrite(
 	}
 	if (after && isPublicProject(after))
 		await wakeAnnouncement(ctx, 'project', after._id)
+	await notifyProjectPublished(ctx, before, after)
+	await auditListingWrite(ctx, 'project', before, after)
 }
 
 export async function recordReleaseActivity(
@@ -182,6 +188,11 @@ export async function isActivityVisible(
 			const projectId = ctx.db.normalizeId('projects', targetId)
 			const project = projectId ? await ctx.db.get(projectId) : null
 			return !!project && isPublicProject(project)
+		}
+		case 'collection_created': {
+			const id = ctx.db.normalizeId('collections', targetId)
+			const collection = id ? await ctx.db.get(id) : null
+			return !!collection && collection.visibility === 'public'
 		}
 		default:
 			return false

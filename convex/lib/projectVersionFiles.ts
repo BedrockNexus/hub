@@ -26,6 +26,23 @@ export interface ValidatorReport {
 	filesTruncated?: unknown
 	scriptModules?: unknown
 	findings?: unknown
+	/** Validator 2026-11 on: each manifest's header and pack dependencies. */
+	packs?: unknown
+	packDependencies?: unknown
+}
+
+export type PackKind = 'behavior' | 'resources' | 'skins' | 'world' | 'other'
+
+export interface ReleasePack {
+	uuid: string
+	version?: string
+	kind: PackKind
+	minEngineVersion?: string
+}
+
+export interface PackDependency {
+	uuid: string
+	version?: string
 }
 
 const MAX_FILES = 5000
@@ -35,6 +52,16 @@ const MAX_PATH = 400
 const MAX_FINDINGS = 20
 const MAX_FINDING_PATHS = 10
 const MAX_MODULES = 50
+const MAX_PACKS = 64
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const GAME_VERSION = /^\d{1,3}(\.\d{1,4}){1,4}$/
+const PACK_KINDS = new Set<PackKind>([
+	'behavior',
+	'resources',
+	'skins',
+	'world',
+	'other',
+])
 
 const text = (value: unknown, max: number) =>
 	typeof value === 'string' ? value.slice(0, max) : undefined
@@ -96,6 +123,83 @@ function scriptModules(report: ValidatorReport) {
 			const version = text(row.version, 40)
 			return [version ? { name, version } : { name }]
 		})
+}
+
+function uuid(value: unknown) {
+	const text = typeof value === 'string' ? value.trim().toLowerCase() : ''
+	return UUID.test(text) ? text : undefined
+}
+
+function gameVersion(value: unknown) {
+	const text = typeof value === 'string' ? value.trim() : ''
+	return GAME_VERSION.test(text) ? text : undefined
+}
+
+function packs(report: ValidatorReport): ReleasePack[] {
+	const seen = new Set<string>()
+	return list(report.packs)
+		.slice(0, MAX_PACKS)
+		.flatMap((item): ReleasePack[] => {
+			const row = item as Record<string, unknown>
+			const id = uuid(row?.uuid)
+			if (!id || seen.has(id)) return []
+			seen.add(id)
+			const kind = PACK_KINDS.has(row.kind as PackKind)
+				? (row.kind as PackKind)
+				: 'other'
+			const version = text(row.version, 40)
+			const minEngineVersion = gameVersion(row.minEngineVersion)
+			return [
+				{
+					uuid: id,
+					kind,
+					...(version ? { version } : {}),
+					...(minEngineVersion ? { minEngineVersion } : {}),
+				},
+			]
+		})
+}
+
+/** Pack dependencies on packs this release does not contain itself. */
+function packDependencies(
+	report: ValidatorReport,
+	own: ReadonlySet<string>,
+): PackDependency[] {
+	const seen = new Set<string>()
+	return list(report.packDependencies)
+		.slice(0, MAX_PACKS)
+		.flatMap((item): PackDependency[] => {
+			const row = item as Record<string, unknown>
+			const id = uuid(row?.uuid)
+			if (!id || own.has(id) || seen.has(id)) return []
+			seen.add(id)
+			const version = text(row.version, 40)
+			return [version ? { uuid: id, version } : { uuid: id }]
+		})
+}
+
+/** The newest of two dotted game versions. */
+export function newerGameVersion(a: string | undefined, b: string | undefined) {
+	if (!a) return b
+	if (!b) return a
+	return a.localeCompare(b, undefined, { numeric: true }) >= 0 ? a : b
+}
+
+/**
+ * The packs, pack dependencies and minimum game version a validator report
+ * describes. Older validators report none of these.
+ */
+export function releasePackDetails(report: ValidatorReport) {
+	const found = packs(report)
+	const own = new Set(found.map((pack) => pack.uuid))
+	return {
+		packs: found,
+		packDependencies: packDependencies(report, own),
+		minEngineVersion: found.reduce<string | undefined>(
+			(highest, pack) => newerGameVersion(highest, pack.minEngineVersion),
+			undefined,
+		),
+	}
 }
 
 /**

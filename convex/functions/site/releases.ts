@@ -11,6 +11,10 @@ import {
 } from '../../lib/contentReferences'
 import { isPublicProject } from '../../lib/contentVisibility'
 import { getPublishedReleaseKey, isPublicRelease } from '../../lib/projectReleases'
+import {
+	listReleaseDependencies,
+	projectForPackUuid,
+} from '../../lib/releaseDependencies'
 
 // One launcher's installed items in one request; the API enforces the same cap.
 const MAX_ITEMS = 100
@@ -60,11 +64,65 @@ async function latestContentRelease(
 					fileName: release.fileName,
 					fileSize: release.fileSize,
 					gameVersions: release.gameVersions ?? [],
+					minEngineVersion: release.minEngineVersion ?? null,
+					breakingChanges: release.breakingChanges === true,
 					sha256: release.validationReport?.sha256 ?? null,
 					downloadPath: contentDownloadHref(project.type, projectReference(project.type, project._id, project.publicId), release.version),
+					dependencies: await apiDependencies(ctx, release),
 				}
 			: null,
 	}
+}
+
+/** A release's dependencies as API references (section and ID), not site links. */
+async function apiDependencies(ctx: QueryCtx, release: Doc<'projectVersions'>) {
+	const resolved = await listReleaseDependencies(ctx, release)
+	return Promise.all(
+		resolved.map(async (item) => ({
+			kind: item.kind,
+			source: item.source,
+			listing: item.listing
+				? await apiReference(ctx, item.listing.targetType, item.listing.targetId)
+				: null,
+			name: item.listing?.name ?? item.externalName ?? null,
+			url: item.externalUrl ?? null,
+			packUuid: item.packUuid ?? null,
+			packVersion: item.packVersion ?? null,
+		})),
+	)
+}
+
+async function apiReference(
+	ctx: QueryCtx,
+	targetType: string,
+	targetId: string,
+): Promise<{ section: 'addons' | 'resource-packs' | 'plugins'; id: string } | null> {
+	if (targetType === 'project') {
+		const id = ctx.db.normalizeId('projects', targetId)
+		const project = id ? await ctx.db.get(id) : null
+		if (!project) return null
+		return {
+			section:
+				normalizeProjectType(project.type) === 'addon'
+					? 'addons'
+					: 'resource-packs',
+			id: project._id,
+		}
+	}
+	if (targetType === 'plugin') {
+		const id = ctx.db.normalizeId('plugins', targetId)
+		const plugin = id ? await ctx.db.get(id) : null
+		const repository = plugin
+			? await ctx.db.get('githubRepositories', plugin.repositoryId)
+			: null
+		return repository
+			? {
+					section: 'plugins',
+					id: createPluginDashboardId(repository.githubRepositoryId),
+				}
+			: null
+	}
+	return null
 }
 
 async function latestPluginRelease(ctx: QueryCtx, reference: string) {
@@ -149,6 +207,35 @@ export const latest = query({
 					return plugins ? await latestPluginRelease(ctx, reference) : null
 				}
 				return await latestContentRelease(ctx, section, reference)
+			}),
+		)
+	},
+})
+
+const MAX_PACKS = 100
+
+/**
+ * Which listing each pack UUID belongs to, for a launcher recognising packs
+ * already installed on a device. Results are in request order; a UUID no
+ * public release contains is null. A UUID belongs to the listing that
+ * published it first (lib/releaseDependencies.ts).
+ */
+export const lookupPacks = query({
+	args: { uuids: v.array(v.string()) },
+	handler: async (ctx, args) => {
+		if (args.uuids.length > MAX_PACKS) {
+			throw new Error(`At most ${MAX_PACKS} packs can be looked up at once`)
+		}
+		return await Promise.all(
+			args.uuids.map(async (raw) => {
+				const uuid = raw.trim().toLowerCase()
+				if (uuid.length !== 36) return null
+				const project = await projectForPackUuid(ctx, uuid)
+				if (!project) return null
+				const reference = await apiReference(ctx, 'project', project._id)
+				return reference
+					? { ...reference, slug: project.slug, name: project.name }
+					: null
 			}),
 		)
 	},

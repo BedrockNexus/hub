@@ -3,6 +3,7 @@
 import type { UserButtonLink } from '@/components/ba-ui/user/user-button'
 import { UserButton } from '@/components/ba-ui/user/user-button'
 import { BrandMark } from '@/components/brand-mark'
+import { NotificationBell } from '@/components/social/notification-bell'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 
@@ -33,7 +34,10 @@ export function WorkspaceHeader({
 					{label}
 				</span>
 			</div>
-			<UserButton align="end" links={links} size="icon" />
+			<div className="flex items-center gap-2">
+				<NotificationBell />
+				<UserButton align="end" links={links} size="icon" />
+			</div>
 		</header>
 	)
 }

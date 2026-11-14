@@ -3,12 +3,14 @@
 import {
 	ArrowRight02Icon,
 	Calendar03Icon,
+	Folder01Icon,
 	GlobeIcon,
 	Location01Icon,
 	OfficeIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
+import type { Route } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -18,6 +20,7 @@ import { ensureHttpUrl, SideCard } from '@/components/detail/detail-parts'
 import { PluginGrid } from '@/components/plugins/plugin-card'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
+import { FollowButton } from '@/components/social/social-buttons'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import {
@@ -45,6 +48,55 @@ function Stat({ value, label }: { value: number; label: string }) {
 			</span>
 			<span className="text-[13px] text-muted-foreground">{label}</span>
 		</div>
+	)
+}
+
+function ProfileCollections({ username }: { username: string }) {
+	const collections = useQuery(
+		api.functions.social.collections.listByUsername,
+		username ? { username } : 'skip',
+	)
+	const visible = collections?.filter(
+		(collection) => collection.itemCount > 0,
+	)
+	if (!visible?.length) {
+		return null
+	}
+	return (
+		<section className="flex flex-col gap-4">
+			<h2 className="font-bold text-2xl">Collections</h2>
+			<ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-4">
+				{visible.map((collection) => (
+					<li key={collection._id}>
+						<Link
+							className="flex h-full flex-col gap-1.5 rounded-md border bg-card p-4 transition-colors hover:border-ember"
+							href={
+								`/collections/${collection.publicId}` as Route
+							}
+						>
+							<span className="flex items-center gap-2 font-semibold">
+								<HugeiconsIcon
+									aria-hidden
+									className="size-4 text-muted-foreground"
+									icon={Folder01Icon}
+								/>
+								<span className="truncate">
+									{collection.name}
+								</span>
+							</span>
+							{collection.description ? (
+								<span className="line-clamp-2 text-muted-foreground text-sm">
+									{collection.description}
+								</span>
+							) : null}
+							<span className="mt-auto text-muted-foreground text-xs">
+								{collection.itemCount.toLocaleString()} items
+							</span>
+						</Link>
+					</li>
+				))}
+			</ul>
+		</section>
 	)
 }
 
@@ -215,6 +267,12 @@ export default function PublicUserProfilePage() {
 								))}
 							</div>
 						</div>
+						<div className="pt-4">
+							<FollowButton
+								targetId={profile.id}
+								targetType="user"
+							/>
+						</div>
 					</div>
 					<div className="flex flex-wrap gap-3">
 						<Stat
@@ -297,6 +355,7 @@ export default function PublicUserProfilePage() {
 							</p>
 						)}
 					</section>
+					<ProfileCollections username={username} />
 				</div>
 
 				<aside className="flex min-w-0 flex-col gap-4 empty:hidden">

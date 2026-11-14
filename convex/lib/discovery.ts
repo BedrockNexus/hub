@@ -16,7 +16,7 @@ import { utcDayKey, utcMonthKey } from './dayKeys'
  *   (called from lib/activity.ts afterServerWrite / afterProjectWrite)
  * - a release becoming public or not   -> syncProject
  *   (called from updateProjectReleaseSummary)
- * - a save or unsave                   -> adjust*Favourites
+ * - a follow or unfollow              -> lib/follows.ts adjustFollowerCount
  * - a counted download                 -> recordProjectDownload
  * - a counted page view                -> recordProjectView
  * - a status check                     -> recordServerCheck
@@ -145,7 +145,6 @@ async function adjustProjectDay(
 	change: {
 		downloads?: number
 		apiDownloads?: number
-		favourites?: number
 		views?: number
 	},
 ) {
@@ -159,7 +158,6 @@ async function adjustProjectDay(
 	if (day) {
 		await ctx.db.patch(day._id, {
 			downloads: day.downloads + (change.downloads ?? 0),
-			favourites: day.favourites + (change.favourites ?? 0),
 			...(change.apiDownloads
 				? { apiDownloads: (day.apiDownloads ?? 0) + change.apiDownloads }
 				: {}),
@@ -171,7 +169,7 @@ async function adjustProjectDay(
 		projectId,
 		dayKey,
 		downloads: change.downloads ?? 0,
-		favourites: change.favourites ?? 0,
+		favourites: 0,
 		apiDownloads: change.apiDownloads ?? 0,
 		views: change.views ?? 0,
 	})
@@ -195,27 +193,6 @@ export async function recordProjectView(
 	projectId: Id<'projects'>,
 ) {
 	await adjustProjectDay(ctx, projectId, { views: 1 })
-}
-
-/** Call after the favourite row was inserted (+1) or deleted (-1). */
-export async function adjustProjectFavourites(
-	ctx: MutationCtx,
-	projectId: Id<'projects'>,
-	delta: 1 | -1,
-) {
-	const stats = await ensureProjectStats(ctx, projectId)
-	// Not counted yet for content older than this field: count once, exactly.
-	const favouriteCount =
-		stats.favouriteCount === undefined
-			? (
-					await ctx.db
-						.query('favourites')
-						.withIndex('by_project', (q) => q.eq('projectId', projectId))
-						.collect()
-				).length
-			: Math.max(0, stats.favouriteCount + delta)
-	await ctx.db.patch(stats._id, { favouriteCount })
-	await adjustProjectDay(ctx, projectId, { favourites: delta })
 }
 
 // =============================================================================
@@ -255,25 +232,6 @@ export async function syncServer(ctx: MutationCtx, server: Doc<'servers'>) {
 	if (searchText !== server.searchText) {
 		await ctx.db.patch(server._id, { searchText })
 	}
-}
-
-/** Call after the favourite row was inserted (+1) or deleted (-1). */
-export async function adjustServerFavourites(
-	ctx: MutationCtx,
-	serverId: Id<'servers'>,
-	delta: 1 | -1,
-) {
-	const stats = await ensureServerStats(ctx, serverId)
-	const favouriteCount =
-		stats.favouriteCount === undefined
-			? (
-					await ctx.db
-						.query('favourites')
-						.withIndex('by_server', (q) => q.eq('serverId', serverId))
-						.collect()
-				).length
-			: Math.max(0, stats.favouriteCount + delta)
-	await ctx.db.patch(stats._id, { favouriteCount })
 }
 
 /** Adds one status check to the server's totals for that UTC day. */

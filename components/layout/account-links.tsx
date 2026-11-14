@@ -1,6 +1,7 @@
 'use client'
 
 import {
+	Bookmark02Icon,
 	CheckmarkCircle01Icon,
 	DashboardBrowsingIcon,
 	OfficeIcon,
@@ -33,6 +34,12 @@ const ACCOUNT_LINKS: (UserButtonLink & { pluginsOnly?: boolean })[] = [
 		label: 'Dashboard',
 		href: '/dashboard',
 		icon: linkIcon(DashboardBrowsingIcon),
+		visibility: 'authenticated',
+	},
+	{
+		label: 'Library',
+		href: '/dashboard/library',
+		icon: linkIcon(Bookmark02Icon),
 		visibility: 'authenticated',
 	},
 	{

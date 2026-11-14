@@ -43,6 +43,7 @@ type LatestVersion = {
 } | null
 
 export function ProjectSidebar(props: {
+	projectId: string
 	categories: Doc<'projectCategories'>[]
 	discordUrl?: string | null
 	donationUrl?: string | null
@@ -151,7 +152,10 @@ export function ProjectSidebar(props: {
 				</dl>
 			</SideCard>
 
-			<OwnerCard owner={props.owner} />
+			<OwnerCard
+				listing={{ targetType: 'project', targetId: props.projectId }}
+				owner={props.owner}
+			/>
 		</aside>
 	)
 }

@@ -42,6 +42,9 @@ export const tables = {
 		location: v.optional(v.string()),
 		website: v.optional(v.string()),
 		minecraftUsername: v.optional(v.string()),
+		// The Bedrock version the user plays, e.g. "1.21.80". Marks compatible
+		// releases and is the default version filter.
+		minecraftVersion: v.optional(v.string()),
 		bannerR2Key: v.optional(v.string()),
 
 		// Social links
@@ -85,18 +88,27 @@ export const tables = {
 		.index('by_key', ['key'])
 		.index('by_key_and_source', ['key', 'sourceTable', 'sourceId']),
 
+	// The private library (functions/social/library.ts): what a user saved to
+	// find again or install with the launcher. Never shown to anyone else.
 	favourites: defineTable({
 		userId: v.string(),
-		targetType: v.union(v.literal('server'), v.literal('project')),
+		targetType: v.union(
+			v.literal('server'),
+			v.literal('project'),
+			v.literal('plugin'),
+		),
 		serverId: v.optional(v.id('servers')),
 		projectId: v.optional(v.id('projects')),
+		pluginId: v.optional(v.id('plugins')),
 		createdAt: v.number(),
 	})
 		.index('by_user', ['userId', 'createdAt'])
 		.index('by_user_server', ['userId', 'serverId'])
 		.index('by_user_project', ['userId', 'projectId'])
+		.index('by_user_plugin', ['userId', 'pluginId'])
 		.index('by_server', ['serverId'])
-		.index('by_project', ['projectId']),
+		.index('by_project', ['projectId'])
+		.index('by_plugin', ['pluginId']),
 
 	// ===========================================================================
 	// ACTIVITY LOG (Public feed of user actions)
@@ -122,6 +134,62 @@ export const tables = {
 		.index('by_user', ['userId', 'createdAt'])
 		.index('by_user_type', ['userId', 'type'])
 		.index('by_created', ['createdAt']),
+
+	// ===========================================================================
+	// ORGANIZATION AUDIT HISTORY (lib/orgAudit.ts)
+	// What happened to an organization's listings and members, newest first,
+	// for its members. Append-only.
+	// ===========================================================================
+	organizationAuditEvents: defineTable({
+		organizationId: v.string(),
+		// Who did it; missing for automatic changes and membership changes
+		// made through Better Auth.
+		actorId: v.optional(v.string()),
+		action: v.union(
+			v.literal('listing.created'),
+			v.literal('listing.published'),
+			v.literal('listing.unpublished'),
+			v.literal('listing.moderated'),
+			v.literal('listing.deleted'),
+			v.literal('listing.transferred_in'),
+			v.literal('listing.transferred_out'),
+			v.literal('member.added'),
+			v.literal('member.removed'),
+			v.literal('member.role_changed'),
+		),
+		targetType: v.union(
+			v.literal('project'),
+			v.literal('server'),
+			v.literal('plugin'),
+			v.literal('member'),
+		),
+		targetId: v.string(),
+		targetLabel: v.string(), // name at the time
+		detail: v.optional(v.string()), // e.g. "approved", "admin"
+		createdAt: v.number(),
+	}).index('by_organizationId_and_createdAt', ['organizationId', 'createdAt']),
+
+	// ===========================================================================
+	// DOWNLOAD EVENTS (append-only; see lib/downloadEvents.ts)
+	// One row per accepted download redirect, counted or not, so download
+	// totals can be audited and Creator Rewards (Phase 4) has real history to
+	// test fraud rules against. Never updated; purged after 400 days.
+	// ===========================================================================
+	downloadEvents: defineTable({
+		targetType: v.union(v.literal('project'), v.literal('plugin')),
+		projectId: v.optional(v.id('projects')),
+		pluginId: v.optional(v.id('plugins')),
+		versionId: v.string(),
+		// `user:<id>` when signed in, otherwise `client:<salted hash>`.
+		requesterKey: v.string(),
+		source: v.union(v.literal('website'), v.literal('api')),
+		counted: v.boolean(),
+		createdAt: v.number(),
+	})
+		.index('by_projectId_and_createdAt', ['projectId', 'createdAt'])
+		.index('by_pluginId_and_createdAt', ['pluginId', 'createdAt'])
+		.index('by_requesterKey_and_createdAt', ['requesterKey', 'createdAt'])
+		.index('by_createdAt', ['createdAt']),
 
 	// ===========================================================================
 	// SUPPORT TIERS (User-configured "Support Me" options)
@@ -206,6 +274,8 @@ export const tables = {
 		totalDownloads: v.optional(v.number()),
 		avgPlayers7d: v.optional(v.number()),
 		rankScore: v.optional(v.number()),
+		// Public follows of this user or organization (lib/follows.ts).
+		followerCount: v.optional(v.number()),
 		updatedAt: v.number(),
 	})
 		.index('by_ownerType_and_ownerId', ['ownerType', 'ownerId'])

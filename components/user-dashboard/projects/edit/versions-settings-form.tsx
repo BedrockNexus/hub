@@ -33,6 +33,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { ListingReviewBadge } from '@/components/user-dashboard/listing-review-state'
+import { ReleaseDetailsDialog } from '@/components/user-dashboard/projects/versions/release-details-dialog'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { contentEditHref } from '@/lib/content-routes'
@@ -229,6 +230,11 @@ export function ProjectVersionsForm({
 										Rejected
 									</Badge>
 								) : null}
+								{version.breakingChanges ? (
+									<Badge variant="destructive">
+										Breaking
+									</Badge>
+								) : null}
 								{version.gameVersions &&
 									version.gameVersions.length > 0 && (
 										<div className="flex flex-wrap gap-1">
@@ -280,6 +286,11 @@ export function ProjectVersionsForm({
 							<VersionDownloadButton
 								downloadUrl={version.downloadUrl}
 								fileName={version.fileName}
+							/>
+							<ReleaseDetailsDialog
+								projectId={projectId}
+								version={version.version}
+								versionId={version._id}
 							/>
 
 							<AlertDialog>

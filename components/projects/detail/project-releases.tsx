@@ -1,17 +1,23 @@
 import { ReleaseHistory } from '@/components/detail/release-history'
 import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { ProjectVersionActions } from '@/components/projects/detail/project-version-actions'
+import type { Id } from '@/convex/_generated/dataModel'
 import { contentHref } from '@/lib/content-routes'
 import type { ProjectType } from '@/lib/project-artifacts'
 
 export interface PublicProjectRelease {
-	_id: string
+	_id: Id<'projectVersions'>
 	version: string
 	downloadUrl: string
 	downloads: number
 	fileName: string
 	fileSize: number
 	gameVersions?: string[]
+	minEngineVersion?: string
+	breakingChanges: boolean
+	validated: boolean
+	reviewed: boolean
+	sha256?: string
 	changelog?: string
 	createdAt: number
 }

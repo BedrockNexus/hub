@@ -11,6 +11,10 @@ import {
 	type PublicProjectRelease,
 } from '@/components/projects/detail/project-releases'
 import { ProjectVersionDownloadButton } from '@/components/projects/detail/project-version-download-button'
+import {
+	ReleaseChecks,
+	ReleaseDependencies,
+} from '@/components/projects/detail/release-trust'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { contentHref } from '@/lib/content-routes'
@@ -46,8 +50,13 @@ export function ProjectReleaseDetails({
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 					<div>
 						<p className="text-muted-foreground text-sm">Release</p>
-						<h2 className="font-semibold text-2xl tracking-tight">
+						<h2 className="flex flex-wrap items-center gap-2 font-semibold text-2xl tracking-tight">
 							{release.version}
+							{release.breakingChanges ? (
+								<Badge variant="destructive">
+									Breaking changes
+								</Badge>
+							) : null}
 						</h2>
 						<p className="mt-1 text-muted-foreground text-sm">
 							Published {formatDate(release.createdAt)}
@@ -76,6 +85,14 @@ export function ProjectReleaseDetails({
 						)}
 					</div>
 				) : null}
+				{release.minEngineVersion ? (
+					<p className="text-muted-foreground text-sm">
+						The pack manifest asks for Minecraft{' '}
+						{release.minEngineVersion} or newer.
+					</p>
+				) : null}
+
+				<ReleaseDependencies versionId={release._id} />
 
 				{releasePolicy.allowChangelog ? (
 					<section className="space-y-3">
@@ -89,6 +106,12 @@ export function ProjectReleaseDetails({
 						)}
 					</section>
 				) : null}
+
+				<ReleaseChecks
+					reviewed={release.reviewed}
+					sha256={release.sha256}
+					validated={release.validated}
+				/>
 
 				<section className="space-y-3 border-t pt-5">
 					<h3 className="font-semibold text-sm">Release asset</h3>

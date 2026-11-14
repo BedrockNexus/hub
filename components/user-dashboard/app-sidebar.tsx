@@ -2,9 +2,13 @@
 
 import {
 	BlueskyIcon,
+	Bookmark02Icon,
 	DashboardBrowsingIcon,
 	DiscordIcon,
+	Folder01Icon,
 	InstagramIcon,
+	Link01Icon,
+	Notification01Icon,
 	OfficeIcon,
 	PaintBrush01Icon,
 	PlugSocketIcon,
@@ -12,6 +16,7 @@ import {
 	ServerStack03Icon,
 	Settings01Icon,
 	TiktokIcon,
+	UserCheck01Icon,
 	YoutubeIcon,
 } from '@hugeicons/core-free-icons'
 import { useQuery } from 'convex/react'
@@ -41,6 +46,11 @@ const data = {
 			icon: ServerStack03Icon,
 		},
 		{
+			title: 'Networks',
+			url: '/dashboard/networks',
+			icon: Link01Icon,
+		},
+		{
 			title: 'Addons',
 			url: '/dashboard/addons',
 			icon: PuzzleIcon,
@@ -61,6 +71,28 @@ const data = {
 			icon: OfficeIcon,
 		},
 	],
+	navLibrary: [
+		{
+			title: 'Notifications',
+			url: '/dashboard/notifications',
+			icon: Notification01Icon,
+		},
+		{
+			title: 'Library',
+			url: '/dashboard/library',
+			icon: Bookmark02Icon,
+		},
+		{
+			title: 'Following',
+			url: '/dashboard/following',
+			icon: UserCheck01Icon,
+		},
+		{
+			title: 'Collections',
+			url: '/dashboard/collections',
+			icon: Folder01Icon,
+		},
+	],
 	navSettings: [
 		{
 			title: 'Settings',
@@ -79,6 +111,10 @@ const data = {
 				{
 					title: 'Providers',
 					url: '/dashboard/settings/providers',
+				},
+				{
+					title: 'Notifications',
+					url: '/dashboard/settings/notifications',
 				},
 				{
 					title: 'Sessions',
@@ -127,6 +163,7 @@ export function AppSidebar({ socials = {}, ...props }: AppSidebarProps) {
 			<SidebarContent>
 				<SidebarNav groupLabel="Dashboard" items={data.navMain} />
 				<SidebarNav groupLabel="Manage" items={navManage} />
+				<SidebarNav groupLabel="Yours" items={data.navLibrary} />
 				<SidebarCollapsibleNav
 					collapsibleItems={data.navSettings}
 					groupLabel="Settings"

@@ -21,7 +21,7 @@ import {
  * written out inline. Keep them in step with the dark palette in
  * app/globals.css.
  */
-const colors = {
+export const colors = {
 	page: '#0d0f13',
 	card: '#15181e',
 	border: '#252a33',
@@ -34,13 +34,13 @@ const colors = {
 	onGold: '#1d1405',
 }
 
-const fontFamily =
+export const fontFamily =
 	'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif'
 const monoFamily = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'
 
 // The wordmark is 2000 x 802; shown at 176 wide.
-const LOGO_WIDTH = 176
-const LOGO_HEIGHT = 71
+export const LOGO_WIDTH = 176
+export const LOGO_HEIGHT = 71
 
 interface EmailTemplateProps {
 	siteUrl: string

@@ -12,8 +12,11 @@ import { syncProject } from '../../lib/discovery'
 import { cdnR2, uploadsR2 } from '../../lib/r2'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
 import { wakeAnnouncement } from '../../lib/discordAnnouncements'
+import { notifyProjectRelease } from '../../lib/notificationEvents'
+import { saveReleasePacks } from '../../lib/releaseDependencies'
 import {
 	saveVersionFiles,
+	releasePackDetails,
 	storedValidationReport,
 	type ValidatorReport,
 } from '../../lib/projectVersionFiles'
@@ -27,6 +30,24 @@ const MAX_SUPPORTED_GAME_VERSIONS = 200
 
 const VALIDATION_URL_EXPIRES_IN = 60 * 15
 const MAX_VALIDATION_ATTEMPTS = 3
+
+const releasePackValidator = v.object({
+	uuid: v.string(),
+	version: v.optional(v.string()),
+	kind: v.union(
+		v.literal('behavior'),
+		v.literal('resources'),
+		v.literal('skins'),
+		v.literal('world'),
+		v.literal('other'),
+	),
+	minEngineVersion: v.optional(v.string()),
+})
+
+const packDependencyValidator = v.object({
+	uuid: v.string(),
+	version: v.optional(v.string()),
+})
 
 const validationReport = v.object({
 	type: v.string(),
@@ -139,6 +160,9 @@ export const applyValidationResult = internalMutation({
 		files: v.optional(
 			v.object({ files: v.array(releaseFile), truncated: v.boolean() }),
 		),
+		packs: v.optional(v.array(releasePackValidator)),
+		packDependencies: v.optional(v.array(packDependencyValidator)),
+		minEngineVersion: v.optional(v.string()),
 		deleteArtifact: v.boolean(),
 	},
 	handler: async (ctx, args) => {
@@ -149,9 +173,16 @@ export const applyValidationResult = internalMutation({
 			validationCode: args.code,
 			validationError: args.error,
 			validationReport: args.report,
+			minEngineVersion: args.minEngineVersion,
 			validatedAt: Date.now(),
 		})
 		await saveVersionFiles(ctx, version._id, args.files)
+		await saveReleasePacks(
+			ctx,
+			version,
+			args.status === 'valid' ? (args.packs ?? []) : [],
+			args.status === 'valid' ? (args.packDependencies ?? []) : [],
+		)
 		if (args.deleteArtifact) {
 			if (version.uploadR2Key) {
 				await uploadsR2.deleteObject(ctx, version.uploadR2Key)
@@ -224,6 +255,10 @@ export const finalizePromotion = internalMutation({
 		})
 		await uploadsR2.deleteObject(ctx, args.uploadKey)
 		await wakeAnnouncement(ctx, 'project', version.projectId)
+		if (version.publishedAt === undefined) {
+			const promoted = await ctx.db.get(version._id)
+			if (promoted) await notifyProjectRelease(ctx, promoted)
+		}
 	},
 })
 
@@ -411,6 +446,7 @@ export const validateVersion = internalAction({
 						status: 'valid',
 						report,
 						files,
+						...releasePackDetails(result.report),
 						deleteArtifact: false,
 					},
 				)

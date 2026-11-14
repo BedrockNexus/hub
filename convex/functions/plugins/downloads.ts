@@ -12,6 +12,7 @@ import { createPluginDashboardId } from '../../../lib/plugins/plugin-dashboard-i
 import { getCdnObjectUrl } from '../../lib/r2'
 import { rateLimiter } from '../../lib/plugins/rateLimits'
 import { adjustPluginDay } from '../../lib/dailyStats'
+import { recordDownloadEvent } from '../../lib/downloadEvents'
 
 const notFound = () =>
 	new ConvexError({
@@ -144,6 +145,14 @@ export const resolveAndRecord = mutation({
 				apiDownloads: args.source === 'api' ? 1 : 0,
 			})
 		}
+		await recordDownloadEvent(ctx, {
+			targetType: 'plugin',
+			pluginId: project._id,
+			versionId: version._id,
+			requesterKey,
+			source: args.source ?? 'website',
+			counted: count.ok,
+		})
 		const repository = await ctx.db.get(project.repositoryId)
 		if (repository) await scheduleDownloadEvent(ctx, {
 			section: 'plugins', reference: createPluginDashboardId(repository.githubRepositoryId),

@@ -37,6 +37,8 @@ const sortValidator = v.union(
 	v.literal('trending'),
 	v.literal('rating'),
 	v.literal('newest'),
+	v.literal('followers'),
+	// Older name for "Most followed", still sent by /v1 API clients.
 	v.literal('saved'),
 )
 
@@ -44,7 +46,8 @@ const STATS_SORT_INDEX = {
 	trending: 'by_isPublic_and_trendingScore',
 	rating: 'by_isPublic_and_averageRating',
 	newest: 'by_isPublic_and_publishedAt',
-	saved: 'by_isPublic_and_favouriteCount',
+	followers: 'by_isPublic_and_followerCount',
+	saved: 'by_isPublic_and_followerCount',
 } as const
 
 const statusValidator = v.union(v.literal('online'), v.literal('offline'))
@@ -153,7 +156,7 @@ export async function toCards(ctx: QueryCtx, rows: Row[]) {
 			maxPlayers: status?.maxPlayers,
 			averageRating: stats?.averageRating ?? 0,
 			reviewCount: stats?.reviewCount ?? 0,
-			favouriteCount: stats?.favouriteCount ?? 0,
+			followerCount: stats?.followerCount ?? 0,
 		})),
 	)
 }

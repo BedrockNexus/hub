@@ -25,6 +25,7 @@ export const PROJECT_SORTS = [
 	'updated',
 	'newest',
 	'rating',
+	'followers',
 ] as const
 export type ProjectSortOption = (typeof PROJECT_SORTS)[number]
 export interface ProjectSearchFilters {
@@ -50,11 +51,27 @@ const sortOptions: { value: ProjectSortOption; label: string }[] = [
 	{ value: 'updated', label: 'Recently updated' },
 	{ value: 'newest', label: 'Newest' },
 	{ value: 'rating', label: 'Top rated' },
+	{ value: 'followers', label: 'Most followed' },
 ]
 const resolutionOptions = RESOURCE_PACK_RESOLUTIONS.map((value) => ({
 	value,
 	label: value === 'custom' ? 'Custom' : value,
 }))
+
+/** Newest first, with the visitor's own version ahead of the rest. */
+function compareVersions(
+	a: string,
+	b: string,
+	mine: string | null | undefined,
+) {
+	if (a === mine) {
+		return -1
+	}
+	if (b === mine) {
+		return 1
+	}
+	return b.localeCompare(a, undefined, { numeric: true })
+}
 
 export function AdvancedProjectSearch({
 	contentType,
@@ -83,9 +100,14 @@ export function AdvancedProjectSearch({
 		filters.resolutions.length ||
 		filters.sort !== 'downloads'
 	)
+	const myVersion = useQuery(
+		api.functions.site.users.getMyMinecraftVersion,
+		{},
+	)
+	// The version the visitor plays comes first.
 	const versions = (gameVersions ?? [])
 		.map((item) => item.version)
-		.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+		.sort((a, b) => compareVersions(a, b, myVersion))
 	return (
 		<div className="space-y-3 rounded-lg border bg-card/60 p-3 shadow-[0_16px_40px_-28px_rgb(0_0_0/0.6)]">
 			<ListingSearch
@@ -120,7 +142,10 @@ export function AdvancedProjectSearch({
 				<ListingCombobox
 					label="Version"
 					onChange={(value) => update('gameVersions', value)}
-					options={versions.map((value) => ({ value, label: value }))}
+					options={versions.map((value) => ({
+						value,
+						label: value === myVersion ? `${value} (yours)` : value,
+					}))}
 					values={filters.gameVersions}
 				/>
 				{contentType === 'resource_pack' ? (

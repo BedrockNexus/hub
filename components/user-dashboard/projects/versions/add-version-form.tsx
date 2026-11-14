@@ -34,6 +34,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { VersionFileUpload } from '@/components/uploads/version-file-upload'
+import {
+	type DependencyDraft,
+	DependencyEditor,
+	toDeclared,
+} from '@/components/user-dashboard/projects/versions/dependency-editor'
+import { BreakingChangesField } from '@/components/user-dashboard/projects/versions/release-details-dialog'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useUnsavedChangesWarning } from '@/hooks/use-unsaved-changes-warning'
@@ -67,6 +73,8 @@ export function AddVersionForm({
 	)
 
 	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [dependencies, setDependencies] = useState<DependencyDraft[]>([])
+	const [breakingChanges, setBreakingChanges] = useState(false)
 	const normalizedProjectType = normalizeProjectType(projectType)
 	const releasePolicy = getProjectReleasePolicy(normalizedProjectType)
 
@@ -102,6 +110,8 @@ export function AddVersionForm({
 					: undefined,
 				uploadId: data.uploadId as Id<'projectArtifactUploads'>,
 				gameVersions,
+				dependencies: toDeclared(dependencies),
+				breakingChanges,
 			})
 			if (!result.ok) {
 				throw new Error(result.error)
@@ -269,6 +279,18 @@ export function AddVersionForm({
 						}}
 					/>
 				) : null}
+
+				<DependencyEditor
+					disabled={isSubmitting}
+					onChange={setDependencies}
+					projectId={projectId}
+					value={dependencies}
+				/>
+				<BreakingChangesField
+					checked={breakingChanges}
+					disabled={isSubmitting}
+					onChange={setBreakingChanges}
+				/>
 
 				{releasePolicy.allowChangelog ? (
 					<Controller

@@ -449,6 +449,8 @@ export const tables = {
 		downloadCountRefreshScheduledAt: v.optional(v.number()),
 		ratingAverage: v.number(),
 		ratingCount: v.number(),
+		// Public follows (lib/follows.ts). Undefined until the first follow.
+		followerCount: v.optional(v.number()),
 		publishedAt: v.optional(v.number()),
 		createdAt: v.number(),
 		updatedAt: v.number(),

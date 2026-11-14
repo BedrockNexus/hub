@@ -38,6 +38,8 @@ const sortValidator = v.union(
 	v.literal('updated'),
 	v.literal('newest'),
 	v.literal('rating'),
+	v.literal('followers'),
+	// Older name for "Most followed", still sent by /v1 API clients.
 	v.literal('saved'),
 )
 
@@ -47,7 +49,8 @@ const SORT_INDEX = {
 	updated: 'by_isPublic_and_lastReleaseAt',
 	newest: 'by_isPublic_and_publishedAt',
 	rating: 'by_isPublic_and_averageRating',
-	saved: 'by_isPublic_and_favouriteCount',
+	followers: 'by_isPublic_and_followerCount',
+	saved: 'by_isPublic_and_followerCount',
 } as const
 
 const SORT_INDEX_BY_TYPE = {
@@ -56,7 +59,8 @@ const SORT_INDEX_BY_TYPE = {
 	updated: 'by_isPublic_and_type_and_lastReleaseAt',
 	newest: 'by_isPublic_and_type_and_publishedAt',
 	rating: 'by_isPublic_and_type_and_averageRating',
-	saved: 'by_isPublic_and_type_and_favouriteCount',
+	followers: 'by_isPublic_and_type_and_followerCount',
+	saved: 'by_isPublic_and_type_and_followerCount',
 } as const
 
 const filterArgs = {
@@ -160,7 +164,7 @@ export async function toCards(ctx: QueryCtx, rows: Row[]) {
 			averageRating: stats?.averageRating ?? 0,
 			reviewCount: stats?.reviewCount ?? 0,
 			totalDownloads: stats?.totalDownloads ?? 0,
-			favouriteCount: stats?.favouriteCount ?? 0,
+			followerCount: stats?.followerCount ?? 0,
 		})),
 	)
 }

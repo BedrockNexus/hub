@@ -33,6 +33,7 @@ import { RichTextViewer } from '@/components/editor/rich-text-viewer'
 import { OwnerCard } from '@/components/owner/owner-card'
 import { PluginReviews } from '@/components/plugins/detail/plugin-reviews'
 import { RatingLabel, TagChip } from '@/components/servers/server-bits'
+import { ListingSocialActions } from '@/components/social/social-buttons'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -173,32 +174,38 @@ function PluginHero({
 						</div>
 					</div>
 					<div className="flex w-full flex-col gap-2.5 lg:w-72">
-						{downloadable ? (
-							<Link
-								className={buttonVariants({
-									size: 'xl',
-									variant: 'brand',
-									className: 'w-full',
-								})}
-								data-track="download_clicked"
-								href={downloadHref(
-									project.publicId,
-									downloadable,
-								)}
-								prefetch={false}
-								rel="nofollow"
-							>
-								<HugeiconsIcon
-									data-icon="inline-start"
-									icon={Download01Icon}
-								/>
-								Download
-							</Link>
-						) : (
-							<p className="rounded-sm border border-dashed px-4 py-3 text-center text-muted-foreground text-sm">
-								No downloadable version yet
-							</p>
-						)}
+						<div className="flex gap-2">
+							{downloadable ? (
+								<Link
+									className={buttonVariants({
+										size: 'xl',
+										variant: 'brand',
+										className: 'min-w-0 flex-1',
+									})}
+									data-track="download_clicked"
+									href={downloadHref(
+										project.publicId,
+										downloadable,
+									)}
+									prefetch={false}
+									rel="nofollow"
+								>
+									<HugeiconsIcon
+										data-icon="inline-start"
+										icon={Download01Icon}
+									/>
+									Download
+								</Link>
+							) : (
+								<p className="flex min-w-0 flex-1 items-center justify-center rounded-sm border border-dashed px-3 text-center text-muted-foreground text-sm">
+									No downloadable version yet
+								</p>
+							)}
+							<ListingSocialActions
+								targetId={project.projectId}
+								targetType="plugin"
+							/>
+						</div>
 						{releaseFacts.length > 0 ? (
 							<p className="flex flex-wrap justify-center gap-x-3 font-mono text-muted-foreground text-xs">
 								{releaseFacts.map((fact) => (
@@ -444,6 +451,7 @@ function PluginSidebar({ detail }: { detail: PluginDetail }) {
 			</SideCard>
 
 			<OwnerCard
+				listing={{ targetType: 'plugin', targetId: project.projectId }}
 				owner={
 					project.organization
 						? {

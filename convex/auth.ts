@@ -14,6 +14,7 @@ import {
 } from 'better-auth/plugins'
 import { runqora } from 'runqora/better-auth'
 import { api, components, internal } from './_generated/api'
+import type { GenericMutationCtx } from 'convex/server'
 import type { DataModel } from './_generated/dataModel'
 import { query } from './_generated/server'
 import authConfig from './auth.config'
@@ -24,6 +25,7 @@ import {
 	syncOrganizationListing,
 	syncUserListing,
 } from './lib/creatorListings'
+import { recordOrgEvent } from './lib/orgAudit'
 import { afterOwnerPictureWrite } from './lib/ownerPictures'
 
 const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
@@ -123,6 +125,25 @@ export const authComponent = createClient<DataModel, typeof authSchema>(
 						user.image,
 					)
 					await removeCreatorListing(ctx, 'user', user._id)
+					await ctx.scheduler.runAfter(
+						0,
+						internal.functions.social.cleanup.removeUserData,
+						{ userId: user._id },
+					)
+				},
+			},
+			// Organization audit history (lib/orgAudit.ts).
+			member: {
+				onCreate: async (ctx, member) => {
+					await auditMember(ctx, member, 'member.added', member.role)
+				},
+				onUpdate: async (ctx, member, previous) => {
+					if (member.role !== previous.role) {
+						await auditMember(ctx, member, 'member.role_changed', member.role)
+					}
+				},
+				onDelete: async (ctx, member) => {
+					await auditMember(ctx, member, 'member.removed')
 				},
 			},
 			organization: {
@@ -166,6 +187,11 @@ export const authComponent = createClient<DataModel, typeof authSchema>(
 						'organization',
 						organization._id,
 					)
+					await ctx.scheduler.runAfter(
+						0,
+						internal.functions.social.cleanup.removeTargetFollows,
+						{ targetType: 'organization', targetId: organization._id },
+					)
 				},
 			},
 		},
@@ -173,6 +199,26 @@ export const authComponent = createClient<DataModel, typeof authSchema>(
 )
 
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
+
+async function auditMember(
+	ctx: GenericMutationCtx<DataModel>,
+	member: { organizationId: string; userId: string },
+	action: 'member.added' | 'member.removed' | 'member.role_changed',
+	detail?: string,
+) {
+	const user = (await authComponent.getAnyUserById(ctx, member.userId)) as {
+		username?: string | null
+		name?: string | null
+	} | null
+	await recordOrgEvent(ctx, {
+		organizationId: member.organizationId,
+		action,
+		targetType: 'member',
+		targetId: member.userId,
+		targetLabel: user?.username ?? user?.name ?? 'A member',
+		detail,
+	})
+}
 
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 	return {

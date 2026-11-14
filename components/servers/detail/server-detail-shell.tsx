@@ -3,6 +3,7 @@
 import {
 	ArrowLeft02Icon,
 	BookOpen01Icon,
+	CheckmarkBadge01Icon,
 	CubeIcon,
 	DiscordIcon,
 	GlobeIcon,
@@ -13,6 +14,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import { formatDistanceToNowStrict } from 'date-fns'
+import type { Route } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { RecordView } from '@/components/analytics/record-view'
@@ -27,6 +29,7 @@ import { GalleryGrid } from '@/components/detail/gallery-grid'
 import { OwnerCard } from '@/components/owner/owner-card'
 import { ServerAbout } from '@/components/servers/detail/server-about'
 import { ServerReviews } from '@/components/servers/detail/server-reviews'
+import { ServerStatusHistory } from '@/components/servers/detail/server-status-history'
 import { ServerAddress } from '@/components/servers/server-address'
 import {
 	LogoTile,
@@ -35,9 +38,11 @@ import {
 	ServerStatusLabel,
 	TagChip,
 } from '@/components/servers/server-bits'
+import { ListingSocialActions } from '@/components/social/social-buttons'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 
 export type ServerDetailTab = 'description' | 'gallery' | 'reviews'
 
@@ -111,6 +116,20 @@ function ServerHero({ server, status, online }: ServerPartProps) {
 							<h1 className="font-bold text-[clamp(2rem,4vw,3rem)] leading-none">
 								{server.name}
 							</h1>
+							{server.verifiedAt ? (
+								<span
+									className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium text-online text-xs"
+									title="The owner proved they control this address with a DNS record or a code in the server MOTD."
+								>
+									<HugeiconsIcon
+										aria-hidden
+										className="size-3.5"
+										icon={CheckmarkBadge01Icon}
+									/>
+									Owner verified
+								</span>
+							) : null}
+							<NetworkLink serverId={server._id} />
 						</div>
 						{server.smallDescription ? (
 							<p className="text-[17px] text-muted-foreground">
@@ -143,6 +162,10 @@ function ServerHero({ server, status, online }: ServerPartProps) {
 						<HugeiconsIcon icon={PlayIcon} />
 						Add to Minecraft
 					</a>
+					<ListingSocialActions
+						targetId={server._id}
+						targetType="server"
+					/>
 				</div>
 
 				<div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-muted-foreground text-sm">
@@ -240,6 +263,24 @@ function LiveStatusCard({ server, status, online }: ServerPartProps) {
 	)
 }
 
+/** "Part of" a network, when the owner grouped this server with others. */
+function NetworkLink({ serverId }: { serverId: Id<'servers'> }) {
+	const overview = useQuery(api.functions.servers.intelligence.getOverview, {
+		serverId,
+	})
+	if (!overview?.network) {
+		return null
+	}
+	return (
+		<Link
+			className="text-ember-text text-sm hover:text-foreground"
+			href={`/networks/${overview.network.publicId}` as Route}
+		>
+			Part of {overview.network.name}
+		</Link>
+	)
+}
+
 export function ServerDetailShell({
 	activeTab,
 	slug,
@@ -311,7 +352,12 @@ export function ServerDetailShell({
 					/>
 				)
 			default:
-				return <ServerAbout description={server.description} />
+				return (
+					<>
+						<ServerAbout description={server.description} />
+						<ServerStatusHistory serverId={server._id} />
+					</>
+				)
 		}
 	})()
 
@@ -370,7 +416,10 @@ export function ServerDetailShell({
 						</SideCard>
 					) : null}
 
-					<OwnerCard owner={server.owner} />
+					<OwnerCard
+						listing={{ targetType: 'server', targetId: server._id }}
+						owner={server.owner}
+					/>
 				</aside>
 			</div>
 		</main>

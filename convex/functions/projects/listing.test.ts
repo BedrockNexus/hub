@@ -11,7 +11,7 @@ type StatsFields = Partial<
 		| 'totalDownloads'
 		| 'averageRating'
 		| 'reviewCount'
-		| 'favouriteCount'
+		| 'followerCount'
 		| 'trendingScore'
 	>
 >
@@ -118,7 +118,7 @@ describe('project listing', () => {
 			{
 				totalDownloads: 900,
 				averageRating: 3,
-				favouriteCount: 2,
+				followerCount: 2,
 				trendingScore: 1,
 			},
 		)
@@ -128,7 +128,7 @@ describe('project listing', () => {
 			{
 				totalDownloads: 50,
 				averageRating: 5,
-				favouriteCount: 9,
+				followerCount: 9,
 				trendingScore: 4,
 			},
 		)
@@ -138,7 +138,7 @@ describe('project listing', () => {
 			{
 				totalDownloads: 10,
 				averageRating: 4,
-				favouriteCount: 5,
+				followerCount: 5,
 				trendingScore: 9,
 			},
 		)

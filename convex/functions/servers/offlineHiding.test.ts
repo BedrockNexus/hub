@@ -229,9 +229,11 @@ describe('hiding servers that stay offline', () => {
 			api.functions.site.users.getPublicProfileByUsername,
 			{ username: 'owner' },
 		)
-		const saved = await member.query(api.functions.site.favourites.listMine, {})
+		const saved = await member.query(api.functions.social.library.listMine, {
+			paginationOpts: { numItems: 10, cursor: null },
+		})
 		expect(profile?.servers).toEqual([])
-		expect(saved.servers.map((server) => server?._id)).toEqual([stale])
+		expect(saved.page.map((item) => item?.targetId)).toEqual([stale])
 	})
 
 	it('still shows the owner their hidden server', async () => {

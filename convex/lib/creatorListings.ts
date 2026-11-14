@@ -1,7 +1,11 @@
 import { components } from '../_generated/api'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
-import { isListedServer, isPublicProject } from './contentVisibility'
+import {
+	isListedServer,
+	isPublicPlugin,
+	isPublicProject,
+} from './contentVisibility'
 
 /**
  * Keeps `creatorListings` - the rows that make creators and organizations
@@ -68,10 +72,6 @@ const LISTING_FIELDS = [
 	'projectCount',
 	'pluginCount',
 ] as const satisfies ReadonlyArray<keyof ListingFields>
-
-function isPublicPlugin(plugin: Doc<'plugins'>) {
-	return plugin.visibility === 'public' && plugin.status === 'published'
-}
 
 function buildSearchText(parts: ReadonlyArray<string | null | undefined>) {
 	return [...new Set(parts.filter((part): part is string => Boolean(part)))]
@@ -192,10 +192,18 @@ async function writeListing(
 		return
 	}
 	if (!existing) {
+		// Follows outlive the listing (it disappears while nothing is public).
+		const follows = await ctx.db
+			.query('followerCounts')
+			.withIndex('by_targetType_and_targetId', (q) =>
+				q.eq('targetType', ownerType).eq('targetId', ownerId),
+			)
+			.unique()
 		await ctx.db.insert('creatorListings', {
 			ownerType,
 			ownerId,
 			...next,
+			followerCount: follows?.count ?? 0,
 			updatedAt: Date.now(),
 		})
 		return
