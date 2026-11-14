@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { compareGameVersions } from '@/lib/game-version-standing'
 import { userFacingError } from '@/lib/user-facing-error'
 
 function formatDate(timestamp: number) {
@@ -71,7 +72,16 @@ function getToggleLabel({
 }
 
 export function GameVersionsManager() {
-	const gameVersions = useQuery(api.functions.site.gameVersions.listAll, {})
+	const unsortedVersions = useQuery(
+		api.functions.site.gameVersions.listAll,
+		{},
+	)
+	// Newest first; 1.26.60 and 26.60 count as the same release.
+	const gameVersions = unsortedVersions
+		? [...unsortedVersions].sort((a, b) =>
+				compareGameVersions(b.version, a.version),
+			)
+		: undefined
 	const createGameVersion = useMutation(
 		api.functions.site.gameVersions.create,
 	)
