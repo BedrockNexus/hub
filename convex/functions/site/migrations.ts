@@ -359,6 +359,74 @@ export const backfillCreatorListings = internalMutation({
 	},
 })
 
+const DISPLAY_NAME_BATCH = 50
+
+/**
+ * Sets each account's `displayUsername`, the name the site shows, to its
+ * profile display name, or its username when there is none. Better Auth only
+ * sets `displayUsername` at sign-up, so accounts renamed before the profile
+ * form sent it still show their old username. A `displayUsername` that only
+ * differs from the username in case is kept. Safe to re-run.
+ *
+ * Run: npx convex run functions/site/migrations:repairDisplayNames
+ */
+export const repairDisplayNames = internalMutation({
+	args: { cursor: v.optional(v.union(v.string(), v.null())) },
+	returns: v.object({ checked: v.number(), repaired: v.number() }),
+	handler: async (ctx, args) => {
+		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor: args.cursor ?? null, numItems: DISPLAY_NAME_BATCH },
+		})) as {
+			page: Array<{
+				_id: string
+				username?: string | null
+				displayUsername?: string | null
+			}>
+			isDone: boolean
+			continueCursor: string
+		}
+
+		let repaired = 0
+		for (const user of result.page) {
+			if (!user.username) {
+				continue
+			}
+			const profile = await ctx.db
+				.query('userProfiles')
+				.withIndex('by_user', (q) => q.eq('userId', user._id))
+				.first()
+			const current = user.displayUsername ?? ''
+			const wanted =
+				profile?.displayName ||
+				(current.toLowerCase() === user.username ? current : user.username)
+			if (wanted === current) {
+				continue
+			}
+			await ctx.runMutation(components.betterAuth.adapter.updateMany, {
+				paginationOpts: { cursor: null, numItems: 1 },
+				input: {
+					model: 'user',
+					where: [{ field: '_id', value: user._id }],
+					update: { displayUsername: wanted, updatedAt: Date.now() },
+				},
+			})
+			// This write goes around the Better Auth triggers.
+			await syncCreatorListing(ctx, 'user', user._id)
+			repaired++
+		}
+
+		if (!result.isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.site.migrations.repairDisplayNames,
+				{ cursor: result.continueCursor },
+			)
+		}
+		return { checked: result.page.length, repaired }
+	},
+})
+
 const pictureOwnerValidator = v.union(
 	v.literal('user'),
 	v.literal('organization'),

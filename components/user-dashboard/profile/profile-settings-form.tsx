@@ -66,11 +66,42 @@ function profileFromForm(data: FormData, bannerR2Key: string | undefined) {
 	}
 }
 
-/** The account's display name follows its username. */
-function accountUpdate(changes: Record<string, unknown>) {
-	return typeof changes.username === 'string'
-		? { name: changes.username, ...changes }
-		: changes
+/**
+ * The name shown for you across the site: the display name, or the username
+ * when there is none. A display name that was only the old username follows
+ * a new one.
+ */
+function shownName(
+	displayName: string,
+	username: string,
+	previousUsername: string,
+) {
+	const renamed = username.toLowerCase() !== previousUsername
+	if (
+		!displayName ||
+		(renamed && displayName.toLowerCase() === previousUsername)
+	) {
+		return username
+	}
+	return displayName
+}
+
+/**
+ * What the Display name field starts with. Better Auth's `displayUsername`
+ * used to keep an old username after a rename; that one is not offered.
+ */
+function initialDisplayName(
+	profileDisplayName: string,
+	user: Record<string, unknown>,
+) {
+	if (profileDisplayName) {
+		return profileDisplayName
+	}
+	const username = String(user.username ?? '')
+	const displayUsername = String(user.displayUsername ?? '')
+	return displayUsername.toLowerCase() === username
+		? displayUsername
+		: username
 }
 
 /** Better Auth errors carry their message under `error`. */
@@ -189,12 +220,34 @@ export function ProfileSettingsForm() {
 		setSaving(true)
 		try {
 			const accountChanges = await changedAccountFields(data)
-			if (Object.keys(accountChanges).length > 0) {
-				await updateUser(accountUpdate(accountChanges))
+			const previousUsername = String(user.username ?? '')
+			const shown = shownName(
+				String(data.get('displayName') ?? '').trim(),
+				typeof accountChanges.username === 'string'
+					? accountChanges.username.trim()
+					: previousUsername,
+				previousUsername,
+			).slice(0, 80)
+			// The site shows `displayUsername` (and `name` in the menus).
+			// Better Auth only sets it at sign-up, so it is sent here.
+			if (shown !== user.displayUsername) {
+				accountChanges.displayUsername = shown
 			}
-			await updateProfile(profileFromForm(data, bannerKey))
+			if (shown !== user.name) {
+				accountChanges.name = shown
+			}
+			if (Object.keys(accountChanges).length > 0) {
+				await updateUser(accountChanges)
+			}
+			await updateProfile({
+				...profileFromForm(data, bannerKey),
+				displayName: shown,
+			})
 			setBannerKey(undefined)
+			setBannerPreview(undefined)
 			setDirty(false)
+			// Re-seed the fields from what was saved.
+			setResetKey((key) => key + 1)
 			toast.success('Profile saved')
 		} catch (error) {
 			toast.error(saveErrorMessage(error))
@@ -252,12 +305,19 @@ export function ProfileSettingsForm() {
 							Display name
 						</FieldLabel>
 						<Input
-							defaultValue={profile.displayName}
+							defaultValue={initialDisplayName(
+								profile.displayName,
+								user,
+							)}
 							disabled={saving}
 							id="display-name"
 							maxLength={80}
 							name="displayName"
 						/>
+						<FieldDescription>
+							Shown on your page and next to everything you
+							publish. Leave it empty to use your username.
+						</FieldDescription>
 					</Field>
 					<Field>
 						<FieldLabel htmlFor="minecraft-username">
