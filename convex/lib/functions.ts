@@ -33,6 +33,11 @@ export async function requireUser(
 	if (!user) {
 		throw new ConvexError('You must be signed in')
 	}
+	// Sessions are only created for verified accounts (auth.ts); this also
+	// stops any session that predates that rule.
+	if (!user.emailVerified) {
+		throw new ConvexError('Verify your email address to continue')
+	}
 	return user
 }
 

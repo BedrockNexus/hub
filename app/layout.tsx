@@ -155,7 +155,11 @@ export default async function RootLayout({
 				>
 					<TooltipProvider>
 						<ConvexClientProvider initialToken={initialToken}>
-							<NextAuthProvider>
+							<NextAuthProvider
+								turnstileSiteKey={
+									process.env.TURNSTILE_SITE_KEY || undefined
+								}
+							>
 								{/* Listing filters and data tables keep their state in the URL. */}
 								<NuqsAdapter>
 									{process.env.OPENPANEL_BROWSER_CLIENT_ID ? (

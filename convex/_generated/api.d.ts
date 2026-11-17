@@ -62,6 +62,7 @@ import type * as functions_servers_servers from "../functions/servers/servers.js
 import type * as functions_servers_software from "../functions/servers/software.js";
 import type * as functions_servers_status from "../functions/servers/status.js";
 import type * as functions_servers_verification from "../functions/servers/verification.js";
+import type * as functions_site_accountRemoval from "../functions/site/accountRemoval.js";
 import type * as functions_site_aggregates from "../functions/site/aggregates.js";
 import type * as functions_site_analytics from "../functions/site/analytics.js";
 import type * as functions_site_audit from "../functions/site/audit.js";
@@ -217,6 +218,7 @@ declare const fullApi: ApiFromModules<{
   "functions/servers/software": typeof functions_servers_software;
   "functions/servers/status": typeof functions_servers_status;
   "functions/servers/verification": typeof functions_servers_verification;
+  "functions/site/accountRemoval": typeof functions_site_accountRemoval;
   "functions/site/aggregates": typeof functions_site_aggregates;
   "functions/site/analytics": typeof functions_site_analytics;
   "functions/site/audit": typeof functions_site_audit;

@@ -8,6 +8,7 @@ import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import {
 	admin,
+	captcha,
 	organization,
 	twoFactor,
 	username,
@@ -35,6 +36,12 @@ const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
 // deployment has RUNQORA_AUTH_SECRET: the plugin refuses a missing or short
 // secret, and that would fail every auth request.
 const runqoraSecret = process.env.RUNQORA_AUTH_SECRET
+
+// Cloudflare Turnstile on the requests that send email to an address the
+// visitor typed, so bots cannot use the site to mail other people. Set it
+// together with TURNSTILE_SITE_KEY on the Hub (lib/captcha-plugin.tsx): with
+// only the secret, those forms send no token and every request is refused.
+const turnstileSecret = process.env.TURNSTILE_SECRET_KEY
 
 type ActionCapableCtx = GenericCtx<DataModel> & {
 	runAction?: (ref: unknown, args: unknown) => Promise<unknown>
@@ -300,6 +307,27 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 				},
 			},
 		},
+		// No session for an account whose email address is not verified, on
+		// any path (password sign-in already refuses; this also covers
+		// impersonation, signed requests and anything added later). Verifying
+		// marks the account first, so autoSignInAfterVerification still works.
+		databaseHooks: {
+			session: {
+				create: {
+					before: async (session, context) => {
+						const user = await context?.context.internalAdapter.findUserById(
+							session.userId,
+						)
+						if (context && !user?.emailVerified) {
+							throw new APIError('FORBIDDEN', {
+								code: 'EMAIL_NOT_VERIFIED',
+								message: 'Verify your email address to sign in.',
+							})
+						}
+					},
+				},
+			},
+		},
 		// Better Auth also applies built-in limits to /sign-in/*, /sign-up/*,
 		// /change-password, /change-email (3 per 10s) and to password-reset and
 		// verification emails (3 per minute). Counters are stored in the
@@ -342,6 +370,20 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			// The issuer is the name shown in the authenticator app.
 			twoFactor({ issuer: 'BedrockNexus' }),
 			...(runqoraSecret ? [runqora({ secret: runqoraSecret })] : []),
+			...(turnstileSecret
+				? [
+						captcha({
+							provider: 'cloudflare-turnstile',
+							secretKey: turnstileSecret,
+							endpoints: [
+								'/sign-up/email',
+								'/request-password-reset',
+								'/send-verification-email',
+							],
+							allowedHostnames: [new URL(siteUrl).hostname],
+						}),
+					]
+				: []),
 		],
 	} satisfies BetterAuthOptions
 }

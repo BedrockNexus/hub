@@ -6,6 +6,7 @@ import type { PropsWithChildren } from "react"
 import { usernamePlugin } from "@better-auth-ui/core/plugins"
 
 import { authClient } from "@/lib/auth-client"
+import { TurnstileSiteKey, turnstilePlugin } from "@/lib/captcha-plugin"
 import { deleteUserPlugin } from "@/lib/delete-user-plugin"
 import { organizationPlugin } from "@/lib/organization-plugin"
 import { twoFactorPlugin } from "@/lib/two-factor-plugin"
@@ -21,12 +22,19 @@ function getOrganizationSlug(pathname: string) {
   return null
 }
 
-export function NextAuthProvider({ children }: PropsWithChildren) {
+export function NextAuthProvider({
+  children,
+  turnstileSiteKey
+}: PropsWithChildren<{
+  /** Turns on the Turnstile check; must match TURNSTILE_SECRET_KEY in Convex. */
+  turnstileSiteKey?: string
+}>) {
   const router = useRouter()
   const pathname = usePathname()
   const organizationSlug = getOrganizationSlug(pathname)
 
   return (
+    <TurnstileSiteKey.Provider value={turnstileSiteKey ?? ""}>
     <AuthProvider
       localization={{
         auth: {
@@ -51,6 +59,7 @@ export function NextAuthProvider({ children }: PropsWithChildren) {
           }
         }),
         deleteUserPlugin(),
+        ...(turnstileSiteKey ? [turnstilePlugin] : []),
         organizationPlugin({
           slug: organizationSlug,
           viewPaths: {
@@ -97,5 +106,6 @@ export function NextAuthProvider({ children }: PropsWithChildren) {
     >
       {children}
     </AuthProvider>
+    </TurnstileSiteKey.Provider>
   )
 }

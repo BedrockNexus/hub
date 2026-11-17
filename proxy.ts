@@ -55,7 +55,8 @@ function connectSources(): string[] {
  * the nonce to its scripts and the root layout passes it to next-themes.
  * Inline styles stay allowed for Base UI positioning and the MDX editor, and
  * images and media may come from any HTTPS origin (CDN, presigned R2 links,
- * avatars). Only privacy-enhanced YouTube embeds may be framed.
+ * avatars). Only privacy-enhanced YouTube embeds and the Turnstile check may
+ * be framed.
  */
 export function buildContentSecurityPolicy(nonce: string, isDev: boolean) {
 	return [
@@ -66,7 +67,7 @@ export function buildContentSecurityPolicy(nonce: string, isDev: boolean) {
 		"media-src 'self' blob: https:",
 		"font-src 'self' data:",
 		`connect-src 'self' ${connectSources().join(' ')}${isDev ? ' ws: wss:' : ''}`,
-		'frame-src https://www.youtube-nocookie.com',
+		'frame-src https://www.youtube-nocookie.com https://challenges.cloudflare.com',
 		"worker-src 'self' blob:",
 		"object-src 'none'",
 		"base-uri 'self'",

@@ -59,6 +59,7 @@
     "@hookform/resolvers": "^5.9.2",
     "@hugeicons/core-free-icons": "^3.3.0",
     "@hugeicons/react": "^1.1.10",
+    "@marsidev/react-turnstile": "1.6.3",
     "@number-flow/react": "^0.6.2",
     "@openpanel/web": "^1.4.4",
     "@radix-ui/react-direction": "^1.2.0",
