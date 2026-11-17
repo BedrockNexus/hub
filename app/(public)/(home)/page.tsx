@@ -69,7 +69,8 @@ export default async function Home() {
 					aria-hidden
 					className="chunk-edge chunk-edge-stone-deepslate"
 				/>
-				<div className="chunk-deepslate pb-8">
+				{/* Runs under the footer's ragged edge (see the public layout). */}
+				<div className="chunk-deepslate -mb-8 pb-8">
 					<PopularCreatorsSection />
 					<TrustStrip />
 					<CreatorsSection pluginsEnabled={features.pluginsEnabled} />

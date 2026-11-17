@@ -16,7 +16,10 @@ export default async function PublicLayout({
 	return (
 		<div className="flex min-h-screen flex-col pb-20 lg:pb-0">
 			<Navbar pluginsEnabled={features.pluginsEnabled} />
-			<div className="flex flex-1 flex-col">{children}</div>
+			{/* The footer's ragged top row overlaps the last 32px (footer.tsx),
+			    so content stops above it. A page whose background should run
+			    under the edge pulls it down with -mb-8 (the home page). */}
+			<div className="flex flex-1 flex-col pb-8">{children}</div>
 			<Footer
 				pluginsEnabled={features.pluginsEnabled}
 				socials={socials}
