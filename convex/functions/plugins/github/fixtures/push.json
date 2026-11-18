@@ -4,14 +4,7 @@
 	"after": "2222222222222222222222222222222222222222",
 	"installation": {
 		"id": 424242,
-		"account": {
-			"id": 10101,
-			"login": "BedrockNexus",
-			"type": "Organization",
-			"avatar_url": "https://avatars.githubusercontent.com/u/10101"
-		},
-		"repository_selection": "selected",
-		"suspended_at": null
+		"node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNDI0MjQy"
 	},
 	"repository": {
 		"id": 7001,

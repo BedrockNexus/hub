@@ -39,9 +39,20 @@ type WebhookInstallation = {
 export type NormalizedGitHubWebhook = {
 	event: string
 	action?: string
+	/** GitHub's installation ID; every App delivery carries it. */
+	installationId?: number
+	/**
+	 * The full installation. Only `installation` and
+	 * `installation_repositories` events include the account; every other
+	 * event sends just `{ id, node_id }`.
+	 */
 	installation?: WebhookInstallation
 	repository?: WebhookRepository
-	repositoriesAdded: Array<WebhookRepository>
+	/**
+	 * `installation_repositories` lists repositories with only id, name,
+	 * full_name and private, so added repositories are re-read from GitHub.
+	 */
+	repositoryIdsAdded: Array<number>
 	repositoryIdsRemoved: Array<number>
 }
 
@@ -127,18 +138,10 @@ function parseRepository(value: unknown): WebhookRepository {
 }
 
 function parseInstallation(
-	value: unknown,
+	installation: Record<string, unknown>,
+	account: Record<string, unknown>,
 	action: string | undefined,
 ): WebhookInstallation {
-	const installation = asRecord(value)
-	const account = installation ? asRecord(installation.account) : null
-
-	if (!installation || !account) {
-		throw new ConvexError({
-			code: 'INVALID_WEBHOOK_PAYLOAD',
-			message: 'The webhook installation is missing required fields.',
-		})
-	}
 
 	const accountType =
 		account.type === 'Organization' ? 'Organization' : 'User'
@@ -167,8 +170,8 @@ function parseInstallation(
 	}
 }
 
-function parseRepositoryArray(value: unknown) {
-	if (value === undefined) {
+function parseRepositoryIds(value: unknown) {
+	if (value === undefined || value === null) {
 		return []
 	}
 	if (!Array.isArray(value) || value.length > 500) {
@@ -178,7 +181,16 @@ function parseRepositoryArray(value: unknown) {
 				'Webhook repository batches must contain at most 500 entries.',
 		})
 	}
-	return value.map(parseRepository)
+	return value.map((item) => {
+		const repository = asRecord(item)
+		if (!repository) {
+			throw new ConvexError({
+				code: 'INVALID_WEBHOOK_PAYLOAD',
+				message: 'The webhook repository batch has an invalid entry.',
+			})
+		}
+		return requiredNumber(repository, 'id', 'repository')
+	})
 }
 
 export function parseGitHubWebhookPayload(
@@ -194,23 +206,28 @@ export function parseGitHubWebhookPayload(
 	}
 
 	const action = typeof body.action === 'string' ? body.action : undefined
-	const installation = body.installation
-		? parseInstallation(body.installation, action)
+	const installationRecord = asRecord(body.installation)
+	const installationId = installationRecord
+		? requiredNumber(installationRecord, 'id', 'installation')
 		: undefined
+	const account = installationRecord
+		? asRecord(installationRecord.account)
+		: null
+	const installation =
+		installationRecord && account
+			? parseInstallation(installationRecord, account, action)
+			: undefined
 	const repository = body.repository
 		? parseRepository(body.repository)
 		: undefined
-	const repositoriesAdded = parseRepositoryArray(body.repositories_added)
-	const repositoriesRemoved = parseRepositoryArray(body.repositories_removed)
 
 	return {
 		event,
 		...(action ? { action } : {}),
+		...(installationId === undefined ? {} : { installationId }),
 		...(installation ? { installation } : {}),
 		...(repository ? { repository } : {}),
-		repositoriesAdded,
-		repositoryIdsRemoved: repositoriesRemoved.map(
-			(item) => item.githubRepositoryId,
-		),
+		repositoryIdsAdded: parseRepositoryIds(body.repositories_added),
+		repositoryIdsRemoved: parseRepositoryIds(body.repositories_removed),
 	}
 }

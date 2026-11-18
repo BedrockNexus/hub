@@ -14,31 +14,17 @@
 	"repositories_added": [
 		{
 			"id": 7001,
-			"owner": { "login": "BedrockNexus" },
+			"node_id": "R_kgDOfixture7001",
 			"name": "public-plugin",
 			"full_name": "BedrockNexus/public-plugin",
-			"description": "A public fixture repository.",
-			"html_url": "https://github.com/BedrockNexus/public-plugin",
-			"default_branch": "main",
-			"language": "Java",
-			"private": false,
-			"archived": false,
-			"updated_at": "2026-07-24T12:00:00Z",
-			"pushed_at": "2026-07-24T11:00:00Z"
+			"private": false
 		},
 		{
 			"id": 7002,
-			"owner": { "login": "BedrockNexus" },
+			"node_id": "R_kgDOfixture7002",
 			"name": "private-plugin",
 			"full_name": "BedrockNexus/private-plugin",
-			"description": "A private fixture repository.",
-			"html_url": "https://github.com/BedrockNexus/private-plugin",
-			"default_branch": "main",
-			"language": "PHP",
-			"private": true,
-			"archived": false,
-			"updated_at": "2026-07-24T12:00:00Z",
-			"pushed_at": "2026-07-24T11:00:00Z"
+			"private": true
 		}
 	],
 	"repositories_removed": [],

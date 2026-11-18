@@ -37,6 +37,18 @@ async function signedWebhookRequest(
 	})
 }
 
+function repositoryEvent(
+	action: string,
+	repository: Partial<(typeof pushFixture)['repository']>,
+) {
+	return {
+		action,
+		installation: pushFixture.installation,
+		repository: { ...pushFixture.repository, ...repository },
+		sender: pushFixture.sender,
+	}
+}
+
 async function insertUser(
 	t: ReturnType<typeof createTest>,
 	label: string,
@@ -146,7 +158,7 @@ describe('GitHub webhook signatures', () => {
 })
 
 describe('GitHub webhook delivery processing', () => {
-	it('claims a fixture delivery, rejects its private repository, and detects duplicates', async () => {
+	it('claims a fixture delivery, schedules a full repository sync, and detects duplicates', async () => {
 		const t = createTest()
 		await insertClaimedFixtureInstallation(t, 'auth-webhook-fixture')
 		const firstResponse = await signedWebhookRequest(t, {
@@ -169,19 +181,10 @@ describe('GitHub webhook delivery processing', () => {
 					query.eq('deliveryId', 'fixture-installation-repositories'),
 				)
 				.unique()
-			const publicRepository = await ctx.db
-				.query('githubRepositories')
-				.withIndex('by_github_repository_id', (query) =>
-					query.eq('githubRepositoryId', 7001),
-				)
-				.unique()
-			const privateRepository = await ctx.db
-				.query('githubRepositories')
-				.withIndex('by_github_repository_id', (query) =>
-					query.eq('githubRepositoryId', 7002),
-				)
-				.unique()
-			return { delivery, publicRepository, privateRepository }
+			const scheduled = await ctx.db.system
+				.query('_scheduled_functions')
+				.take(10)
+			return { delivery, scheduled }
 		})
 
 		expect(stored.delivery).toMatchObject({
@@ -194,11 +197,16 @@ describe('GitHub webhook delivery processing', () => {
 		expect(stored.delivery).not.toHaveProperty('processedAt')
 		expect(stored.delivery).not.toHaveProperty('createdAt')
 		expect(stored.delivery).not.toHaveProperty('updatedAt')
-		expect(stored.publicRepository).toMatchObject({
-			isPrivate: false,
-			accessStatus: 'granted',
-		})
-		expect(stored.privateRepository).toBeNull()
+		// Added entries only carry id, name, full_name and private, so the
+		// installation is re-read from GitHub instead of trusted as-is.
+		expect(
+			stored.scheduled.map((job) => ({ name: job.name, args: job.args })),
+		).toEqual([
+			{
+				name: 'functions/plugins/github/actions:syncInstallationFromWebhook',
+				args: [{ installationId: 424242 }],
+			},
+		])
 
 		const duplicateResponse = await signedWebhookRequest(t, {
 			deliveryId: 'fixture-installation-repositories',
@@ -231,6 +239,95 @@ describe('GitHub webhook delivery processing', () => {
 			'processed',
 			'duplicate',
 		])
+	})
+
+	it('accepts events whose installation only carries an ID', async () => {
+		const t = createTest()
+		const installationDocumentId = await insertClaimedFixtureInstallation(
+			t,
+			'auth-push-fixture',
+		)
+		const response = await signedWebhookRequest(t, {
+			deliveryId: 'fixture-push',
+			event: 'push',
+			payload: pushFixture,
+		})
+
+		expect(response.status).toBe(202)
+		await expect(response.json()).resolves.toMatchObject({
+			status: 'processed',
+		})
+		const stored = await t.run(async (ctx) => {
+			const delivery = await ctx.db
+				.query('githubWebhookDeliveries')
+				.withIndex('by_delivery_id', (query) =>
+					query.eq('deliveryId', 'fixture-push'),
+				)
+				.unique()
+			const repository = await ctx.db
+				.query('githubRepositories')
+				.withIndex('by_github_repository_id', (query) =>
+					query.eq('githubRepositoryId', 7001),
+				)
+				.unique()
+			return { delivery, repository }
+		})
+		expect(stored.delivery).toMatchObject({
+			installationId: installationDocumentId,
+		})
+		expect(stored.repository).toMatchObject({
+			installationId: installationDocumentId,
+			fullName: 'BedrockNexus/public-plugin',
+			accessStatus: 'granted',
+		})
+	})
+
+	it('adds repositories created on an all-repositories installation', async () => {
+		const t = createTest()
+		await insertClaimedFixtureInstallation(t, 'auth-created-fixture')
+		const created = [
+			{
+				deliveryId: 'created-public',
+				repository: {
+					id: 7101,
+					name: 'new-plugin',
+					full_name: 'BedrockNexus/new-plugin',
+					private: false,
+				},
+			},
+			{
+				deliveryId: 'created-private',
+				repository: {
+					id: 7102,
+					name: 'secret-plugin',
+					full_name: 'BedrockNexus/secret-plugin',
+					private: true,
+				},
+			},
+		]
+		for (const { deliveryId, repository } of created) {
+			const response = await signedWebhookRequest(t, {
+				deliveryId,
+				event: 'repository',
+				payload: repositoryEvent('created', repository),
+			})
+			expect(response.status).toBe(202)
+		}
+
+		const stored = await t.run(async (ctx) =>
+			Promise.all(
+				[7101, 7102].map((githubRepositoryId) =>
+					ctx.db
+						.query('githubRepositories')
+						.withIndex('by_github_repository_id', (query) =>
+							query.eq('githubRepositoryId', githubRepositoryId),
+						)
+						.unique(),
+				),
+			),
+		)
+		expect(stored[0]).toMatchObject({ accessStatus: 'granted' })
+		expect(stored[1]).toBeNull()
 	})
 
 	it('allows a failed delivery ID to be claimed for a safe retry', async () => {
@@ -424,9 +521,29 @@ describe('GitHub installation ownership', () => {
 		const owner = await insertUser(t, 'repository-owner')
 		await insertClaimedFixtureInstallation(t, owner.authUserId)
 		await signedWebhookRequest(t, {
-			deliveryId: 'visibility-delivery',
-			event: 'installation_repositories',
-			payload: installationRepositoriesFixture,
+			deliveryId: 'visibility-public',
+			event: 'repository',
+			payload: repositoryEvent('created', {}),
+		})
+		// A public repository made private stays stored but is not listed.
+		await signedWebhookRequest(t, {
+			deliveryId: 'visibility-other',
+			event: 'repository',
+			payload: repositoryEvent('created', {
+				id: 7003,
+				name: 'soon-private',
+				full_name: 'BedrockNexus/soon-private',
+			}),
+		})
+		await signedWebhookRequest(t, {
+			deliveryId: 'visibility-privatized',
+			event: 'repository',
+			payload: repositoryEvent('privatized', {
+				id: 7003,
+				name: 'soon-private',
+				full_name: 'BedrockNexus/soon-private',
+				private: true,
+			}),
 		})
 
 		const installations = await owner.client.query(

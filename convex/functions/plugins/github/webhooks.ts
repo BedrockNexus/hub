@@ -13,9 +13,10 @@ import {
 const normalizedWebhookValidator = v.object({
 	event: v.string(),
 	action: v.optional(v.string()),
+	installationId: v.optional(v.number()),
 	installation: v.optional(githubInstallationInputValidator),
 	repository: v.optional(githubRepositoryInputValidator),
-	repositoriesAdded: v.array(githubRepositoryInputValidator),
+	repositoryIdsAdded: v.array(v.number()),
 	repositoryIdsRemoved: v.array(v.number()),
 })
 
@@ -275,15 +276,24 @@ export const processDelivery = internalMutation({
 				},
 			)
 			installationDocumentId = upsertedInstallationId ?? undefined
-			if (installationDocumentId) {
-				await ctx.db.patch(
-					'githubWebhookDeliveries',
-					args.webhookDeliveryId,
-					{
-						installationId: installationDocumentId,
-					},
+		} else if (args.payload.installationId !== undefined) {
+			// Non-installation events only carry the installation ID.
+			const githubInstallationId = args.payload.installationId
+			const installation = await ctx.db
+				.query('githubInstallations')
+				.withIndex('by_installation_id', (query) =>
+					query.eq('installationId', githubInstallationId),
 				)
-			}
+				.unique()
+			installationDocumentId = installation?._id
+		}
+
+		if (installationDocumentId) {
+			await ctx.db.patch(
+				'githubWebhookDeliveries',
+				args.webhookDeliveryId,
+				{ installationId: installationDocumentId },
+			)
 		}
 
 		if (
@@ -299,18 +309,18 @@ export const processDelivery = internalMutation({
 			)
 		}
 
+		// The added entries lack owner, URL and default branch, so re-read the
+		// installation's repositories from GitHub.
 		if (
 			installationDocumentId &&
-			args.payload.repositoriesAdded.length > 0
+			args.payload.installationId !== undefined &&
+			args.payload.repositoryIdsAdded.length > 0
 		) {
-			await ctx.runMutation(
-				internal.functions.plugins.github.installations
-					.syncRepositoryBatch,
-				{
-					installationDocumentId,
-					syncStartedAt: Date.now(),
-					repositories: args.payload.repositoriesAdded,
-				},
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.plugins.github.actions
+					.syncInstallationFromWebhook,
+				{ installationId: args.payload.installationId },
 			)
 		}
 
