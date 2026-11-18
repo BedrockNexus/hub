@@ -114,9 +114,20 @@ export function AddPluginFlow() {
 	const [repositoryId, setRepositoryId] =
 		useState<Id<'githubRepositories'> | null>(null)
 	const { busy, run } = useBusy()
+	// The plugin belongs to whoever owns the repository's GitHub connection,
+	// and only its owners and admins may publish from it.
 	const repositories = (
-		installations?.flatMap((installation) => installation.repositories) ??
-		[]
+		installations
+			?.filter((installation) => installation.canManage)
+			.flatMap((installation) =>
+				installation.repositories.map((repository) => ({
+					...repository,
+					ownerName:
+						installation.installation.ownerType === 'organization'
+							? installation.ownerName
+							: undefined,
+				})),
+			) ?? []
 	).filter(
 		(repository) =>
 			!repository.isPrivate && repository.accessStatus === 'granted',
@@ -124,7 +135,7 @@ export function AddPluginFlow() {
 
 	return (
 		<CreateListingShell
-			intro="Pick the repository to publish from. We fill in the name, summary and description from it, and you can change them after."
+			intro="Pick the public repository to publish from (private ones are not listed). The plugin belongs to whoever owns the repository's GitHub connection. We fill in the name, summary and description from it, and you can change them after."
 			kind="plugin"
 			showPlugins
 		>
@@ -139,6 +150,8 @@ export function AddPluginFlow() {
 						<p className="text-muted-foreground text-sm">
 							Install the BedrockNexus GitHub App and give it
 							access to the public repository you want to publish.
+							Private repositories are not listed. To publish for
+							an organization, connect GitHub from its page.
 						</p>
 					</div>
 					<a className={buttonVariants()} href="/api/github/install">
@@ -196,9 +209,14 @@ export function AddPluginFlow() {
 										type="radio"
 										value={item._id}
 									/>
-									<span className="min-w-0 truncate font-mono text-sm">
+									<span className="min-w-0 flex-1 truncate font-mono text-sm">
 										{item.fullName}
 									</span>
+									{item.ownerName ? (
+										<span className="shrink-0 text-muted-foreground text-xs">
+											{item.ownerName}
+										</span>
+									) : null}
 								</label>
 							))}
 						</div>

@@ -27,6 +27,7 @@ mutation functions/plugins/gallery:generateUploadUrl
 mutation functions/plugins/gallery:remove
 mutation functions/plugins/gallery:reorder
 mutation functions/plugins/gallery:updateCaption
+mutation functions/plugins/github/installations:transfer
 mutation functions/plugins/icons:generateUploadUrl
 mutation functions/plugins/icons:remove
 mutation functions/plugins/moderation:moderate

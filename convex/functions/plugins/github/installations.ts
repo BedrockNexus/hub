@@ -4,12 +4,18 @@ import { ConvexError, v } from 'convex/values'
 import { internal } from '../../../_generated/api'
 import type { Doc } from '../../../_generated/dataModel'
 import { internalMutation, internalQuery } from '../../../_generated/server'
-import { getUserByTokenIdentifier } from '../../../lib/plugins/access'
-import { authedQuery } from '../../../lib/functions'
+import { getUserByTokenIdentifier, isStaff } from '../../../lib/plugins/access'
+import { authedMutation, authedQuery } from '../../../lib/functions'
+import { ownerDisplayName } from '../../../lib/ownerName'
 import {
 	listOrganizationMemberships,
+	normalizeOrganizationRole,
 	requireOrganizationManager,
 } from '../../../lib/plugins/authorization'
+import {
+	moveInstallation,
+	requireOwnerManager,
+} from '../../../lib/plugins/installationOwnership'
 import { redactText } from '../../../lib/redact'
 import {
 	githubInstallationValidator,
@@ -178,15 +184,33 @@ export const claimInstallationFromCallback = internalMutation({
 			)
 			.unique()
 
+		let owner: { ownerType: 'user' | 'organization'; ownerId: string } = {
+			ownerType: intent.ownerType,
+			ownerId: intent.ownerId,
+		}
 		if (
 			existing &&
 			(existing.ownerType !== intent.ownerType ||
 				existing.ownerId !== intent.ownerId)
 		) {
-			throw new ConvexError({
-				code: 'INSTALLATION_ALREADY_CLAIMED',
-				message: 'This GitHub App installation is already connected.',
-			})
+			try {
+				await requireOwnerManager(ctx, existing, user)
+			} catch {
+				throw new ConvexError({
+					code: 'INSTALLATION_ALREADY_CLAIMED',
+					message:
+						'This GitHub account is already connected by someone else.',
+				})
+			}
+			if (intent.ownerType === 'organization') {
+				// "Connect GitHub" on an organization's page: move the account,
+				// with its plugins, to that organization (the intent's owner
+				// was checked when the intent was created).
+				await moveInstallation(ctx, existing, owner)
+			} else {
+				// Reconfiguring from the personal flow keeps the current owner.
+				owner = { ownerType: existing.ownerType, ownerId: existing.ownerId }
+			}
 		}
 
 		const installationValues = {
@@ -194,8 +218,8 @@ export const claimInstallationFromCallback = internalMutation({
 			accountLogin: args.installation.account.login,
 			accountType: args.installation.account.type,
 			accountAvatarUrl: args.installation.account.avatarUrl,
-			ownerType: intent.ownerType,
-			ownerId: intent.ownerId,
+			ownerType: owner.ownerType,
+			ownerId: owner.ownerId,
 			connectedBy: user._id,
 			repositorySelection: args.installation.repositorySelection,
 			status: args.installation.status,
@@ -574,6 +598,50 @@ export const getRepositoryAccess = internalQuery({
 const installationWithRepositoriesValidator = v.object({
 	installation: githubInstallationValidator,
 	repositories: v.array(repositoryValidator),
+	/** The person's or organization's display name. */
+	ownerName: v.optional(v.string()),
+	/** Whether the caller may publish from it and change its owner. */
+	canManage: v.boolean(),
+})
+
+/**
+ * Moves a GitHub connection, with the plugins published from it, to one of
+ * the caller's organizations, or to the caller when no organization is given.
+ * The caller must manage both the current and the new owner.
+ */
+export const transfer = authedMutation({
+	args: {
+		installationDocumentId: v.id('githubInstallations'),
+		organizationId: v.optional(v.string()),
+	},
+	returns: v.object({ movedPlugins: v.number() }),
+	handler: async (ctx, args) => {
+		const installation = await ctx.db.get(
+			'githubInstallations',
+			args.installationDocumentId,
+		)
+		if (!installation || installation.status === 'deleted') {
+			throw new ConvexError({
+				code: 'NOT_FOUND',
+				message: 'This GitHub connection no longer exists.',
+			})
+		}
+		await requireOwnerManager(ctx, installation, ctx.user)
+		if (args.organizationId) {
+			await requireOrganizationManager(
+				ctx,
+				args.organizationId,
+				ctx.user,
+			)
+		}
+		return await moveInstallation(
+			ctx,
+			installation,
+			args.organizationId
+				? { ownerType: 'organization', ownerId: args.organizationId }
+				: { ownerType: 'user', ownerId: ctx.user._id },
+		)
+	},
 })
 
 export const listMine = authedQuery({
@@ -608,12 +676,25 @@ export const listMine = authedQuery({
 				),
 			).values(),
 		]
+		const managedOrganizationIds = new Set(
+			memberships
+				.filter(
+					(membership) =>
+						normalizeOrganizationRole(membership.role) !== 'member',
+				)
+				.map((membership) => membership.organizationId),
+		)
 		const result: Array<{
 			installation: Doc<'githubInstallations'>
 			repositories: Array<Doc<'githubRepositories'>>
+			ownerName?: string
+			canManage: boolean
 		}> = []
 
 		for (const installation of installations) {
+			if (installation.status === 'deleted') {
+				continue
+			}
 			const repositories = await ctx.db
 				.query('githubRepositories')
 				.withIndex('by_installation_id_and_access_status', (query) =>
@@ -621,13 +702,24 @@ export const listMine = authedQuery({
 						.eq('installationId', installation._id)
 						.eq('accessStatus', 'granted'),
 				)
-				.take(100)
+				.take(500)
 
+			const ownerName = await ownerDisplayName(
+				ctx,
+				installation.ownerType,
+				installation.ownerId,
+			)
 			result.push({
 				installation,
 				repositories: repositories.filter(
 					(repository) => !repository.isPrivate,
 				),
+				...(ownerName ? { ownerName } : {}),
+				canManage:
+					isStaff(ctx.user) ||
+					(installation.ownerType === 'user'
+						? installation.ownerId === ctx.user._id
+						: managedOrganizationIds.has(installation.ownerId)),
 			})
 		}
 

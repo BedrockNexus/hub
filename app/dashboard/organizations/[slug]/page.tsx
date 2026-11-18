@@ -2,6 +2,8 @@
 
 import {
 	Calendar03Icon,
+	GithubIcon,
+	Package01Icon,
 	PuzzleIcon,
 	ServerStack03Icon,
 	UserMultiple02Icon,
@@ -12,7 +14,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
 	Empty,
@@ -24,7 +26,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import { useFullOrganization } from '@/hooks/use-organization'
+import { authClient } from '@/lib/auth-client'
 import { contentEditHref } from '@/lib/content-routes'
+import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 import { serverEditHref } from '@/lib/server-routes'
 
 function formatDate(date: Date) {
@@ -102,6 +106,7 @@ export default function OrganizationOverviewPage() {
 	const params = useParams()
 	const slug = params.slug as string
 	const { organization, loading, error, refetch } = useFullOrganization(slug)
+	const { data: session } = authClient.useSession()
 
 	const orgServers = useQuery(
 		api.functions.servers.servers.listByOrganization,
@@ -109,6 +114,10 @@ export default function OrganizationOverviewPage() {
 	)
 	const orgProjects = useQuery(
 		api.functions.projects.projects.listByOrganization,
+		organization?.id ? { organizationId: organization.id } : 'skip',
+	)
+	const orgPlugins = useQuery(
+		api.functions.plugins.organizations.listPlugins,
 		organization?.id ? { organizationId: organization.id } : 'skip',
 	)
 
@@ -149,6 +158,14 @@ export default function OrganizationOverviewPage() {
 		)
 	}
 
+	const myRole = organization.members.find(
+		(member) => member.userId === session?.user.id,
+	)?.role
+	// Owners and admins connect GitHub; plugins published from that
+	// connection belong to the organization.
+	const canManage = (myRole ?? '')
+		.split(',')
+		.some((role) => role.trim() === 'owner' || role.trim() === 'admin')
 	const logoUrl = (organization as { logo?: string }).logo
 	const initials = organization.name.charAt(0).toUpperCase()
 
@@ -361,6 +378,103 @@ export default function OrganizationOverviewPage() {
 								<EmptyDescription>
 									Create a project and select this
 									organization as the owner to see it here.
+								</EmptyDescription>
+							</EmptyHeader>
+						</Empty>
+					</div>
+				)}
+			</Card>
+
+			{/* Org Plugins */}
+			<Card>
+				<div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
+					<div>
+						<h2 className="font-semibold text-base">Plugins</h2>
+						<p className="text-muted-foreground text-sm">
+							Plugins published from this organization&apos;s
+							GitHub connections
+						</p>
+					</div>
+					{canManage ? (
+						<a
+							className={buttonVariants({
+								size: 'sm',
+								variant: 'outline',
+							})}
+							href={`/api/github/install?organization=${encodeURIComponent(slug)}`}
+						>
+							<HugeiconsIcon
+								className="size-4"
+								icon={GithubIcon}
+							/>
+							Connect GitHub
+						</a>
+					) : null}
+				</div>
+				{orgPlugins && orgPlugins.length > 0 ? (
+					<div className="divide-y divide-border">
+						{orgPlugins.map((plugin) => {
+							const row = (
+								<>
+									<div className="flex min-w-0 flex-1 items-center gap-3">
+										<div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted font-semibold text-muted-foreground text-sm uppercase">
+											{plugin.name.charAt(0)}
+										</div>
+										<div className="min-w-0 flex-1">
+											<p className="truncate font-medium text-sm">
+												{plugin.name}
+											</p>
+											<p className="truncate text-muted-foreground text-xs">
+												/{plugin.slug}
+											</p>
+										</div>
+									</div>
+									<Badge
+										variant={
+											plugin.status === 'published'
+												? 'default'
+												: 'secondary'
+										}
+									>
+										{getProjectStatusLabel(
+											plugin.status === 'review'
+												? 'under_review'
+												: plugin.status,
+										)}
+									</Badge>
+								</>
+							)
+							return plugin.githubRepositoryId === undefined ? (
+								<div
+									className="flex items-center justify-between gap-3 p-4"
+									key={plugin.projectId}
+								>
+									{row}
+								</div>
+							) : (
+								<Link
+									className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40"
+									href={`/dashboard/plugins/${createPluginDashboardId(plugin.githubRepositoryId)}`}
+									key={plugin.projectId}
+								>
+									{row}
+								</Link>
+							)
+						})}
+					</div>
+				) : (
+					<div className="p-6">
+						<Empty>
+							<EmptyHeader>
+								<EmptyMedia variant="icon">
+									<HugeiconsIcon icon={Package01Icon} />
+								</EmptyMedia>
+								<EmptyTitle>No plugins yet</EmptyTitle>
+								<EmptyDescription>
+									Connect the GitHub account that holds the
+									plugin&apos;s repository, or move an
+									existing connection here from the Plugins
+									dashboard.
 								</EmptyDescription>
 							</EmptyHeader>
 						</Empty>

@@ -27,9 +27,17 @@ function OrgAvatar({ name, logo }: { name: string; logo?: string | null }) {
 interface OrgSelectorProps {
 	value: string | undefined
 	onChange: (value: string | undefined) => void
+	/** The trigger's id, for its label. */
+	id?: string
+	disabled?: boolean
 }
 
-export function OrgSelector({ value, onChange }: OrgSelectorProps) {
+export function OrgSelector({
+	value,
+	onChange,
+	id = 'organizationId',
+	disabled,
+}: OrgSelectorProps) {
 	const { organizations, loading } = useListOrganizations()
 	const { data: session } = authClient.useSession()
 	const user = session?.user
@@ -39,12 +47,13 @@ export function OrgSelector({ value, onChange }: OrgSelectorProps) {
 
 	return (
 		<Select
+			disabled={disabled}
 			onValueChange={(v: string | null) =>
 				onChange(v === 'personal' || !v ? undefined : v)
 			}
 			value={value ?? 'personal'}
 		>
-			<SelectTrigger id="organizationId">
+			<SelectTrigger id={id}>
 				<SelectValue placeholder="Select owner">
 					{value && selectedOrg ? (
 						<span className="flex items-center gap-2">

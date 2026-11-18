@@ -31,6 +31,8 @@ const organizationPluginValidator = v.object({
 	summary: v.string(),
 	visibility: projectVisibilityValidator,
 	status: projectStatusValidator,
+	/** For the plugin's dashboard link; absent if the repository is gone. */
+	githubRepositoryId: v.optional(v.number()),
 })
 
 export const getMembershipAccess = authedQuery({
@@ -101,13 +103,24 @@ export const listPlugins = authedQuery({
 			)
 			.order('desc')
 			.take(250)
-		return projects.map((project) => ({
-			projectId: project._id,
-			slug: project.slug,
-			name: project.name,
-			summary: project.summary,
-			visibility: project.visibility,
-			status: project.status,
-		}))
+		return await Promise.all(
+			projects.map(async (project) => {
+				const repository = await ctx.db.get(
+					'githubRepositories',
+					project.repositoryId,
+				)
+				return {
+					projectId: project._id,
+					slug: project.slug,
+					name: project.name,
+					summary: project.summary,
+					visibility: project.visibility,
+					status: project.status,
+					...(repository
+						? { githubRepositoryId: repository.githubRepositoryId }
+						: {}),
+				}
+			}),
+		)
 	},
 })
