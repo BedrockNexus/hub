@@ -6,6 +6,7 @@ import {
 	fetchAuthQuery,
 	isAuthenticated,
 } from '@/lib/auth-server'
+import { githubConnectFailureStatus } from '@/lib/plugins/github-connect-status'
 import { absoluteUrl } from '@/lib/seo'
 
 export async function GET(request: Request) {
@@ -42,10 +43,12 @@ export async function GET(request: Request) {
 			},
 		)
 		return NextResponse.redirect(url)
-	} catch {
+	} catch (error) {
 		return NextResponse.redirect(
 			new URL(
-				absoluteUrl('/dashboard/plugins?github=configuration-error'),
+				absoluteUrl(
+					`/dashboard/plugins?github=${githubConnectFailureStatus(error, 'install-failed')}`,
+				),
 			),
 		)
 	}

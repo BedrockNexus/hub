@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createTest } from '../../test.setup'
@@ -440,80 +441,75 @@ describe('GitHub webhook delivery processing', () => {
 })
 
 describe('GitHub installation ownership', () => {
-	it('binds install state to the signed-in user', async () => {
+	it('starts an intent once and accepts a replay only after the same installation finishes', async () => {
 		const t = createTest()
 		const owner = await insertUser(t, 'owner')
 		const outsider = await insertUser(t, 'outsider')
-		const stateHash = 'secure-state-hash'
-		await t.mutation(
-			internal.functions.plugins.github.installations.createInstallIntent,
-			{
-				tokenIdentifier: owner.tokenIdentifier,
-				stateHash,
-				expiresAt: Date.now() + 60_000,
-			},
-		)
-
-		await expect(
-			t.query(
-				internal.functions.plugins.github.installations
-					.validateInstallIntent,
-				{
-					tokenIdentifier: outsider.tokenIdentifier,
-					stateHash,
-					now: Date.now(),
-				},
-			),
-		).rejects.toThrow('invalid or expired')
-		await expect(
-			t.query(
-				internal.functions.plugins.github.installations
-					.validateInstallIntent,
-				{
-					tokenIdentifier: owner.tokenIdentifier,
-					stateHash,
-					now: Date.now(),
-				},
-			),
-		).resolves.toMatchObject({
-			createdBy: owner.authUserId,
-			status: 'pending',
+		const installs = internal.functions.plugins.github.installations
+		const callback = {
+			state: 'single-use-state',
+			code: 'already-exchanged-code',
+			installationId: 424242,
+		}
+		const complete = api.functions.plugins.github.actions.completeInstallation
+		const args = {
+			tokenIdentifier: owner.tokenIdentifier,
+			stateHash: createHash('sha256').update(callback.state).digest('hex'),
+			installationId: callback.installationId,
+		}
+		const intentId = await t.mutation(installs.createInstallIntent, {
+			tokenIdentifier: args.tokenIdentifier,
+			stateHash: args.stateHash,
+			expiresAt: Date.now() + 60_000,
 		})
-	})
+		await expect(
+			t.mutation(installs.beginInstallIntent, {
+				...args,
+				tokenIdentifier: outsider.tokenIdentifier,
+			}),
+		).rejects.toThrow('invalid')
+		await expect(
+			t.mutation(installs.beginInstallIntent, args),
+		).resolves.toEqual({ intentId })
+		await expect(
+			owner.client.action(complete, callback),
+		).rejects.toThrow('being verified')
+		await expect(
+			t.mutation(installs.beginInstallIntent, {
+				...args,
+				installationId: 1,
+			}),
+		).rejects.toThrow('invalid')
 
-	it('allows an installation state to begin only once', async () => {
-		const t = createTest()
-		const owner = await insertUser(t, 'single-use-owner')
-		const stateHash = 'single-use-state-hash'
-		await t.mutation(
-			internal.functions.plugins.github.installations.createInstallIntent,
-			{
-				tokenIdentifier: owner.tokenIdentifier,
-				stateHash,
-				expiresAt: Date.now() + 60_000,
-			},
+		const installationDocumentId = await insertClaimedFixtureInstallation(
+			t,
+			owner.authUserId,
 		)
-
+		await t.mutation(installs.finishInstallationSync, {
+			intentId,
+			installationDocumentId,
+			syncStartedAt: Date.now(),
+		})
 		await expect(
-			t.mutation(
-				internal.functions.plugins.github.installations
-					.beginInstallIntent,
-				{
-					tokenIdentifier: owner.tokenIdentifier,
-					stateHash,
-				},
-			),
-		).resolves.toMatchObject({ intentId: expect.any(String) })
+			owner.client.action(complete, callback),
+		).resolves.toMatchObject({
+			installationId: callback.installationId,
+			accountLogin: 'BedrockNexus',
+		})
 		await expect(
-			t.mutation(
-				internal.functions.plugins.github.installations
-					.beginInstallIntent,
-				{
-					tokenIdentifier: owner.tokenIdentifier,
-					stateHash,
-				},
-			),
-		).rejects.toThrow('already used')
+			t.mutation(installs.beginInstallIntent, {
+				...args,
+				installationId: 1,
+			}),
+		).rejects.toThrow('invalid')
+		await t.run((ctx) =>
+			ctx.db.patch('githubInstallations', installationDocumentId, {
+				status: 'deleted',
+			}),
+		)
+		await expect(
+			t.mutation(installs.beginInstallIntent, args),
+		).rejects.toThrow('no longer active')
 	})
 
 	it('never lists private repositories to the connected developer', async () => {

@@ -2,6 +2,7 @@
 
 import {
 	Add01Icon,
+	Alert02Icon,
 	CheckmarkCircle02Icon,
 	GithubIcon,
 	Package01Icon,
@@ -31,13 +32,21 @@ import { creatorListingState } from '@/lib/creator-listing-state'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 import { cn } from '@/lib/utils'
 
+const statusIcons = { connected: CheckmarkCircle02Icon, processing: GithubIcon }
+
 const statusMessages = {
+	processing:
+		'GitHub installation is in progress. Check your connected repositories in a moment.',
 	connected:
 		'The GitHub App is connected and its public repositories are synchronized.',
 	'configuration-error': 'The GitHub App credentials are not configured yet.',
 	'invalid-callback': 'GitHub returned an incomplete installation callback.',
 	'connection-failed':
 		'The installation could not be verified. Start the GitHub flow again.',
+	'install-failed':
+		'The GitHub connection could not be started. Try again in a moment.',
+	'rate-limited':
+		'Too many GitHub connection attempts. Wait a few minutes, then try again.',
 } as const
 
 export function PluginManager({
@@ -154,7 +163,7 @@ export function PluginManager({
 		(project) => creatorListingState(project).published,
 	)
 	const status =
-		params.github && params.github in statusMessages
+		params.github && Object.hasOwn(statusMessages, params.github)
 			? statusMessages[params.github as keyof typeof statusMessages]
 			: null
 
@@ -176,8 +185,17 @@ export function PluginManager({
 			{status ? (
 				<div className="flex items-start gap-3 rounded-md border bg-card p-4 text-sm">
 					<HugeiconsIcon
-						className="mt-0.5 size-5 shrink-0 text-primary"
-						icon={CheckmarkCircle02Icon}
+						className={cn('mt-0.5 size-5 shrink-0', {
+							'text-primary': github === 'connected',
+							'text-muted-foreground': github === 'processing',
+							'text-destructive':
+								github !== 'connected' &&
+								github !== 'processing',
+						})}
+						icon={
+							statusIcons[github as keyof typeof statusIcons] ??
+							Alert02Icon
+						}
 					/>
 					<p>
 						{status}

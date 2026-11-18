@@ -361,18 +361,27 @@ export const completeInstallation = action({
 		installationId: v.number(),
 	},
 	returns: syncResultValidator,
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<typeof syncResultValidator.type> => {
 		const identity = await ctx.auth.getUserIdentity()
 		const tokenIdentifier = requireIdentityTokenIdentifier(identity)
-		await enforceRateLimit(ctx, 'githubInstall', tokenIdentifier)
 		const stateHash = sha256(args.state)
 		const intent = await ctx.runMutation(
 			internal.functions.plugins.github.installations.beginInstallIntent,
 			{
 				tokenIdentifier,
 				stateHash,
+				installationId: args.installationId,
 			},
 		)
+		if (intent.accountLogin !== undefined) {
+			return {
+				installationId: args.installationId,
+				accountLogin: intent.accountLogin,
+				grantedRepositories: 0,
+				rejectedPrivateRepositories: 0,
+				removedRepositories: 0,
+			}
+		}
 
 		try {
 			const userAccessToken = await exchangeUserCode(args.code)

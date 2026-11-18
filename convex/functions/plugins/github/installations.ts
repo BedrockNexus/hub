@@ -50,62 +50,15 @@ export const createInstallIntent = internalMutation({
 	},
 })
 
-export const validateInstallIntent = internalQuery({
-	args: {
-		tokenIdentifier: v.string(),
-		stateHash: v.string(),
-		now: v.number(),
-	},
-	returns: v.object({
-		intentId: v.id('githubInstallIntents'),
-		createdBy: v.string(),
-		status: v.union(
-			v.literal('pending'),
-			v.literal('processing'),
-			v.literal('completed'),
-			v.literal('failed'),
-		),
-		installationId: v.optional(v.number()),
-	}),
-	handler: async (ctx, args) => {
-		const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier)
-		const intent = await ctx.db
-			.query('githubInstallIntents')
-			.withIndex('by_state_hash', (query) =>
-				query.eq('stateHash', args.stateHash),
-			)
-			.unique()
-
-		if (
-			!intent ||
-			intent.createdBy !== user._id ||
-			intent.expiresAt < args.now
-		) {
-			throw new ConvexError({
-				code: 'INVALID_INSTALL_STATE',
-				message:
-					'The GitHub App installation state is invalid or expired.',
-			})
-		}
-
-		return {
-			intentId: intent._id,
-			createdBy: user._id,
-			status: intent.status,
-			...(intent.installationId
-				? { installationId: intent.installationId }
-				: {}),
-		}
-	},
-})
-
 export const beginInstallIntent = internalMutation({
 	args: {
 		tokenIdentifier: v.string(),
 		stateHash: v.string(),
+		installationId: v.number(),
 	},
 	returns: v.object({
 		intentId: v.id('githubInstallIntents'),
+		accountLogin: v.optional(v.string()),
 	}),
 	handler: async (ctx, args) => {
 		const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier)
@@ -121,7 +74,9 @@ export const beginInstallIntent = internalMutation({
 			!intent ||
 			intent.createdBy !== user._id ||
 			intent.expiresAt < now ||
-			intent.status !== 'pending'
+			intent.status === 'failed' ||
+			(intent.installationId !== undefined &&
+				intent.installationId !== args.installationId)
 		) {
 			throw new ConvexError({
 				code: 'INVALID_INSTALL_STATE',
@@ -130,8 +85,40 @@ export const beginInstallIntent = internalMutation({
 			})
 		}
 
+		if (intent.status === 'processing') {
+			throw new ConvexError({
+				code: 'INSTALL_IN_PROGRESS',
+				message: 'This GitHub installation is being verified.',
+			})
+		}
+		if (intent.status === 'completed') {
+			const installation = await ctx.db
+				.query('githubInstallations')
+				.withIndex('by_installation_id', (query) =>
+					query.eq('installationId', args.installationId),
+				)
+				.unique()
+			if (
+				intent.installationId !== args.installationId ||
+				!installation ||
+				installation.status !== 'active' ||
+				installation.ownerType !== intent.ownerType ||
+				installation.ownerId !== intent.ownerId
+			) {
+				throw new ConvexError({
+					code: 'INVALID_INSTALL_STATE',
+					message: 'This GitHub connection is no longer active.',
+				})
+			}
+			return {
+				intentId: intent._id,
+				accountLogin: installation.accountLogin,
+			}
+		}
+
 		await ctx.db.patch('githubInstallIntents', intent._id, {
 			status: 'processing',
+			installationId: args.installationId,
 			updatedAt: now,
 		})
 
@@ -164,7 +151,9 @@ export const claimInstallationFromCallback = internalMutation({
 			!intent ||
 			intent.createdBy !== user._id ||
 			intent.expiresAt < now ||
-			intent.status !== 'processing'
+			intent.status !== 'processing' ||
+			(intent.installationId !== undefined &&
+				intent.installationId !== args.installation.installationId)
 		) {
 			throw new ConvexError({
 				code: 'INVALID_INSTALL_STATE',

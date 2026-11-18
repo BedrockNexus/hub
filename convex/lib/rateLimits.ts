@@ -99,8 +99,8 @@ const limits = {
 	// Plugin registry (functions/plugins). Per user unless noted.
 	// Per hashed client address and plugin.
 	pluginDownload: { kind: 'token bucket', rate: 30, period: MINUTE, capacity: 10 },
-	// GitHub App installation URLs and callbacks.
-	githubInstall: { kind: 'token bucket', rate: 10, period: HOUR, capacity: 5 },
+	// GitHub App installation starts. Completing the single-use intent consumes no additional token.
+	githubInstall: { kind: 'token bucket', rate: 20, period: HOUR, capacity: 10 },
 	// Read-heavy GitHub API work: repository analysis and state refreshes.
 	githubRead: { kind: 'token bucket', rate: 120, period: HOUR, capacity: 20 },
 	// Commits the managed workflow to a repository.

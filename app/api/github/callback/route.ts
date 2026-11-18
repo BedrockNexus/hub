@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { api } from '@/convex/_generated/api'
 import { logEvent } from '@/convex/lib/redact'
 import { fetchAuthAction, isAuthenticated } from '@/lib/auth-server'
+import { githubConnectFailureStatus } from '@/lib/plugins/github-connect-status'
 import { absoluteUrl } from '@/lib/seo'
 
 export async function GET(request: Request) {
@@ -46,9 +47,12 @@ export async function GET(request: Request) {
 		destination.searchParams.set('account', result.accountLogin)
 		return NextResponse.redirect(destination)
 	} catch (error) {
-		logEvent('error', 'github_install_callback_failed', { error })
+		const status = githubConnectFailureStatus(error, 'connection-failed')
+		if (status !== 'processing') {
+			logEvent('error', 'github_install_callback_failed', { error })
+		}
 		return NextResponse.redirect(
-			new URL(absoluteUrl('/dashboard/plugins?github=connection-failed')),
+			new URL(absoluteUrl(`/dashboard/plugins?github=${status}`)),
 		)
 	}
 }
