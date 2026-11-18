@@ -26,7 +26,6 @@ import {
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { DashboardTableSkeleton } from '@/components/user-dashboard/dashboard-table-skeleton'
-import { GitHubConnections } from '@/components/user-dashboard/plugins/github-connections'
 import { api } from '@/convex/_generated/api'
 import { creatorListingState } from '@/lib/creator-listing-state'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
@@ -265,8 +264,6 @@ export function PluginManager({
 					</a>
 				</div>
 			)}
-
-			<GitHubConnections connections={installations} />
 		</DashboardPageShell>
 	)
 }

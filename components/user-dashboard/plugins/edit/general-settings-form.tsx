@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { CategoryMultiSelect } from '@/components/user-dashboard/fields/category-multi-select'
+import { OwnerField } from '@/components/user-dashboard/fields/owner-field'
 import {
 	errorMessage,
 	type PluginForEdit,
@@ -59,6 +60,13 @@ function GeneralForm({ plugin }: { plugin: PluginForEdit }) {
 	const saveCategories = useMutation(
 		api.functions.plugins.publishing.model.saveCategories,
 	)
+	const setOwner = useMutation(
+		api.functions.plugins.publishing.model.setOwner,
+	)
+	const savedOwner =
+		draft.ownerType === 'organization' ? draft.ownerId : undefined
+	const [organizationId, setOrganizationId] = useState(savedOwner)
+	const ownerDirty = organizationId !== savedOwner
 	const categories = useQuery(api.functions.plugins.categories.list, {})
 	const savedCategoryIds = draft.categoryIds ?? []
 	const [categoryIds, setCategoryIds] =
@@ -75,7 +83,7 @@ function GeneralForm({ plugin }: { plugin: PluginForEdit }) {
 		values.name !== draft.name ||
 		values.slug !== draft.slug ||
 		values.summary !== draft.summary
-	const isDirty = detailsDirty || categoriesDirty
+	const isDirty = detailsDirty || categoriesDirty || ownerDirty
 	useUnsavedChangesWarning(isDirty && !isSubmitting)
 
 	const update = (field: keyof typeof values, value: string) =>
@@ -97,6 +105,7 @@ function GeneralForm({ plugin }: { plugin: PluginForEdit }) {
 							summary: draft.summary,
 						})
 						setCategoryIds(savedCategoryIds)
+						setOrganizationId(savedOwner)
 						setError(null)
 					}}
 				/>
@@ -126,6 +135,12 @@ function GeneralForm({ plugin }: { plugin: PluginForEdit }) {
 						await saveCategories({
 							draftId: draft._id,
 							categoryIds,
+						})
+					}
+					if (ownerDirty) {
+						await setOwner({
+							draftId: draft._id,
+							...(organizationId ? { organizationId } : {}),
 						})
 					}
 					toast.success('General settings saved!')
@@ -191,6 +206,11 @@ function GeneralForm({ plugin }: { plugin: PluginForEdit }) {
 						value={values.summary}
 					/>
 				</Field>
+				<OwnerField
+					description="An organization's owners and admins can manage its plugins. Builds and releases keep going through the GitHub connection this plugin was started from."
+					onChange={setOrganizationId}
+					value={organizationId}
+				/>
 				{error ? <FieldError>{error}</FieldError> : null}
 			</SettingsCard>
 			<SettingsCard id="categories" title="Discovery">

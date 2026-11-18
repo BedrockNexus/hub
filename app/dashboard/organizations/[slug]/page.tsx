@@ -2,7 +2,6 @@
 
 import {
 	Calendar03Icon,
-	GithubIcon,
 	Package01Icon,
 	PuzzleIcon,
 	ServerStack03Icon,
@@ -14,7 +13,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
 	Empty,
@@ -26,7 +25,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/convex/_generated/api'
 import { useFullOrganization } from '@/hooks/use-organization'
-import { authClient } from '@/lib/auth-client'
 import { contentEditHref } from '@/lib/content-routes'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 import { serverEditHref } from '@/lib/server-routes'
@@ -106,7 +104,6 @@ export default function OrganizationOverviewPage() {
 	const params = useParams()
 	const slug = params.slug as string
 	const { organization, loading, error, refetch } = useFullOrganization(slug)
-	const { data: session } = authClient.useSession()
 
 	const orgServers = useQuery(
 		api.functions.servers.servers.listByOrganization,
@@ -158,14 +155,6 @@ export default function OrganizationOverviewPage() {
 		)
 	}
 
-	const myRole = organization.members.find(
-		(member) => member.userId === session?.user.id,
-	)?.role
-	// Owners and admins connect GitHub; plugins published from that
-	// connection belong to the organization.
-	const canManage = (myRole ?? '')
-		.split(',')
-		.some((role) => role.trim() === 'owner' || role.trim() === 'admin')
 	const logoUrl = (organization as { logo?: string }).logo
 	const initials = organization.name.charAt(0).toUpperCase()
 
@@ -387,29 +376,11 @@ export default function OrganizationOverviewPage() {
 
 			{/* Org Plugins */}
 			<Card>
-				<div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
-					<div>
-						<h2 className="font-semibold text-base">Plugins</h2>
-						<p className="text-muted-foreground text-sm">
-							Plugins published from this organization&apos;s
-							GitHub connections
-						</p>
-					</div>
-					{canManage ? (
-						<a
-							className={buttonVariants({
-								size: 'sm',
-								variant: 'outline',
-							})}
-							href={`/api/github/install?organization=${encodeURIComponent(slug)}`}
-						>
-							<HugeiconsIcon
-								className="size-4"
-								icon={GithubIcon}
-							/>
-							Connect GitHub
-						</a>
-					) : null}
+				<div className="border-b p-5">
+					<h2 className="font-semibold text-base">Plugins</h2>
+					<p className="text-muted-foreground text-sm">
+						Plugins owned by this organization
+					</p>
 				</div>
 				{orgPlugins && orgPlugins.length > 0 ? (
 					<div className="divide-y divide-border">
@@ -471,10 +442,9 @@ export default function OrganizationOverviewPage() {
 								</EmptyMedia>
 								<EmptyTitle>No plugins yet</EmptyTitle>
 								<EmptyDescription>
-									Connect the GitHub account that holds the
-									plugin&apos;s repository, or move an
-									existing connection here from the Plugins
-									dashboard.
+									Add a plugin and select this organization as
+									the owner, or change the owner in a
+									plugin&apos;s settings.
 								</EmptyDescription>
 							</EmptyHeader>
 						</Empty>

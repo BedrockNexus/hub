@@ -284,7 +284,11 @@ async function proposeWorkflowPullRequest(
  * detected; the developer edits all of it next.
  */
 export const startFromRepository = action({
-	args: { repositoryId: v.id('githubRepositories') },
+	args: {
+		repositoryId: v.id('githubRepositories'),
+		/** Publish for this organization; the caller when omitted. */
+		organizationId: v.optional(v.string()),
+	},
 	returns: v.id('pluginPublishingDrafts'),
 	handler: async (ctx, args): Promise<Id<'pluginPublishingDrafts'>> => {
 		const tokenIdentifier = await requireTokenIdentifier(ctx)
@@ -337,6 +341,9 @@ export const startFromRepository = action({
 			{
 				tokenIdentifier,
 				repositoryId: args.repositoryId,
+				...(args.organizationId
+					? { organizationId: args.organizationId }
+					: {}),
 				name: name.slice(0, 80),
 				slug: slugifyProjectName(name),
 				summary,

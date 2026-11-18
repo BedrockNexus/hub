@@ -113,6 +113,42 @@ export async function requireOwnedDraft(
 	return draft
 }
 
+/**
+ * The plugin's repository and its GitHub connection, while the GitHub App can
+ * still reach it. Whoever manages the plugin acts through the connection it
+ * was started from, which may belong to someone else (functions/plugins/
+ * publishing/model:setOwner).
+ */
+async function requireEligibleRepository(
+	ctx: QueryCtx | MutationCtx,
+	repositoryId: Id<'githubRepositories'>,
+) {
+	const repository = await ctx.db.get('githubRepositories', repositoryId)
+	if (
+		!repository ||
+		repository.isPrivate ||
+		repository.accessStatus !== 'granted'
+	) {
+		throw new ConvexError({
+			code: 'REPOSITORY_INELIGIBLE',
+			message:
+				'The GitHub App can no longer reach this public repository. Reconnect it on GitHub.',
+		})
+	}
+	const installation = await ctx.db.get(
+		'githubInstallations',
+		repository.installationId,
+	)
+	if (!installation || installation.status !== 'active') {
+		throw new ConvexError({
+			code: 'REPOSITORY_INELIGIBLE',
+			message:
+				'The GitHub connection for this repository is no longer active.',
+		})
+	}
+	return { repository, installation }
+}
+
 /** The repository and its installation, when the user manages them. */
 async function requireManagedRepository(
 	ctx: QueryCtx | MutationCtx,
@@ -245,6 +281,7 @@ export const createDraft = internalMutation({
 	args: {
 		tokenIdentifier: v.string(),
 		repositoryId: v.id('githubRepositories'),
+		organizationId: v.optional(v.string()),
 		name: v.string(),
 		slug: v.string(),
 		summary: v.string(),
@@ -254,11 +291,10 @@ export const createDraft = internalMutation({
 	returns: v.id('pluginPublishingDrafts'),
 	handler: async (ctx, args) => {
 		const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier)
-		const { installation } = await requireManagedRepository(
-			ctx,
-			args.repositoryId,
-			user,
-		)
+		await requireManagedRepository(ctx, args.repositoryId, user)
+		if (args.organizationId) {
+			await requireOrganizationManager(ctx, args.organizationId, user)
+		}
 		const existing = await ctx.db
 			.query('pluginPublishingDrafts')
 			.withIndex('by_repository_id', (query) =>
@@ -271,8 +307,8 @@ export const createDraft = internalMutation({
 		}
 		const now = Date.now()
 		return await ctx.db.insert('pluginPublishingDrafts', {
-			ownerType: installation.ownerType,
-			ownerId: installation.ownerId,
+			ownerType: args.organizationId ? 'organization' : 'user',
+			ownerId: args.organizationId ?? user._id,
 			createdBy: user._id,
 			repositoryId: args.repositoryId,
 			projectType: 'plugin',
@@ -286,6 +322,52 @@ export const createDraft = internalMutation({
 			createdAt: now,
 			updatedAt: now,
 		})
+	},
+})
+
+/**
+ * Moves a plugin to one of the caller's organizations, or to the caller when
+ * no organization is given. The caller must manage the plugin and the new
+ * owner. The plugin keeps building and releasing through the GitHub
+ * connection it was started from.
+ */
+export const setOwner = authedMutation({
+	args: {
+		draftId: v.id('pluginPublishingDrafts'),
+		organizationId: v.optional(v.string()),
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
+		if (args.organizationId) {
+			await requireOrganizationManager(
+				ctx,
+				args.organizationId,
+				ctx.user,
+			)
+		}
+		const owner = args.organizationId
+			? { ownerType: 'organization' as const, ownerId: args.organizationId }
+			: { ownerType: 'user' as const, ownerId: ctx.user._id }
+		if (
+			draft.ownerType === owner.ownerType &&
+			draft.ownerId === owner.ownerId
+		) {
+			return null
+		}
+		const now = Date.now()
+		await ctx.db.patch('pluginPublishingDrafts', draft._id, {
+			...owner,
+			updatedAt: now,
+		})
+		const project = draft.projectId
+			? await ctx.db.get('plugins', draft.projectId)
+			: null
+		if (project) {
+			// Owner counts, creator listings and organization history.
+			await patchProject(ctx, project, { ...owner, updatedAt: now })
+		}
+		return null
 	},
 })
 
@@ -657,10 +739,9 @@ export const getActionContext = internalQuery({
 	handler: async (ctx, args) => {
 		const user = await getUserByTokenIdentifier(ctx, args.tokenIdentifier)
 		const draft = await requireOwnedDraft(ctx, args.draftId, user)
-		const { repository, installation } = await requireManagedRepository(
+		const { repository, installation } = await requireEligibleRepository(
 			ctx,
 			draft.repositoryId,
-			user,
 		)
 		return {
 			draft,
@@ -1021,7 +1102,7 @@ export const submitRelease = authedMutation({
 				message: 'This plugin cannot currently be published.',
 			})
 		}
-		await requireManagedRepository(ctx, draft.repositoryId, ctx.user)
+		await requireEligibleRepository(ctx, draft.repositoryId)
 		if (await activeReleaseFor(ctx, project._id)) {
 			throw new ConvexError({
 				code: 'ALREADY_IN_REVIEW',

@@ -33,6 +33,7 @@ import {
 	CreateListingFooter,
 	CreateListingShell,
 } from '@/components/user-dashboard/create/create-listing-shell'
+import { OwnerField } from '@/components/user-dashboard/fields/owner-field'
 import { PluginReviewNotice } from '@/components/user-dashboard/plugins/edit/plugin-edit-data'
 import { SettingsSection } from '@/components/user-dashboard/settings-section'
 import { api } from '@/convex/_generated/api'
@@ -113,21 +114,14 @@ export function AddPluginFlow() {
 	)
 	const [repositoryId, setRepositoryId] =
 		useState<Id<'githubRepositories'> | null>(null)
+	const [organizationId, setOrganizationId] = useState<string>()
 	const { busy, run } = useBusy()
-	// The plugin belongs to whoever owns the repository's GitHub connection,
-	// and only its owners and admins may publish from it.
+	// Only the GitHub connection's owner (or its organization's owners and
+	// admins) may start plugins from its repositories.
 	const repositories = (
 		installations
 			?.filter((installation) => installation.canManage)
-			.flatMap((installation) =>
-				installation.repositories.map((repository) => ({
-					...repository,
-					ownerName:
-						installation.installation.ownerType === 'organization'
-							? installation.ownerName
-							: undefined,
-				})),
-			) ?? []
+			.flatMap((installation) => installation.repositories) ?? []
 	).filter(
 		(repository) =>
 			!repository.isPrivate && repository.accessStatus === 'granted',
@@ -135,7 +129,7 @@ export function AddPluginFlow() {
 
 	return (
 		<CreateListingShell
-			intro="Pick the public repository to publish from (private ones are not listed). The plugin belongs to whoever owns the repository's GitHub connection. We fill in the name, summary and description from it, and you can change them after."
+			intro="Pick the public repository to publish from (private ones are not listed). We fill in the name, summary and description from it, and you can change them after."
 			kind="plugin"
 			showPlugins
 		>
@@ -150,8 +144,7 @@ export function AddPluginFlow() {
 						<p className="text-muted-foreground text-sm">
 							Install the BedrockNexus GitHub App and give it
 							access to the public repository you want to publish.
-							Private repositories are not listed. To publish for
-							an organization, connect GitHub from its page.
+							Private repositories are not listed.
 						</p>
 					</div>
 					<a className={buttonVariants()} href="/api/github/install">
@@ -173,6 +166,7 @@ export function AddPluginFlow() {
 						void run('start', async () => {
 							await startFromRepository({
 								repositoryId: repository._id,
+								...(organizationId ? { organizationId } : {}),
 							})
 							router.push(
 								`/dashboard/plugins/${createPluginDashboardId(repository.githubRepositoryId)}/workflow` as Route,
@@ -209,18 +203,19 @@ export function AddPluginFlow() {
 										type="radio"
 										value={item._id}
 									/>
-									<span className="min-w-0 flex-1 truncate font-mono text-sm">
+									<span className="min-w-0 truncate font-mono text-sm">
 										{item.fullName}
 									</span>
-									{item.ownerName ? (
-										<span className="shrink-0 text-muted-foreground text-xs">
-											{item.ownerName}
-										</span>
-									) : null}
 								</label>
 							))}
 						</div>
 					</fieldset>
+
+					<OwnerField
+						description="Publish for yourself or for an organization you manage. You can change this later in the plugin's settings."
+						onChange={setOrganizationId}
+						value={organizationId}
+					/>
 
 					<CreateListingFooter note="Next: pick a build workflow, then the rest of the listing.">
 						<Link

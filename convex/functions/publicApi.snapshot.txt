@@ -27,7 +27,6 @@ mutation functions/plugins/gallery:generateUploadUrl
 mutation functions/plugins/gallery:remove
 mutation functions/plugins/gallery:reorder
 mutation functions/plugins/gallery:updateCaption
-mutation functions/plugins/github/installations:transfer
 mutation functions/plugins/icons:generateUploadUrl
 mutation functions/plugins/icons:remove
 mutation functions/plugins/moderation:moderate
@@ -41,6 +40,7 @@ mutation functions/plugins/publishing/model:saveLicense
 mutation functions/plugins/publishing/model:saveLinks
 mutation functions/plugins/publishing/model:saveMetadata
 mutation functions/plugins/publishing/model:selectWorkflow
+mutation functions/plugins/publishing/model:setOwner
 mutation functions/plugins/publishing/model:submitRelease
 mutation functions/plugins/reviews:remove
 mutation functions/plugins/reviews:upsert
