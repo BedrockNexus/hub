@@ -13,7 +13,7 @@ import type { FunctionReturnType } from 'convex/server'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { MarkdownEditor } from '@/components/editor/markdown-editor'
 import { Badge } from '@/components/ui/badge'
@@ -96,6 +96,72 @@ function useBusy() {
 	return { busy, run }
 }
 
+type GitHubConnections = FunctionReturnType<
+	typeof api.functions.plugins.github.installations.listMine
+>
+
+// A connection's repository list is re-read from GitHub when it is older.
+const STALE_CONNECTION_MS = 10 * 60 * 1000
+
+/**
+ * Keeps the repository list current without reinstalling the GitHub App:
+ * stale connections are re-read when the form opens, and `refresh` re-reads
+ * them all. Webhooks keep them current in between.
+ */
+function useConnectionRefresh(connections: GitHubConnections | undefined) {
+	const refreshInstallation = useAction(
+		api.functions.plugins.github.actions.refreshInstallation,
+	)
+	const [refreshing, setRefreshing] = useState(false)
+	const refreshedOnOpen = useRef(false)
+
+	const refresh = useCallback(
+		async (onlyStale: boolean) => {
+			const now = Date.now()
+			const targets = (connections ?? []).filter(
+				({ canManage, installation }) =>
+					canManage &&
+					installation.status === 'active' &&
+					!(
+						onlyStale &&
+						(installation.lastSyncAt ?? 0) >
+							now - STALE_CONNECTION_MS
+					),
+			)
+			if (targets.length === 0) {
+				return []
+			}
+			setRefreshing(true)
+			try {
+				const results = await Promise.allSettled(
+					targets.map(({ installation }) =>
+						refreshInstallation({
+							installationDocumentId: installation._id,
+						}),
+					),
+				)
+				return results.flatMap((result) =>
+					result.status === 'rejected' ? [result.reason] : [],
+				)
+			} finally {
+				setRefreshing(false)
+			}
+		},
+		[connections, refreshInstallation],
+	)
+
+	useEffect(() => {
+		if (connections === undefined || refreshedOnOpen.current) {
+			return
+		}
+		refreshedOnOpen.current = true
+		// In the background: on failure the stored list stays.
+		refresh(true).catch(() => undefined)
+	}, [connections, refresh])
+
+	return { refreshing, refresh }
+}
+
 /**
  * Creating a plugin: pick a public repository the GitHub App can read. The
  * draft's name, summary and description are filled in from the repository
@@ -116,6 +182,28 @@ export function AddPluginFlow() {
 		useState<Id<'githubRepositories'> | null>(null)
 	const [organizationId, setOrganizationId] = useState<string>()
 	const { busy, run } = useBusy()
+	const { refreshing, refresh } = useConnectionRefresh(installations)
+	const refreshButton = (
+		<Button
+			disabled={refreshing}
+			onClick={async () => {
+				const failures = await refresh(false)
+				if (failures.length > 0) {
+					toast.error(errorMessage(failures[0]))
+				} else {
+					toast.success('Repositories are up to date.')
+				}
+			}}
+			size="sm"
+			type="button"
+			variant="ghost"
+		>
+			<HugeiconsIcon className="size-4" icon={RefreshIcon} />
+			{refreshing ? 'Checking GitHub...' : 'Refresh'}
+		</Button>
+	)
+	const hasConnections =
+		installations?.some((connection) => connection.canManage) ?? false
 	// Only the GitHub connection's owner (or its organization's owners and
 	// admins) may start plugins from its repositories.
 	const repositories = (
@@ -137,6 +225,10 @@ export function AddPluginFlow() {
 				<p className="text-muted-foreground text-sm" role="status">
 					Loading repositories...
 				</p>
+			) : repositories.length === 0 && refreshing ? (
+				<p className="text-muted-foreground text-sm" role="status">
+					Checking GitHub for your repositories...
+				</p>
 			) : repositories.length === 0 ? (
 				<div className="flex flex-col items-start gap-4 rounded-lg border bg-card p-5">
 					<div className="space-y-1">
@@ -147,10 +239,19 @@ export function AddPluginFlow() {
 							Private repositories are not listed.
 						</p>
 					</div>
-					<a className={buttonVariants()} href="/api/github/install">
-						<HugeiconsIcon className="size-4" icon={GithubIcon} />
-						Install GitHub App
-					</a>
+					<div className="flex flex-wrap items-center gap-2">
+						<a
+							className={buttonVariants()}
+							href="/api/github/install"
+						>
+							<HugeiconsIcon
+								className="size-4"
+								icon={GithubIcon}
+							/>
+							Install GitHub App
+						</a>
+						{hasConnections ? refreshButton : null}
+					</div>
 				</div>
 			) : (
 				<form
@@ -179,12 +280,15 @@ export function AddPluginFlow() {
 							<legend className="font-medium text-sm">
 								Repository
 							</legend>
-							<a
-								className="text-primary text-sm hover:underline"
-								href="/api/github/install"
-							>
-								Add another repository
-							</a>
+							<div className="flex items-center gap-3">
+								{refreshButton}
+								<a
+									className="text-primary text-sm hover:underline"
+									href="/api/github/install"
+								>
+									Add another repository
+								</a>
+							</div>
 						</div>
 						<div className="overflow-hidden rounded-lg border bg-card">
 							{repositories.map((item) => (

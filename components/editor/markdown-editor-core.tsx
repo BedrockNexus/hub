@@ -205,11 +205,7 @@ const editorTheme = EditorView.theme({
 		padding: '0.75rem',
 	},
 	'.cm-placeholder': { color: 'var(--muted-foreground)' },
-	'.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-		backgroundColor: 'color-mix(in oklab, var(--primary) 35%, transparent)',
-	},
 	'&.cm-focused': { outline: 'none' },
-	'.cm-cursor': { borderLeftColor: 'var(--foreground)' },
 })
 
 // --- Component ----------------------------------------------------------------
@@ -538,6 +534,10 @@ export function MarkdownEditorCore({
 						highlightActiveLine: false,
 						highlightActiveLineGutter: false,
 						autocompletion: false,
+						// The browser's own selection and caret, as everywhere
+						// else on the site, instead of CodeMirror's drawn ones.
+						drawSelection: false,
+						highlightSelectionMatches: false,
 					}}
 					editable={!disabled}
 					extensions={extensions}
