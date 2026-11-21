@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import Image from 'next/image'
 import { type FormEvent, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -35,7 +35,7 @@ export function OrganizationPublicProfileForm({
 	const generateUploadUrl = useMutation(
 		api.functions.site.organizations.generateBannerUploadUrl,
 	)
-	const syncMetadata = useMutation(api.lib.r2.syncMetadata)
+	const syncMetadata = useAction(api.lib.r2.syncMetadataNow)
 	const formRef = useRef<HTMLFormElement>(null)
 	const [pending, setPending] = useState(false)
 	const [bannerKey, setBannerKey] = useState<string | undefined>()

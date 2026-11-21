@@ -15,6 +15,7 @@ action   functions/servers/verification:generateCode
 action   functions/servers/verification:verifyOwnership
 action   functions/site/organizations:confirmLogoUpload
 action   functions/site/users:confirmAvatarUpload
+action   lib/r2:syncMetadataNow
 mutation functions/moderation/work:claim
 mutation functions/moderation/work:markRead
 mutation functions/plugins/categories:create

@@ -8,7 +8,7 @@ import {
 	useSession,
 	useUpdateUser,
 } from '@better-auth-ui/react'
-import { useMutation, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import Image from 'next/image'
 import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
@@ -146,7 +146,7 @@ export function ProfileSettingsForm() {
 	const generateUploadUrl = useMutation(
 		api.functions.site.users.generateProfileBannerUploadUrl,
 	)
-	const syncMetadata = useMutation(api.lib.r2.syncMetadata)
+	const syncMetadata = useAction(api.lib.r2.syncMetadataNow)
 
 	// Changing it re-mounts the fields, which puts back the saved values.
 	const [resetKey, setResetKey] = useState(0)

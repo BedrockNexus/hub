@@ -2,7 +2,7 @@
 
 import { Cancel01Icon, Upload03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation } from 'convex/react'
+import { useAction, useMutation } from 'convex/react'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -84,7 +84,7 @@ export function IconUpload({
 	const generateUploadUrl = useMutation(
 		api.functions.storage.generateImageUploadUrl,
 	)
-	const syncMetadata = useMutation(api.lib.r2.syncMetadata)
+	const syncMetadata = useAction(api.lib.r2.syncMetadataNow)
 
 	const onUpload: NonNullable<FileUploadProps['onUpload']> = useCallback(
 		async (uploadedFiles, { onProgress }) => {

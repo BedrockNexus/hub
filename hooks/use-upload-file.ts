@@ -1,4 +1,4 @@
-import { useMutation } from 'convex/react'
+import { useAction, useMutation } from 'convex/react'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -59,7 +59,7 @@ export function useUploadFile({
 	const generateUploadUrl = useMutation(
 		api.functions.storage.generateEditorMediaUploadUrl,
 	)
-	const syncMetadata = useMutation(api.lib.r2.syncMetadata)
+	const syncMetadata = useAction(api.lib.r2.syncMetadataNow)
 
 	const uploadFile = useCallback(
 		async (file: File) => {

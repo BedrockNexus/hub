@@ -7,7 +7,7 @@ import {
 	Upload03Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import Image from 'next/image'
 import type React from 'react'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
@@ -310,7 +310,7 @@ export function AdminSettingsManager() {
 	const generateSiteImageUploadUrl = useMutation(
 		api.functions.site.settings.generateSiteImageUploadUrl,
 	)
-	const syncR2Metadata = useMutation(api.lib.r2.syncMetadata)
+	const syncR2Metadata = useAction(api.lib.r2.syncMetadataNow)
 
 	const [seoDraft, setSeoDraft] = useState<SeoDraft>(DEFAULT_SEO_DRAFT)
 	const [socialsDraft, setSocialsDraft] = useState<SocialsDraft>(

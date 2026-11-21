@@ -10,7 +10,7 @@ import {
 	Upload03Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMutation, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import Image from 'next/image'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -135,7 +135,7 @@ export function GalleryManager({ kind, entityId }: GalleryManagerProps) {
 	)
 	const removePluginImage = useMutation(api.functions.plugins.gallery.remove)
 	const pluginDraftId = entityId as Id<'pluginPublishingDrafts'>
-	const syncMetadata = useMutation(api.lib.r2.syncMetadata)
+	const syncMetadata = useAction(api.lib.r2.syncMetadataNow)
 
 	const onUpload: NonNullable<FileUploadProps['onUpload']> = async (
 		uploadedFiles,

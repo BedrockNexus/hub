@@ -1,6 +1,8 @@
 import { R2 } from '@convex-dev/r2'
+import { v } from 'convex/values'
 import { components } from '../_generated/api'
 import type { DataModel } from '../_generated/dataModel'
+import { action } from '../_generated/server'
 import { authComponent } from '../auth'
 
 const sharedR2Config = {
@@ -70,8 +72,28 @@ export async function syncUploadObjectMetadata(ctx: unknown, key: string) {
 }
 
 /**
- * Client-callable mutations for R2 uploads.
- * `syncMetadata` is called by the client after a direct PUT upload completes.
+ * Stores an uploaded object's size and type, and returns once they are saved.
+ * Call it after a direct PUT upload, before the mutation that attaches the
+ * file: that mutation validates the stored metadata. The `syncMetadata`
+ * mutation below only schedules the same work, so a mutation sent right after
+ * it can run first and reject a valid image (gallery uploads, 2026-11-20).
+ */
+export const syncMetadataNow = action({
+	args: { key: v.string() },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const user = await authComponent.getAuthUser(ctx)
+		if (!user) {
+			throw new Error('You must be logged in to upload files')
+		}
+		await cdnR2.syncMetadata(ctx, args.key)
+		return null
+	},
+})
+
+/**
+ * Client-callable mutations for R2 uploads. Kept for pages loaded before
+ * `syncMetadataNow`; new code should not call `syncMetadata`.
  */
 export const { syncMetadata } = cdnR2.clientApi<DataModel>({
 	checkUpload: async (ctx) => {
