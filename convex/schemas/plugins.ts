@@ -112,7 +112,7 @@ const draftFields = {
 	licenseCustom: v.optional(v.string()),
 	// CDN URL of the plugin's icon (functions/plugins/icons.ts).
 	iconUrl: v.optional(v.string()),
-	// Chosen in the dashboard (publishing/model:saveCategories); reviewed with the next release.
+	// Chosen in the dashboard (publishing/model:saveCategories); reviewed with the next listing update or release.
 	categoryIds: v.optional(v.array(v.id('pluginCategories'))),
 	// Links shown on the plugin page (functions/plugins/publishing/model:saveLinks).
 	// Source code is always the repository; issues default to its issue tracker.
@@ -624,7 +624,7 @@ export const tables = {
 	// One per user and plugin (functions/plugins/reviews.ts). Deleting a review
 	// deactivates it; plugins.ratingAverage/ratingCount follow the active ones.
 	// Screenshots on the plugin page (functions/plugins/gallery.ts), managed
-	// from the dashboard and reviewed with the next release.
+	// from the dashboard and reviewed with the next listing update or release.
 	pluginGallery: defineTable({
 		pluginId: v.id('plugins'),
 		ownerId: v.string(),

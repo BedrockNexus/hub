@@ -81,6 +81,22 @@ export function snapshot(item: object, changes: object = {}): string {
 		),
 	)
 }
+/**
+ * Plugin edits are saved on the publishing draft, so a published plugin has
+ * unsent changes when the draft's listing details differ from the live
+ * plugin's. Gallery edits stage the live gallery and set `draftChangesJson`
+ * (lib/submissionGallery), which counts as well.
+ */
+export function hasPluginDraftChanges(
+	draft: object | null | undefined,
+	plugin: { draftChangesJson?: string; publishedGalleryJson?: string },
+): boolean {
+	return (
+		!!plugin.draftChangesJson ||
+		!!plugin.publishedGalleryJson ||
+		(!!draft && snapshot(draft) !== snapshot(plugin))
+	)
+}
 export function snapshotPatch<T extends object>(
 	item: T,
 	json: string,

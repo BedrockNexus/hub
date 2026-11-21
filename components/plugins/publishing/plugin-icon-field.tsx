@@ -41,7 +41,7 @@ export function PluginIconField({
 	name: string
 	iconUrl?: string
 	disabled?: boolean
-	/** A published plugin shows a new icon once its next version is approved. */
+	/** A published plugin shows a new icon once a moderator approves the change. */
 	published?: boolean
 }) {
 	const uploadIcon = usePluginIconUpload()
@@ -106,7 +106,7 @@ export function PluginIconField({
 				<p className="text-muted-foreground text-xs">
 					Square PNG, JPG, WebP or GIF, up to 1 MB.
 					{published
-						? ' Shown publicly once your next version is approved.'
+						? ' Shown publicly once a moderator approves your changes.'
 						: ''}
 				</p>
 			</div>

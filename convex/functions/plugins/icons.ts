@@ -25,7 +25,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 /**
  * Plugin icons live in the public R2 bucket under the plugin's draft:
  * generateUploadUrl, a direct PUT from the browser, then confirmUpload checks
- * the file and saves its CDN URL. The icon is staged with the next submitted release.
+ * the file and saves its CDN URL. A published plugin's icon is staged until a moderator approves a listing update or release.
  */
 
 // The browser resizes icons to 256px before uploading; this is generous.

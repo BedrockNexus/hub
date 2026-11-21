@@ -4,6 +4,7 @@ import { recordSubmission } from '../../../lib/moderationHistory'
 import {
 	assertReviewRevision,
 	decisionFields,
+	hasPluginDraftChanges,
 	moderationReason,
 	snapshot,
 	snapshotPatch,
@@ -189,7 +190,7 @@ async function requireManagedRepository(
 	return { repository, installation }
 }
 
-async function activeReleaseFor(
+export async function activeReleaseFor(
 	ctx: QueryCtx | MutationCtx,
 	projectId: Id<'plugins'>,
 ) {
@@ -207,12 +208,27 @@ async function activeReleaseFor(
 	return null
 }
 
+/**
+ * A plugin is under review while a release is in flight or a submission
+ * (a release or a listing update, see submitListingChanges) awaits a decision.
+ */
+async function isUnderReview(
+	ctx: QueryCtx | MutationCtx,
+	projectId: Id<'plugins'>,
+) {
+	const project = await ctx.db.get('plugins', projectId)
+	return (
+		project?.submissionStatus === 'pending' ||
+		Boolean(await activeReleaseFor(ctx, projectId))
+	)
+}
+
 export async function assertNotUnderReview(
 	ctx: QueryCtx | MutationCtx,
 	draft: Doc<'pluginPublishingDrafts'>,
 	message: string,
 ) {
-	if (draft.projectId && (await activeReleaseFor(ctx, draft.projectId))) {
+	if (draft.projectId && (await isUnderReview(ctx, draft.projectId))) {
 		throw new ConvexError({ code: 'PUBLISHING_DRAFT_LOCKED', message })
 	}
 }
@@ -389,8 +405,8 @@ export const saveMetadata = authedMutation({
 			...metadata,
 			updatedAt: now,
 		})
-		// A published plugin keeps its public details until the next version
-		// is approved, so moderators see every change before it goes live.
+		// A published plugin keeps its public details until a moderator approves
+		// a listing update or version, so every change is seen before it goes live.
 		const project = draft.projectId
 			? await ctx.db.get('plugins', draft.projectId)
 			: null
@@ -414,7 +430,7 @@ const linkArgs = {
 }
 
 /**
- * Links are reviewed with the next release.
+ * Links are reviewed with the next listing update or release.
  */
 export const saveLinks = authedMutation({
 	args: { draftId: v.id('pluginPublishingDrafts'), ...linkArgs },
@@ -471,7 +487,7 @@ const LICENSE_CUSTOM_MAX = 2000
 
 /**
  * The license shown on the plugin page. It starts as the repository's license
- * on GitHub; changes are reviewed with the next release.
+ * on GitHub; changes are reviewed with the next listing update or release.
  */
 export const saveLicense = authedMutation({
 	args: {
@@ -525,7 +541,7 @@ export const saveLicense = authedMutation({
 // Like Modrinth: a few categories, so each one means something.
 const MAX_CATEGORIES = 3
 
-/** The plugin's categories are reviewed with the next release. */
+/** The plugin's categories are reviewed with the next listing update or release. */
 export const saveCategories = authedMutation({
 	args: {
 		draftId: v.id('pluginPublishingDrafts'),
@@ -1218,6 +1234,107 @@ export const submitRelease = authedMutation({
 		return releaseId
 	},
 })
+
+/**
+ * Sends a published plugin's saved listing details (icon, name, summary,
+ * description, license, categories, links and gallery) to review without a
+ * new version, like add-on and server updates. The live listing stays as it
+ * is until a moderator approves (moderation:moderate); the submitted details
+ * are kept in `draftChangesJson` and the draft is locked meanwhile.
+ */
+export const submitListingChanges = authedMutation({
+	args: { draftId: v.id('pluginPublishingDrafts') },
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		await enforceRateLimit(ctx, 'publishingSubmit', ctx.user._id)
+		const draft = await requireOwnedDraft(ctx, args.draftId, ctx.user)
+		const project = draft.projectId
+			? await ctx.db.get('plugins', draft.projectId)
+			: null
+		if (
+			!project ||
+			project.status !== 'published' ||
+			project.visibility !== 'public' ||
+			!project.publishedAt
+		) {
+			throw new ConvexError({
+				code: 'PUBLICATION_NOT_READY',
+				message:
+					'Only a public plugin can send listing updates. Submit a version for review first.',
+			})
+		}
+		if (
+			project.moderationStatus === 'rejected' ||
+			project.moderationStatus === 'flagged'
+		) {
+			throw new ConvexError({
+				code: 'PUBLICATION_BLOCKED',
+				message: 'This plugin cannot currently be updated.',
+			})
+		}
+		await assertNotUnderReview(
+			ctx,
+			draft,
+			'This plugin is already awaiting review.',
+		)
+		if (!hasPluginDraftChanges(draft, project)) {
+			throw new ConvexError({
+				code: 'NO_CHANGES',
+				message: 'There are no saved changes to submit.',
+			})
+		}
+		const metadata = validatedMetadata(draft)
+		await assertSlugAvailable(ctx, metadata.slug, project._id)
+		const now = Date.now()
+		const revision = (project.submissionRevision ?? 0) + 1
+		await recordSubmission(ctx, {
+			content: project,
+			details: draft,
+			actorId: ctx.user._id,
+			revision,
+		})
+		await ctx.db.patch('plugins', project._id, {
+			draftChangesJson: snapshot(draft),
+			submissionStatus: 'pending',
+			submissionReason: undefined,
+			submittedAt: now,
+			submissionRevision: revision,
+			updatedAt: now,
+		})
+		return null
+	},
+})
+
+/**
+ * Applies an approved listing update (submitListingChanges) to a published
+ * plugin: the submitted details and the staged gallery go live, and the icon
+ * they replace is deleted.
+ */
+export async function approveListingChanges(
+	ctx: MutationCtx,
+	project: Doc<'plugins'>,
+) {
+	const draft = await ctx.db
+		.query('pluginPublishingDrafts')
+		.withIndex('by_project_id', (q) => q.eq('projectId', project._id))
+		.first()
+	const reviewed = project.draftChangesJson
+		? snapshotPatch(project, project.draftChangesJson)
+		: {}
+	const next = { ...project, ...reviewed }
+	if (next.slug !== project.slug) {
+		await assertSlugAvailable(ctx, next.slug, project._id)
+	}
+	if (draft && project.iconUrl && project.iconUrl !== next.iconUrl) {
+		await deleteIcon(ctx, draft._id, project.iconUrl)
+	}
+	return {
+		...reviewed,
+		searchText: pluginSearchText(next),
+		draftChangesJson: undefined,
+		publishedGalleryJson: undefined,
+	}
+}
 
 const releaseActionContextValidator = v.object({
 	release: v.object({
@@ -2196,13 +2313,11 @@ export const getMine = authedQuery({
 						slug: project.slug,
 						moderationStatus: project.moderationStatus,
 						submissionStatus: project.submissionStatus,
-						hasDraftChanges: !!project.draftChangesJson,
+						hasDraftChanges: hasPluginDraftChanges(draft, project),
 					}
 				: null,
 			softwareName: software?.name,
-			locked: project
-				? Boolean(await activeReleaseFor(ctx, project._id))
-				: false,
+			locked: project ? await isUnderReview(ctx, project._id) : false,
 			moderationNote:
 				project?.submissionReason ??
 				project?.moderationReason ??

@@ -18,7 +18,7 @@ import { enforceRateLimit } from '../../lib/rateLimits'
 import { requireOwnedDraft } from './publishing/model'
 
 /**
- * Screenshots on a plugin's page, managed from its dashboard. Gallery changes are staged until the next submitted release is approved. The
+ * Screenshots on a plugin's page, managed from its dashboard. Gallery changes are staged until a moderator approves a listing update or release. The
  * dashboard addresses the plugin by its draft, which carries ownership.
  */
 

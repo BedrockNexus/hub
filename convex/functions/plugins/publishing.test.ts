@@ -1043,7 +1043,16 @@ describe('plugin icons and links', () => {
 			),
 			'1.0.0',
 		)
+		const hasDraftChanges = async () =>
+			(
+				await foundation.developer.client.query(
+					api.functions.plugins.publishing.model.getMine,
+					{ draftId: foundation.draftId },
+				)
+			).project?.hasDraftChanges
+		expect(await hasDraftChanges()).toBe(false)
 		await setIcon('https://cdn.example.com/second.webp')
+		expect(await hasDraftChanges()).toBe(true)
 		expect(await icons()).toEqual({
 			draft: 'https://cdn.example.com/second.webp',
 			plugin: 'https://cdn.example.com/first.webp',
@@ -1066,6 +1075,7 @@ describe('plugin icons and links', () => {
 		expect((await icons()).plugin).toBe(
 			'https://cdn.example.com/second.webp',
 		)
+		expect(await hasDraftChanges()).toBe(false)
 
 		await foundation.developer.client.mutation(
 			api.functions.plugins.icons.remove,
@@ -2174,16 +2184,19 @@ it('provides creator review states on owned plugin lists and settings without ex
 	const t = createTest()
 	const f = await createFoundation(t, POCKETMINE)
 	const stranger = await insertUser(t, 'dashboard-stranger', 'user')
-	await t.run((ctx) =>
-		ctx.db.patch(f.projectId, {
+	await t.run(async (ctx) => {
+		await ctx.db.patch(f.projectId, {
 			submissionStatus: 'changes_requested',
 			submissionReason: 'Add installation instructions.',
 			moderationStatus: 'approved',
 			status: 'published',
 			visibility: 'public',
-			draftChangesJson: JSON.stringify({ name: 'Private draft name' }),
-		}),
-	)
+		})
+		// Plugin edits are saved on the draft, never on the live plugin.
+		await ctx.db.patch(f.draftId, {
+			iconUrl: 'https://cdn.example.com/new-icon.png',
+		})
+	})
 	const mine = await f.developer.client.query(
 		api.functions.plugins.projects.listMine,
 		{},
@@ -2221,4 +2234,167 @@ it('provides creator review states on owned plugin lists and settings without ex
 	})
 	expect(publicPage).not.toHaveProperty('submissionReason')
 	expect(publicPage).not.toHaveProperty('draftChangesJson')
+})
+
+describe('plugin listing updates without a version', () => {
+	const setIcon = (
+		t: TestClient,
+		f: Awaited<ReturnType<typeof createFoundation>>,
+		iconUrl: string,
+	) =>
+		t.mutation(internal.functions.plugins.icons.setIcon, {
+			tokenIdentifier: f.developer.tokenIdentifier,
+			draftId: f.draftId,
+			iconUrl,
+		})
+	const publishFirstVersion = async (
+		t: TestClient,
+		f: Awaited<ReturnType<typeof createFoundation>>,
+		run: number,
+	) => {
+		await setIcon(t, f, 'https://cdn.example.com/first.webp')
+		await approveAndPublish(
+			t,
+			f,
+			await sendToReview(t, f, await recordBuild(t, f, run), '1.0.0'),
+			'1.0.0',
+		)
+	}
+
+	it('sends a new icon and links to review and publishes them on approval', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		await publishFirstVersion(t, f, 89401)
+		const submit = () =>
+			f.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitListingChanges,
+				{ draftId: f.draftId },
+			)
+		await expect(submit()).rejects.toThrow(/no saved changes/)
+
+		await setIcon(t, f, 'https://cdn.example.com/second.webp')
+		await f.developer.client.mutation(
+			api.functions.plugins.publishing.model.saveLinks,
+			{ draftId: f.draftId, wikiUrl: 'https://wiki.example.com' },
+		)
+		await submit()
+
+		const pending = await t.run((ctx) => ctx.db.get('plugins', f.projectId))
+		expect(pending).toMatchObject({
+			status: 'published',
+			visibility: 'public',
+			submissionStatus: 'pending',
+			iconUrl: 'https://cdn.example.com/first.webp',
+		})
+		const queue = await f.moderator.client.query(
+			api.functions.moderation.work.queue,
+			{},
+		)
+		expect(queue.rows).toEqual([
+			expect.objectContaining({
+				id: f.projectId,
+				type: 'plugin',
+				isUpdate: true,
+			}),
+		])
+		const review = await f.moderator.client.query(
+			api.functions.plugins.projects.getAdminReview,
+			{ id: f.projectId },
+		)
+		expect(review?.draft?.iconUrl).toBe('https://cdn.example.com/second.webp')
+		// The draft is locked while the update waits for a decision.
+		await expect(
+			setIcon(t, f, 'https://cdn.example.com/third.webp'),
+		).rejects.toThrow(/awaiting review/)
+		expect(
+			(
+				await f.developer.client.query(
+					api.functions.plugins.publishing.model.getMine,
+					{ draftId: f.draftId },
+				)
+			).locked,
+		).toBe(true)
+
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.moderation.moderate,
+			{ id: f.projectId, action: 'approve' },
+		)
+		const page = await t.query(api.functions.plugins.catalog.getProject, {
+			slug: f.slug,
+		})
+		expect(page?.project.iconUrl).toBe('https://cdn.example.com/second.webp')
+		expect(page?.links).toMatchObject({ wiki: 'https://wiki.example.com' })
+		expect(page?.versions.map((version) => version.version)).toEqual([
+			'1.0.0',
+		])
+		const approved = await t.run((ctx) => ctx.db.get('plugins', f.projectId))
+		expect(approved).toMatchObject({
+			status: 'published',
+			visibility: 'public',
+			moderationStatus: 'approved',
+			submissionStatus: 'approved',
+		})
+		expect(approved?.draftChangesJson).toBeUndefined()
+		const mine = await f.developer.client.query(
+			api.functions.plugins.publishing.model.getMine,
+			{ draftId: f.draftId },
+		)
+		expect(mine.locked).toBe(false)
+		expect(mine.project?.hasDraftChanges).toBe(false)
+	})
+
+	it('keeps the live listing when a moderator sends an update back', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		await publishFirstVersion(t, f, 89501)
+		await setIcon(t, f, 'https://cdn.example.com/second.webp')
+		await f.developer.client.mutation(
+			api.functions.plugins.publishing.model.submitListingChanges,
+			{ draftId: f.draftId },
+		)
+		await reviewMutation(
+			t,
+			f.moderator.client,
+			api.functions.plugins.moderation.moderate,
+			{
+				id: f.projectId,
+				action: 'changes',
+				reason: 'Use a square icon.',
+			},
+		)
+		expect(
+			await t.run((ctx) => ctx.db.get('plugins', f.projectId)),
+		).toMatchObject({
+			status: 'published',
+			visibility: 'public',
+			moderationStatus: 'approved',
+			submissionStatus: 'changes_requested',
+			submissionReason: 'Use a square icon.',
+			iconUrl: 'https://cdn.example.com/first.webp',
+		})
+		// The creator can fix the icon and send the update again.
+		await setIcon(t, f, 'https://cdn.example.com/square.webp')
+		await f.developer.client.mutation(
+			api.functions.plugins.publishing.model.submitListingChanges,
+			{ draftId: f.draftId },
+		)
+		expect(
+			(await t.run((ctx) => ctx.db.get('plugins', f.projectId)))
+				?.submissionStatus,
+		).toBe('pending')
+	})
+
+	it('only accepts listing updates for a public plugin', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		await setIcon(t, f, 'https://cdn.example.com/first.webp')
+		await expect(
+			f.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitListingChanges,
+				{ draftId: f.draftId },
+			),
+		).rejects.toThrow(/Only a public plugin/)
+	})
 })

@@ -216,7 +216,7 @@ function GeneralForm({ plugin }: { plugin: PluginForEdit }) {
 			<SettingsCard id="categories" title="Discovery">
 				<CategoryMultiSelect
 					categories={categories}
-					description={`Pick up to ${MAX_CATEGORIES}. Changes go live with your next approved version.`}
+					description={`Pick up to ${MAX_CATEGORIES}. Changes go live once a moderator approves them.`}
 					disabled={plugin.locked || isSubmitting}
 					max={MAX_CATEGORIES}
 					onChange={setCategoryIds}

@@ -6,7 +6,11 @@ import { recordAdminAction } from '../../lib/audit'
 import { replaceProjectAggregates } from '../../lib/plugins/aggregates'
 import { getActiveOrganizationMembership } from '../../lib/plugins/authorization'
 import { enforceRateLimit } from '../../lib/plugins/rateLimits'
-import { approvePluginReview } from './publishing/model'
+import {
+	activeReleaseFor,
+	approveListingChanges,
+	approvePluginReview,
+} from './publishing/model'
 
 export const moderate = moderatorMutation({
 	args: {
@@ -63,6 +67,7 @@ export const moderate = moderatorMutation({
 			moderationReason: reason,
 		}
 		let pendingRelease: Doc<'pluginReleases'> | null = null
+		let listingUpdate = false
 		if (args.action === 'approve') {
 			const version = project.latestVersionId
 				? await ctx.db.get('pluginVersions', project.latestVersionId)
@@ -75,11 +80,19 @@ export const moderate = moderatorMutation({
 						)
 						.first()
 				: null
+			const hasPublishedFile =
+				version?.status === 'published' &&
+				publishedRelease?.status === 'published' &&
+				Boolean(publishedRelease.cdnKey)
+			// A listing update sent without a version (submitListingChanges).
+			listingUpdate =
+				project.submissionStatus === 'pending' &&
+				project.status === 'published' &&
+				hasPublishedFile &&
+				!(await activeReleaseFor(ctx, project._id))
 			if (
-				project.submissionStatus === 'pending' ||
-				version?.status !== 'published' ||
-				publishedRelease?.status !== 'published' ||
-				!publishedRelease.cdnKey
+				!listingUpdate &&
+				(project.submissionStatus === 'pending' || !hasPublishedFile)
 			) {
 				pendingRelease = await ctx.db
 					.query('pluginReleases')
@@ -122,6 +135,12 @@ export const moderate = moderatorMutation({
 				patch.publishedAt = project.publishedAt ?? now
 				patch.submissionRevision = (project.submissionRevision ?? 0) + 1
 			}
+			if (listingUpdate)
+				Object.assign(
+					patch,
+					await approveListingChanges(ctx, project),
+					decisionFields(project, 'approved'),
+				)
 		} else if (args.action === 'flag' || args.action === 'reject') {
 			patch.status = 'review'
 			patch.visibility = 'hidden'

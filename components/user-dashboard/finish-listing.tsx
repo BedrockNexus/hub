@@ -18,6 +18,7 @@ import { contentEditHref } from '@/lib/content-routes'
 import { creatorListingState } from '@/lib/creator-listing-state'
 import { createPluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 import { pluginSubmissionChecklist } from '@/lib/plugins/plugin-submission'
+import { projectMetadataSchema } from '@/lib/plugins/publishing/metadata'
 import { projectSubmissionChecklist } from '@/lib/project-submission'
 import { serverReference } from '@/lib/server-routes'
 import { serverSubmissionChecklist } from '@/lib/server-submission'
@@ -233,7 +234,11 @@ export function ServerChecklist({
 	)
 }
 
-/** Plugins are submitted by sending a build, so Submit leads to Versions. */
+/**
+ * A first plugin submission is a build, so Submit leads to Versions. Once the
+ * plugin is public, saved listing changes are sent on their own, like add-on
+ * and server updates (or go live with the next approved version).
+ */
 export function PluginChecklist({
 	draftId,
 	variant,
@@ -251,6 +256,9 @@ export function PluginChecklist({
 	const gallery = useQuery(
 		api.functions.plugins.gallery.listMine,
 		auth.isAuthenticated ? { draftId } : 'skip',
+	)
+	const submitListingChanges = useMutation(
+		api.functions.plugins.publishing.model.submitListingChanges,
 	)
 	if (!plugin || gallery === undefined) {
 		return null
@@ -302,15 +310,31 @@ export function PluginChecklist({
 		if (!state.hasDraftChanges) {
 			return null
 		}
+		const submit = async () => {
+			try {
+				await submitListingChanges({ draftId })
+				toast.success(`${plugin.draft.name} submitted for review`)
+			} catch (error) {
+				toast.error(
+					userFacingError(error, 'Could not submit for review'),
+				)
+			}
+		}
 		return (
 			<ChangesPanel
 				actions={
-					<>
-						{chooseBuild('Choose a build to submit')}
-						{preview}
-					</>
+					<SubmitActions
+						label="Submit updates"
+						onSubmit={submit}
+						previewHref={`${base}/review`}
+						ready={
+							projectMetadataSchema.safeParse(plugin.draft)
+								.success
+						}
+						variant={variant}
+					/>
 				}
-				message="Saved changes go live with your next approved version."
+				message="Your listing stays public. Saved changes stay private until a moderator approves them."
 				variant={variant}
 			/>
 		)

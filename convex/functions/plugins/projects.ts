@@ -1,5 +1,5 @@
 import { submissionStatus } from '../../schemas/submissions'
-import { snapshotPatch } from '../../lib/submissions'
+import { hasPluginDraftChanges, snapshotPatch } from '../../lib/submissions'
 import { moderationStatus } from '../../schemas/projects'
 import { resolvePluginReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
@@ -79,7 +79,7 @@ async function hydrateDashboardProject(
 	project: Doc<'plugins'>,
 	currentUser: AppUser,
 ) {
-	const [organization, repository, software, latestVersion] =
+	const [organization, repository, software, latestVersion, draft] =
 		await Promise.all([
 			project.ownerType === 'organization'
 				? getOrganizationById(ctx, project.ownerId)
@@ -89,6 +89,12 @@ async function hydrateDashboardProject(
 			project.latestVersionId
 				? ctx.db.get('pluginVersions', project.latestVersionId)
 				: null,
+			ctx.db
+				.query('pluginPublishingDrafts')
+				.withIndex('by_project_id', (q) =>
+					q.eq('projectId', project._id),
+				)
+				.first(),
 		])
 
 	return {
@@ -102,7 +108,7 @@ async function hydrateDashboardProject(
 		submissionStatus: project.submissionStatus,
 		submissionReason: project.submissionReason,
 		moderationReason: project.moderationReason,
-		hasDraftChanges: !!project.draftChangesJson,
+		hasDraftChanges: hasPluginDraftChanges(draft, project),
 		updatedAt: project.updatedAt,
 		owner:
 			project.ownerType === 'organization' && organization
@@ -396,11 +402,17 @@ export const getAdminReview = moderatorQuery({
 		const submitted = releases.find((release) =>
 			['preparing', 'inReview', 'publishing'].includes(release.status),
 		)
+		// A listing update sent without a version keeps its details on the plugin.
+		const submittedDetailsJson =
+			submitted?.submittedDetailsJson ??
+			(project.submissionStatus === 'pending'
+				? project.draftChangesJson
+				: undefined)
 		const reviewedDraft =
-			draft && submitted?.submittedDetailsJson
+			draft && submittedDetailsJson
 				? {
 						...draft,
-						...snapshotPatch(draft, submitted.submittedDetailsJson),
+						...snapshotPatch(draft, submittedDetailsJson),
 					}
 				: draft
 		const categories = (

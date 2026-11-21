@@ -42,6 +42,7 @@ mutation functions/plugins/publishing/model:saveLinks
 mutation functions/plugins/publishing/model:saveMetadata
 mutation functions/plugins/publishing/model:selectWorkflow
 mutation functions/plugins/publishing/model:setOwner
+mutation functions/plugins/publishing/model:submitListingChanges
 mutation functions/plugins/publishing/model:submitRelease
 mutation functions/plugins/reviews:remove
 mutation functions/plugins/reviews:upsert
