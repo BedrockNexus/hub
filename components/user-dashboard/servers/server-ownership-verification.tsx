@@ -233,14 +233,32 @@ export function ServerOwnershipVerification({
 						</div>
 					</div>
 				) : (
-					<p className="text-muted-foreground text-sm">
-						2. Save or reload your server configuration so the
-						updated MOTD is visible at{' '}
-						<span className="font-medium text-foreground">
-							{ipAddress}:{port}
-						</span>
-						.
-					</p>
+					<div className="space-y-2">
+						<p className="text-muted-foreground text-sm">
+							2. Save or reload your server configuration so the
+							updated MOTD is visible at{' '}
+							<span className="font-medium text-foreground">
+								{ipAddress}:{port}
+							</span>
+							.
+						</p>
+						<p className="text-muted-foreground text-sm">
+							On Bedrock Dedicated Server, add the token to{' '}
+							<code className="font-mono text-foreground">
+								server-name
+							</code>{' '}
+							in{' '}
+							<code className="font-mono text-foreground">
+								server.properties
+							</code>{' '}
+							and restart the server. Do not change{' '}
+							<code className="font-mono text-foreground">
+								level-name
+							</code>
+							: it is your world folder, and changing it loads a
+							new world.
+						</p>
+					</div>
 				)}
 
 				<div className="pt-2">
