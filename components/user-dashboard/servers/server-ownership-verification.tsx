@@ -25,7 +25,10 @@ export interface VerifiedServerTarget {
 	port: number
 }
 
-const VERIFICATION_PREFIX = 'bedrocknexus-verify='
+const DNS_TOKEN_PREFIX = 'bedrocknexus-verify='
+// No "=" for the MOTD: Bedrock Dedicated Server cuts a server.properties value
+// at the next "=", so the DNS form never reaches its server-name.
+const MOTD_TOKEN_PREFIX = 'bedrocknexus-verify-'
 
 function copyToClipboard(text: string) {
 	navigator.clipboard.writeText(text)
@@ -155,7 +158,7 @@ export function ServerOwnershipVerification({
 		return <Skeleton className="h-64 w-full rounded-md" />
 	}
 
-	const token = `${VERIFICATION_PREFIX}${code}`
+	const token = `${method === 'dns_txt' ? DNS_TOKEN_PREFIX : MOTD_TOKEN_PREFIX}${code}`
 
 	return (
 		<div className="space-y-4 rounded-md border bg-muted/50 p-6">
