@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 import { internal } from '../_generated/api'
 import { internalMutation } from '../_generated/server'
 import { recordEditorMediaReferences } from '../lib/editorMedia'
+import { readServerDescription } from '../lib/serverDescriptions'
 import { EDITOR_MEDIA_BACKFILL_SETTING } from './storage'
 
 const BATCH_SIZE = 100
@@ -37,7 +38,12 @@ export const backfillEditorMediaReferences = internalMutation({
 				.query('servers')
 				.paginate({ cursor, numItems: BATCH_SIZE })
 			for (const server of page.page) {
-				await recordEditorMediaReferences(ctx, 'servers', server._id, server.description)
+				await recordEditorMediaReferences(
+					ctx,
+					'servers',
+					server._id,
+					await readServerDescription(ctx, server),
+				)
 			}
 			;({ isDone, continueCursor } = page)
 		} else if (source === 'projects') {

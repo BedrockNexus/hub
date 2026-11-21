@@ -144,6 +144,7 @@ import type * as lib_releaseReviewQueue from "../lib/releaseReviewQueue.js";
 import type * as lib_reviewWork from "../lib/reviewWork.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as lib_serverAddress from "../lib/serverAddress.js";
+import type * as lib_serverDescriptions from "../lib/serverDescriptions.js";
 import type * as lib_serverEvents from "../lib/serverEvents.js";
 import type * as lib_serverHealth from "../lib/serverHealth.js";
 import type * as lib_siteAggregates from "../lib/siteAggregates.js";
@@ -302,6 +303,7 @@ declare const fullApi: ApiFromModules<{
   "lib/reviewWork": typeof lib_reviewWork;
   "lib/roles": typeof lib_roles;
   "lib/serverAddress": typeof lib_serverAddress;
+  "lib/serverDescriptions": typeof lib_serverDescriptions;
   "lib/serverEvents": typeof lib_serverEvents;
   "lib/serverHealth": typeof lib_serverHealth;
   "lib/siteAggregates": typeof lib_siteAggregates;

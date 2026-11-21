@@ -42,6 +42,12 @@ import { recordEditorMediaReferences } from '../../lib/editorMedia'
 import { enforceRateLimit } from '../../lib/rateLimits'
 import { readHomeAggregates } from '../../lib/siteAggregates'
 import {
+	deleteServerDescription,
+	patchServer,
+	withServerDescription,
+	writeServerDescription,
+} from '../../lib/serverDescriptions'
+import {
 	normalizeServerAddress,
 	type ServerAddress,
 	ServerAddressError,
@@ -315,6 +321,7 @@ async function deleteServerRelatedRows(
 	serverId: Id<'servers'>,
 ) {
 	await removePicksFor(ctx, { serverId })
+	await deleteServerDescription(ctx, serverId)
 
 	const stats = await ctx.db
 		.query('serverStats')
@@ -509,11 +516,12 @@ export const getRegions = query({
 export const getPublishedBySlug = query({
 	args: { slug: v.string() },
 	handler: async (ctx, args) => {
-		const server = await resolveServerReference(ctx, args.slug)
+		const stored = await resolveServerReference(ctx, args.slug)
 
-		if (!server || !isPublicServer(server)) {
+		if (!stored || !isPublicServer(stored)) {
 			return null
 		}
+		const server = await withServerDescription(ctx, stored)
 
 		return {
 			...toPublicServer(server),
@@ -534,7 +542,9 @@ export const getForEdit = query({
 		const monthKey = getUtcMonthKey(now)
 
 		const stored = await resolveServerReference(ctx, args.id)
-		const server = stored ? submissionView(stored) : null
+		const server = stored
+			? submissionView(await withServerDescription(ctx, stored))
+			: null
 
 		if (!server) {
 			return null
@@ -837,7 +847,8 @@ export const listAdmin = moderatorQuery({
 export const getAdminReview = moderatorQuery({
 	args: { id: v.id('servers') },
 	handler: async (ctx, args) => {
-		const stored = await ctx.db.get(args.id)
+		const live = await ctx.db.get(args.id)
+		const stored = live ? await withServerDescription(ctx, live) : null
 		const server = stored
 			? stored.submissionStatus === 'pending'
 				? submissionView(stored)
@@ -964,7 +975,6 @@ export const create = mutation({
 			name: args.name,
 			slug,
 			smallDescription: args.smallDescription,
-			description: args.description,
 			ipAddress: address.host,
 			port: address.port,
 			addressKey: address.key,
@@ -986,6 +996,7 @@ export const create = mutation({
 			verificationMethod: verificationProof.method,
 			updatedAt: now,
 		})
+		await writeServerDescription(ctx, serverId, args.description)
 		await afterServerWrite(ctx, null, await ctx.db.get(serverId))
 
 		await recordEditorMediaReferences(
@@ -1031,7 +1042,11 @@ export const update = mutation({
 		}
 
 		const liveServer = await ctx.db.get(args.id)
-		const server = liveServer ? submissionView(liveServer) : null
+		// With its description: the review snapshot below must carry it.
+		const liveView = liveServer
+			? await withServerDescription(ctx, liveServer)
+			: null
+		const server = liveView ? submissionView(liveView) : null
 		if (!server) {
 			throw new Error('Server not found')
 		}
@@ -1198,7 +1213,7 @@ export const update = mutation({
 			slug,
 			updatedAt: now,
 		}
-		await ctx.db.patch(args.id, {
+		await patchServer(ctx, args.id, {
 			...(server.publishedAt || hasApprovedListing(server)
 				? {
 						draftChangesJson: snapshot(server, changes),
@@ -1235,7 +1250,7 @@ export const update = mutation({
 			})
 		if (args.status === 'published')
 			await recordSubmission(ctx, {
-				content: liveServer!,
+				content: liveView!,
 				details: { ...server, ...changes },
 				actorId: user._id,
 				revision: (server.submissionRevision ?? 0) + 1,
@@ -1541,7 +1556,7 @@ export const updateAdmin = moderatorMutation({
 				moderationReason: server.moderationReason,
 			})
 
-		await ctx.db.patch(args.id, {
+		await patchServer(ctx, args.id, {
 			...updates,
 			...mediaUpdates,
 			...addressUpdates,

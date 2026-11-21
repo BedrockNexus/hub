@@ -19,6 +19,7 @@ import {
 } from '../lib/r2Keys'
 import { r2, resolveCdnObjectUrl, uploadsR2 } from '../lib/r2'
 import { enforceRateLimit } from '../lib/rateLimits'
+import { readServerDescription } from '../lib/serverDescriptions'
 
 const R2_EDITOR_MEDIA_URL_EXPIRES_IN = 60 * 10
 const STALE_MANAGED_UPLOAD_AGE_MS = 1000 * 60 * 60 * 24
@@ -82,7 +83,8 @@ async function loadReferenceMarkdown(
 ) {
 	if (reference.sourceTable === 'servers') {
 		const id = ctx.db.normalizeId('servers', reference.sourceId)
-		return id ? (await ctx.db.get(id))?.description : undefined
+		const server = id ? await ctx.db.get(id) : null
+		return server ? await readServerDescription(ctx, server) : undefined
 	}
 	if (reference.sourceTable === 'projects') {
 		const id = ctx.db.normalizeId('projects', reference.sourceId)

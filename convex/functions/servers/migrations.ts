@@ -3,6 +3,7 @@ import { internal } from '../../_generated/api'
 import { internalMutation, internalQuery } from '../../_generated/server'
 import { utcDayKey } from '../../lib/dayKeys'
 import { normalizeServerAddress } from '../../lib/serverAddress'
+import { writeServerDescription } from '../../lib/serverDescriptions'
 
 const BATCH_SIZE = 100
 // A server's raw history: 30 days of checks, every 5 minutes.
@@ -362,5 +363,45 @@ export const rebuildServerDailyStats = internalMutation({
 			)
 		}
 		return null
+	},
+})
+
+/**
+ * Moves each server's description off the server document into
+ * `serverDescriptions` (lib/serverDescriptions.ts). A description already in
+ * the table wins over the document copy. Idempotent; continues itself.
+ *
+ * Run: npx convex run functions/servers/migrations:moveDescriptions
+ */
+export const moveDescriptions = internalMutation({
+	args: { cursor: v.optional(v.union(v.string(), v.null())) },
+	returns: v.number(),
+	handler: async (ctx, args) => {
+		const page = await ctx.db
+			.query('servers')
+			.paginate({ cursor: args.cursor ?? null, numItems: BATCH_SIZE })
+		let moved = 0
+		for (const server of page.page) {
+			if (server.description === undefined) {
+				continue
+			}
+			const existing = await ctx.db
+				.query('serverDescriptions')
+				.withIndex('by_serverId', (q) => q.eq('serverId', server._id))
+				.unique()
+			if (!existing) {
+				await writeServerDescription(ctx, server._id, server.description)
+			}
+			await ctx.db.patch(server._id, { description: undefined })
+			moved++
+		}
+		if (!page.isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.servers.migrations.moveDescriptions,
+				{ cursor: page.continueCursor },
+			)
+		}
+		return moved
 	},
 })

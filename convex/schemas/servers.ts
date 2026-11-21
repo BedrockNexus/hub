@@ -260,6 +260,14 @@ export const tables = {
 			'avgPlayers7d',
 		]),
 
+	// The long rich-text description, kept off the server document: servers are
+	// read by every listing and every status check, and only the detail, edit
+	// and review pages need this text (lib/serverDescriptions.ts).
+	serverDescriptions: defineTable({
+		serverId: v.id('servers'),
+		description: v.string(),
+	}).index('by_serverId', ['serverId']),
+
 	// One row per server per UTC day, updated on every status check. Sums are
 	// stored instead of averages so a day can be extended one check at a time:
 	// average players = playerSum / checks, uptime = checksOnline / checks.
