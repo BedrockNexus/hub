@@ -1,4 +1,5 @@
 import { internalMutation, type MutationCtx } from '../../_generated/server'
+import { backgroundJobsPaused } from '../../lib/backgroundJobs'
 import {
 	computeAggregates,
 	type SoftwareAggregates,
@@ -46,6 +47,9 @@ async function storeSoftwareStats(ctx: MutationCtx, next: SoftwareAggregates[]) 
 export const refresh = internalMutation({
 	args: {},
 	handler: async (ctx) => {
+		if (backgroundJobsPaused()) {
+			return
+		}
 		const { home: next, software } = await computeAggregates(ctx)
 		await storeSoftwareStats(ctx, software)
 		const stored = await ctx.db

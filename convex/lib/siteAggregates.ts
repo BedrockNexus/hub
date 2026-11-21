@@ -1,5 +1,6 @@
 import type { Id } from '../_generated/dataModel'
 import { isListedServer } from './contentVisibility'
+import { countPublishedProjectsForSoftwareBatch } from './plugins/aggregates'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 
 /**
@@ -95,17 +96,22 @@ export async function computeAggregates(
 			.slice(0, SOFTWARE_VERSIONS_SHOWN),
 	}))
 
-	const projects = await ctx.db
-		.query('projects')
-		.withIndex('by_status', (q) => q.eq('status', 'published'))
-		.collect()
-
-	const plugins = await ctx.db
-		.query('plugins')
-		.withIndex('by_visibility_and_status', (q) =>
-			q.eq('visibility', 'public').eq('status', 'published'),
+	// Project and plugin documents carry the full description twice (once in
+	// searchText), about 20 KB each. This runs every 5 minutes, so count from
+	// the small listing rows and the plugin aggregate instead of reading them.
+	const publicProjects = await ctx.db
+		.query('projectStats')
+		.withIndex('by_isPublic_and_totalDownloads', (q) =>
+			q.eq('isPublic', true),
 		)
 		.collect()
+	const softwareIds = (await ctx.db.query('serverSoftware').collect()).map(
+		(entry) => entry._id,
+	)
+	const pluginCounts = await countPublishedProjectsForSoftwareBatch(
+		ctx,
+		softwareIds,
+	)
 
 	const regions = [
 		...new Set(
@@ -119,8 +125,8 @@ export async function computeAggregates(
 		home: {
 			servers: servers.length,
 			onlinePlayers,
-			projects: projects.length,
-			plugins: plugins.length,
+			projects: publicProjects.length,
+			plugins: pluginCounts.reduce((sum, count) => sum + count, 0),
 			regions,
 		},
 		software,

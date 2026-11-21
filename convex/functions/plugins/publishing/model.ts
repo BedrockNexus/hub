@@ -46,6 +46,7 @@ import {
 	replaceProjectAggregates,
 } from '../../../lib/plugins/aggregates'
 import { enforceRateLimit } from '../../../lib/plugins/rateLimits'
+import { pluginSearchText } from '../../../lib/plugins/searchText'
 import { deleteIcon } from '../icons'
 import {
 	listResolvedWorkflowTemplates,
@@ -251,14 +252,6 @@ async function assertSlugAvailable(
 	}
 }
 
-function searchTextFor(fields: {
-	name: string
-	summary: string
-	description?: string
-}) {
-	return `${fields.name} ${fields.summary} ${fields.description ?? ''}`.trim()
-}
-
 async function patchProject(
 	ctx: MutationCtx,
 	project: Doc<'plugins'>,
@@ -404,7 +397,7 @@ export const saveMetadata = authedMutation({
 		if (project && project.status !== 'published') {
 			await patchProject(ctx, project, {
 				...metadata,
-				searchText: searchTextFor(metadata),
+				searchText: pluginSearchText(metadata),
 				updatedAt: now,
 			})
 		}
@@ -678,7 +671,7 @@ export const selectWorkflow = authedMutation({
 				repositoryId: draft.repositoryId,
 				softwareId: software._id,
 				...metadata,
-				searchText: searchTextFor(metadata),
+				searchText: pluginSearchText(metadata),
 				license: draft.license,
 				iconUrl: draft.iconUrl,
 				categoryIds: draft.categoryIds,
@@ -1803,7 +1796,7 @@ export const finishPublishing = internalMutation({
 					license: reviewedDraft.license,
 					licenseCustom: reviewedDraft.licenseCustom,
 					iconUrl: reviewedDraft.iconUrl,
-					searchText: searchTextFor(reviewedDraft),
+					searchText: pluginSearchText(reviewedDraft),
 					categoryIds: reviewedDraft.categoryIds,
 					websiteUrl: reviewedDraft.websiteUrl,
 					wikiUrl: reviewedDraft.wikiUrl,

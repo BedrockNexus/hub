@@ -7,6 +7,7 @@ import {
 } from '../../../lib/plugins/workflow-catalog'
 import { validateWorkflowTemplate } from '../../../lib/plugins/workflow-templates'
 import { internal } from '../../_generated/api'
+import { backgroundJobsPaused } from '../../lib/backgroundJobs'
 import { action, internalAction, type ActionCtx } from '../../_generated/server'
 
 async function fetchBytes(url: string, maxBytes: number) {
@@ -161,5 +162,6 @@ export const refresh = action({
 export const refreshScheduled = internalAction({
 	args: {},
 	returns: refreshResult,
-	handler: async (ctx) => await synchronize(ctx),
+	handler: async (ctx) =>
+		backgroundJobsPaused() ? null : await synchronize(ctx),
 })

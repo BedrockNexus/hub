@@ -12,6 +12,7 @@ import {
 import { authComponent } from '../../auth'
 
 import { afterServerWrite } from '../../lib/activity'
+import { backgroundJobsPaused } from '../../lib/backgroundJobs'
 import { isListedServer } from '../../lib/contentVisibility'
 import { recordServerCheck } from '../../lib/discovery'
 import { enforceRateLimit } from '../../lib/rateLimits'
@@ -70,6 +71,16 @@ type StatusRefreshServer = Pick<
 	'_id' | 'ipAddress' | 'name' | 'ownerId' | 'ownerType' | 'port' | 'registeredBy' | 'status'
 >
 
+/** What a status check needs: where to ping and what to record it against. */
+type PingTarget = Pick<Doc<'servers'>, '_id' | 'ipAddress' | 'name' | 'port'>
+
+const pingTargetValidator = v.object({
+	_id: v.id('servers'),
+	ipAddress: v.string(),
+	name: v.string(),
+	port: v.number(),
+})
+
 interface StatusRefreshResult {
 	serverId: Id<'servers'>
 	status: 'online' | 'offline'
@@ -89,7 +100,7 @@ interface StatusRefreshResult {
  * says nothing about the server and must never be recorded as downtime.
  */
 async function fetchServerStatus(
-	server: StatusRefreshServer,
+	server: PingTarget,
 ): Promise<BedrockStatusApiResponse> {
 	const apiUrl = getStatusApiBaseUrl()
 	const apiKey = process.env.BEDROCKNEXUS_API_KEY
@@ -115,7 +126,7 @@ async function fetchServerStatus(
 
 async function pingAndPersistServerStatus(
 	ctx: ActionCtx,
-	server: StatusRefreshServer,
+	server: PingTarget,
 ): Promise<StatusRefreshResult> {
 	const data = await fetchServerStatus(server)
 	const online = data.online ?? false
@@ -413,12 +424,16 @@ export const refreshStatus = action({
 })
 
 export const pingServer = internalAction({
-	args: { serverId: v.id('servers') },
+	// The cron passes the address it already read, so each check does not read
+	// the whole server document again (functions/servers/status:pingAllServers).
+	args: { serverId: v.id('servers'), target: v.optional(pingTargetValidator) },
 	handler: async (ctx, args): Promise<StatusRefreshResult | null> => {
-		const server = await ctx.runQuery(
-			internal.functions.servers.status.getPublishedServerForStatusRefresh,
-			{ serverId: args.serverId },
-		)
+		const server: PingTarget | null =
+			args.target ??
+			(await ctx.runQuery(
+				internal.functions.servers.status.getPublishedServerForStatusRefresh,
+				{ serverId: args.serverId },
+			))
 
 		if (!server) {
 			return null
@@ -442,6 +457,9 @@ export const pingServer = internalAction({
 export const pingAllServers = internalAction({
 	args: {},
 	handler: async (ctx) => {
+		if (backgroundJobsPaused()) {
+			return
+		}
 		const servers = await ctx.runQuery(
 			internal.functions.servers.status.getAllActiveServers,
 		)
@@ -453,7 +471,7 @@ export const pingAllServers = internalAction({
 			await ctx.scheduler.runAfter(
 				index * PING_STAGGER_MS,
 				internal.functions.servers.status.pingServer,
-				{ serverId: server._id },
+				{ serverId: server._id, target: server },
 			)
 		}
 
@@ -466,13 +484,18 @@ export const pingAllServers = internalAction({
  */
 export const getAllActiveServers = internalQuery({
 	args: {},
-	returns: v.array(v.object({ _id: v.id('servers') })),
+	returns: v.array(pingTargetValidator),
 	handler: async (ctx) => {
 		const servers = await ctx.db
 			.query('servers')
 			.withIndex('by_status', (q) => q.eq('status', 'published'))
 			.collect()
-		return servers.map((server) => ({ _id: server._id }))
+		return servers.map((server) => ({
+			_id: server._id,
+			ipAddress: server.ipAddress,
+			name: server.name,
+			port: server.port,
+		}))
 	},
 })
 

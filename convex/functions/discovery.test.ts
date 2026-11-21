@@ -3,7 +3,7 @@ import { api, internal } from '../_generated/api'
 import type { Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import { recentDayKeys, utcDayKey } from '../lib/dayKeys'
-import { recordProjectDownload } from '../lib/discovery'
+import { recordProjectDownload, syncProject } from '../lib/discovery'
 import {
 	createTest,
 	insertProject,
@@ -504,7 +504,18 @@ describe('site aggregates', () => {
 		const eu = await insertServer(t, { slug: 'eu', region: 'Europe' })
 		await insertServer(t, { slug: 'us', region: 'North America' })
 		await insertServer(t, { slug: 'draft', status: 'draft', region: 'Asia' })
-		await insertProject(t, { slug: 'pack' })
+		const projectIds = [
+			await insertProject(t, { slug: 'pack' }),
+			// Published but not approved yet: not public, so not counted.
+			await insertProject(t, { slug: 'pending', moderationStatus: 'pending' }),
+		]
+		// Real project writes sync their listing row; the count reads it.
+		await t.run(async (ctx) => {
+			for (const id of projectIds) {
+				const project = await ctx.db.get(id)
+				if (project) await syncProject(ctx, project)
+			}
+		})
 		await t.mutation(internal.functions.servers.status.internalUpdateStatus, {
 			serverId: eu,
 			online: true,
