@@ -12,7 +12,7 @@ export default function PrivacyPage() {
 	return (
 		<LegalPage
 			description="This policy explains what information Bedrock Nexus handles when you browse the site, create an account, or publish community content."
-			lastUpdated="November 13, 2026"
+			lastUpdated="November 20, 2026"
 			title="Privacy Policy"
 		>
 			<h2>Information we collect</h2>
@@ -135,14 +135,35 @@ export default function PrivacyPage() {
 				theme and dashboard state. These technologies are necessary for
 				requested account and creator features to work correctly.
 			</p>
+			<h2>Analytics and counts</h2>
 			<p>
-				Bedrock Nexus does not currently run analytics or record page
-				views, shares, or link clicks. Downloads are counted per release
-				without storing who downloaded them. We do not use third-party
-				advertising cookies or sell browsing data. If non-essential
-				tracking technologies are added in the future, this policy and
-				any required consent controls will be updated before they are
-				enabled.
+				On public pages (the home page, add-ons, resource packs,
+				plugins, servers, creators, organizations, networks, server
+				software, trending, picks, tools and the collections directory)
+				we send usage events to our own analytics service, OpenPanel,
+				which we host ourselves. An event holds the page address without
+				its query string, the referring site&apos;s domain only, the
+				length of a catalog search but not its words, and download
+				button clicks. It sets no cookies. Account, sign-in, dashboard,
+				moderation and admin pages, user profiles and individual
+				collections are not tracked, and session recording is off.
+			</p>
+			<p>
+				We count page views and server address copies for each listing
+				and show daily totals to its owner. Each counts once per visitor
+				per day, told apart by a salted hash of the IP address; the
+				address itself is not stored. Visits by the listing&apos;s own
+				editors are not counted.
+			</p>
+			<p>
+				When you download a release, we record the release, whether the
+				request came from the website or the API, and a requester key:
+				your account ID if you are signed in, otherwise a salted hash of
+				your IP address. We use it to count at most one download per
+				person per release per day and to limit abuse, and delete these
+				records after 400 days. The download is also reported to
+				OpenPanel with that key hashed again. We do not use advertising
+				cookies or sell browsing data.
 			</p>
 			<p>
 				Most browsers let you inspect, block, or delete cookies and

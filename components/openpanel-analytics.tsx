@@ -5,11 +5,16 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 
 const PUBLIC_PATH =
-	/^\/(addons|resource-packs|plugins|servers|server|creators|organizations|tools)(\/|$)/
+	/^\/(addons|resource-packs|plugins|servers|server|creators|organizations|tools|networks|software|trending|picks)(\/|$)/
+// Only the public directory: a single collection can be private or unlisted.
+// Profiles (/user) stay untracked.
+const COLLECTIONS_INDEX = /^\/collections$/
 const CATALOG_PATH = /^\/(addons|resource-packs|plugins|servers)$/
 
 function isPublicPath(path: string) {
-	return path === '/' || PUBLIC_PATH.test(path)
+	return (
+		path === '/' || PUBLIC_PATH.test(path) || COLLECTIONS_INDEX.test(path)
+	)
 }
 
 /** Anonymous public browsing only. Account pages, query values and replay stay private. */
