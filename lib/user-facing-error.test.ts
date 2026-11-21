@@ -25,6 +25,17 @@ describe('userFacingError', () => {
 		).toBe('Could not save')
 	})
 
+	test('hides the placeholder with a function name and "Called by client"', () => {
+		expect(
+			userFacingError(
+				new Error(
+					'[CONVEX A(functions/servers/verification:verifyOwnership)] [Request ID: 36a7e912fa0a40cd] Server Error\nCalled by client',
+				),
+				'Verification failed',
+			),
+		).toBe('Verification failed')
+	})
+
 	test('keeps ordinary error messages', () => {
 		expect(userFacingError(new Error('Network down'), 'Fallback')).toBe(
 			'Network down',

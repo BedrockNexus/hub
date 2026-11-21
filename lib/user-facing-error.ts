@@ -1,4 +1,6 @@
-const REDACTED_SERVER_ERROR = /^(?:\[[^\]]*\]\s*)*Server Error\s*$/
+// Convex may append "Called by client" after the redacted message.
+const REDACTED_SERVER_ERROR =
+	/^(?:\[[^\]]*\]\s*)*Server Error\s*(?:Called by client\s*)?$/
 
 /**
  * Text to show a person for a failed Convex call or other error.

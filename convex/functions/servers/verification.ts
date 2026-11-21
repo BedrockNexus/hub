@@ -47,16 +47,32 @@ function getVerificationApiHeaders() {
 	}
 }
 
-async function readVerificationResponse(response: Response) {
+/**
+ * A failed check is an ordinary result (`verified: false` with a reason), not
+ * an exception: thrown messages are redacted in production, so the owner
+ * would see "Server Error" instead of what to fix.
+ */
+async function readVerificationResponse(
+	response: Response,
+): Promise<VerificationResponse> {
 	const data = (await response
 		.json()
 		.catch(() => ({}))) as VerificationResponse
 
-	if (!(response.ok && !data.error)) {
-		throw new Error(data.error || 'Server verification request failed')
+	if (response.ok) {
+		return data
 	}
-
-	return data
+	// 400: the api rejected the address (invalid, or not a public host).
+	if (response.status === 400 && data.error) {
+		return { error: data.error, verified: false }
+	}
+	console.error(
+		`Server verification api returned ${response.status}: ${data.error ?? 'no error message'}`,
+	)
+	return {
+		error: 'The verification service is unavailable. Please try again in a few minutes.',
+		verified: false,
+	}
 }
 
 function createVerificationCode() {
@@ -149,19 +165,28 @@ export const verifyOwnership = action({
 			}
 		}
 
-		const response = await fetch(
-			`${getVerificationApiBaseUrl()}/server-verify/check`,
-			{
-				body: JSON.stringify({
-					code: challenge.code,
-					host: address.host,
-					method: args.method,
-					port: address.port,
-				}),
-				headers: getVerificationApiHeaders(),
-				method: 'POST',
-			},
-		)
+		let response: Response
+		try {
+			response = await fetch(
+				`${getVerificationApiBaseUrl()}/server-verify/check`,
+				{
+					body: JSON.stringify({
+						code: challenge.code,
+						host: address.host,
+						method: args.method,
+						port: address.port,
+					}),
+					headers: getVerificationApiHeaders(),
+					method: 'POST',
+				},
+			)
+		} catch (error) {
+			console.error('Server verification api request failed', error)
+			return {
+				error: 'The verification service is unavailable. Please try again in a few minutes.',
+				verified: false,
+			}
+		}
 		const data = await readVerificationResponse(response)
 
 		if (!data.verified) {
