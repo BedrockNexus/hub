@@ -22,7 +22,6 @@ import {
 	projectsBySoftware,
 } from '../../lib/plugins/aggregates'
 import { enforceRateLimit } from '../../lib/plugins/rateLimits'
-import { r2 } from '../../lib/r2'
 import { deleteIcon } from './icons'
 import { auditListingWrite } from '../../lib/orgAudit'
 

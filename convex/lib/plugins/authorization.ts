@@ -68,19 +68,6 @@ export async function listOrganizationMemberships(
 	return getAdapterPage<BetterAuthMember>(result)
 }
 
-export async function listOrganizationMembers(
-	ctx: DatabaseCtx,
-	organizationId: string,
-	limit = 250,
-) {
-	const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-		model: 'member',
-		where: [{ field: 'organizationId', value: organizationId }],
-		paginationOpts: { cursor: null, numItems: limit },
-	})
-	return getAdapterPage<BetterAuthMember>(result)
-}
-
 export async function getActiveOrganizationMembership(
 	ctx: DatabaseCtx,
 	organizationId: string,

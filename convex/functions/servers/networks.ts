@@ -129,27 +129,6 @@ export const create = authedMutation({
 	},
 })
 
-export const update = authedMutation({
-	args: {
-		networkId: v.id('serverNetworks'),
-		name: v.string(),
-		description: v.optional(v.string()),
-		website: v.optional(v.string()),
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		const network = await requireEditableNetwork(ctx, args.networkId, ctx.user)
-		const description = args.description?.trim().slice(0, MAX_DESCRIPTION)
-		await ctx.db.patch(network._id, {
-			name: cleanName(args.name),
-			description: description || undefined,
-			website: cleanWebsite(args.website),
-			updatedAt: Date.now(),
-		})
-		return null
-	},
-})
-
 export const remove = authedMutation({
 	args: { networkId: v.id('serverNetworks') },
 	returns: v.null(),

@@ -53,60 +53,6 @@ export const list = query({
 })
 
 /**
- * Get a category by slug
- */
-export const getBySlug = query({
-	args: { slug: v.string() },
-	handler: async (ctx, args) => {
-		return await ctx.db
-			.query('projectCategories')
-			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
-			.first()
-	},
-})
-
-/**
- * Get a category by ID
- */
-export const getById = query({
-	args: { id: v.id('projectCategories') },
-	handler: async (ctx, args) => {
-		return ctx.db.get(args.id)
-	},
-})
-
-/**
- * List categories with project counts
- */
-export const listWithCounts = query({
-	args: {},
-	handler: async (ctx) => {
-		const categories = await ctx.db
-			.query('projectCategories')
-			.order('asc')
-			.collect()
-
-		const items = await ctx.db
-			.query('projects')
-			.withIndex('by_status', (q) => q.eq('status', 'published'))
-			.collect()
-
-		return categories.map((category) => {
-			const projectCount = items.filter((item) =>
-				item.categoryIds.includes(category._id),
-			).length
-
-			return {
-				...category,
-				projectCount,
-				// Backwards-compat alias for older callers
-				contentCount: projectCount,
-			}
-		})
-	},
-})
-
-/**
  * List all project categories with usage counts for admin taxonomy management.
  */
 export const listAdmin = adminQuery({

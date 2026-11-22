@@ -7,7 +7,7 @@ import {
 import { validateWorkflowTemplate } from '../../../lib/plugins/workflow-templates'
 import { internalMutation, internalQuery } from '../../_generated/server'
 import { authComponent } from '../../auth'
-import { adminMutation, adminQuery } from '../../lib/functions'
+import { adminQuery } from '../../lib/functions'
 import {
 	listResolvedWorkflowTemplates,
 	resolveWorkflowTemplate,
@@ -221,43 +221,4 @@ export const applyCatalog = internalMutation({
 		})
 		return { updated, retired, commit: args.commit }
 	},
-})
-
-// Reject older clients rather than letting them create a second source of truth.
-function repositoryManaged(): never {
-	throw new ConvexError({
-		code: 'WORKFLOW_REPOSITORY_MANAGED',
-		message:
-			'Workflow templates are maintained in BedrockNexus/plugin-workflows. Update the repository and refresh the catalog.',
-	})
-}
-export const create = adminMutation({
-	args: {
-		label: v.string(),
-		softwareId: v.id('serverSoftware'),
-		content: v.string(),
-	},
-	returns: v.object({
-		key: workflowTemplateKeyValidator,
-		version: v.number(),
-	}),
-	handler: repositoryManaged,
-})
-export const save = adminMutation({
-	args: {
-		key: workflowTemplateKeyValidator,
-		content: v.string(),
-		label: v.optional(v.string()),
-		softwareId: v.optional(v.id('serverSoftware')),
-	},
-	returns: v.object({
-		key: workflowTemplateKeyValidator,
-		version: v.number(),
-	}),
-	handler: repositoryManaged,
-})
-export const remove = adminMutation({
-	args: { key: workflowTemplateKeyValidator },
-	returns: v.null(),
-	handler: repositoryManaged,
 })

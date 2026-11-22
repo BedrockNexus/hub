@@ -658,21 +658,6 @@ export const listByOrganizationSlug = query({
 	},
 })
 
-export const featured = query({
-	args: { limit: v.number() },
-	returns: v.array(projectCardValidator),
-	handler: async (ctx, args) => {
-		const projects = await ctx.db
-			.query('plugins')
-			.withIndex('by_visibility_and_status_and_updated_at', (index) =>
-				index.eq('visibility', 'public').eq('status', 'published'),
-			)
-			.order('desc')
-			.take(Math.min(Math.max(Math.floor(args.limit), 1), 12))
-		return await hydrateProjectPage(ctx, projects)
-	},
-})
-
 export const sitemapEntries = query({
 	args: {},
 	returns: v.array(v.object({ slug: v.string(), updatedAt: v.number() })),

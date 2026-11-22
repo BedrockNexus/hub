@@ -53,22 +53,6 @@ export const getMembershipAccess = authedQuery({
 })
 
 /** Throws unless the caller may connect GitHub and publish for the organization. */
-export const getManagementAccess = authedQuery({
-	args: { organizationId: v.string() },
-	returns: membershipAccessValidator,
-	handler: async (ctx, args) => {
-		const membership = await requireOrganizationManager(
-			ctx,
-			args.organizationId,
-			ctx.user,
-		)
-		return {
-			authorized: true as const,
-			role: membership.role,
-			status: 'active' as const,
-		}
-	},
-})
 
 /**
  * The ID of an organization the caller may connect GitHub for, or null when

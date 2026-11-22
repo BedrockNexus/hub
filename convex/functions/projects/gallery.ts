@@ -5,7 +5,6 @@ import {
 	isRetainedGalleryKey,
 } from '../../lib/submissionGallery'
 import { v } from 'convex/values'
-import { components } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
@@ -20,11 +19,6 @@ import { buildEntityImageR2ObjectKey } from '../../lib/r2Keys'
 import { enforceRateLimit } from '../../lib/rateLimits'
 
 const GALLERY_IMAGE_URL_EXPIRES_IN = 60 * 60 * 24 * 7
-
-type ProjectOwner = {
-	ownerType: 'user' | 'organization'
-	ownerId: string
-}
 
 async function canModifyProject(
 	ctx: MutationCtx | QueryCtx,

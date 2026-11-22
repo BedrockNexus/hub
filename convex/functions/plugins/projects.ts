@@ -22,7 +22,6 @@ import {
 import {
 	projectStatusValidator,
 	releaseStatusValidator,
-	projectValidator,
 	publicProjectValidator,
 	projectVisibilityValidator,
 } from '../../schemas/plugins'

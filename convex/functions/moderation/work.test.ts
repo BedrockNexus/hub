@@ -110,7 +110,7 @@ describe('review assignment and notifications', () => {
 	it('expires abandoned claims after thirty minutes', async () => {
 		const t = createTest()
 		const first = await signIn(t, 'first', 'admin')
-		const second = await signIn(t, 'second', 'admin')
+		await signIn(t, 'second', 'admin')
 		const id = await insertProject(t, {
 			slug: 'expires',
 			submissionStatus: 'pending',
@@ -170,14 +170,6 @@ describe.each(['addon', 'resource_pack'] as const)(
 				await first.query(api.functions.moderation.work.queue, {})
 			).rows
 			expect(rows.map((row) => row.id)).toEqual([older, newer])
-			expect(
-				(
-					await first.query(
-						api.functions.projects.versions.listPendingReleases,
-						{},
-					)
-				).map((row) => row._id),
-			).toEqual([older, newer])
 			expect(rows[0]).toMatchObject({
 				projectId,
 				version: '2.0.0',
@@ -402,7 +394,7 @@ describe.each(['addon', 'resource_pack'] as const)(
 )
 it('backfills past draft releases without starving eligible releases and stays idempotent', async () => {
 	const t = createTest()
-	const admin = await signIn(t, 'reviewer', 'admin')
+	await signIn(t, 'reviewer', 'admin')
 	const draft = await insertProject(t, {
 		slug: 'draft-release',
 		status: 'draft',

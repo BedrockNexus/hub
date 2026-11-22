@@ -19,7 +19,7 @@ import { components, internal } from '../../_generated/api'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
 import { toPublicProject } from '../../lib/publicContent'
-import { adminMutation, moderatorMutation, moderatorQuery } from '../../lib/functions'
+import { moderatorMutation, moderatorQuery } from '../../lib/functions'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
 	moderationStatus as projectModerationStatus,
@@ -28,7 +28,6 @@ import {
 } from '../../schemas/projects'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import {
-	canModifyProjectOwner,
 	ownerFromOrganization,
 } from '../../lib/contentOwnership'
 import {
@@ -1506,89 +1505,5 @@ export const adminUpdate = moderatorMutation({
 		}
 
 		return args.id
-	},
-})
-
-/**
- * List projects pending moderation review (admin only)
- */
-export const listPendingModeration = moderatorQuery({
-	args: {
-		limit: v.optional(v.number()),
-	},
-	handler: async (ctx, args) => {
-		const limit = args.limit ?? 50
-
-		const legacyItems = await ctx.db
-			.query('projects')
-			.withIndex('by_moderation_status', (q) =>
-				q.eq('moderationStatus', 'pending'),
-			)
-			.take(limit)
-
-		const pending = await ctx.db
-			.query('projects')
-			.withIndex('by_submission_status', (q) =>
-				q.eq('submissionStatus', 'pending'),
-			)
-			.take(limit)
-		const items = [
-			...new Map(
-				[
-					...pending,
-					...legacyItems.filter((item) => !item.submissionStatus),
-				].map((item) => [item._id, item]),
-			).values(),
-		].slice(0, limit)
-		return Promise.all(
-			items.map(async (item) => {
-				const iconUrl = await resolveProjectIconUrl(item)
-
-				const owner = await authComponent.getAnyUserById(
-					ctx,
-					item.createdBy,
-				)
-				const ownerName =
-					((owner as Record<string, unknown> | null)
-						?.displayUsername as string | undefined) ??
-					((owner as Record<string, unknown> | null)?.username as
-						| string
-						| undefined) ??
-					((owner as Record<string, unknown> | null)?.email as
-						| string
-						| undefined) ??
-					'Unknown'
-
-				return {
-					...item,
-					iconUrl,
-					ownerName,
-				}
-			}),
-		)
-	},
-})
-
-/**
- * Admin delete - no ownership check
- */
-export const adminRemove = adminMutation({
-	args: { id: v.id('projects') },
-	handler: async (ctx, args) => {
-		const item = await ctx.db.get(args.id)
-		if (!item) {
-			throw new Error('Project not found')
-		}
-
-		await deleteProjectFiles(ctx, item)
-		await deleteProjectRelatedRows(ctx, args.id)
-		await afterProjectWrite(ctx, item, null)
-		await ctx.db.delete(args.id)
-		await recordAdminAction(ctx, ctx.admin._id, {
-			action: 'project.remove',
-			targetType: 'project',
-			targetId: args.id,
-			targetLabel: item.name,
-		})
 	},
 })

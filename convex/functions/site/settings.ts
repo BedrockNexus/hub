@@ -172,39 +172,6 @@ export const get = adminQuery({
 })
 
 /**
- * Get multiple settings by keys (admin only)
- */
-export const getMany = adminQuery({
-	args: { keys: v.array(v.string()) },
-	handler: async (ctx, args) => {
-		const settings: Record<string, unknown> = {}
-
-		for (const key of args.keys) {
-			const setting = await ctx.db
-				.query('siteSettings')
-				.withIndex('by_key', (q) => q.eq('key', key))
-				.unique()
-
-			if (setting) {
-				settings[key] = setting.value
-			}
-		}
-
-		return settings
-	},
-})
-
-/**
- * Get all settings (admin use)
- */
-export const getAll = adminQuery({
-	args: {},
-	handler: async (ctx) => {
-		return await ctx.db.query('siteSettings').collect()
-	},
-})
-
-/**
  * Get admin-editable settings in one call.
  */
 export const getAdmin = adminQuery({
@@ -235,51 +202,6 @@ export const getAdmin = adminQuery({
 // =============================================================================
 // SITE SETTINGS MUTATIONS
 // =============================================================================
-
-/**
- * Set a single setting (upsert)
- */
-export const set = adminMutation({
-	args: {
-		key: v.string(),
-		value: v.any(),
-		description: v.optional(v.string()),
-	},
-	handler: async (ctx, args) => {
-		const user = ctx.admin
-
-		return await upsertSetting(ctx, {
-			key: args.key,
-			value: args.value,
-			description: args.description,
-			updatedBy: user._id,
-		})
-	},
-})
-
-/**
- * Delete a setting
- */
-export const remove = adminMutation({
-	args: { key: v.string() },
-	handler: async (ctx, args) => {
-		const existing = await ctx.db
-			.query('siteSettings')
-			.withIndex('by_key', (q) => q.eq('key', args.key))
-			.unique()
-
-		if (existing) {
-			await ctx.db.delete(existing._id)
-			await recordAdminAction(ctx, ctx.admin._id, {
-				action: 'setting.remove',
-				targetType: 'setting',
-				targetId: args.key,
-			})
-			return true
-		}
-		return false
-	},
-})
 
 export const updateSeo = adminMutation({
 	args: {

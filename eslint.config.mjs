@@ -18,4 +18,19 @@ export default defineConfig([
 	...nextCoreWebVitals,
 	...nextTypescript,
 	...convexPlugin.configs.recommended,
+	{
+		// `_name` marks a value left out on purpose, e.g. fields removed by
+		// destructuring before a document is returned.
+		rules: {
+			'@typescript-eslint/no-unused-vars': [
+				'warn',
+				{
+					argsIgnorePattern: '^_',
+					varsIgnorePattern: '^_',
+					destructuredArrayIgnorePattern: '^_',
+					ignoreRestSiblings: true,
+				},
+			],
+		},
+	},
 ])

@@ -33,7 +33,7 @@ import {
 	requiresModerationReason,
 } from '../../lib/contentVisibility'
 import { validateEntityImageUpload } from '../../lib/media'
-import { r2, resolveCdnObjectUrl } from '../../lib/r2'
+import { resolveCdnObjectUrl } from '../../lib/r2'
 import { validateServerFields } from '../../lib/contentValidation'
 import { afterServerWrite } from '../../lib/activity'
 import { removePicksFor } from '../site/picks'

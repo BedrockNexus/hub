@@ -17,8 +17,6 @@ const ADMIN_QUERIES = {
 		t.query(api.functions.site.organizations.getAdminOrganizationStats, {}),
 	'site.settings.getAdmin': (t: Caller) =>
 		t.query(api.functions.site.settings.getAdmin, {}),
-	'site.settings.getAll': (t: Caller) =>
-		t.query(api.functions.site.settings.getAll, {}),
 	'site.users.getAdminUserStats': (t: Caller) =>
 		t.query(api.functions.site.users.getAdminUserStats, {}),
 }
@@ -41,10 +39,6 @@ const ADMIN_FUNCTIONS = { ...ADMIN_QUERIES, ...ADMIN_MUTATIONS }
 const MODERATOR_FUNCTIONS = {
 	'projects.projects.listAdmin': (t: Caller) =>
 		t.query(api.functions.projects.projects.listAdmin, {}),
-	'projects.projects.listPendingModeration': (t: Caller) =>
-		t.query(api.functions.projects.projects.listPendingModeration, {}),
-	'projects.versions.listPendingReleases': (t: Caller) =>
-		t.query(api.functions.projects.versions.listPendingReleases, {}),
 	'servers.servers.listAdmin': (t: Caller) =>
 		t.query(api.functions.servers.servers.listAdmin, {}),
 	'plugins.projects.listAdmin': (t: Caller) =>

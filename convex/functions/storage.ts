@@ -306,35 +306,6 @@ export const getEditorMediaUrl = query({
 	},
 })
 
-export const deleteR2Object = mutation({
-	args: { key: v.string() },
-	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx)
-		if (!user) throw new ConvexError('You must be logged in to delete files')
-		await enforceRateLimit(
-			ctx,
-			'fileDelete',
-			user._id,
-			'Too many file deletion requests. Please wait before trying again.',
-		)
-
-		const canDelete =
-			isEditorMediaR2Key(args.key, user._id) ||
-			isTemporaryR2Key(args.key, user._id) ||
-			(args.key.startsWith(`${user._id}/`) && isManagedR2Key(args.key))
-		if (!canDelete) {
-			throw new ConvexError('You can only delete your own managed uploads')
-		}
-
-		if (await isReviewMediaRetained(ctx, args.key)) {
-			throw new ConvexError('This image is retained for submission review history')
-		}
-		const target = isPrivateUploadR2Key(args.key) ? uploadsR2 : r2
-		await target.deleteObject(ctx, args.key)
-		return { success: true }
-	},
-})
-
 export const cleanupStaleManagedR2Uploads = internalMutation({
 	args: {
 		bucket: v.optional(v.union(v.literal('cdn'), v.literal('uploads'))),

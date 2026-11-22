@@ -1,4 +1,3 @@
-import { isStandaloneReleaseReview } from '../../lib/releaseReviewQueue'
 import { recordSubmission } from '../../lib/moderationHistory'
 import {
 	assertSubmissionEditable,
@@ -9,12 +8,12 @@ import { projectReference } from '../../../lib/content-reference'
 import { scheduleDownloadEvent } from '../../lib/downloadAnalytics'
 import { resolveProjectReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
-import { components, internal } from '../../_generated/api'
+import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { internalMutation, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
-import { moderatorMutation, moderatorQuery } from '../../lib/functions'
+import { moderatorMutation } from '../../lib/functions'
 import { canEditContent, isAffiliatedWithContent } from '../../lib/permissions'
 import { isPublicProject } from '../../lib/contentVisibility'
 import {
@@ -289,106 +288,6 @@ export const getLatest = query({
 		)
 
 		return version ? toPublicRelease(version, project) : null
-	},
-})
-
-export const getByVersion = query({
-	args: {
-		projectId: v.id('projects'),
-		version: v.string(),
-	},
-	handler: async (ctx, args) => {
-		if (!args.version) {
-			return null
-		}
-		const project = await ctx.db.get(args.projectId)
-		if (!project || !isPublicProject(project)) return null
-
-		const requestedVersion = args.version
-		const version = await ctx.db
-			.query('projectVersions')
-			.withIndex('by_project_version', (q) =>
-				q
-					.eq('projectId', args.projectId)
-					.eq('version', requestedVersion),
-			)
-			.first()
-
-		return version &&
-			isPublicRelease(version) &&
-			getPublishedReleaseKey(version)
-			? toPublicRelease(version, project)
-			: null
-	},
-})
-
-/**
- * Releases of public projects waiting for a moderator. Releases of projects
- * still in their first review are approved with the project instead.
- */
-export const listPendingReleases = moderatorQuery({
-	args: {},
-	returns: v.array(
-		v.object({
-			_id: v.id('projectVersions'),
-			version: v.string(),
-			changelog: v.optional(v.string()),
-			fileName: v.string(),
-			fileSize: v.number(),
-			gameVersions: v.optional(v.array(v.string())),
-			minEngineVersion: v.optional(v.string()),
-			breakingChanges: v.boolean(),
-			downloads: v.number(),
-			createdAt: v.number(),
-			validationStatus: v.optional(
-				v.union(
-					v.literal('pending'),
-					v.literal('validating'),
-					v.literal('valid'),
-					v.literal('invalid'),
-				),
-			),
-			validationCode: v.optional(v.string()),
-			validationError: v.optional(v.string()),
-			reviewStatus: v.optional(
-				v.union(
-					v.literal('pending'),
-					v.literal('approved'),
-					v.literal('rejected'),
-				),
-			),
-			reviewReason: v.optional(v.string()),
-			downloadUrl: v.optional(v.string()),
-			project: v.object({
-				_id: v.id('projects'),
-				name: v.string(),
-				slug: v.string(),
-			}),
-		}),
-	),
-	handler: async (ctx) => {
-		const pending = await ctx.db
-			.query('projectVersions')
-			.withIndex('by_standalone_review_pending', (q) =>
-				q.eq('standaloneReviewPending', true),
-			)
-			.take(100)
-
-		const result = []
-		for (const version of pending) {
-			const project = await ctx.db.get(version.projectId)
-			if (!project || !isStandaloneReleaseReview(project, version))
-				continue
-			result.push({
-				...toCreatorRelease(version, project),
-				project: {
-					_id: project._id,
-					name: project.name,
-					slug: project.slug,
-				},
-			})
-		}
-		return result
 	},
 })
 

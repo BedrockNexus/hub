@@ -27,29 +27,6 @@ export const list = query({
 })
 
 /**
- * Get a category by slug
- */
-export const getBySlug = query({
-	args: { slug: v.string() },
-	handler: async (ctx, args) => {
-		return ctx.db
-			.query('serverCategories')
-			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
-			.first()
-	},
-})
-
-/**
- * Get a category by ID
- */
-export const getById = query({
-	args: { id: v.id('serverCategories') },
-	handler: async (ctx, args) => {
-		return ctx.db.get(args.id)
-	},
-})
-
-/**
  * Get categories with server counts
  */
 export const listWithCounts = query({

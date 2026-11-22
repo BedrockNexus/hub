@@ -95,17 +95,6 @@ export const listEnabled = query({
 	},
 })
 
-export const getBySlug = query({
-	args: { slug: v.string() },
-	handler: async (ctx, args) => {
-		const software = await ctx.db
-			.query('serverSoftware')
-			.withIndex('by_slug', (q) => q.eq('slug', args.slug))
-			.unique()
-		return software?.enabled ? software : null
-	},
-})
-
 /** Every software entry with how many servers declare it. */
 export const listAdmin = adminQuery({
 	args: {},

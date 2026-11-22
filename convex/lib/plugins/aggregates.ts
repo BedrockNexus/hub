@@ -82,13 +82,3 @@ export async function countPublishedProjectsForSoftwareBatch(
 		})),
 	)
 }
-
-export async function countProjectsForOwner(
-	ctx: QueryCtx,
-	ownerType: Doc<'plugins'>['ownerType'],
-	ownerId: string,
-): Promise<number> {
-	return await projectsByOwner.count(ctx, {
-		namespace: projectOwnerKey(ownerType, ownerId),
-	})
-}

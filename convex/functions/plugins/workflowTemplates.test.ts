@@ -103,37 +103,12 @@ describe('repository workflow catalog', () => {
 			await admin.query(api.functions.plugins.workflowTemplates.list, {}),
 		).toHaveLength(1)
 	})
-	it('keeps cache editing disabled, including for old admin clients', async () => {
-		const { t, admin, softwareId } = await fixture()
+	it('keeps the template catalog admin-only', async () => {
+		const { t } = await fixture()
 		const developer = await signIn(t, 'catalog-developer')
 		await expect(
 			t.query(api.functions.plugins.workflowTemplates.list, {}),
 		).rejects.toThrow()
-		await expect(
-			developer.mutation(api.functions.plugins.workflowTemplates.create, {
-				softwareId,
-				label: 'Test',
-				content: TEST_WORKFLOW_TEMPLATE,
-			}),
-		).rejects.toThrow('Admin role required')
-		await expect(
-			admin.mutation(api.functions.plugins.workflowTemplates.create, {
-				softwareId,
-				label: 'Test',
-				content: TEST_WORKFLOW_TEMPLATE,
-			}),
-		).rejects.toThrow('maintained in BedrockNexus/plugin-workflows')
-		await expect(
-			admin.mutation(api.functions.plugins.workflowTemplates.save, {
-				key: entry.key,
-				content: TEST_WORKFLOW_TEMPLATE,
-			}),
-		).rejects.toThrow('maintained in BedrockNexus/plugin-workflows')
-		await expect(
-			admin.mutation(api.functions.plugins.workflowTemplates.remove, {
-				key: entry.key,
-			}),
-		).rejects.toThrow('maintained in BedrockNexus/plugin-workflows')
 		await expect(
 			developer.action(api.functions.plugins.workflowCatalog.refresh, {}),
 		).rejects.toThrow('Admin role required')

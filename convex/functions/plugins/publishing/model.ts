@@ -36,7 +36,7 @@ import {
 	canReviewPlugins,
 	getUserByTokenIdentifier,
 } from '../../../lib/plugins/access'
-import { authedMutation, authedQuery, moderatorMutation, moderatorQuery } from '../../../lib/functions'
+import { authedMutation, authedQuery, moderatorMutation } from '../../../lib/functions'
 import {
 	getActiveOrganizationMembership,
 	listOrganizationMemberships,
@@ -1566,92 +1566,6 @@ async function assertNotOwnSubmission(
 		})
 	}
 }
-
-export const listReviewQueue = moderatorQuery({
-	args: {},
-	returns: v.array(
-		v.object({
-			releaseId: v.id('pluginReleases'),
-			status: releaseStatusValidator,
-			version: v.string(),
-			changelog: v.string(),
-			commitSha: v.string(),
-			branch: v.optional(v.string()),
-			fileName: v.optional(v.string()),
-			size: v.optional(v.number()),
-			sha256: v.optional(v.string()),
-			failureReason: v.optional(v.string()),
-			submittedAt: v.number(),
-			logsUrl: v.optional(v.string()),
-			firstRelease: v.boolean(),
-			projectName: v.string(),
-			projectSlug: v.string(),
-			summary: v.string(),
-			softwareName: v.string(),
-			repository: repositoryValidator,
-		}),
-	),
-	handler: async (ctx) => {
-		const [inReview, publishing] = await Promise.all([
-			ctx.db
-				.query('pluginReleases')
-				.withIndex('by_status_and_submitted_at', (query) =>
-					query.eq('status', 'inReview'),
-				)
-				.order('asc')
-				.take(100),
-			ctx.db
-				.query('pluginReleases')
-				.withIndex('by_status_and_submitted_at', (query) =>
-					query.eq('status', 'publishing'),
-				)
-				.order('asc')
-				.take(20),
-		])
-		const result = []
-		for (const release of [...publishing, ...inReview]) {
-			const [project, repository, build] = await Promise.all([
-				ctx.db.get('plugins', release.projectId),
-				ctx.db.get('githubRepositories', release.repositoryId),
-				ctx.db.get('pluginBuilds', release.buildId),
-			])
-			if (!project || !repository) {
-				continue
-			}
-			const [software, draft] = await Promise.all([
-				ctx.db.get('serverSoftware', project.softwareId),
-				ctx.db
-					.query('pluginPublishingDrafts')
-					.withIndex('by_project_id', (query) =>
-						query.eq('projectId', project._id),
-					)
-					.first(),
-			])
-			result.push({
-				releaseId: release._id,
-				status: release.status,
-				version: release.version,
-				changelog: release.changelog,
-				commitSha: release.commitSha,
-				branch: release.branch,
-				fileName: release.fileName,
-				size: release.size,
-				sha256: release.sha256,
-				failureReason: release.failureReason,
-				submittedAt: release.submittedAt,
-				logsUrl: build?.logsUrl,
-				firstRelease: project.status !== 'published',
-				// Moderators review the details that approval will publish.
-				projectName: draft?.name ?? project.name,
-				projectSlug: draft?.slug ?? project.slug,
-				summary: draft?.summary ?? project.summary,
-				softwareName: software?.name ?? 'Unknown software',
-				repository,
-			})
-		}
-		return result
-	},
-})
 
 /** The private copy of a release in review, for actions:getReviewDownloadUrl. */
 export const getReviewFile = internalQuery({

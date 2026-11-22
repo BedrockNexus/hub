@@ -350,19 +350,17 @@ describe.each([
 			},
 		)
 		expect(
-			await foundation.moderator.client.query(
-				api.functions.plugins.publishing.model.listReviewQueue,
-				{},
-			),
+			(
+				await foundation.moderator.client.query(
+					api.functions.moderation.work.queue,
+					{},
+				)
+			).rows,
 		).toEqual([
 			expect.objectContaining({
-				releaseId,
-				status: 'inReview',
-				version: '1.0.0',
-				changelog: 'First release.',
-				sha256: SHA256,
-				firstRelease: true,
-				softwareName: software.name,
+				id: foundation.projectId,
+				type: 'plugin',
+				isUpdate: false,
 			}),
 		])
 		expect(

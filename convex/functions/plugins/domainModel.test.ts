@@ -1,8 +1,7 @@
-import type { WithoutSystemFields } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import { createTest } from '../../test.setup'
-import { api, components, internal } from '../../_generated/api'
+import { api, components } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import { insertProjectAggregates } from '../../lib/plugins/aggregates'
 import { assertNormalizedSlug, normalizeSlug } from '../../lib/plugins/slugs'
