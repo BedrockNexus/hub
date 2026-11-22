@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 
 import { internal } from '../../_generated/api'
 import { internalMutation } from '../../_generated/server'
+import { writePluginDescription } from '../../lib/pluginDescriptions'
 import { replaceProjectAggregates } from '../../lib/plugins/aggregates'
 import { pluginSearchText } from '../../lib/plugins/searchText'
 
@@ -75,5 +76,50 @@ export const capSearchText = internalMutation({
 			)
 		}
 		return shortened
+	},
+})
+
+const DESCRIPTION_BATCH_SIZE = 50
+
+/**
+ * Moves each plugin's description off the plugin document into
+ * `pluginDescriptions` (lib/pluginDescriptions.ts). A description already in
+ * the table wins over the document copy. Idempotent; continues itself.
+ *
+ * Run: npx convex run functions/plugins/migrations:moveDescriptions
+ */
+export const moveDescriptions = internalMutation({
+	args: { cursor: v.optional(v.union(v.string(), v.null())) },
+	returns: v.number(),
+	handler: async (ctx, args) => {
+		const page = await ctx.db
+			.query('plugins')
+			.paginate({
+				cursor: args.cursor ?? null,
+				numItems: DESCRIPTION_BATCH_SIZE,
+			})
+		let moved = 0
+		for (const plugin of page.page) {
+			if (plugin.description === undefined) {
+				continue
+			}
+			const existing = await ctx.db
+				.query('pluginDescriptions')
+				.withIndex('by_pluginId', (q) => q.eq('pluginId', plugin._id))
+				.unique()
+			if (!existing) {
+				await writePluginDescription(ctx, plugin._id, plugin.description)
+			}
+			await ctx.db.patch('plugins', plugin._id, { description: undefined })
+			moved++
+		}
+		if (!page.isDone) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.functions.plugins.migrations.moveDescriptions,
+				{ cursor: page.continueCursor },
+			)
+		}
+		return moved
 	},
 })

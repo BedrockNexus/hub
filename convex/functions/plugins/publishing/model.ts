@@ -2,6 +2,11 @@ import { submissionStatus } from '../../../schemas/submissions'
 import { moderationStatus } from '../../../schemas/projects'
 import { recordSubmission } from '../../../lib/moderationHistory'
 import {
+	splitPluginDescription,
+	withPluginDescription,
+	writePluginDescription,
+} from '../../../lib/pluginDescriptions'
+import {
 	assertReviewRevision,
 	decisionFields,
 	hasPluginDraftChanges,
@@ -273,7 +278,11 @@ async function patchProject(
 	project: Doc<'plugins'>,
 	values: Partial<Omit<Doc<'plugins'>, '_id' | '_creationTime'>>,
 ) {
-	await ctx.db.patch('plugins', project._id, values)
+	await ctx.db.patch(
+		'plugins',
+		project._id,
+		await splitPluginDescription(ctx, project._id, values),
+	)
 	const updated = await ctx.db.get('plugins', project._id)
 	if (!updated) {
 		throw new Error('The plugin disappeared while it was being updated.')
@@ -678,7 +687,7 @@ export const selectWorkflow = authedMutation({
 			}
 		} else {
 			// The plugin exists from here on: builds and versions belong to it.
-			const metadata = validatedMetadata(draft)
+			const { description, ...metadata } = validatedMetadata(draft)
 			await assertSlugAvailable(ctx, metadata.slug, undefined)
 			projectId = await ctx.db.insert('plugins', {
 				ownerType: draft.ownerType,
@@ -687,7 +696,7 @@ export const selectWorkflow = authedMutation({
 				repositoryId: draft.repositoryId,
 				softwareId: software._id,
 				...metadata,
-				searchText: pluginSearchText(metadata),
+				searchText: pluginSearchText({ ...metadata, description }),
 				license: draft.license,
 				iconUrl: draft.iconUrl,
 				categoryIds: draft.categoryIds,
@@ -705,6 +714,7 @@ export const selectWorkflow = authedMutation({
 				createdAt: now,
 				updatedAt: now,
 			})
+			await writePluginDescription(ctx, projectId, description)
 			const created = await ctx.db.get('plugins', projectId)
 			if (!created) {
 				throw new Error('The plugin was not readable after creation.')
@@ -1205,7 +1215,7 @@ export const submitRelease = authedMutation({
 		})
 		const submittedRelease = await ctx.db.get('pluginReleases', releaseId)
 		await recordSubmission(ctx, {
-			content: project,
+			content: await withPluginDescription(ctx, project),
 			details: draft,
 			actorId: ctx.user._id,
 			revision: (project.submissionRevision ?? 0) + 1,
@@ -1277,7 +1287,8 @@ export const submitListingChanges = authedMutation({
 			draft,
 			'This plugin is already awaiting review.',
 		)
-		if (!hasPluginDraftChanges(draft, project)) {
+		const live = await withPluginDescription(ctx, project)
+		if (!hasPluginDraftChanges(draft, live)) {
 			throw new ConvexError({
 				code: 'NO_CHANGES',
 				message: 'There are no saved changes to submit.',
@@ -1288,7 +1299,7 @@ export const submitListingChanges = authedMutation({
 		const now = Date.now()
 		const revision = (project.submissionRevision ?? 0) + 1
 		await recordSubmission(ctx, {
-			content: project,
+			content: live,
 			details: draft,
 			actorId: ctx.user._id,
 			revision,
@@ -1328,12 +1339,12 @@ export async function approveListingChanges(
 	if (draft && project.iconUrl && project.iconUrl !== next.iconUrl) {
 		await deleteIcon(ctx, draft._id, project.iconUrl)
 	}
-	return {
+	return await splitPluginDescription(ctx, project._id, {
 		...reviewed,
 		searchText: pluginSearchText(next),
 		draftChangesJson: undefined,
 		publishedGalleryJson: undefined,
-	}
+	})
 }
 
 const releaseActionContextValidator = v.object({
@@ -2227,7 +2238,10 @@ export const getMine = authedQuery({
 						slug: project.slug,
 						moderationStatus: project.moderationStatus,
 						submissionStatus: project.submissionStatus,
-						hasDraftChanges: hasPluginDraftChanges(draft, project),
+						hasDraftChanges: hasPluginDraftChanges(
+							draft,
+							await withPluginDescription(ctx, project),
+						),
 					}
 				: null,
 			softwareName: software?.name,

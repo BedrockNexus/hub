@@ -23,6 +23,7 @@ import {
 } from '../../lib/plugins/aggregates'
 import { enforceRateLimit } from '../../lib/plugins/rateLimits'
 import { deleteIcon } from './icons'
+import { deletePluginDescription } from '../../lib/pluginDescriptions'
 import { auditListingWrite } from '../../lib/orgAudit'
 
 const PURGE_BATCH_SIZE = 100
@@ -135,6 +136,7 @@ export const deleteProject = authedMutation({
 		if (!drafts.some((projectDraft) => projectDraft._id === draft._id)) {
 			await ctx.db.delete('pluginPublishingDrafts', draft._id)
 		}
+		await deletePluginDescription(ctx, project._id)
 		await ctx.db.delete('plugins', project._id)
 
 		if (isAdmin) {

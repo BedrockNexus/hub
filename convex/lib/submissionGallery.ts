@@ -4,6 +4,7 @@ import type { MutationCtx } from '../_generated/server'
 import { assertSubmissionEditable, snapshot } from './submissions'
 import { MAX_GALLERY_IMAGES } from './gallery'
 import { withServerDescription } from './serverDescriptions'
+import { withPluginDescription } from './pluginDescriptions'
 
 export async function stageGallery(
 	ctx: MutationCtx,
@@ -52,13 +53,16 @@ export async function stageGallery(
 						.take(MAX_GALLERY_IMAGES + 1)
 	await ctx.db.patch(id, {
 		...(rows ? { publishedGalleryJson: JSON.stringify(rows) } : {}),
-		// A server snapshot must carry its description (lib/serverDescriptions).
+		// Server and plugin snapshots must carry their description
+		// (lib/serverDescriptions, lib/pluginDescriptions).
 		draftChangesJson:
 			item.draftChangesJson ??
 			snapshot(
 				'smallDescription' in item
 					? await withServerDescription(ctx, item)
-					: item,
+					: 'repositoryId' in item
+						? await withPluginDescription(ctx, item)
+						: item,
 			),
 		submissionRevision: (item.submissionRevision ?? 0) + 1,
 	})

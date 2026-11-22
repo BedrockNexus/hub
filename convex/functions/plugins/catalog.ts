@@ -19,6 +19,7 @@ import {
 	countPublishedProjectsForSoftware,
 	countPublishedProjectsForSoftwareBatch,
 } from '../../lib/plugins/aggregates'
+import { readPluginDescription } from '../../lib/pluginDescriptions'
 
 // The hub account that owns a personally published plugin; links to
 // /user/[username].
@@ -579,7 +580,7 @@ export const getProject = query({
 
 		return {
 			project: card,
-			description: project.description,
+			description: await readPluginDescription(ctx, project),
 			licenseCustom: project.licenseCustom,
 			repository: {
 				fullName: repository.fullName,

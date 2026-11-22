@@ -1,5 +1,6 @@
 import { submissionStatus } from '../../schemas/submissions'
 import { hasPluginDraftChanges, snapshotPatch } from '../../lib/submissions'
+import { withPluginDescription } from '../../lib/pluginDescriptions'
 import { moderationStatus } from '../../schemas/projects'
 import { resolvePluginReference } from '../../lib/contentReferences'
 import { ConvexError, v } from 'convex/values'
@@ -107,7 +108,10 @@ async function hydrateDashboardProject(
 		submissionStatus: project.submissionStatus,
 		submissionReason: project.submissionReason,
 		moderationReason: project.moderationReason,
-		hasDraftChanges: hasPluginDraftChanges(draft, project),
+		hasDraftChanges: hasPluginDraftChanges(
+			draft,
+			await withPluginDescription(ctx, project),
+		),
 		updatedAt: project.updatedAt,
 		owner:
 			project.ownerType === 'organization' && organization
@@ -169,7 +173,7 @@ export const getBySlug = query({
 			draftChangesJson: _draftChangesJson,
 			publishedGalleryJson: _publishedGalleryJson,
 			...visible
-		} = project
+		} = await withPluginDescription(ctx, project)
 		return visible
 	},
 })
@@ -426,7 +430,7 @@ export const getAdminReview = moderatorQuery({
 		)
 
 		return {
-			project,
+			project: await withPluginDescription(ctx, project),
 			categories,
 			draft: reviewedDraft,
 			repository,

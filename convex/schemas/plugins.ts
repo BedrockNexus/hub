@@ -621,6 +621,14 @@ export const tables = {
 		.index('by_version_id', ['versionId'])
 		.index('by_build_id', ['buildId']),
 
+	// A published plugin's description, kept off the plugin document: plugins
+	// are read by every listing and the homepage counts, and only the plugin
+	// page and the review views need this text (lib/pluginDescriptions.ts).
+	pluginDescriptions: defineTable({
+		pluginId: v.id('plugins'),
+		description: v.string(),
+	}).index('by_pluginId', ['pluginId']),
+
 	// One per user and plugin (functions/plugins/reviews.ts). Deleting a review
 	// deactivates it; plugins.ratingAverage/ratingCount follow the active ones.
 	// Screenshots on the plugin page (functions/plugins/gallery.ts), managed

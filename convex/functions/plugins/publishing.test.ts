@@ -2396,3 +2396,121 @@ describe('plugin listing updates without a version', () => {
 		).rejects.toThrow(/Only a public plugin/)
 	})
 })
+
+describe('plugin descriptions', () => {
+	const descriptionRows = (t: TestClient, pluginId: Id<'plugins'>) =>
+		t.run((ctx) =>
+			ctx.db
+				.query('pluginDescriptions')
+				.withIndex('by_pluginId', (q) => q.eq('pluginId', pluginId))
+				.collect(),
+		)
+	const pluginDoc = (t: TestClient, pluginId: Id<'plugins'>) =>
+		t.run((ctx) => ctx.db.get('plugins', pluginId))
+	const page = async (t: TestClient, slug: string) =>
+		await t.query(api.functions.plugins.catalog.getProject, { slug })
+
+	it('keeps the description off the plugin document and keeps it through updates', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		await approveAndPublish(
+			t,
+			f,
+			await sendToReview(t, f, await recordBuild(t, f, 89601), '1.0.0'),
+			'1.0.0',
+		)
+		const draft = await t.run((ctx) =>
+			ctx.db.get('pluginPublishingDrafts', f.draftId),
+		)
+		expect(draft?.description).toBeTruthy()
+		expect((await pluginDoc(t, f.projectId))?.description).toBeUndefined()
+		expect((await descriptionRows(t, f.projectId)).map((row) => row.description)).toEqual([
+			draft?.description,
+		])
+		expect((await page(t, f.slug))?.description).toBe(draft?.description)
+		// Moving the description is not an edit.
+		const mine = await f.developer.client.query(
+			api.functions.plugins.publishing.model.getMine,
+			{ draftId: f.draftId },
+		)
+		expect(mine.project?.hasDraftChanges).toBe(false)
+
+		const submit = () =>
+			f.developer.client.mutation(
+				api.functions.plugins.publishing.model.submitListingChanges,
+				{ draftId: f.draftId },
+			)
+		const approve = () =>
+			reviewMutation(
+				t,
+				f.moderator.client,
+				api.functions.plugins.moderation.moderate,
+				{ id: f.projectId, action: 'approve' },
+			)
+
+		// An update to another field leaves the description as it is.
+		await t.mutation(internal.functions.plugins.icons.setIcon, {
+			tokenIdentifier: f.developer.tokenIdentifier,
+			draftId: f.draftId,
+			iconUrl: 'https://cdn.example.com/new.webp',
+		})
+		await submit()
+		await approve()
+		expect((await page(t, f.slug))?.description).toBe(draft?.description)
+
+		// An approved description change replaces it, still off the document.
+		await f.developer.client.mutation(
+			api.functions.plugins.publishing.model.saveMetadata,
+			{
+				draftId: f.draftId,
+				name: draft!.name,
+				slug: draft!.slug,
+				summary: draft!.summary,
+				description: '# Fixture\n\nA new README.',
+			},
+		)
+		expect((await page(t, f.slug))?.description).toBe(draft?.description)
+		await submit()
+		await approve()
+		expect((await page(t, f.slug))?.description).toBe('# Fixture\n\nA new README.')
+		expect((await pluginDoc(t, f.projectId))?.description).toBeUndefined()
+		expect(await descriptionRows(t, f.projectId)).toHaveLength(1)
+
+		await f.developer.client.mutation(
+			api.functions.plugins.deletion.deleteProject,
+			{ draftId: f.draftId, confirmSlug: f.slug },
+		)
+		expect(await descriptionRows(t, f.projectId)).toEqual([])
+	})
+
+	it('reads a description left on the document until the migration moves it', async () => {
+		const t = createTest()
+		const f = await createFoundation(t, POCKETMINE)
+		await approveAndPublish(
+			t,
+			f,
+			await sendToReview(t, f, await recordBuild(t, f, 89701), '1.0.0'),
+			'1.0.0',
+		)
+		// A plugin saved before the move.
+		await t.run(async (ctx) => {
+			for (const row of await ctx.db
+				.query('pluginDescriptions')
+				.withIndex('by_pluginId', (q) => q.eq('pluginId', f.projectId))
+				.collect())
+				await ctx.db.delete('pluginDescriptions', row._id)
+			await ctx.db.patch('plugins', f.projectId, { description: 'Legacy text' })
+		})
+		expect((await page(t, f.slug))?.description).toBe('Legacy text')
+
+		expect(
+			await t.mutation(internal.functions.plugins.migrations.moveDescriptions, {}),
+		).toBe(1)
+		expect((await pluginDoc(t, f.projectId))?.description).toBeUndefined()
+		expect((await page(t, f.slug))?.description).toBe('Legacy text')
+		// Running it again changes nothing.
+		expect(
+			await t.mutation(internal.functions.plugins.migrations.moveDescriptions, {}),
+		).toBe(0)
+	})
+})
