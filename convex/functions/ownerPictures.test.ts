@@ -250,7 +250,7 @@ describe('avatars and organization logos', () => {
 		expect(listing.pictureUrl).toBeUndefined()
 	})
 
-	it('keeps inline pictures out of search until they are moved', async () => {
+	it('keeps inline pictures out of search', async () => {
 		const t = createPictureTest()
 		const legacy = await signIn(t, 'oldtimer')
 		const modern = await signIn(t, 'newcomer')
@@ -278,51 +278,6 @@ describe('avatars and organization logos', () => {
 		const [inlineListing] = await search(t, 'oldtimer')
 		expect(inlineListing).toMatchObject({ slug: 'oldtimer' })
 		expect(inlineListing.pictureUrl).toBeUndefined()
-
-		await t.mutation(
-			internal.functions.site.migrations.backfillInlinePictures,
-			{},
-		)
-		const scheduled = await t.run(async (ctx) =>
-			ctx.db.system.query('_scheduled_functions').collect(),
-		)
-		const moves = scheduled.filter((job) =>
-			job.name.includes('moveInlinePicture'),
-		)
-		expect(moves.map((job) => job.args)).toEqual([
-			[{ ownerType: 'user', ownerId: legacy.userId }],
-		])
-
-		// What moveInlinePicture does once the picture is in R2.
-		const movedKey = avatarKey(legacy.userId, 'moved.png')
-		await putObject(t, movedKey)
-		await t.mutation(internal.functions.site.migrations.saveMovedPicture, {
-			ownerType: 'user',
-			ownerId: legacy.userId,
-			key: movedKey,
-			inlineLength: INLINE_PNG.length,
-		})
-		expect((await readOwner(t, 'user', legacy.userId))?.image).toBe(
-			cdnUrl(movedKey),
-		)
-		expect(await search(t, 'oldtimer')).toMatchObject([
-			{ pictureUrl: cdnUrl(movedKey) },
-		])
-
-		// A second run finds a picture that is no longer inline and steps aside.
-		const lateKey = avatarKey(legacy.userId, 'late.png')
-		await putObject(t, lateKey)
-		await t.mutation(internal.functions.site.migrations.saveMovedPicture, {
-			ownerType: 'user',
-			ownerId: legacy.userId,
-			key: lateKey,
-			inlineLength: INLINE_PNG.length,
-		})
-		expect((await readOwner(t, 'user', legacy.userId))?.image).toBe(
-			cdnUrl(movedKey),
-		)
-		expect(await hasObject(t, lateKey)).toBe(false)
-		expect(await hasObject(t, movedKey)).toBe(true)
 	})
 
 	it('cleans up abandoned uploads but never a picture in use', async () => {

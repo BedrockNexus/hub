@@ -94,8 +94,8 @@ export const tables = {
 		// Connection
 		ipAddress: v.string(),
 		port: v.number(),
-		// Normalized `host:port`; one listing per address. Optional until the
-		// servers/migrations:backfillAddressKeys backfill has run everywhere.
+		// Normalized `host:port`; one listing per address. Set by every create
+		// and address change; every stored server has one.
 		addressKey: v.optional(v.string()),
 
 		// Media

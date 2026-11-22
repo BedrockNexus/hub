@@ -3,11 +3,8 @@ import type { MutationCtx, QueryCtx } from '../_generated/server'
 
 /**
  * A server's rich-text description lives in `serverDescriptions`, not on the
- * server document, so listings and status checks do not read it.
- *
- * Servers saved before the move may still carry `description` on the document
- * until functions/servers/migrations:moveDescriptions has run; reads fall back
- * to it, and the next write moves it.
+ * server document, so listings and status checks do not read it. Writes go
+ * through patchServer, which keeps any copy off the document.
  *
  * Anything that snapshots a server for review (lib/submissions.ts) must use
  * withServerDescription first: a snapshot without the description records it
@@ -23,10 +20,9 @@ async function descriptionRow(ctx: QueryCtx, serverId: Id<'servers'>) {
 
 export async function readServerDescription(
 	ctx: QueryCtx,
-	server: Pick<Doc<'servers'>, '_id' | 'description'>,
+	server: Pick<Doc<'servers'>, '_id'>,
 ): Promise<string | undefined> {
-	const row = await descriptionRow(ctx, server._id)
-	return row ? row.description : server.description
+	return (await descriptionRow(ctx, server._id))?.description
 }
 
 /** The server with its description, for detail, edit and review views. */

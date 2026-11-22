@@ -7,6 +7,7 @@ import {
 	syncProject,
 	syncServer,
 } from '../lib/discovery'
+import { writeServerDescription } from '../lib/serverDescriptions'
 import { createTest, signIn, type TestClient } from '../test.setup'
 
 /** Public queries can be called by anyone, not only by this site's pages. */
@@ -65,7 +66,6 @@ async function seed(t: TestClient, ownerId: string) {
 		const serverId = await ctx.db.insert('servers', {
 			addressKey: 'play.example.com:19132',
 			categoryIds: [],
-			description: 'About the server',
 			ipAddress: 'play.example.com',
 			logoR2Key: 'servers/logo.webp',
 			moderatedBy: SECRET,
@@ -89,6 +89,7 @@ async function seed(t: TestClient, ownerId: string) {
 			verifiedAt: 1,
 			verifiedBy: SECRET,
 		})
+		await writeServerDescription(ctx, serverId, 'About the server')
 		await ctx.db.insert('serverStatus', {
 			checksOnline: 1,
 			checksTotal: 1,

@@ -1,4 +1,3 @@
-import { allocateProjectPublicId } from '../../lib/projectPublicIds'
 import { v } from 'convex/values'
 import { internal } from '../../_generated/api'
 import { internalMutation } from '../../_generated/server'
@@ -14,44 +13,6 @@ function categorySlug(name: string): string {
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/(^-|-$)/g, '')
 }
-
-/**
- * Run once before removing the legacy `texture_pack` validator from the schema.
- * This is idempotent and safe to run again after a partial deployment.
- */
-export const migrateTexturePacks = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		const projects = await ctx.db
-			.query('projects')
-			.filter((q) => q.eq(q.field('type'), 'texture_pack'))
-			.collect()
-		const categories = await ctx.db
-			.query('projectCategories')
-			.filter((q) => q.eq(q.field('projectType'), 'texture_pack'))
-			.collect()
-		const uploads = await ctx.db
-			.query('projectArtifactUploads')
-			.filter((q) => q.eq(q.field('projectType'), 'texture_pack'))
-			.collect()
-
-		for (const project of projects) {
-			await ctx.db.patch(project._id, { type: 'resource_pack' })
-		}
-		for (const category of categories) {
-			await ctx.db.patch(category._id, { projectType: 'resource_pack' })
-		}
-		for (const upload of uploads) {
-			await ctx.db.patch(upload._id, { projectType: 'resource_pack' })
-		}
-
-		return {
-			projects: projects.length,
-			categories: categories.length,
-			uploads: uploads.length,
-		}
-	},
-})
 
 /** Adds only missing defaults and never modifies existing category records. */
 export const seedDefaultProjectCategories = internalMutation({
@@ -148,17 +109,3 @@ export const backfillCategoryCounts = internalMutation({
 })
 
 /** Backfill in bounded, resumable batches; reruns preserve every assigned ID. */
-export const backfillPublicIds = internalMutation({
-	args: { cursor: v.optional(v.union(v.string(), v.null())) },
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		const page = await ctx.db.query('projects').paginate({ cursor: args.cursor ?? null, numItems: 100 })
-		for (const project of page.page) {
-			if (!project.publicId) {
-				await ctx.db.patch('projects', project._id, { publicId: await allocateProjectPublicId(ctx, project.type) })
-			}
-		}
-		if (!page.isDone) await ctx.scheduler.runAfter(0, internal.functions.projects.migrations.backfillPublicIds, { cursor: page.continueCursor })
-		return null
-	},
-})

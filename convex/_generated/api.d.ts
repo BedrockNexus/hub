@@ -79,7 +79,6 @@ import type * as functions_site_organizations from "../functions/site/organizati
 import type * as functions_site_picks from "../functions/site/picks.js";
 import type * as functions_site_releases from "../functions/site/releases.js";
 import type * as functions_site_settings from "../functions/site/settings.js";
-import type * as functions_site_support from "../functions/site/support.js";
 import type * as functions_site_trending from "../functions/site/trending.js";
 import type * as functions_site_users from "../functions/site/users.js";
 import type * as functions_social_alerts from "../functions/social/alerts.js";
@@ -123,6 +122,7 @@ import type * as lib_ownerName from "../lib/ownerName.js";
 import type * as lib_ownerPictures from "../lib/ownerPictures.js";
 import type * as lib_ownerRecipients from "../lib/ownerRecipients.js";
 import type * as lib_permissions from "../lib/permissions.js";
+import type * as lib_pluginDescriptions from "../lib/pluginDescriptions.js";
 import type * as lib_plugins_access from "../lib/plugins/access.js";
 import type * as lib_plugins_aggregates from "../lib/plugins/aggregates.js";
 import type * as lib_plugins_authorization from "../lib/plugins/authorization.js";
@@ -238,7 +238,6 @@ declare const fullApi: ApiFromModules<{
   "functions/site/picks": typeof functions_site_picks;
   "functions/site/releases": typeof functions_site_releases;
   "functions/site/settings": typeof functions_site_settings;
-  "functions/site/support": typeof functions_site_support;
   "functions/site/trending": typeof functions_site_trending;
   "functions/site/users": typeof functions_site_users;
   "functions/social/alerts": typeof functions_social_alerts;
@@ -282,6 +281,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ownerPictures": typeof lib_ownerPictures;
   "lib/ownerRecipients": typeof lib_ownerRecipients;
   "lib/permissions": typeof lib_permissions;
+  "lib/pluginDescriptions": typeof lib_pluginDescriptions;
   "lib/plugins/access": typeof lib_plugins_access;
   "lib/plugins/aggregates": typeof lib_plugins_aggregates;
   "lib/plugins/authorization": typeof lib_plugins_authorization;

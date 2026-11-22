@@ -192,23 +192,6 @@ export const tables = {
 		.index('by_createdAt', ['createdAt']),
 
 	// ===========================================================================
-	// SUPPORT TIERS (User-configured "Support Me" options)
-	// ===========================================================================
-	supportTiers: defineTable({
-		userId: v.string(), // The creator receiving support
-		enabled: v.boolean(),
-		externalUrl: v.optional(v.string()), // Link to Ko-fi, Patreon, etc.
-		tiers: v.array(
-			v.object({
-				label: v.string(), // e.g. "Supporter", "Pro", "Legend"
-				amount: v.number(), // e.g. 3, 5, 10
-				description: v.optional(v.string()),
-			}),
-		),
-		updatedAt: v.number(),
-	}).index('by_user', ['userId']),
-
-	// ===========================================================================
 	// ADMIN ACTIONS (append-only audit log; see lib/audit.ts)
 	// ===========================================================================
 	adminActions: defineTable({

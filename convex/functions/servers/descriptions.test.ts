@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, internal } from '../../_generated/api'
+import { api } from '../../_generated/api'
 import type { Id } from '../../_generated/dataModel'
 import {
 	createTest,
@@ -124,30 +124,6 @@ describe('server descriptions', () => {
 			table: UPDATED,
 			document: undefined,
 		})
-	})
-
-	it('moves descriptions saved on the document, and reads them until then', async () => {
-		const t = createTest()
-		const id = await insertServer(t, { slug: 'legacy' })
-		await t.run((ctx) => ctx.db.patch(id, { description: ABOUT }))
-
-		expect(
-			await t.query(api.functions.servers.servers.getPublishedBySlug, {
-				slug: 'legacy',
-			}),
-		).toMatchObject({ description: ABOUT })
-
-		expect(
-			await t.mutation(internal.functions.servers.migrations.moveDescriptions, {}),
-		).toBe(1)
-		expect(await storedDescription(t, id)).toEqual({
-			table: ABOUT,
-			document: undefined,
-		})
-		// Running it again changes nothing.
-		expect(
-			await t.mutation(internal.functions.servers.migrations.moveDescriptions, {}),
-		).toBe(0)
 	})
 
 	it('removes the description with the server', async () => {

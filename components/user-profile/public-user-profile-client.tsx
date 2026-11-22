@@ -164,9 +164,7 @@ export default function PublicUserProfilePage() {
 	const socials = Object.entries(profile.socials ?? {}).filter(
 		(entry): entry is [string, string] => Boolean(entry[1]),
 	)
-	const hasSidebar =
-		profile.organizations.length > 0 ||
-		Boolean(profile.support?.externalUrl)
+	const hasSidebar = profile.organizations.length > 0
 
 	return (
 		<main className="flex-1">
@@ -401,21 +399,6 @@ export default function PublicUserProfilePage() {
 									</Link>
 								))}
 							</div>
-						</SideCard>
-					) : null}
-
-					{profile.support?.externalUrl ? (
-						<SideCard title="Support">
-							<a
-								className="inline-flex min-h-11 items-center justify-center rounded-sm border-2 border-edge bg-primary px-4 font-bold font-display text-primary-foreground uppercase"
-								href={ensureHttpUrl(
-									profile.support.externalUrl,
-								)}
-								rel="noopener noreferrer"
-								target="_blank"
-							>
-								Support {displayName}
-							</a>
 						</SideCard>
 					) : null}
 				</aside>

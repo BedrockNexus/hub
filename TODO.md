@@ -21,12 +21,11 @@ Current work as of 2026-11-06. Keep product priorities here, regression checks i
 
 ## Cleanup
 
-- [ ] Backfill server address keys and inspect conflicts. On 2026-11-01, three
-  of four production servers had no `addressKey`; dev was complete. Use
-  `functions/servers/migrations:backfillAddressKeys` and check its result.
-- [ ] Decide whether to correct historical false offline checks. Use a confirmed
-  NetherNet-fix deployment timestamp and review the dry-run report first; a real
-  outage ending at that time can also match. This is not a routine backfill.
+- [x] Backfill server address keys (2026-11-21: three production servers
+  updated, no conflicts; every server in both deployments has one).
+- [x] Historical false offline checks: dropped 2026-11-21. Raw history only
+  covers 30 days, so the correction could no longer reach them; the one-off
+  migration was removed with the other finished migrations.
 
 ## Analytics
 

@@ -5,11 +5,8 @@ import type { MutationCtx, QueryCtx } from '../_generated/server'
  * A published plugin's description lives in `pluginDescriptions`, not on the
  * plugin document, so listings, the homepage counts and the catalog do not
  * read it. It was most of each document. The publishing draft keeps its own
- * copy; only the owner's dashboard reads drafts.
- *
- * Plugins saved before the move may still carry `description` on the
- * document until functions/plugins/migrations:moveDescriptions has run; reads
- * fall back to it, and the next write moves it.
+ * copy; only the owner's dashboard reads drafts. Writes go through
+ * splitPluginDescription, which keeps any copy off the document.
  *
  * Anything that snapshots a plugin for review must use withPluginDescription
  * first: a snapshot without the description records it as empty.
@@ -24,10 +21,9 @@ async function descriptionRow(ctx: QueryCtx, pluginId: Id<'plugins'>) {
 
 export async function readPluginDescription(
 	ctx: QueryCtx,
-	plugin: Pick<Doc<'plugins'>, '_id' | 'description'>,
+	plugin: Pick<Doc<'plugins'>, '_id'>,
 ): Promise<string | undefined> {
-	const row = await descriptionRow(ctx, plugin._id)
-	return row ? row.description : plugin.description
+	return (await descriptionRow(ctx, plugin._id))?.description
 }
 
 /** The plugin with its description, for detail, review and history views. */

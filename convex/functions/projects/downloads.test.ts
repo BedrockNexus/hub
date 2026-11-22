@@ -17,7 +17,7 @@ describe('official download counts and canonical URLs', () => {
 	})
 	it('uses type-specific stable paths and hides unavailable legacy links', async () => {
 		const t = createTest()
-		for (const [type, directory, prefix] of [['addon', 'addons', 'a_'], ['texture_pack', 'resource-packs', 'rp_']] as const) {
+		for (const [type, directory, prefix] of [['addon', 'addons', 'a_'], ['resource_pack', 'resource-packs', 'rp_']] as const) {
 			const projectId = await insertProject(t, { slug: type, type })
 			const versionId = await insertRelease(t, projectId, '1.0+build')
 			const path = `/${directory}/${prefix}${projectId}/download/1.0%2Bbuild`

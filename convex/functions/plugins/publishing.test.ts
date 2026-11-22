@@ -1085,23 +1085,6 @@ describe('plugin icons and links', () => {
 		})
 	})
 
-	it('copies icons saved before they applied at once', async () => {
-		const t = createTest()
-		const foundation = await createFoundation(t, POCKETMINE)
-		await t.run((ctx) =>
-			ctx.db.patch('pluginPublishingDrafts', foundation.draftId, {
-				iconUrl: 'https://cdn.example.com/waiting.webp',
-			}),
-		)
-		const sync = internal.functions.plugins.migrations.syncIconsToPlugins
-		expect(await t.mutation(sync, {})).toBe(1)
-		expect(await t.mutation(sync, {})).toBe(0)
-		expect(
-			(await t.run((ctx) => ctx.db.get('plugins', foundation.projectId)))
-				?.iconUrl,
-		).toBe('https://cdn.example.com/waiting.webp')
-	})
-
 	it('validates links and publishes them with the reviewed release', async () => {
 		const t = createTest()
 		const foundation = await createFoundation(t, POCKETMINE)
@@ -2483,34 +2466,4 @@ describe('plugin descriptions', () => {
 		expect(await descriptionRows(t, f.projectId)).toEqual([])
 	})
 
-	it('reads a description left on the document until the migration moves it', async () => {
-		const t = createTest()
-		const f = await createFoundation(t, POCKETMINE)
-		await approveAndPublish(
-			t,
-			f,
-			await sendToReview(t, f, await recordBuild(t, f, 89701), '1.0.0'),
-			'1.0.0',
-		)
-		// A plugin saved before the move.
-		await t.run(async (ctx) => {
-			for (const row of await ctx.db
-				.query('pluginDescriptions')
-				.withIndex('by_pluginId', (q) => q.eq('pluginId', f.projectId))
-				.collect())
-				await ctx.db.delete('pluginDescriptions', row._id)
-			await ctx.db.patch('plugins', f.projectId, { description: 'Legacy text' })
-		})
-		expect((await page(t, f.slug))?.description).toBe('Legacy text')
-
-		expect(
-			await t.mutation(internal.functions.plugins.migrations.moveDescriptions, {}),
-		).toBe(1)
-		expect((await pluginDoc(t, f.projectId))?.description).toBeUndefined()
-		expect((await page(t, f.slug))?.description).toBe('Legacy text')
-		// Running it again changes nothing.
-		expect(
-			await t.mutation(internal.functions.plugins.migrations.moveDescriptions, {}),
-		).toBe(0)
-	})
 })

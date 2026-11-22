@@ -27,9 +27,8 @@ import {
  * functions/site/migrations:backfillCreatorListings.
  *
  * A listing carries its owner's avatar or logo as a CDN URL
- * (lib/ownerPictures.ts). Pictures still saved inline as data URLs, tens of
- * kilobytes each, are left out until
- * functions/site/migrations:backfillInlinePictures has moved them.
+ * (lib/ownerPictures.ts). A picture saved inline as a data URL, tens of
+ * kilobytes, is never copied into a listing.
  */
 
 export type CreatorOwnerType = Doc<'creatorListings'>['ownerType']

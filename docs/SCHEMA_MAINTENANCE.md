@@ -78,36 +78,33 @@ before deploying the final stricter schema to those environments.
   daily statistics, creator listings and publication/moderation fields remain.
 - Review `helpfulCount` and project `authorReply` remain in current public
   projections. Removing public response fields needs its own contract decision.
-- The `texture_pack` discriminator remains for historical compatibility across
-  projects, categories and uploads; it is not a dormant product feature.
+- `texture_pack` is gone from the schema (2026-11-21: no stored values in
+  either deployment). Routes, the website and the `api` service still map the
+  old name to `resource_pack` for links and clients that send it.
 - Better Auth and installed Convex component schemas are owned by their
   components and are outside this application-schema cleanup.
 
-## Other maintenance, not a standing deployment checklist
+## Repair tools, not a standing deployment checklist
 
-On the audit date, production had address keys for one of four servers; dev had
-all four. `functions/servers/migrations:backfillAddressKeys` is still relevant.
-It normalizes addresses, leaves conflicts for an administrator, and reports them.
-
-Other existing backfills are repair/import tools rather than commands to run
-on every release:
+These are safe to re-run and repair drift or set up a new deployment. They are
+not commands to run on every release:
 
 | Function | Use when |
 | --- | --- |
-| `site/migrations:backfillActivity` | Older public records lack activity entries |
-| `site/migrations:backfillDiscovery` | Imported listings lack search/discovery fields |
+| `site/migrations:backfillDiscovery` | Listing rows lack discovery fields or live status, or have drifted |
 | `site/migrations:backfillCreatorListings` | Public owners lack their derived creator listing |
-| `site/migrations:backfillInlinePictures` | Auth avatars or organization logos still use data URLs |
-| `servers/migrations:seedDefaultServerSoftware` | A deployment lacks the default software catalog |
-| `servers/migrations:rebuildServerDailyStats` | Daily summaries need rebuilding from retained history |
-| `projects/artifactValidation:backfillChecksums` | Older validated releases lack recorded checksums |
-| `projects/migrations:migrateTexturePacks` | Historical stored type values need normalization |
+| `site/migrations:setPluginsEnabled` | A new deployment has no admin who can use the Plugins toggle yet |
+| `projects/migrations:seedDefaultProjectCategories` | A deployment lacks the default add-on and resource pack categories |
+| `projects/migrations:backfillCategoryCounts` | Add-on or resource pack category counts have drifted |
+| `servers/migrations:backfillCategoryCounts` | Server category counts have drifted |
 
 These abbreviated module paths live below `functions/`. Inspect the target
-deployment and preserve existing data before running a repair. An old TODO
-checkbox is not a migration ledger.
+deployment and preserve existing data before running a repair.
 
-`servers/migrations:forgiveFalseOfflineChecks` is a separate historical correction.
-Its preview needs the confirmed fix deployment timestamp, and a real outage
-ending at that moment can match. Do not infer a timestamp from a commit date or
-apply it as routine schema cleanup.
+One-off migrations are deleted once both deployments are verified, following the
+steps above. On 2026-11-21 these were completed and removed: texture pack
+types, project public IDs, server address keys, server and plugin descriptions
+moved to their own tables, plugin search text caps, plugin icon sync, activity
+backfill, display name repair, inline pictures moved to R2, editor media
+references, release checksums, server daily stats rebuild, and the historical
+false offline correction. Their source is in Git history.

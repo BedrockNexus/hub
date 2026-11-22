@@ -59,7 +59,6 @@ const MEDIA_KEY_PATTERN =
 	/^media\/(servers|projects|plugins|organizations|profiles|site)\/([^/]+)\/([^/]+)\/[^/]+$/
 const RELEASE_KEY_PATTERN =
 	/^(?:artifacts|downloads|uploads)\/projects\/([^/]+)\/releases\/[^/]+\/[^/]+$/
-export const EDITOR_MEDIA_BACKFILL_SETTING = 'editorMediaReferencesBackfilled'
 
 async function isEditorMediaReferenced(ctx: MutationCtx, key: string) {
 	const references = await ctx.db
@@ -102,14 +101,13 @@ async function loadReferenceMarkdown(
 async function isManagedKeyReferenced(
 	ctx: MutationCtx,
 	key: string,
-	options: { editorMediaIndexed: boolean },
 ): Promise<boolean> {
 	if (await isReviewMediaRetained(ctx, key)) return true
 	if (isTemporaryR2Key(key)) {
 		return false
 	}
 	if (isEditorMediaR2Key(key)) {
-		return options.editorMediaIndexed ? isEditorMediaReferenced(ctx, key) : true
+		return isEditorMediaReferenced(ctx, key)
 	}
 
 	const release = key.match(RELEASE_KEY_PATTERN)
@@ -318,14 +316,6 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 		const target = bucket === 'uploads' ? uploadsR2 : r2
 		const acceptsKey = bucket === 'uploads' ? isPrivateUploadR2Key : isCdnR2Key
 		const now = Date.now()
-		// Until existing descriptions are indexed, editor uploads are never
-		// deleted (functions/storageMigrations:backfillEditorMediaReferences).
-		const editorMediaIndexed = Boolean(
-			await ctx.db
-				.query('siteSettings')
-				.withIndex('by_key', (q) => q.eq('key', EDITOR_MEDIA_BACKFILL_SETTING))
-				.unique(),
-		)
 		const cutoff =
 			now - (args.olderThanMs ?? STALE_MANAGED_UPLOAD_AGE_MS)
 		const expiredReservations = await ctx.db
@@ -358,7 +348,7 @@ export const cleanupStaleManagedR2Uploads = internalMutation({
 				continue
 			}
 			if (
-				await isManagedKeyReferenced(ctx, metadata.key, { editorMediaIndexed })
+				await isManagedKeyReferenced(ctx, metadata.key)
 			) {
 				continue
 			}

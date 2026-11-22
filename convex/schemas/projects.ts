@@ -33,8 +33,6 @@ export const releaseScriptModule = v.object({
 export const projectType = v.union(
 	v.literal('addon'),
 	v.literal('resource_pack'),
-	// Remove after functions/projects/migrations:migrateTexturePacks is run.
-	v.literal('texture_pack'),
 )
 
 export const projectMetadata = v.union(
@@ -123,7 +121,8 @@ export const tables = {
 		.index('by_sort_order', ['sortOrder']),
 
 	projects: defineTable({
-		// Immutable public route identity; optional until backfilled.
+		// Immutable public route identity, set when the project is created
+		// (lib/projectPublicIds.ts). Every stored project has one.
 		publicId: v.optional(v.string()),
 		...submissionFields,
 		submittedVersionIds: v.optional(v.array(v.id('projectVersions'))),

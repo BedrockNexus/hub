@@ -4,6 +4,7 @@ import { getProjectDownloadCount, getOwnerDownloadCount } from '../../lib/plugin
 import { createTest as createBackend } from '../../test.setup'
 import { api } from '../../_generated/api'
 import { insertProjectAggregates } from '../../lib/plugins/aggregates'
+import { writePluginDescription } from '../../lib/pluginDescriptions'
 
 const redirectSecret = 'test-download-redirect-secret'
 
@@ -58,7 +59,6 @@ async function createPublishedFixture(t: TestClient) {
 			slug: 'trusted-plugin',
 			name: 'Trusted Plugin',
 			summary: 'A trusted project fixture.',
-			description: "<script>alert('no')</script>\n\nSafe documentation.",
 			searchText: 'trusted plugin useful powernukkitx',
 			visibility: 'public',
 			status: 'published',
@@ -70,6 +70,11 @@ async function createPublishedFixture(t: TestClient) {
 			createdAt: now,
 			updatedAt: now,
 		})
+		await writePluginDescription(
+			ctx,
+			projectId,
+			"<script>alert('no')</script>\n\nSafe documentation.",
+		)
 		const versionId = await ctx.db.insert('pluginVersions', {
 			projectId,
 			version: '1.0.0',

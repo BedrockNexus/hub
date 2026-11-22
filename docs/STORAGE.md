@@ -105,9 +105,5 @@ Objects newer than 24 hours, unknown layouts, and legacy layouts are kept.
 
 Editor uploads embedded in markdown (server and project descriptions, release
 changelogs) are tracked in `editorMediaReferences`, written whenever those
-fields are saved. Cleanup re-reads the source before trusting a reference.
-Editor uploads are never deleted until the one-time backfill has finished:
-
-```bash
-npx convex run functions/storageMigrations:backfillEditorMediaReferences
-```
+fields are saved. Cleanup re-reads the source before trusting a reference, and
+deletes an editor upload only when nothing references it.

@@ -20,8 +20,9 @@ import { isOrganizationMediaR2Key, isProfileMediaR2Key } from './r2Keys'
  * - save:    the Better Auth triggers in auth.ts call afterOwnerPictureWrite,
  *            which rejects anything but the owner's own upload and deletes the
  *            picture it replaces
- * - legacy:  functions/site/migrations:backfillInlinePictures moves pictures
- *            that were saved inline as data URLs
+ * - legacy:  pictures once saved inline as data URLs were moved to R2 by a
+ *            one-off migration (removed 2026-11-21); listings still skip
+ *            any data URL
  */
 
 export type PictureOwnerType = 'user' | 'organization'

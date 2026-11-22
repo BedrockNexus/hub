@@ -726,12 +726,6 @@ export const getPublicProfileByUsername = query({
 				.take(1000),
 		])
 
-		// Support config
-		const supportConfig = await ctx.db
-			.query('supportTiers')
-			.withIndex('by_user', (q) => q.eq('userId', user._id))
-			.first()
-
 		return {
 			id: user._id,
 			username: user.username ?? undefined,
@@ -759,13 +753,6 @@ export const getPublicProfileByUsername = query({
 				),
 				reviewsWritten: serverReviews.length + projectReviews.length,
 			},
-			support:
-				supportConfig?.enabled
-					? {
-							externalUrl: supportConfig.externalUrl,
-							tiers: supportConfig.tiers,
-						}
-					: null,
 		}
 	},
 })
