@@ -46,7 +46,7 @@ async function owned(t: TestClient, slug: string) {
 }
 
 describe('server events', () => {
-	it('opens an incident after three failed checks and closes it with its length', async () => {
+	it('opens an incident after two failed checks and closes it with its length', async () => {
 		const t = createTest()
 		const { owner, serverId } = await owned(t, 'flaky')
 		await check(t, serverId, { online: true, players: 3 })

@@ -117,7 +117,7 @@ Built 2026-11-13 (`convex/lib/releaseDependencies.ts`, `lib/orgAudit.ts`,
 Built 2026-11-13 (`convex/lib/serverEvents.ts`, `lib/serverHealth.ts`,
 `functions/servers/intelligence.ts`, `functions/servers/networks.ts`).
 
-- [x] `serverEvents` from pings: offline after 3 failed checks in a row (dated
+- [x] `serverEvents` from pings: offline after 2 failed checks in a row (dated
   from the first), back online with duration, version change, player record
   (one per day; the first check is a baseline).
 - [x] Owner alerts as `server_offline` / `server_online` notifications, at most

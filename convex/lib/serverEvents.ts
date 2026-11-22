@@ -10,7 +10,7 @@ import { ownerRecipients } from './ownerRecipients'
  * Called from servers/status.ts internalUpdateStatus for every check.
  *
  * - An incident opens after OFFLINE_AFTER_FAILURES failed checks in a row
- *   (about 15 minutes at one check every 5), dated from the first failure, so
+ *   (10 to 20 minutes at one check every 10), dated from the first failure, so
  *   a single dropped ping is never an outage. The next successful check
  *   closes it with its duration.
  * - A version change is recorded when an online check reports a different
@@ -23,7 +23,7 @@ import { ownerRecipients } from './ownerRecipients'
  * away unless they turned instant alert emails off.
  */
 
-export const OFFLINE_AFTER_FAILURES = 3
+export const OFFLINE_AFTER_FAILURES = 2
 const HOUR_MS = 60 * 60 * 1000
 const RECORD_EVENT_GAP_MS = 24 * HOUR_MS
 // Records below this are noise from a handful of players.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { api } from '../../_generated/api'
+import { api, internal } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import { ensureServerStats, syncServer } from '../../lib/discovery'
 import { createTest, type TestClient } from '../../test.setup'
@@ -312,5 +312,49 @@ describe('server listing', () => {
 		expect(await found('economy', { software: 'nukkit' })).toEqual(['cloud'])
 		expect(await found('economy', { status: ['offline'] })).toEqual([])
 		expect(await found('nothing-like-this')).toEqual([])
+	})
+})
+
+describe('live status on listings', () => {
+	it('shows each status check on the cards without reading serverStatus', async () => {
+		const t = createTest()
+		const id = await addServer(t, { slug: 'live' })
+		const check = (online: boolean, playerCount?: number) =>
+			t.mutation(internal.functions.servers.status.internalUpdateStatus, {
+				serverId: id,
+				online,
+				playerCount,
+				maxPlayers: online ? 100 : undefined,
+			})
+		const card = async () => (await browse(t)).page[0]
+		const stats = () =>
+			t.run(async (ctx) =>
+				ctx.db
+					.query('serverStats')
+					.withIndex('by_server', (q) => q.eq('serverId', id))
+					.unique(),
+			)
+
+		// Never checked: not in "Most players" yet.
+		expect(await slugs(t)).toEqual([])
+		await check(true, 12)
+		expect(await card()).toMatchObject({
+			slug: 'live',
+			online: true,
+			playerCount: 12,
+			maxPlayers: 100,
+		})
+		const before = await stats()
+		// A check that changes nothing visible leaves the listing row alone.
+		await check(true, 12)
+		expect(await stats()).toEqual(before)
+		await check(false)
+		expect(await card()).toMatchObject({
+			online: false,
+			playerCount: 0,
+			// The last known capacity stays, as on serverStatus.
+			maxPlayers: 100,
+		})
+		expect(await slugs(t, { status: ['online'] })).toEqual([])
 	})
 })

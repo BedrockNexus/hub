@@ -45,7 +45,7 @@ redirect is logged in `downloadEvents` (400 days).
 ## Server intelligence (Phase 5)
 
 Each status check updates the hourly rollup and runs incident detection. An
-incident opens after `OFFLINE_AFTER_FAILURES` (3) failed checks in a row and
+incident opens after `OFFLINE_AFTER_FAILURES` (2) failed checks in a row and
 closes on the next success. The daily `recompute-server-health` cron writes
 `serverHealthSnapshots` and `serverStats.healthScore` from the formula in
 `lib/serverHealth.ts`, which must never read payment or featured status.

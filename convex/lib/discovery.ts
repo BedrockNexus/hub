@@ -199,20 +199,49 @@ export async function recordProjectView(
 // SERVERS
 // =============================================================================
 
+/** What a server card shows from the latest status check. */
+export interface ServerLiveStatus {
+	online: boolean
+	playerCount: number
+	maxPlayers: number
+}
+
+function liveFields(status: ServerLiveStatus | null) {
+	return {
+		online: status?.online,
+		playerCount: status?.playerCount,
+		maxPlayers: status?.maxPlayers,
+	}
+}
+
+/**
+ * Copies the card fields of a status check to the server's stats. Called on
+ * every check, it writes only when one of them changed, so listings that read
+ * the stats are not re-run by checks that change nothing visible.
+ */
+export async function syncServerLiveStatus(
+	ctx: MutationCtx,
+	serverId: Id<'servers'>,
+	status: ServerLiveStatus,
+) {
+	const stats = await ensureServerStats(ctx, serverId)
+	await patchChanged(ctx, stats, liveFields(status))
+}
+
 /** Copies a server's listing fields to its stats and status, and refreshes its search text. */
 export async function syncServer(ctx: MutationCtx, server: Doc<'servers'>) {
 	const isPublic = isListedServer(server)
+	const status = await ctx.db
+		.query('serverStatus')
+		.withIndex('by_server', (q) => q.eq('serverId', server._id))
+		.first()
 	const stats = await ensureServerStats(ctx, server._id)
 	await patchChanged(ctx, stats, {
 		isPublic,
 		softwareId: server.softwareId,
 		publishedAt: server.publishedAt,
+		...liveFields(status),
 	})
-
-	const status = await ctx.db
-		.query('serverStatus')
-		.withIndex('by_server', (q) => q.eq('serverId', server._id))
-		.first()
 	if (status) {
 		await patchChanged(ctx, status, { isPublic })
 	}

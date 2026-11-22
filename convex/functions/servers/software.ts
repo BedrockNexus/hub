@@ -24,7 +24,7 @@ import { enforceRateLimit } from '../../lib/rateLimits'
 import { isListedServer } from '../../lib/contentVisibility'
 import { countPublishedProjectsForSoftwareBatch } from '../../lib/plugins/aggregates'
 import { softwareIdsWithWorkflows } from '../../lib/plugins/workflowTemplates'
-import { statusOf, toCards } from './listing'
+import { toCards } from './listing'
 import { recordAdminAction } from '../../lib/audit'
 import { assertOptionalHttpUrl } from '../../lib/contentValidation'
 import { adminMutation, adminQuery } from '../../lib/functions'
@@ -466,11 +466,7 @@ export const getDirectoryEntry = query({
 				busiest.map(async (row) => {
 					const server = await ctx.db.get('servers', row.serverId)
 					return server && isListedServer(server)
-						? {
-								server,
-								stats: row,
-								status: await statusOf(ctx, server._id),
-							}
+						? { server, stats: row }
 						: null
 				}),
 			)

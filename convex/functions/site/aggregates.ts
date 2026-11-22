@@ -40,9 +40,9 @@ async function storeSoftwareStats(ctx: MutationCtx, next: SoftwareAggregates[]) 
 /**
  * Recounts the homepage numbers into the single `siteAggregates` document,
  * and the per-software totals into `serverSoftwareStats`.
- * Runs every 5 minutes (crons.ts: `refresh-site-aggregates`), right after a
- * round of status checks. Writes only when something changed, so idle periods
- * do not re-render every open homepage.
+ * Runs every 15 minutes (crons.ts: `refresh-site-aggregates`). Writes only
+ * when something changed, so idle periods do not re-render every open
+ * homepage.
  */
 export const refresh = internalMutation({
 	args: {},

@@ -9,6 +9,7 @@ import { components } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import betterAuthSchema from './betterAuth/schema'
 import schema from './schema'
+import { syncServer } from './lib/discovery'
 
 const modules = import.meta.glob('./**/*.ts')
 const betterAuthModules = import.meta.glob('./betterAuth/**/*.ts')
@@ -135,8 +136,8 @@ export async function insertServer(
 		region?: string
 	},
 ) {
-	return await t.run(async (ctx) =>
-		ctx.db.insert('servers', {
+	return await t.run(async (ctx) => {
+		const id = await ctx.db.insert('servers', {
 			name: overrides.slug,
 			slug: overrides.slug,
 			smallDescription: 'A test server',
@@ -148,8 +149,12 @@ export async function insertServer(
 			registeredBy: overrides.ownerId ?? 'owner',
 			status: overrides.status ?? 'published',
 			region: overrides.region,
-		}),
-	)
+		})
+		// Real server writes keep the listing row in step (lib/discovery.ts).
+		const server = await ctx.db.get(id)
+		if (server) await syncServer(ctx, server)
+		return id
+	})
 }
 
 /** Simulate a moderator deciding on the revision they just loaded. */

@@ -228,8 +228,7 @@ export const tables = {
 		reviewCount: v.number(),
 
 		// Discovery fields, maintained by lib/discovery.ts and the hourly
-		// trending job so public listings read in index order. Live player
-		// counts stay on serverStatus, which changes every few minutes.
+		// trending job so public listings read in index order.
 		isPublic: v.optional(v.boolean()),
 		softwareId: v.optional(v.id('serverSoftware')),
 		publishedAt: v.optional(v.number()),
@@ -244,10 +243,24 @@ export const tables = {
 		healthScore: v.optional(v.number()),
 		trendingScore: v.optional(v.number()),
 
+		// What a server card shows from the latest status check, copied from
+		// serverStatus only when it changes (lib/discovery.ts:
+		// syncServerLiveStatus). serverStatus changes on every check; listings
+		// read these instead so a check that changes nothing visible does not
+		// re-run every open listing. Unset until the first check.
+		online: v.optional(v.boolean()),
+		playerCount: v.optional(v.number()),
+		maxPlayers: v.optional(v.number()),
+
 		// Timestamps
 		updatedAt: v.number(),
 	})
 		.index('by_server', ['serverId'])
+		.index('by_isPublic_and_online_and_playerCount', [
+			'isPublic',
+			'online',
+			'playerCount',
+		])
 		.index('by_rating', ['averageRating'])
 		.index('by_isPublic_and_trendingScore', ['isPublic', 'trendingScore'])
 		.index('by_isPublic_and_publishedAt', ['isPublic', 'publishedAt'])
@@ -382,18 +395,12 @@ export const tables = {
 		peakPlayersEver: v.optional(v.number()),
 		lastRecordEventAt: v.optional(v.number()),
 
-		// Whether the server is published; lets the busiest-servers listing
-		// read this table in index order. Maintained by lib/discovery.ts.
+		// Whether the server is published. Maintained by lib/discovery.ts;
+		// listings read serverStats instead, which changes far less often.
 		isPublic: v.optional(v.boolean()),
 	})
-		.index('by_server', ['serverId'])
-		.index('by_online', ['online'])
-		.index('by_last_checked', ['lastChecked'])
-		.index('by_isPublic_and_online_and_playerCount', [
-			'isPublic',
-			'online',
-			'playerCount',
-		]),
+		// Written on every check, so it keeps only the index lookups need.
+		.index('by_server', ['serverId']),
 
 	// ===========================================================================
 	// SERVER REVIEWS

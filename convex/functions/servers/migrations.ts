@@ -6,7 +6,7 @@ import { normalizeServerAddress } from '../../lib/serverAddress'
 import { writeServerDescription } from '../../lib/serverDescriptions'
 
 const BATCH_SIZE = 100
-// A server's raw history: 30 days of checks, every 5 minutes.
+// A server's raw history: 30 days of checks, every 10 minutes (every 5 before 2026-11-21).
 const MAX_HISTORY_ROWS = 9000
 
 /**

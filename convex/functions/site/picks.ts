@@ -5,11 +5,7 @@ import { recordAdminAction } from '../../lib/audit'
 import { isListedServer, isPublicProject } from '../../lib/contentVisibility'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import { toCards as toProjectCards } from '../projects/listing'
-import {
-	statsOf,
-	statusOf,
-	toCards as toServerCards,
-} from '../servers/listing'
+import { statsOf, toCards as toServerCards } from '../servers/listing'
 
 /**
  * Bedrock Nexus Picks: servers and projects an admin chose to highlight, each
@@ -91,7 +87,6 @@ export const list = query({
 						{
 							server,
 							stats: await statsOf(ctx, server._id),
-							status: await statusOf(ctx, server._id),
 						},
 					])
 					return { ...base, targetType: 'server' as const, server: card }

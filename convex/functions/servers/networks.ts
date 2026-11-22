@@ -247,10 +247,6 @@ export const getByRef = query({
 					.query('serverStats')
 					.withIndex('by_server', (q) => q.eq('serverId', server._id))
 					.first(),
-				status: await ctx.db
-					.query('serverStatus')
-					.withIndex('by_server', (q) => q.eq('serverId', server._id))
-					.unique(),
 			})),
 		)
 		const cards = await toCards(ctx, rows)

@@ -11,11 +11,12 @@ import schema from '../../schema'
 /**
  * The public server listing behind /servers.
  *
- * "Most players" reads `serverStatus` in index order (online first, busiest
- * first); every other sort reads `serverStats` in its own index order. The
- * listing fields on both are kept by lib/discovery.ts and the status checks.
- * A server joins "Most players" with its first status check, which is
- * scheduled as soon as it is listed.
+ * Every sort reads `serverStats` in its own index order; "Most players" puts
+ * online servers first, busiest first. The listing fields are kept by
+ * lib/discovery.ts, and the live ones (online, players) are copied from each
+ * status check only when they change, so listings never read `serverStatus`,
+ * which changes on every check. A server is online or offline from its first
+ * status check, which is scheduled as soon as it is listed.
  *
  * Searching reads the `search_text` index on `servers` instead; results come
  * back by relevance and `sort` is ignored.
@@ -64,11 +65,10 @@ interface Filters {
 interface Row {
 	server: Doc<'servers'>
 	stats: Doc<'serverStats'> | null
-	status: Doc<'serverStatus'> | null
 }
 
 /** Everything the listing checks on the server and its live status. */
-function matchesFilters({ server, status }: Row, filters: Filters) {
+function matchesFilters({ server, stats }: Row, filters: Filters) {
 	if (!isListedServer(server)) {
 		return false
 	}
@@ -97,7 +97,7 @@ function matchesFilters({ server, status }: Row, filters: Filters) {
 	}
 	return (
 		filters.online === undefined ||
-		(status?.online === true) === filters.online
+		(stats?.online === true) === filters.online
 	)
 }
 
@@ -113,13 +113,6 @@ function cleanValues(values: string[] | undefined) {
 export async function statsOf(ctx: QueryCtx, serverId: Id<'servers'>) {
 	return await ctx.db
 		.query('serverStats')
-		.withIndex('by_server', (q) => q.eq('serverId', serverId))
-		.first()
-}
-
-export async function statusOf(ctx: QueryCtx, serverId: Id<'servers'>) {
-	return await ctx.db
-		.query('serverStatus')
 		.withIndex('by_server', (q) => q.eq('serverId', serverId))
 		.first()
 }
@@ -143,7 +136,7 @@ export async function toCards(ctx: QueryCtx, rows: Row[]) {
 		),
 	)
 	return await Promise.all(
-		rows.map(async ({ server, stats, status }) => ({
+		rows.map(async ({ server, stats }) => ({
 			...toPublicServer(server),
 			logoUrl: await imageUrl(server.logoR2Key),
 			bannerUrl: await imageUrl(server.bannerR2Key),
@@ -151,9 +144,9 @@ export async function toCards(ctx: QueryCtx, rows: Row[]) {
 				const category = categories.get(id)
 				return category ? [category] : []
 			}),
-			online: status?.online,
-			playerCount: status?.playerCount ?? 0,
-			maxPlayers: status?.maxPlayers,
+			online: stats?.online,
+			playerCount: stats?.playerCount ?? 0,
+			maxPlayers: stats?.maxPlayers,
 			averageRating: stats?.averageRating ?? 0,
 			reviewCount: stats?.reviewCount ?? 0,
 			followerCount: stats?.followerCount ?? 0,
@@ -238,7 +231,6 @@ export const browse = query({
 				result.page.map(async (server) => ({
 					server,
 					stats: await statsOf(ctx, server._id),
-					status: await statusOf(ctx, server._id),
 				})),
 			)
 			return {
@@ -256,23 +248,19 @@ export const browse = query({
 		if (sort === 'players') {
 			const { online } = filters
 			const result = await stream(ctx.db, schema)
-				.query('serverStatus')
+				.query('serverStats')
 				.withIndex('by_isPublic_and_online_and_playerCount', (q) => {
 					const listed = q.eq('isPublic', true)
+					// A server joins this order with its first status check;
+					// before it, `online` is unset and sorts below `false`.
 					return online === undefined
-						? listed
+						? listed.gte('online', false)
 						: listed.eq('online', online)
 				})
 				.order('desc')
-				.map(async (status): Promise<Row | null> => {
-					const server = await ctx.db.get('servers', status.serverId)
-					return server
-						? keep({
-								server,
-								status,
-								stats: await statsOf(ctx, server._id),
-							})
-						: null
+				.map(async (stats): Promise<Row | null> => {
+					const server = await ctx.db.get('servers', stats.serverId)
+					return server ? keep({ server, stats }) : null
 				})
 				.paginate(limits)
 			return { ...result, page: await toCards(ctx, result.page) }
@@ -284,13 +272,7 @@ export const browse = query({
 			.order('desc')
 			.map(async (stats): Promise<Row | null> => {
 				const server = await ctx.db.get('servers', stats.serverId)
-				return server
-					? keep({
-							server,
-							stats,
-							status: await statusOf(ctx, server._id),
-						})
-					: null
+				return server ? keep({ server, stats }) : null
 			})
 			.paginate(limits)
 		return { ...result, page: await toCards(ctx, result.page) }

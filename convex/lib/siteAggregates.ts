@@ -47,16 +47,19 @@ export async function computeAggregates(
 	).filter(isListedServer)
 	const publishedServerIds = new Set(servers.map((server) => server._id))
 
+	// The card fields copied from each status check (lib/discovery.ts).
 	const onlineStatuses = await ctx.db
-		.query('serverStatus')
-		.withIndex('by_online', (q) => q.eq('online', true))
+		.query('serverStats')
+		.withIndex('by_isPublic_and_online_and_playerCount', (q) =>
+			q.eq('isPublic', true).eq('online', true),
+		)
 		.collect()
 	const onlinePlayers = onlineStatuses
 		.filter((status) => publishedServerIds.has(status.serverId))
-		.reduce((sum, status) => sum + status.playerCount, 0)
+		.reduce((sum, status) => sum + (status.playerCount ?? 0), 0)
 
 	const playersByServer = new Map(
-		onlineStatuses.map((status) => [status.serverId, status.playerCount]),
+		onlineStatuses.map((status) => [status.serverId, status.playerCount ?? 0]),
 	)
 	const bySoftware = new Map<
 		Id<'serverSoftware'>,
@@ -97,7 +100,7 @@ export async function computeAggregates(
 	}))
 
 	// Project and plugin documents carry the full description twice (once in
-	// searchText), about 20 KB each. This runs every 5 minutes, so count from
+	// searchText), about 20 KB each. This runs every 15 minutes, so count from
 	// the small listing rows and the plugin aggregate instead of reading them.
 	const publicProjects = await ctx.db
 		.query('projectStats')

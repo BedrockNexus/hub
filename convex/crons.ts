@@ -10,10 +10,11 @@ crons.interval(
 	{},
 )
 
-// Ping all servers every 5 minutes to update their status
+// Check every published server's status every 10 minutes. Owners can
+// refresh their own server on demand (servers/status:refreshStatus).
 crons.interval(
 	'ping-all-servers',
-	{ minutes: 5 },
+	{ minutes: 10 },
 	internal.functions.servers.status.pingAllServers,
 )
 
@@ -31,10 +32,11 @@ crons.daily(
 	{},
 )
 
-// Homepage counters, right after each round of status checks has landed.
+// Homepage counters. They read every published server and online status,
+// so they refresh every 15 minutes rather than after every round of checks.
 crons.interval(
 	'refresh-site-aggregates',
-	{ minutes: 5 },
+	{ minutes: 15 },
 	internal.functions.site.aggregates.refresh,
 	{},
 )

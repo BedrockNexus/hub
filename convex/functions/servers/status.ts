@@ -14,7 +14,7 @@ import { authComponent } from '../../auth'
 import { afterServerWrite } from '../../lib/activity'
 import { backgroundJobsPaused } from '../../lib/backgroundJobs'
 import { isListedServer } from '../../lib/contentVisibility'
-import { recordServerCheck } from '../../lib/discovery'
+import { recordServerCheck, syncServerLiveStatus } from '../../lib/discovery'
 import { enforceRateLimit } from '../../lib/rateLimits'
 import { detectServerEvents, recordServerHour } from '../../lib/serverEvents'
 
@@ -293,6 +293,15 @@ export const internalUpdateStatus = internalMutation({
 			}
 		}
 		const isPublic = isListedServer(listed)
+		const live = {
+			online: args.online,
+			playerCount: args.online ? (args.playerCount ?? 0) : 0,
+			maxPlayers: args.online
+				? (args.maxPlayers ?? 0)
+				: (existing?.maxPlayers ?? 0),
+		}
+		// Listings read these copies, which change only when the card would.
+		await syncServerLiveStatus(ctx, args.serverId, live)
 
 		if (existing) {
 			const checksTotal = existing.checksTotal + 1
@@ -300,11 +309,7 @@ export const internalUpdateStatus = internalMutation({
 			const uptimePercent = Math.round((checksOnline / checksTotal) * 100)
 
 			await ctx.db.patch(existing._id, {
-				online: args.online,
-				playerCount: args.online ? (args.playerCount ?? 0) : 0,
-				maxPlayers: args.online
-					? (args.maxPlayers ?? 0)
-					: existing.maxPlayers,
+				...live,
 				motd: args.online ? args.motd : existing.motd,
 				version: args.online ? args.version : existing.version,
 				gameMode: args.online ? args.gameMode : existing.gameMode,
@@ -320,9 +325,7 @@ export const internalUpdateStatus = internalMutation({
 		} else {
 			await ctx.db.insert('serverStatus', {
 				serverId: args.serverId,
-				online: args.online,
-				playerCount: args.online ? (args.playerCount ?? 0) : 0,
-				maxPlayers: args.online ? (args.maxPlayers ?? 0) : 0,
+				...live,
 				motd: args.motd,
 				version: args.version,
 				gameMode: args.gameMode,
@@ -452,7 +455,7 @@ export const pingServer = internalAction({
 
 /**
  * Internal action to ping all servers and update their status
- * This is called by the cron job every 5 minutes
+ * This is called by the cron job every 10 minutes
  */
 export const pingAllServers = internalAction({
 	args: {},
