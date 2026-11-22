@@ -1,89 +1,52 @@
-# Server Flow
+# Server Publishing
 
-This document records the server publishing and post-publication moderation policy.
+This document covers how server listings are created, published, updated and
+moderated. Servers follow the same review model as add-ons, resource packs and
+plugins ([PROJECT_FLOW.md](./PROJECT_FLOW.md)): nothing becomes public, and no
+public listing changes, without a moderator's approval. What is specific to
+servers is ownership verification, owner unpublishing, and status checks.
 
-Servers intentionally use a different launch flow from downloadable projects.
-Ownership verification gives a server owner permission to publish their listing
-without waiting for admin approval. Admin moderation happens after publication
-when a listing is reported or otherwise needs attention.
+## The Model
 
-## Current Server Lifecycle
+Every listing has two layers:
 
-The server lifecycle controls whether a server listing is visible in the product.
+- **The live listing** is what the public sees. It changes only when a
+  moderator approves a submission.
+- **The owner's saved edits** stay private until they are submitted and
+  approved.
 
-Source of truth:
+Moderators cannot approve servers they registered, own, or whose owning
+organization they belong to; another moderator must decide.
 
-- `convex/schemas/servers.ts`: `serverLifecycleStatus`
-- `convex/functions/servers/servers.ts`: create/update/admin update behavior
-- `components/admin-dashboard/admin-servers-table.tsx`: admin visibility controls
-- `components/user-dashboard/servers/server-edit-sidebar.tsx`: owner visibility controls
-- `components/user-dashboard/servers/user-server-list-table.tsx`: owner listing actions
+## Fields
 
-Current server lifecycle states:
-
-| Status | Meaning | Public visibility |
+| Field | Question it answers | Values |
 | --- | --- | --- |
-| `draft` | The server has been created but the owner has not published it yet. | Hidden |
-| `published` | The server is live and can appear in public listings, user profiles, search, and public pages. | Visible |
-| `under_review` | The server is hidden while an admin reviews it or while a future report/moderation workflow is pending. | Hidden |
+| `status` | Is the listing visible? | `draft`, `under_review`, `published` |
+| `moderationStatus` | What did moderation decide about the listing? | `pending`, `approved`, `flagged`, `rejected` |
+| `submissionStatus` | Where is the latest submission? | `pending`, `approved`, `changes_requested`, `rejected` |
 
-Servers do not use `archived`. If a server needs to be hidden, use `under_review`. If a server needs to be permanently removed later, that should be handled as a separate delete/removal workflow instead of another lifecycle status.
-
-## Current Flow
-
-Server creation currently saves a draft:
-
-```text
-create server -> draft -> publish
-```
-
-The owner publishing flow is:
-
-```text
-draft -> published -> draft
-```
-
-Admin review controls use this flow after a server has been published:
-
-```text
-published -> under_review -> published
-```
-
-Expected behavior:
-
-- New server listings are inserted as `draft`.
-- Owners publish their server when they are ready for it to appear publicly.
-- Owners can move a published server back to `draft` when they want to hide it themselves.
-- `publishedAt` is set the first time a server moves to `published`.
-- Public surfaces should only show servers with `status === 'published'`.
-- Admins can move a published server to `under_review` when it should be hidden and investigated.
-- Admins can move a reviewed server back to `published` when it is okay again.
-- Owners cannot move an `under_review` server back to `draft` or `published`; admin review must finish first.
-- A rejected server remains `under_review` and hidden until an admin resolves it.
-
-## Rejections and Self-Approval
-
-- Rejecting a server sets `under_review` + `rejected`, so it stays hidden.
-  Owners cannot change the visibility of an `under_review` server, and a
-  rejected server can never be republished by its owner.
-- Unpublishing (`draft` with `approved`) is not a rejection; the owner may
-  publish again.
-- Admins cannot approve or publish servers they registered, own, or whose
-  owning organization they belong to.
+Public surfaces require `status === 'published'` and
+`moderationStatus === 'approved'`. `submissionRevision`, `draftChangesJson`,
+`publishedGalleryJson` and `publishedAt` work as described in
+[PROJECT_FLOW.md](./PROJECT_FLOW.md#fields). A server's description is stored
+outside the server document, and its update snapshot carries it
+(`lib/serverDescriptions.ts`).
 
 ## Ownership Verification
 
-Ownership verification is what allows a server to publish without admin
-approval, so it must be bound to the account that performs it:
+A server can only be created for an address its owner has proven they control:
 
 - `verification.generateCode` issues one code per account, stored in
   `serverVerificationChallenges` and valid for 24 hours. "Generate New Code"
   rotates it.
-- `verification.verifyOwnership` only accepts the caller's own active code.
-  A `bedrocknexus-verify=` token copied from another server's public DNS
-  record or MOTD is rejected because it was issued to a different account.
+- The owner publishes the code as a DNS TXT record or in the server's MOTD,
+  and `verification.verifyOwnership` checks it through the `api` service. It
+  only accepts the caller's own active code: a `bedrocknexus-verify=` token
+  copied from another server's public record was issued to a different
+  account and is rejected.
 - A successful check stores a 30-minute proof for that exact normalized
-  `host:port`. Creating a server, or changing a server's address, consumes it.
+  `host:port`. Creating a server, or changing its address, consumes it.
 - Hostnames are normalized (trimmed, lowercased, trailing dot removed) and
   each `host:port` (`servers.addressKey`) can be listed only once.
 - Owners cannot change a server's IP address or port without a fresh proof
@@ -91,78 +54,82 @@ approval, so it must be bound to the account that performs it:
   verification by that admin.
 - Expired codes and proofs are removed daily by a cron job.
 
-## Why Projects Are Different
-
-Projects distribute downloadable files, so they must pass admin review before
-their first publication:
+## First Publication
 
 ```text
-project: draft -> under_review -> published
-server:  draft -> published
+verify address -> create -> draft -> publish -> under_review (pending) -> published
 ```
 
-This is intentional. Server ownership verification establishes control of the
-listed address, while project review protects users before Bedrock Nexus
-distributes a file. Both content types can still be moved to `under_review`
-after publication when moderation is needed.
+- New servers start as `draft`, hidden and outside the moderation queue.
+- When the owner publishes, the server goes to `under_review` with
+  `moderationStatus: pending` and `submissionStatus: pending`, its details are
+  locked, and it appears in the moderation queue.
 
-## Moderation Status
+Moderator decisions on a first submission:
 
-`moderationStatus` is separate from lifecycle status.
-
-Lifecycle answers: should this server be visible?
-
-Moderation answers: what did the review process decide?
-
-Current moderation states:
-
-| Status | Meaning |
+| Decision | Result |
 | --- | --- |
-| `pending` | Waiting for review. |
-| `approved` | Reviewed and accepted. |
-| `flagged` | Needs attention because of reports, automated checks, or admin concern. |
-| `rejected` | Reviewed and not accepted. |
+| Approve | `published` + `approved`; `publishedAt` is set. |
+| Request changes | Back to `draft` with the note. The owner fixes it and publishes again. |
+| Reject | `under_review` + `rejected`. Final: the owner cannot publish it again. |
 
-Moderation status is optional for ordinary draft and published servers. It is
-used when an admin moves a listing into the post-publication review flow.
-
-## Status and Directory Visibility
-
-The status API accepts RakNet or NetherNet responses. Server software is declared
-by the owner; ping-based software guesses are retired.
-
-A published server offline for 14 days is excluded from directory/search/counts
-and creator listings using `offlineHiddenAt`. Its own public page remains
-accessible, checks continue, and the next successful check clears the flag.
-Temporary failures of the checking service do not count as confirmed downtime.
-This directory rule is separate from owner publication and admin moderation.
-
-## Future Report Flow
-
-When reports or moderation queues are added, lifecycle and moderation should work together like this:
+## Updating a Public Listing
 
 ```text
-published
-  -> report received
-  -> under_review + pending/flagged
-  -> admin reviews
-  -> published + approved
+published -> edit and save -> Submit updates -> pending -> approved
 ```
 
-Or, if the server fails review:
+- Edits to a published server are stored in `draftChangesJson`; the server
+  stays listed as it was.
+- **Submit updates** sends them to the queue as a listing update and locks the
+  details until a moderator decides.
+- **Approve** applies them. **Request changes** and **Reject** leave the live
+  listing as it is and show the note to the owner.
+- Changing the address needs a fresh ownership proof before it can be saved.
 
-```text
-published
-  -> report received
-  -> under_review + pending/flagged
-  -> admin reviews
-  -> under_review + rejected
-```
+## Unpublishing
 
-Recommended rules for future implementation:
+- Owners can move their published server back to `draft` to hide it. This is
+  recorded in the history and is not a rejection.
+- Publishing it again goes through review again.
+- Owners cannot change the visibility of an `under_review` server; the
+  moderator's decision comes first.
 
-- Use lifecycle status for public visibility.
-- Use moderation status for the admin/review decision.
-- Do not show `under_review` servers on public surfaces.
-- Do not require admin approval for a server's first publication.
-- Keep project pre-publication review separate from server moderation.
+## Moderation After Publication
+
+| Action | Result |
+| --- | --- |
+| Flag | Hidden with `flagged` until resolved. |
+| Unpublish | Back to `draft`; the owner sees the reason. |
+| Reject | Hidden with `rejected`. Final for the owner. |
+| Restore | Approve again to make it public. |
+
+Moderators decide on listings; only admins edit a server's content directly
+(`servers.updateAdmin`). Every submission and decision is recorded in
+`moderationEvents` and shown in the History tab of the review page.
+
+Owners can delete their server (`servers.remove`). Deletion is separate from
+lifecycle status, and there is no `archived` status.
+
+## Status Checks and Directory Visibility
+
+- Published servers are pinged through the `api` service over RakNet or
+  NetherNet. A ping also runs when a server is published or its address
+  changes.
+- Server software is declared by the owner; ping-based software guesses are
+  retired.
+- A published server offline for 14 days is excluded from the directory,
+  search, counts and creator listings (`offlineHiddenAt`). Its own page stays
+  available, checks continue, and the next successful check clears the flag.
+- Failures of the checking service itself do not count as downtime.
+
+This visibility rule is separate from owner publication and moderation.
+
+## Source of Truth
+
+- `convex/functions/servers/servers.ts`: create, update and submit,
+  unpublish, moderation (`updateAdmin`), delete
+- `convex/functions/servers/verification.ts`: ownership codes and proofs
+- `convex/functions/servers/status.ts`: status checks and offline hiding
+- `convex/lib/submissions.ts`: snapshots, revisions and decision fields
+- `convex/functions/moderation/work.ts`: the moderation queue and claims

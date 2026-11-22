@@ -1,157 +1,148 @@
-# Add-on and Resource-Pack Publishing
+# Add-on, Resource-Pack and Plugin Publishing
 
-This document covers add-on and resource-pack publishing. The internal
-`projects` tables and function paths are shared implementation names; public
-catalogs and download URLs use their content section. Plugin publishing follows
-its separate GitHub workflow.
+This document covers how add-ons and resource packs are published, updated and
+moderated, and how plugins differ. Internally add-ons and resource packs share
+the `projects` tables and functions; public catalogs and download URLs use
+their own sections (`/addons`, `/resource-packs`). Plugins live in the
+`plugins` tables and are built from GitHub.
 
-Projects intentionally require pre-publication review because they distribute
-downloadable files. This differs from servers, which may publish after ownership
-verification and are moderated after publication.
+Servers follow the same review model; see [SERVER_FLOW.md](./SERVER_FLOW.md).
 
-## Current Project Lifecycle
+## The Model
 
-The project lifecycle controls whether a project is visible in the product.
+Every listing has two layers:
 
-Source of truth:
+- **The live listing** is what the public sees. It changes only when a
+  moderator approves a submission.
+- **The owner's saved edits** stay private until they are submitted and
+  approved. Saving never changes the public page.
 
-- `convex/schemas/projects.ts`: `projectStatus`
-- `convex/functions/projects/projects.ts`: create/update/admin update/delete behavior
-- `components/admin-dashboard/admin-projects-table.tsx`: admin visibility controls
-- `components/user-dashboard/projects/project-edit-sidebar.tsx`: owner submit-for-review control
-- `components/user-dashboard/projects/user-project-list-table.tsx`: owner project status display
+Nothing becomes public, and no public listing changes, without a moderator's
+approval. Moderators cannot approve content they created, own, or that belongs
+to an organization they are a member of; another moderator must decide.
 
-Current project lifecycle states:
+## Fields
 
-| Status | Meaning | Public visibility |
+Three fields describe a listing. Keep them separate.
+
+| Field | Question it answers | Values |
 | --- | --- | --- |
-| `draft` | The project exists but is not meant to be public yet. | Hidden |
-| `published` | The project is live and can appear in public listings, user profiles, search, and public pages. | Visible |
-| `under_review` | The project is hidden while an admin reviews it or while a future report/moderation workflow is pending. | Hidden |
+| `status` | Is the listing visible? | `draft`, `under_review`, `published` (plugins use `review` for `under_review`) |
+| `moderationStatus` | What did moderation decide about the listing? | `pending`, `approved`, `flagged`, `rejected` |
+| `submissionStatus` | Where is the latest submission? | `pending`, `approved`, `changes_requested`, `rejected` |
 
-Projects do not use `archived`. If a project needs to be hidden, use `under_review`. If a project needs to be removed, use the delete/removal workflow instead of another lifecycle status.
+Public surfaces require `status === 'published'` and
+`moderationStatus === 'approved'`.
 
-## Current Flow
+Supporting fields:
 
-Project creation starts as an owner draft. The owner edits the draft, then submits it for admin/mod review from the project edit sidebar:
+- `submissionRevision` increases on every submission and decision. Moderators
+  decide on the revision they loaded (`expectedRevision`); a stale decision is
+  refused.
+- `draftChangesJson` holds the submitted details of an update to a public
+  listing, applied when it is approved (`lib/submissions.ts`).
+- `publishedGalleryJson` holds the live gallery while gallery edits wait for
+  approval (`lib/submissionGallery.ts`).
+- `publishedAt` is set the first time the listing is approved.
 
-```text
-create project -> draft -> submit for review -> under_review -> published
-```
-
-Admin review controls use this flow:
-
-```text
-under_review -> published
-```
-
-Published projects can be sent back to review if needed:
+## First Publication
 
 ```text
-published -> under_review -> published
+create -> draft -> submit for review -> under_review (pending) -> published
 ```
 
-Expected behavior:
+- New listings start as `draft`, hidden and outside the moderation queue.
+- Owners edit freely and see a checklist of required and recommended details.
+- Submitting needs valid details and at least one release. It sets
+  `under_review`, `moderationStatus: pending`, `submissionStatus: pending`, and
+  locks the listing's details.
+- The submission appears in the moderation queue (`/moderation`).
+- Releases uploaded before the first approval are approved together with the
+  listing.
 
-- New project listings are inserted as `draft`.
-- Draft project listings are hidden from public surfaces.
-- Draft project listings do not enter the moderation queue until the owner submits them for review.
-- Submitting a draft for review changes it to `under_review`.
-- Submitted project listings get `moderationStatus: pending`.
-- `publishedAt` is set the first time an admin/mod publishes the project.
-- Public surfaces require `status === 'published'` and `moderationStatus === 'approved'`.
-- Admins/mods publish a reviewed project when it is okay to go public.
-- Publishing a project should mark its moderation status as `approved`.
-- Admins/mods can move a published project back to `under_review` when it should be hidden or reviewed again.
-- Project delete/removal is separate from lifecycle status.
+Moderator decisions on a first submission:
 
-## Release Review
-
-Every downloadable release is reviewed before the public can download it:
-
-- New releases are created with `reviewStatus: pending`.
-- Releases submitted with a project that is not yet public are approved
-  together with the project when an admin publishes it.
-- Releases added to an already public project appear under "Releases awaiting
-  review" in the admin projects page. An admin approves a validated release, or
-  rejects it with a reason. Only approved, validated releases are listed,
-  counted, promoted to the CDN, or downloadable.
-- A rejected release is final. It stays private and cannot be resubmitted;
-  the creator sees the reason in their releases list.
-- Releases created before release review existed have no `reviewStatus` and
-  are treated as approved.
-
-## Rejections and Self-Approval
-
-- Rejecting a project sets `under_review` + `rejected`. The owner cannot
-  resubmit it; only another admin decision can change it.
-- Admins cannot approve or publish a project, or review a release, when they
-  created the project or belong to the owning organization. Another admin must
-  do it.
-
-## Draft Status
-
-`draft` is the active owner editing state for new projects. Owners can keep editing a draft without sending it to admins/mods yet.
-
-Owner flow:
-
-```text
-create project -> draft -> submit for review -> under_review -> published
-```
-
-Owner controls before review:
-
-```text
-draft -> under_review
-```
-
-Owners cannot publish projects directly. Admin/mod approval is required before a project becomes public.
-
-## Moderation Status
-
-`moderationStatus` is separate from lifecycle status.
-
-Lifecycle answers: should this project be visible?
-
-Moderation answers: what did the review process decide?
-
-Current moderation states:
-
-| Status | Meaning |
+| Decision | Result |
 | --- | --- |
-| `pending` | Waiting for review. |
-| `approved` | Reviewed and accepted. |
-| `flagged` | Needs attention because of reports, automated checks, or admin concern. |
-| `rejected` | Reviewed and not accepted. |
+| Approve | `published` + `approved`; `publishedAt` is set. |
+| Request changes | Back to `draft` with the note. The owner fixes it and resubmits. |
+| Reject | `under_review` + `rejected`. Final: the owner cannot resubmit. |
 
-## Future Report Flow
-
-When reports or moderation queues are added, lifecycle and moderation should work together like this:
+## Updating a Public Listing
 
 ```text
-published
-  -> report received
-  -> under_review + pending/flagged
-  -> admin reviews
-  -> published + approved
+published -> edit and save -> Submit updates -> pending -> approved
 ```
 
-Or, if the project fails review:
+- Editing a published listing stores the changes in `draftChangesJson`; the
+  live listing does not change.
+- The dashboard shows "Unsubmitted changes" with a **Submit updates** button.
+- While the update is pending the details are locked and the update appears in
+  the queue as a listing update.
+- **Approve** applies the submitted details and gallery.
+- **Request changes** and **Reject** leave the live listing as it is; the owner
+  sees the note on their dashboard. A rejected update does not hide the
+  listing.
 
-```text
-published
-  -> report received
-  -> under_review + pending/flagged
-  -> admin reviews
-  -> under_review + rejected
-```
+## Releases
 
-Recommended rules for future implementation:
+Every downloadable file is checked and reviewed before anyone can download it.
 
-- Use lifecycle status for public visibility.
-- Use moderation status for the admin/review decision.
-- Do not show `draft` or `under_review` projects on public surfaces.
-- Do not reintroduce `archived` as a project status.
+1. The owner uploads a file. It is stored privately with
+   `validationStatus: pending`.
+2. The validator worker in the `api` service inspects the archive and marks it
+   `valid` or invalid. Owners can retry a failed validation.
+3. A release of a listing that is not public yet is reviewed with the listing.
+   A release of a public listing is reviewed on its own
+   (`standaloneReviewPending`) and appears in the queue with its version.
+4. A moderator approves or rejects it (`versions.reviewRelease`). A rejection
+   is final for that release; the owner sees the reason.
+
+Only approved, validated releases are listed, counted, copied to the CDN, or
+downloadable. Releases created before release review existed have no
+`reviewStatus` and count as approved.
+
+## Moderation After Publication
+
+Moderators can act on any listing at any time:
+
+| Action | Result |
+| --- | --- |
+| Flag | Hidden with `flagged` until resolved. |
+| Unpublish | Back to `draft`; the owner sees the reason. |
+| Reject | Hidden with `rejected`. Final for the owner. |
+| Restore | Approve again to make it public. |
+
+Every submission and decision is recorded in `moderationEvents` and shown in
+the History tab of the review page, with a before/after comparison of the
+submitted fields (`lib/moderationHistory.ts`).
+
+Owners can delete their listing (`projects.remove`); admins can remove any
+listing (`projects.adminRemove`). Deletion is separate from lifecycle status,
+and there is no `archived` status.
+
+## Plugins
+
+Plugins follow the same model with these differences:
+
+- **Setup.** The owner connects a GitHub repository, picks the server software,
+  and installs the BedrockNexus build workflow. Every push builds the plugin
+  in GitHub Actions and the builds are synced to the dashboard.
+- **Submitting.** A first submission, and every new version, is a build
+  chosen on the Versions page with a version number and changelog
+  (`publishing/model.submitRelease`). The listing's saved details are
+  submitted with it.
+- **Updating details.** Saved details of a public plugin (icon, name, summary,
+  description, license, categories, links, gallery) can also be sent on their
+  own with **Submit updates** (`publishing/model.submitListingChanges`). They
+  are approved in the same listing review as add-ons (`plugins.moderation`).
+- **Edits.** Plugin edits are saved on the publishing draft
+  (`pluginPublishingDrafts`), not on the plugin, and are locked while any
+  submission is pending.
+- **Software.** A published plugin cannot move to different server software.
+- **Releases.** An approved build is copied to the CDN and a GitHub release is
+  created. See [PLUGIN_CUSTOM_WORKFLOWS.md](./docs/PLUGIN_CUSTOM_WORKFLOWS.md)
+  and [PLUGIN_WORKFLOW_CATALOG.md](./docs/PLUGIN_WORKFLOW_CATALOG.md).
 
 ## Downloads
 
@@ -160,3 +151,14 @@ the website and `/v1/<section>/<ref>/releases/<version>/download` in the API.
 Old version-ID links redirect through the compatibility route. Downloads are
 limited and counted in Convex; optional OpenPanel delivery cannot block them.
 See [the download contract](./docs/ANALYTICS_AND_DOWNLOADS.md).
+
+## Source of Truth
+
+- `convex/functions/projects/projects.ts`: create, update and submit,
+  moderation (`adminUpdate`, `requestChanges`), delete
+- `convex/functions/projects/versions.ts`: uploads, validation, release review
+- `convex/functions/plugins/publishing/model.ts` and
+  `convex/functions/plugins/moderation.ts`: plugin submissions and decisions
+- `convex/lib/submissions.ts`: snapshots, revisions and decision fields
+- `convex/functions/moderation/work.ts`: the moderation queue and claims
+- `lib/creator-listing-state.ts`: the state owners see on their dashboard
