@@ -139,7 +139,7 @@ export const updateProfile = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to update your profile')
+			throw new ConvexError('You must be logged in to update your profile')
 		}
 
 		const existing = await ctx.db
@@ -155,7 +155,7 @@ export const updateProfile = mutation({
 			!isProfileMediaR2Key(nextBanner, user._id, 'banner') &&
 			!nextBanner.startsWith(`${user._id}/profiles/${user._id}/banner/`)
 		) {
-			throw new Error('Invalid profile banner path')
+			throw new ConvexError('Invalid profile banner path')
 		}
 		if (
 			args.bannerR2Key &&
@@ -196,7 +196,7 @@ export const generateProfileBannerUploadUrl = mutation({
 	returns: v.object({ key: v.string(), url: v.string() }),
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
-		if (!user) throw new Error('You must be logged in')
+		if (!user) throw new ConvexError('You must be logged in')
 		await enforceRateLimit(
 			ctx,
 			'uploadUrl',
@@ -217,7 +217,7 @@ export const generateAvatarUploadUrl = mutation({
 	returns: v.object({ key: v.string(), url: v.string() }),
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
-		if (!user) throw new Error('You must be logged in')
+		if (!user) throw new ConvexError('You must be logged in')
 		await enforceRateLimit(
 			ctx,
 			'uploadUrl',
@@ -242,7 +242,7 @@ export const confirmAvatarUpload = action({
 	returns: v.string(),
 	handler: async (ctx, args): Promise<string> => {
 		const user = await authComponent.getAuthUser(ctx)
-		if (!user) throw new Error('You must be logged in')
+		if (!user) throw new ConvexError('You must be logged in')
 		return confirmOwnerPictureUpload(ctx, 'user', user._id, args.key)
 	},
 })
@@ -482,7 +482,7 @@ export const updateAdminUser = adminMutation({
 			((args.role !== undefined && args.role !== 'admin') ||
 				args.banned === true)
 		) {
-			throw new Error('You cannot remove your own admin access')
+			throw new ConvexError('You cannot remove your own admin access')
 		}
 
 		const update: Record<string, unknown> = {

@@ -1,5 +1,5 @@
 import { R2 } from '@convex-dev/r2'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { components } from '../_generated/api'
 import type { DataModel } from '../_generated/dataModel'
 import { action } from '../_generated/server'
@@ -84,7 +84,7 @@ export const syncMetadataNow = action({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to upload files')
+			throw new ConvexError('You must be logged in to upload files')
 		}
 		await cdnR2.syncMetadata(ctx, args.key)
 		return null
@@ -99,7 +99,7 @@ export const { syncMetadata } = cdnR2.clientApi<DataModel>({
 	checkUpload: async (ctx) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to upload files')
+			throw new ConvexError('You must be logged in to upload files')
 		}
 	},
 })
@@ -108,7 +108,7 @@ const uploadsClientApi = uploadsR2.clientApi<DataModel>({
 	checkUpload: async (ctx) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to upload files')
+			throw new ConvexError('You must be logged in to upload files')
 		}
 		assertPrivateUploadBucketConfigured()
 	},

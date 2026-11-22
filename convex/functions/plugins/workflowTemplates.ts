@@ -168,12 +168,12 @@ export const applyCatalog = internalMutation({
 				.withIndex('by_slug', (q) => q.eq('slug', entry.softwareSlug))
 				.unique()
 			if (!software)
-				throw new Error(
+				throw new ConvexError(
 					`Add server software ${entry.softwareSlug} before refreshing its workflow template.`,
 				)
 			const existing = current.find((row) => row.key === entry.key)
 			if (existing && existing.softwareId !== software._id)
-				throw new Error(
+				throw new ConvexError(
 					`Workflow key ${entry.key} cannot change server software. Use a new key.`,
 				)
 			const changed =

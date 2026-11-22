@@ -56,10 +56,10 @@ const ARTIFACT_UPLOAD_EXPIRES_IN_MS = 1000 * 60 * 60 * 24
 
 function assertValidVersionString(version: string) {
 	if (version.length < 1 || version.length > 32) {
-		throw new Error('Invalid version string')
+		throw new ConvexError('Invalid version string')
 	}
 	if (!/^[a-zA-Z0-9._+-]+$/.test(version)) {
-		throw new Error(
+		throw new ConvexError(
 			'Version may only contain letters, numbers, dots, underscores, hyphens, and plus signs',
 		)
 	}
@@ -150,19 +150,19 @@ async function assertCanManageProject(
 ) {
 	const user = await authComponent.getAuthUser(ctx)
 	if (!user) {
-		throw new Error(errorMessage)
+		throw new ConvexError(errorMessage)
 	}
 
 	const project = await ctx.db.get(projectId)
 	if (!project) {
-		throw new Error('Project not found')
+		throw new ConvexError('Project not found')
 	}
 
 	if (
 		user.role !== 'admin' &&
 		!(await canModifyProject(ctx, project, user._id))
 	) {
-		throw new Error('You do not have permission to manage project versions')
+		throw new ConvexError('You do not have permission to manage project versions')
 	}
 
 	return { project, user }
@@ -401,7 +401,7 @@ export const generateVersionUploadUrl = mutation({
 		assertSubmissionEditable(project)
 		const version = args.version.trim()
 		if (!version) {
-			throw new Error('Enter a release version before uploading')
+			throw new ConvexError('Enter a release version before uploading')
 		}
 		assertValidVersionString(version)
 		const validationError = validateProjectArtifactFile({
@@ -409,7 +409,7 @@ export const generateVersionUploadUrl = mutation({
 			fileName: args.fileName,
 			fileSize: args.fileSize,
 		})
-		if (validationError) throw new Error(validationError)
+		if (validationError) throw new ConvexError(validationError)
 
 		const existing = await ctx.db
 			.query('projectVersions')
@@ -417,7 +417,7 @@ export const generateVersionUploadUrl = mutation({
 				q.eq('projectId', args.projectId).eq('version', version),
 			)
 			.first()
-		if (existing) throw new Error(`Release ${version} already exists`)
+		if (existing) throw new ConvexError(`Release ${version} already exists`)
 
 		await enforceRateLimit(
 			ctx,
@@ -673,7 +673,7 @@ export const discardUpload = mutation({
 			'You must be logged in to discard artifact uploads',
 		)
 		if (upload.userId !== user._id && user.role !== 'admin') {
-			throw new Error('You cannot discard this artifact upload')
+			throw new ConvexError('You cannot discard this artifact upload')
 		}
 
 		await uploadsR2.deleteObject(ctx, upload.r2Key)
@@ -841,7 +841,7 @@ export const retryValidation = mutation({
 	args: { versionId: v.id('projectVersions') },
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.versionId)
-		if (!version) throw new Error('Version not found')
+		if (!version) throw new ConvexError('Version not found')
 		const { project } = await assertCanManageProject(
 			ctx,
 			version.projectId,
@@ -849,14 +849,14 @@ export const retryValidation = mutation({
 		)
 		assertSubmissionEditable(project)
 		if (version.validationCode !== 'VALIDATOR_UNAVAILABLE') {
-			throw new Error('Upload a replacement for this rejected artifact')
+			throw new ConvexError('Upload a replacement for this rejected artifact')
 		}
 		const sourceKey = version.uploadR2Key ?? version.r2Key
 		const metadata = version.uploadR2Key
 			? await uploadsR2.getMetadata(ctx, sourceKey)
 			: await cdnR2.getMetadata(ctx, sourceKey)
 		if (!metadata)
-			throw new Error('The artifact file is no longer in storage')
+			throw new ConvexError('The artifact file is no longer in storage')
 		await ctx.db.patch(version._id, {
 			validationStatus: 'pending',
 			validationCode: undefined,
@@ -875,7 +875,7 @@ export const prepareVersionRemoval = internalMutation({
 	handler: async (ctx, args) => {
 		const version = await ctx.db.get(args.id)
 		if (!version) {
-			throw new Error('Version not found')
+			throw new ConvexError('Version not found')
 		}
 
 		const { project } = await assertCanManageProject(

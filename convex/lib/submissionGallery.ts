@@ -1,3 +1,4 @@
+import { ConvexError } from 'convex/values'
 import type { Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import { assertSubmissionEditable, snapshot } from './submissions'
@@ -9,7 +10,7 @@ export async function stageGallery(
 	id: Id<'projects'> | Id<'servers'> | Id<'plugins'>,
 ) {
 	const item = await ctx.db.get(id)
-	if (!item) throw new Error('Content not found')
+	if (!item) throw new ConvexError('Content not found')
 	assertSubmissionEditable(item)
 	if ('repositoryId' in item) {
 		for (const status of ['preparing', 'inReview', 'publishing'] as const) {
@@ -21,7 +22,7 @@ export async function stageGallery(
 					)
 					.first()
 			)
-				throw new Error(
+				throw new ConvexError(
 					'This submission is awaiting review. Its gallery is locked.',
 				)
 		}

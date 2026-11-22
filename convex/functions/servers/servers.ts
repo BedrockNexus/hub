@@ -758,7 +758,7 @@ export const listByOrganization = query({
 				user.role ?? undefined,
 			))
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'You do not have permission to view this organization',
 			)
 		}
@@ -925,7 +925,7 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to create a server')
+			throw new ConvexError('You must be logged in to create a server')
 		}
 		const categoryIds = args.categoryIds ?? []
 
@@ -935,7 +935,7 @@ export const create = mutation({
 			: ('user' as const)
 		const ownerId = args.organizationId ?? user._id
 		if (!(await canModifyServer(ctx, { ownerType, ownerId }, user._id))) {
-			throw new Error(
+			throw new ConvexError(
 				'You do not have permission to create servers for this owner',
 			)
 		}
@@ -1038,7 +1038,7 @@ export const update = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to update a server')
+			throw new ConvexError('You must be logged in to update a server')
 		}
 
 		const liveServer = await ctx.db.get(args.id)
@@ -1048,7 +1048,7 @@ export const update = mutation({
 			: null
 		const server = liveView ? submissionView(liveView) : null
 		if (!server) {
-			throw new Error('Server not found')
+			throw new ConvexError('Server not found')
 		}
 
 		if (
@@ -1059,13 +1059,13 @@ export const update = mutation({
 				user.role ?? undefined,
 			))
 		) {
-			throw new Error('You do not have permission to edit this server')
+			throw new ConvexError('You do not have permission to edit this server')
 		}
 		assertSubmissionEditable(server)
 		validateServerFields(args)
 
 		if (args.status && server.status === 'under_review') {
-			throw new Error(
+			throw new ConvexError(
 				'This server is under admin review and its visibility cannot be changed',
 			)
 		}
@@ -1075,18 +1075,18 @@ export const update = mutation({
 			server.status !== 'draft' &&
 			!hasApprovedListing(server)
 		) {
-			throw new Error('Only draft servers can be published')
+			throw new ConvexError('Only draft servers can be published')
 		}
 		if (
 			args.status === 'published' &&
 			server.moderationStatus === 'rejected'
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'This server was rejected by a moderator and cannot be republished. Contact the moderators.',
 			)
 		}
 		if (args.status === 'published' && !server.verifiedAt) {
-			throw new Error(
+			throw new ConvexError(
 				'Server ownership must be verified before publishing',
 			)
 		}
@@ -1095,13 +1095,13 @@ export const update = mutation({
 			server.status === 'draft' &&
 			(args.categoryIds ?? server.categoryIds).length === 0
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'Pick at least one category before submitting your server',
 			)
 		}
 
 		if (args.status === 'draft' && server.status !== 'published') {
-			throw new Error('Only published servers can be moved to draft')
+			throw new ConvexError('Only published servers can be moved to draft')
 		}
 
 		const {
@@ -1141,7 +1141,7 @@ export const update = mutation({
 				}))
 			)
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'You do not have permission to move this server to that owner',
 			)
 		}
@@ -1345,7 +1345,7 @@ export const updateAdmin = moderatorMutation({
 
 		const server = await ctx.db.get(args.id)
 		if (!server) {
-			throw new Error('Server not found')
+			throw new ConvexError('Server not found')
 		}
 		if (args.status !== undefined || args.moderationStatus !== undefined)
 			assertReviewRevision(server, args.expectedRevision)
@@ -1475,7 +1475,7 @@ export const updateAdmin = moderatorMutation({
 			requiresModerationReason(moderationStatus) &&
 			!moderationReasonValue?.trim()
 		) {
-			throw new Error('A moderation reason is required')
+			throw new ConvexError('A moderation reason is required')
 		}
 
 		const requestsChanges =
@@ -1635,12 +1635,12 @@ export const remove = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to delete a server')
+			throw new ConvexError('You must be logged in to delete a server')
 		}
 
 		const server = await ctx.db.get(args.id)
 		if (!server) {
-			throw new Error('Server not found')
+			throw new ConvexError('Server not found')
 		}
 
 		if (
@@ -1648,7 +1648,7 @@ export const remove = mutation({
 				allowSiteAdmin: true,
 			}))
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'Only the owner or an organization owner/admin can delete this server',
 			)
 		}

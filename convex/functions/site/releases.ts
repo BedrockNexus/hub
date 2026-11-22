@@ -1,6 +1,6 @@
 import { contentDownloadHref } from '../../../lib/content-routes'
 import { projectReference } from '../../../lib/content-reference'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { normalizeProjectType } from '../../../lib/project-artifacts'
 import { createPluginDashboardId } from '../../../lib/plugins/plugin-dashboard-id'
 import type { Doc } from '../../_generated/dataModel'
@@ -195,7 +195,7 @@ export const latest = query({
 	},
 	handler: async (ctx, args) => {
 		if (args.items.length > MAX_ITEMS) {
-			throw new Error(`At most ${MAX_ITEMS} items can be checked at once`)
+			throw new ConvexError(`At most ${MAX_ITEMS} items can be checked at once`)
 		}
 		const plugins = args.items.some((item) => item.section === 'plugins')
 			? await pluginsAreEnabled(ctx)
@@ -224,7 +224,7 @@ export const lookupPacks = query({
 	args: { uuids: v.array(v.string()) },
 	handler: async (ctx, args) => {
 		if (args.uuids.length > MAX_PACKS) {
-			throw new Error(`At most ${MAX_PACKS} packs can be looked up at once`)
+			throw new ConvexError(`At most ${MAX_PACKS} packs can be looked up at once`)
 		}
 		return await Promise.all(
 			args.uuids.map(async (raw) => {

@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import { isListedServer } from '../../lib/contentVisibility'
 import { adminMutation, adminQuery } from '../../lib/functions'
@@ -137,7 +137,7 @@ export const create = adminMutation({
 			.first()
 
 		if (existing) {
-			throw new Error('A category with this name already exists')
+			throw new ConvexError('A category with this name already exists')
 		}
 
 		return ctx.db.insert('serverCategories', {
@@ -177,7 +177,7 @@ export const update = adminMutation({
 				.first()
 
 			if (existing && existing._id !== id) {
-				throw new Error('A category with this name already exists')
+				throw new ConvexError('A category with this name already exists')
 			}
 
 			await ctx.db.patch(id, { ...updates, slug })
@@ -204,7 +204,7 @@ export const remove = adminMutation({
 			).length
 
 		if (usage > 0) {
-			throw new Error(`Cannot delete category: ${usage} servers are using it`)
+			throw new ConvexError(`Cannot delete category: ${usage} servers are using it`)
 		}
 
 		await ctx.db.delete(args.id)

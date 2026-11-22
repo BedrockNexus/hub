@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { type MutationCtx, type QueryCtx, query } from '../../_generated/server'
 import { recordAdminAction } from '../../lib/audit'
@@ -29,10 +29,10 @@ const targetTypeValidator = v.union(v.literal('server'), v.literal('project'))
 function cleanNote(value: string) {
 	const note = value.trim().replace(/\s+/g, ' ')
 	if (!note) {
-		throw new Error('Say in a sentence why this is a pick')
+		throw new ConvexError('Say in a sentence why this is a pick')
 	}
 	if (note.length > NOTE_MAX_LENGTH) {
-		throw new Error(`Keep the note under ${NOTE_MAX_LENGTH} characters`)
+		throw new ConvexError(`Keep the note under ${NOTE_MAX_LENGTH} characters`)
 	}
 	return note
 }
@@ -158,7 +158,7 @@ async function findTarget(
 					.withIndex('by_slug', (q) => q.eq('slug', slug))
 					.first()
 	if (!target) {
-		throw new Error(`No ${targetType} has the address "${slug}"`)
+		throw new ConvexError(`No ${targetType} has the address "${slug}"`)
 	}
 	return target
 }
@@ -203,10 +203,10 @@ export const add = adminMutation({
 				? isListedServer(target as Doc<'servers'>)
 				: isPublicProject(target as Doc<'projects'>)
 		if (!isPublic) {
-			throw new Error('Only something that is public can be a pick')
+			throw new ConvexError('Only something that is public can be a pick')
 		}
 		if (await existingPick(ctx, args.targetType, target._id)) {
-			throw new Error('That is already a pick')
+			throw new ConvexError('That is already a pick')
 		}
 		const pickId = await ctx.db.insert('picks', {
 			targetType: args.targetType,
@@ -234,7 +234,7 @@ export const updateNote = adminMutation({
 	handler: async (ctx, args) => {
 		const pick = await ctx.db.get('picks', args.id)
 		if (!pick) {
-			throw new Error('Pick not found')
+			throw new ConvexError('Pick not found')
 		}
 		const note = cleanNote(args.note)
 		if (note !== pick.note) {

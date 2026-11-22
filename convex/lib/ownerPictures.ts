@@ -1,3 +1,4 @@
+import { ConvexError } from 'convex/values'
 import type { ActionCtx, MutationCtx } from '../_generated/server'
 import { validateImageObjectMetadata } from './media'
 import {
@@ -59,7 +60,7 @@ export async function confirmOwnerPictureUpload(
 	key: string,
 ): Promise<string> {
 	if (!isOwnerPictureKey(ownerType, ownerId, key)) {
-		throw new Error('Invalid picture path')
+		throw new ConvexError('Invalid picture path')
 	}
 	const url = getCdnObjectUrl(key)
 	if (!url) {
@@ -84,7 +85,7 @@ export async function afterOwnerPictureWrite(
 ) {
 	const nextKey = ownerPictureKey(ownerType, ownerId, next)
 	if (next && !nextKey) {
-		throw new Error('Upload the picture before saving it')
+		throw new ConvexError('Upload the picture before saving it')
 	}
 	if (nextKey && next !== previous) {
 		await validateImageObjectMetadata(ctx, nextKey, MAX_PICTURE_SIZE)

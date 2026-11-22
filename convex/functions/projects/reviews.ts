@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import type { MutationCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
@@ -171,7 +171,7 @@ export const upsert = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to review')
+			throw new ConvexError('You must be logged in to review')
 		}
 		await enforceRateLimit(
 			ctx,
@@ -182,11 +182,11 @@ export const upsert = mutation({
 
 		validateReview(args.rating, args.content)
 		if (!(await isReviewableProject(ctx, args.projectId))) {
-			throw new Error('This project is not available for reviews')
+			throw new ConvexError('This project is not available for reviews')
 		}
 		const project = await ctx.db.get(args.projectId)
 		if (project && (await isAffiliatedWithContent(ctx, project, user._id))) {
-			throw new Error('You cannot review your own project')
+			throw new ConvexError('You cannot review your own project')
 		}
 
 		const now = Date.now()
@@ -243,7 +243,7 @@ export const remove = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to delete reviews')
+			throw new ConvexError('You must be logged in to delete reviews')
 		}
 		await enforceRateLimit(
 			ctx,
@@ -254,11 +254,11 @@ export const remove = mutation({
 
 		const review = await ctx.db.get(args.id)
 		if (!review) {
-			throw new Error('Review not found')
+			throw new ConvexError('Review not found')
 		}
 
 		if (review.userId !== user._id) {
-			throw new Error('You can only delete your own reviews')
+			throw new ConvexError('You can only delete your own reviews')
 		}
 
 		await ctx.db.patch(args.id, { isActive: false })

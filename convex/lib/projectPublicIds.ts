@@ -1,3 +1,4 @@
+import { ConvexError } from 'convex/values'
 import type { StoredProjectType } from '../../lib/project-artifacts'
 import { projectReference } from '../../lib/content-reference'
 import type { MutationCtx } from '../_generated/server'
@@ -10,5 +11,5 @@ export async function allocateProjectPublicId(ctx: Pick<MutationCtx, 'db'>, type
 		const existing = await ctx.db.query('projects').withIndex('by_publicId', q => q.eq('publicId', candidate)).unique()
 		if (!existing) return candidate
 	}
-	throw new Error('Could not allocate a unique project URL. Please try again.')
+	throw new ConvexError('Could not allocate a unique project URL. Please try again.')
 }

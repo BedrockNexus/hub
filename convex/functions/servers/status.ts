@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { components, internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
@@ -402,7 +402,7 @@ export const refreshStatus = action({
 		)
 
 		if (!server) {
-			throw new Error('You do not have permission to refresh this server')
+			throw new ConvexError('You do not have permission to refresh this server')
 		}
 		const user = await authComponent.getAuthUser(ctx)
 		await enforceRateLimit(
@@ -416,7 +416,7 @@ export const refreshStatus = action({
 			return await pingAndPersistServerStatus(ctx, server)
 		} catch (error) {
 			console.error(`[Status] Could not check ${server.name}:`, error)
-			throw new Error(
+			throw new ConvexError(
 				'The status service could not check this server right now. Please try again shortly.',
 			)
 		}

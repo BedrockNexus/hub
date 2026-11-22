@@ -1,5 +1,5 @@
 import { siteBrand } from '../../../lib/site-brand'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import type { MutationCtx } from '../../_generated/server'
 import { recordAdminAction } from '../../lib/audit'
@@ -75,25 +75,25 @@ async function validateSiteImageUpload(
 	},
 ) {
 	if (!isSiteImageR2Key(args.key, args.imageKind)) {
-		throw new Error(`Invalid ${args.label.toLowerCase()} upload`)
+		throw new ConvexError(`Invalid ${args.label.toLowerCase()} upload`)
 	}
 
 	const metadata = await r2.getMetadata(ctx, args.key)
 	if (!metadata) {
-		throw new Error(`${args.label} upload was not found`)
+		throw new ConvexError(`${args.label} upload was not found`)
 	}
 	if (
 		!metadata.contentType ||
 		!ALLOWED_SITE_IMAGE_TYPES.has(metadata.contentType)
 	) {
-		throw new Error(`${args.label} must be a PNG, JPG, WebP, or GIF file`)
+		throw new ConvexError(`${args.label} must be a PNG, JPG, WebP, or GIF file`)
 	}
 	if (
 		!metadata.size ||
 		metadata.size <= 0 ||
 		metadata.size > MAX_SITE_IMAGE_SIZE_BYTES
 	) {
-		throw new Error(`${args.label} must be 5MB or smaller`)
+		throw new ConvexError(`${args.label} must be 5MB or smaller`)
 	}
 }
 
@@ -217,7 +217,7 @@ export const updateSeo = adminMutation({
 			!siteDescription ||
 			siteDescription.length > MAX_SITE_DESCRIPTION_LENGTH
 		) {
-			throw new Error(
+			throw new ConvexError(
 				`Site description must be between 1 and ${MAX_SITE_DESCRIPTION_LENGTH} characters`,
 			)
 		}

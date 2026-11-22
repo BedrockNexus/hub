@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import { projectType } from '../../schemas/projects'
@@ -117,7 +117,7 @@ export const create = adminMutation({
 			.first()
 
 		if (existing) {
-			throw new Error(
+			throw new ConvexError(
 				'A category with this name already exists for this project type',
 			)
 		}
@@ -158,7 +158,7 @@ export const update = adminMutation({
 		if (updates.name) {
 			const slug = generateSlug(updates.name)
 			const category = await ctx.db.get(id)
-			if (!category) throw new Error('Category not found')
+			if (!category) throw new ConvexError('Category not found')
 
 			const existing = await ctx.db
 				.query('projectCategories')
@@ -168,7 +168,7 @@ export const update = adminMutation({
 				.first()
 
 			if (existing && existing._id !== id) {
-				throw new Error(
+				throw new ConvexError(
 					'A category with this name already exists for this project type',
 				)
 			}
@@ -197,7 +197,7 @@ export const remove = adminMutation({
 			).length
 
 		if (usage > 0) {
-			throw new Error(`Cannot delete category: ${usage} projects are using it`)
+			throw new ConvexError(`Cannot delete category: ${usage} projects are using it`)
 		}
 
 		await ctx.db.delete(args.id)

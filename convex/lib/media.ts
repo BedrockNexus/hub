@@ -1,3 +1,4 @@
+import { ConvexError } from 'convex/values'
 import type { MutationCtx } from '../_generated/server'
 import { r2 } from './r2'
 import { isEntityImageR2Key } from './r2Keys'
@@ -20,7 +21,7 @@ export async function validateEntityImageUpload(
 	},
 ) {
 	if (!isEntityImageR2Key(args)) {
-		throw new Error('The image upload does not belong to this entity or field')
+		throw new ConvexError('The image upload does not belong to this entity or field')
 	}
 
 	return validateImageObjectMetadata(ctx, args.key)
@@ -40,7 +41,7 @@ export async function validateImageObjectMetadata(
 		!contentType ||
 		!ALLOWED_IMAGE_TYPES.has(contentType)
 	) {
-		throw new Error(
+		throw new ConvexError(
 			`The image must be a PNG, JPG, WebP, or GIF up to ${maxSize / (1024 * 1024)}MB`,
 		)
 	}

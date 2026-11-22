@@ -75,7 +75,7 @@ async function requireOrganizationMember(
 	organizationId: string,
 ) {
 	const user = await authComponent.getAuthUser(ctx)
-	if (!user) throw new Error('You must be logged in')
+	if (!user) throw new ConvexError('You must be logged in')
 
 	const member = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 		model: 'member',
@@ -90,7 +90,7 @@ async function requireOrganizationMember(
 		user.role !== 'admin' &&
 		(!member || (!roles.includes('owner') && !roles.includes('admin')))
 	) {
-		throw new Error('You do not have permission to manage this organization')
+		throw new ConvexError('You do not have permission to manage this organization')
 	}
 
 	return { user, member }
@@ -215,7 +215,7 @@ export const updateProfile = mutation({
 				`${user._id}/organizations/${args.organizationId}/banner/`,
 			)
 		) {
-			throw new Error('Invalid organization banner path')
+			throw new ConvexError('Invalid organization banner path')
 		}
 		if (
 			args.bannerR2Key &&

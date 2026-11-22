@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import { adminMutation, adminQuery } from '../../lib/functions'
 
@@ -42,14 +42,14 @@ export const create = adminMutation({
 	},
 	handler: async (ctx, args) => {
 		const version = args.version.trim()
-		if (!version) throw new Error('Version is required')
+		if (!version) throw new ConvexError('Version is required')
 
 		// Prevent duplicates
 		const existing = await ctx.db
 			.query('gameVersions')
 			.withIndex('by_version', (q) => q.eq('version', version))
 			.unique()
-		if (existing) throw new Error(`Version ${version} already exists`)
+		if (existing) throw new ConvexError(`Version ${version} already exists`)
 
 		return await ctx.db.insert('gameVersions', {
 			version,
@@ -68,7 +68,7 @@ export const toggleActive = adminMutation({
 	},
 	handler: async (ctx, args) => {
 		const gv = await ctx.db.get(args.id)
-		if (!gv) throw new Error('Game version not found')
+		if (!gv) throw new ConvexError('Game version not found')
 
 		await ctx.db.patch(args.id, { isActive: !gv.isActive })
 	},

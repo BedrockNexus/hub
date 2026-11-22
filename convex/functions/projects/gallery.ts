@@ -4,7 +4,7 @@ import {
 	publicGallery,
 	isRetainedGalleryKey,
 } from '../../lib/submissionGallery'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { mutation, query } from '../../_generated/server'
@@ -39,18 +39,18 @@ async function assertCanManageProject(
 ) {
 	const user = await authComponent.getAuthUser(ctx)
 	if (!user) {
-		throw new Error('You must be logged in to manage gallery images')
+		throw new ConvexError('You must be logged in to manage gallery images')
 	}
 
 	const project = await ctx.db.get(projectId)
 	if (!project) {
-		throw new Error('Project not found')
+		throw new ConvexError('Project not found')
 	}
 	if (
 		user.role !== 'admin' &&
 		!(await canModifyProject(ctx, project, user._id))
 	) {
-		throw new Error('You do not have permission to manage this gallery')
+		throw new ConvexError('You do not have permission to manage this gallery')
 	}
 
 	return { project, user }
@@ -72,7 +72,7 @@ async function assertProjectGalleryHasCapacity(
 ) {
 	const items = await getProjectGallery(ctx, projectId)
 	if (items.length >= MAX_GALLERY_IMAGES) {
-		throw new Error(
+		throw new ConvexError(
 			`Project galleries can contain up to ${MAX_GALLERY_IMAGES} images`,
 		)
 	}
@@ -201,7 +201,7 @@ export const updateCaption = mutation({
 	handler: async (ctx, args) => {
 		const item = await ctx.db.get(args.id)
 		if (!item) {
-			throw new Error('Gallery image not found')
+			throw new ConvexError('Gallery image not found')
 		}
 		await assertCanManageProject(ctx, item.projectId)
 		await stageGallery(ctx, item.projectId)
@@ -230,7 +230,7 @@ export const reorder = mutation({
 			args.orderedIds.length !== existing.length ||
 			args.orderedIds.some((id) => !expectedIds.has(id))
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'Reorder must include every image from this project gallery exactly once',
 			)
 		}
@@ -252,7 +252,7 @@ export const remove = mutation({
 	handler: async (ctx, args) => {
 		const item = await ctx.db.get(args.id)
 		if (!item) {
-			throw new Error('Gallery image not found')
+			throw new ConvexError('Gallery image not found')
 		}
 		await assertCanManageProject(ctx, item.projectId)
 		await stageGallery(ctx, item.projectId)

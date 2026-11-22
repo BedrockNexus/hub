@@ -115,7 +115,7 @@ async function assertCategoriesMatchProjectType(
 				normalizeProjectType(category.projectType) !== normalizedType,
 		)
 	) {
-		throw new Error('Every category must match the selected project type')
+		throw new ConvexError('Every category must match the selected project type')
 	}
 }
 
@@ -130,16 +130,16 @@ function assertMetadataMatchesProjectType(
 		| undefined,
 ) {
 	if (metadata && metadata.type !== normalizeProjectType(type)) {
-		throw new Error('Project details must match the selected project type')
+		throw new ConvexError('Project details must match the selected project type')
 	}
 	if (!metadata) return
 	if (metadata.dependencies) {
 		if (metadata.dependencies.length > 20) {
-			throw new Error('A project can have at most 20 dependencies')
+			throw new ConvexError('A project can have at most 20 dependencies')
 		}
 		for (const dependency of metadata.dependencies) {
 			if (!dependency.name.trim() || dependency.name.length > 80) {
-				throw new Error(
+				throw new ConvexError(
 					'Dependency names must be between 1 and 80 characters',
 				)
 			}
@@ -148,16 +148,16 @@ function assertMetadataMatchesProjectType(
 				try {
 					url = new URL(dependency.url)
 				} catch {
-					throw new Error('Dependency links must be valid URLs')
+					throw new ConvexError('Dependency links must be valid URLs')
 				}
 				if (!['http:', 'https:'].includes(url.protocol)) {
-					throw new Error('Dependency links must use HTTP or HTTPS')
+					throw new ConvexError('Dependency links must use HTTP or HTTPS')
 				}
 			}
 		}
 	}
 	if (metadata.type === 'resource_pack' && !metadata.contentTypes?.length) {
-		throw new Error('Select at least one resource pack content area')
+		throw new ConvexError('Select at least one resource pack content area')
 	}
 }
 
@@ -268,7 +268,7 @@ async function assertProjectHasVersion(
 	projectId: Id<'projects'>,
 ) {
 	if (!(await projectHasVersion(ctx, projectId))) {
-		throw new Error(
+		throw new ConvexError(
 			'Upload and validate at least one version file before this project can be submitted or published',
 		)
 	}
@@ -717,7 +717,7 @@ export const listByOrganization = query({
 				user._id,
 			))
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'You do not have permission to view this organization',
 			)
 		}
@@ -826,7 +826,7 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to create a project')
+			throw new ConvexError('You must be logged in to create a project')
 		}
 		const description = args.description ?? ''
 		const categoryIds = args.categoryIds ?? []
@@ -840,7 +840,7 @@ export const create = mutation({
 		const ownerType = args.ownerType
 		const ownerId = ownerType === 'user' ? user._id : args.ownerId
 		if (!(await canModifyProject(ctx, { ownerType, ownerId }, user._id))) {
-			throw new Error(
+			throw new ConvexError(
 				'You do not have permission to create projects for this owner',
 			)
 		}
@@ -862,7 +862,7 @@ export const create = mutation({
 			.first()
 
 		if (existing) {
-			throw new Error('A project with this name already exists')
+			throw new ConvexError('A project with this name already exists')
 		}
 
 		const now = Date.now()
@@ -932,18 +932,18 @@ export const update = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to update a project')
+			throw new ConvexError('You must be logged in to update a project')
 		}
 
 		const liveItem = await ctx.db.get(args.id)
 		const item = liveItem ? submissionView(liveItem) : null
 		if (!item) {
-			throw new Error('Project not found')
+			throw new ConvexError('Project not found')
 		}
 
 		// Check ownership — user-owned or org member
 		if (!(await canModifyProject(ctx, item, user._id))) {
-			throw new Error('You do not have permission to edit this project')
+			throw new ConvexError('You do not have permission to edit this project')
 		}
 		assertSubmissionEditable(item)
 		validateProjectFields(args)
@@ -1007,7 +1007,7 @@ export const update = mutation({
 				.withIndex('by_project', (q) => q.eq('projectId', item._id))
 				.first()
 			if (existingVersion) {
-				throw new Error(
+				throw new ConvexError(
 					'A project type cannot change after a release is added',
 				)
 			}
@@ -1017,10 +1017,10 @@ export const update = mutation({
 			item.status !== 'draft' &&
 			!hasApprovedListing(item)
 		) {
-			throw new Error('Only draft projects can be submitted for review')
+			throw new ConvexError('Only draft projects can be submitted for review')
 		}
 		if (status === 'under_review' && item.moderationStatus === 'rejected') {
-			throw new Error(
+			throw new ConvexError(
 				'This project was rejected and cannot be resubmitted. Contact the moderators.',
 			)
 		}
@@ -1058,7 +1058,7 @@ export const update = mutation({
 				}))
 			)
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'You do not have permission to move this project to that owner',
 			)
 		}
@@ -1072,7 +1072,7 @@ export const update = mutation({
 				.withIndex('by_slug', (q) => q.eq('slug', slug as string))
 				.first()
 			if (existing && existing._id !== id) {
-				throw new Error('A project with this name already exists')
+				throw new ConvexError('A project with this name already exists')
 			}
 		}
 
@@ -1204,12 +1204,12 @@ export const remove = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx)
 		if (!user) {
-			throw new Error('You must be logged in to delete a project')
+			throw new ConvexError('You must be logged in to delete a project')
 		}
 
 		const item = await ctx.db.get(args.id)
 		if (!item) {
-			throw new Error('Project not found')
+			throw new ConvexError('Project not found')
 		}
 
 		if (
@@ -1217,7 +1217,7 @@ export const remove = mutation({
 				allowSiteAdmin: false,
 			}))
 		) {
-			throw new Error(
+			throw new ConvexError(
 				'Only the owner or an organization owner/admin can delete this project',
 			)
 		}
@@ -1308,7 +1308,7 @@ export const adminUpdate = moderatorMutation({
 
 		const item = await ctx.db.get(args.id)
 		if (!item) {
-			throw new Error('Project not found')
+			throw new ConvexError('Project not found')
 		}
 
 		assertReviewRevision(item, args.expectedRevision)
@@ -1426,7 +1426,7 @@ export const adminUpdate = moderatorMutation({
 			requiresModerationReason(args.moderationStatus) &&
 			!args.moderationReason?.trim()
 		) {
-			throw new Error('A moderation reason is required')
+			throw new ConvexError('A moderation reason is required')
 		}
 		if (
 			requestedStatus === 'published' &&
