@@ -166,6 +166,7 @@ export const listPopular = query({
 			pluginCount: v.number(),
 			totalDownloads: v.number(),
 			avgPlayers7d: v.number(),
+			followerCount: v.number(),
 		}),
 	),
 	handler: async (ctx, args) => {
@@ -200,6 +201,7 @@ export const listPopular = query({
 				pluginCount: pluginsEnabled ? listing.pluginCount : 0,
 				totalDownloads: listing.totalDownloads ?? 0,
 				avgPlayers7d: listing.avgPlayers7d ?? 0,
+				followerCount: listing.followerCount ?? 0,
 			}))
 	},
 })

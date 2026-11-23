@@ -1,11 +1,14 @@
+import { DiscordIcon, GlobeIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { fetchQuery } from 'convex/nextjs'
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import { SideCard } from '@/components/detail/detail-parts'
+import { LISTING_GRID_CLASS } from '@/components/listings/listing-layout'
 import { PluginGrid } from '@/components/plugins/plugin-card'
+import { ProfileHero, ProfileSection } from '@/components/profiles/profile-hero'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { FollowButton } from '@/components/social/social-buttons'
@@ -77,51 +80,55 @@ export default async function OrganizationPage({
 			)?.projects ?? [])
 		: []
 
-	return (
-		<div className="border-t">
-			<div className="relative min-h-44 overflow-hidden border-b bg-muted sm:min-h-56">
-				{organization.bannerUrl ? (
-					<Image
-						alt={`${organization.name} banner`}
-						className="object-cover"
-						fill
-						priority
-						sizes="100vw"
-						src={organization.bannerUrl}
-					/>
-				) : null}
-			</div>
-			<div className="container mx-auto -mt-12 space-y-8 px-4 pb-12">
-				<div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-					<div className="flex items-end gap-4">
-						<div className="flex size-24 items-center justify-center overflow-hidden rounded-md border-4 border-background bg-muted font-bold text-3xl">
-							{organization.logo ? (
-								<Image
-									alt={`${organization.name} logo`}
-									height={96}
-									src={organization.logo}
-									width={96}
-								/>
-							) : (
-								organization.name.charAt(0)
-							)}
-						</div>
-						<div className="pb-2">
-							<h1 className="font-bold text-3xl">
-								{organization.name}
-							</h1>
-							<p className="text-muted-foreground">
-								/{organization.slug}
-							</p>
-						</div>
+	const sections = [
+		{
+			key: 'servers',
+			title: 'Servers',
+			count: organization.servers.length,
+			content: (
+				<div className={LISTING_GRID_CLASS}>
+					{organization.servers.map((server) => (
+						<ServerCard key={server._id} server={server} />
+					))}
+				</div>
+			),
+		},
+		...PROJECT_TYPES.map((type) => {
+			const items = organization.projects.filter(
+				(item) => normalizeProjectType(item.type) === type,
+			)
+			return {
+				key: type,
+				title: PROJECT_TYPE_PLURAL_LABELS[type],
+				count: items.length,
+				content: (
+					<div className={LISTING_GRID_CLASS}>
+						{items.map((item) => (
+							<ProjectCard content={item} key={item._id} />
+						))}
 					</div>
-					<div className="flex flex-wrap gap-2">
+				),
+			}
+		}),
+		{
+			key: 'plugins',
+			title: 'Plugins',
+			count: plugins.length,
+			content: <PluginGrid plugins={plugins} />,
+		},
+	].filter((section) => section.count > 0)
+
+	return (
+		<main className="flex-1">
+			<ProfileHero
+				actions={
+					<>
 						<FollowButton
 							targetId={organization.id}
 							targetType="organization"
 						/>
 						{organization.website ? (
-							<Link
+							<a
 								className={buttonVariants({
 									variant: 'outline',
 								})}
@@ -129,129 +136,119 @@ export default async function OrganizationPage({
 								rel="noopener noreferrer"
 								target="_blank"
 							>
+								<HugeiconsIcon
+									aria-hidden
+									className="size-4"
+									icon={GlobeIcon}
+								/>
 								Website
-							</Link>
+							</a>
 						) : null}
 						{organization.discordUrl ? (
-							<Link
+							<a
 								className={buttonVariants()}
 								href={organization.discordUrl}
 								rel="noopener noreferrer"
 								target="_blank"
 							>
+								<HugeiconsIcon
+									aria-hidden
+									className="size-4"
+									icon={DiscordIcon}
+								/>
 								Discord
-							</Link>
+							</a>
 						) : null}
-					</div>
-				</div>
+					</>
+				}
+				avatar={
+					<UserAvatarImage
+						avatarClassName="rounded-none"
+						image={organization.logo}
+						size={128}
+						username={organization.name}
+					/>
+				}
+				bannerUrl={organization.bannerUrl}
+				bio={organization.about}
+				handle={`/${organization.slug}`}
+				name={organization.name}
+				stats={[
+					{ label: 'Servers', value: organization.servers.length },
+					{
+						label: 'Add-ons & packs',
+						value: organization.projects.length,
+					},
+					{ label: 'Plugins', value: plugins.length },
+					{ label: 'Members', value: organization.members.length },
+				]}
+			/>
 
-				<div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-					<div className="space-y-10">
-						<section className="space-y-3">
-							<h2 className="font-semibold text-xl">About</h2>
-							<p className="whitespace-pre-wrap text-muted-foreground leading-7">
-								{organization.about ||
-									'This organization has not added an introduction yet.'}
-							</p>
-						</section>
-						{organization.servers.length > 0 ? (
-							<section className="space-y-4">
-								<h2 className="font-semibold text-xl">
-									Servers
-								</h2>
-								<div className="grid gap-4 sm:grid-cols-2">
-									{organization.servers.map((server) => (
-										<ServerCard
-											key={server._id}
-											server={server}
-										/>
-									))}
-								</div>
-							</section>
-						) : null}
-						{PROJECT_TYPES.map((type) => {
-							const items = organization.projects.filter(
-								(item) =>
-									normalizeProjectType(item.type) === type,
-							)
-							if (!items.length) {
-								return null
-							}
-							return (
-								<section className="space-y-4" key={type}>
-									<h2 className="font-semibold text-xl">
-										{PROJECT_TYPE_PLURAL_LABELS[type]}
-									</h2>
-									<div className="grid gap-4 sm:grid-cols-2">
-										{items.map((item) => (
-											<ProjectCard
-												content={item}
-												key={item._id}
-											/>
-										))}
-									</div>
-								</section>
-							)
-						})}
-						{plugins.length > 0 ? (
-							<section className="space-y-4">
-								<h2 className="font-semibold text-xl">
-									Plugins
-								</h2>
-								<PluginGrid plugins={plugins} />
-							</section>
-						) : null}
-					</div>
-					<aside className="flex flex-col gap-4">
-						<SideCard
-							title={`Members (${organization.members.length})`}
-						>
-							<ul className="flex flex-col gap-1">
-								{organization.members.map((member) => {
-									const row = (
-										<>
-											<UserAvatarImage
-												avatarClassName="size-9"
-												image={member.image}
-												size={36}
-												username={member.name}
-											/>
-											<span className="min-w-0 flex-1">
-												<span className="block truncate font-medium text-sm">
-													{member.name}
-												</span>
-												<span className="block text-muted-foreground text-xs capitalize">
-													{member.role
-														.split(',')
-														.join(', ')}
-												</span>
-											</span>
-										</>
-									)
-									return (
-										<li
-											key={`${member.name}-${member.role}`}
-										>
-											{member.username ? (
-												<Link
-													className="flex items-center gap-3 rounded-md p-1.5 transition-colors hover:bg-muted"
-													href={`/user/${member.username}`}
-												>
-													{row}
-												</Link>
-											) : (
-												<div className="flex items-center gap-3 p-1.5">
-													{row}
-												</div>
-											)}
-										</li>
-									)
-								})}
-							</ul>
-						</SideCard>
-					</aside>
+			<div className="container mx-auto grid items-start gap-x-8 gap-y-10 px-4 pt-10 pb-18 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+				<div className="flex min-w-0 flex-col gap-10">
+					{sections.length > 0 ? (
+						sections.map((section) => (
+							<ProfileSection
+								count={section.count}
+								key={section.key}
+								title={section.title}
+							>
+								{section.content}
+							</ProfileSection>
+						))
+					) : (
+						<p className="rounded-lg border border-dashed px-6 py-14 text-center text-muted-foreground">
+							{organization.name} has not published anything yet.
+						</p>
+					)}
 				</div>
+				<aside className="flex flex-col gap-4 lg:sticky lg:top-24">
+					<SideCard
+						title={`Members (${organization.members.length})`}
+					>
+						<ul className="flex flex-col gap-1">
+							{organization.members.map((member) => {
+								const row = (
+									<>
+										<UserAvatarImage
+											avatarClassName="size-9 rounded-lg"
+											image={member.image}
+											size={36}
+											username={member.name}
+										/>
+										<span className="min-w-0 flex-1">
+											<span className="block truncate font-medium text-sm">
+												{member.name}
+											</span>
+											<span className="block text-muted-foreground text-xs capitalize">
+												{member.role
+													.split(',')
+													.join(', ')}
+											</span>
+										</span>
+									</>
+								)
+								return (
+									<li key={`${member.name}-${member.role}`}>
+										{member.username ? (
+											<Link
+												className="flex items-center gap-3 rounded-md p-1.5 transition-colors hover:bg-muted"
+												href={`/user/${member.username}`}
+											>
+												{row}
+											</Link>
+										) : (
+											<div className="flex items-center gap-3 p-1.5">
+												{row}
+											</div>
+										)}
+									</li>
+								)
+							})}
+						</ul>
+					</SideCard>
+				</aside>
 			</div>
-		</div>
+		</main>
 	)
 }

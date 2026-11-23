@@ -3,10 +3,13 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { fetchQuery } from 'convex/nextjs'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { HeaderStats } from '@/components/header-stats'
 import { SectionHeading } from '@/components/home/section-heading'
+import { LISTING_GRID_CLASS } from '@/components/listings/listing-layout'
 import { PageShell } from '@/components/page-shell'
 import { PluginGrid } from '@/components/plugins/plugin-card'
 import { ServerCard } from '@/components/servers/server-card'
+import { SoftwareLogo } from '@/components/software/software-logo'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/convex/_generated/api'
 import { getSiteFeatures } from '@/lib/site-settings'
@@ -62,14 +65,39 @@ export async function generateMetadata({
 	}
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+function VersionsPanel({
+	versions,
+}: {
+	versions: readonly { version: string; servers: number }[]
+}) {
+	const most = Math.max(...versions.map((item) => item.servers), 1)
 	return (
-		<div className="flex flex-[1_1_9rem] flex-col gap-0.5 rounded-md border bg-card px-4 py-3.5">
-			<span className="font-mono font-semibold text-2xl tabular-nums">
-				{value.toLocaleString()}
-			</span>
-			<span className="text-[13px] text-muted-foreground">{label}</span>
-		</div>
+		<section className="flex flex-col gap-3 rounded-lg border bg-card p-5">
+			<h2 className="font-bold font-display text-lg">
+				Minecraft versions
+			</h2>
+			<ul className="flex flex-col gap-3">
+				{versions.map((item) => (
+					<li className="flex flex-col gap-1.5" key={item.version}>
+						<div className="flex items-baseline justify-between gap-4 text-sm">
+							<span className="font-mono">{item.version}</span>
+							<span className="text-muted-foreground">
+								{item.servers.toLocaleString()} server
+								{item.servers === 1 ? '' : 's'}
+							</span>
+						</div>
+						<span className="h-1 overflow-hidden rounded-full bg-muted">
+							<span
+								className="block h-full rounded-full bg-primary/70"
+								style={{
+									width: `${(item.servers / most) * 100}%`,
+								}}
+							/>
+						</span>
+					</li>
+				))}
+			</ul>
+		</section>
 	)
 }
 
@@ -86,6 +114,8 @@ export default async function SoftwareDetailPage({
 		{ href: entry.websiteUrl, label: 'Official website' },
 		{ href: entry.repositoryUrl, label: 'Source code' },
 	].flatMap((link) => (link.href ? [{ ...link, href: link.href }] : []))
+	const showPlugins =
+		pluginsEnabled && (plugins.length > 0 || entry.supportsPlugins)
 
 	return (
 		<PageShell
@@ -113,96 +143,91 @@ export default async function SoftwareDetailPage({
 				) : undefined
 			}
 			description={entry.description}
+			headerContent={
+				<HeaderStats
+					stats={[
+						{ label: 'Servers listed', value: entry.serverCount },
+						{
+							label: 'Online right now',
+							live: true,
+							value: entry.onlineServers,
+						},
+						{
+							label: 'Players online',
+							live: true,
+							value: entry.playersOnline,
+						},
+						...(showPlugins
+							? [{ label: 'Plugins', value: plugins.length }]
+							: []),
+					]}
+				/>
+			}
 			media={
-				entry.logoUrl ? (
-					// biome-ignore lint/performance/noImgElement: CDN logos are already 256px
-					<img
-						alt=""
-						className="extrude size-16 shrink-0 rounded-md border-2 border-edge object-cover sm:size-20"
-						height={80}
-						src={entry.logoUrl}
-						width={80}
-					/>
-				) : undefined
+				<SoftwareLogo
+					className="size-16 sm:size-20"
+					logoUrl={entry.logoUrl}
+					size={80}
+				/>
 			}
 			title={entry.name}
 		>
-			<div className="flex flex-col gap-12">
-				<div className="flex flex-wrap gap-3">
-					<Stat label="Servers listed" value={entry.serverCount} />
-					<Stat
-						label="Online right now"
-						value={entry.onlineServers}
-					/>
-					<Stat label="Players online" value={entry.playersOnline} />
-				</div>
-
-				<section className="flex flex-col gap-6">
-					<SectionHeading
-						href={`/servers?software=${entry.slug}`}
-						linkLabel={`All ${entry.name} servers`}
-						title={`Servers running ${entry.name}`}
-					/>
-					{entry.servers.length > 0 ? (
-						<div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-4">
-							{entry.servers.map((server) => (
-								<ServerCard key={server._id} server={server} />
-							))}
-						</div>
-					) : (
-						<p className="rounded-md border border-dashed px-6 py-12 text-center text-muted-foreground">
-							No listed server has declared {entry.name} yet.
-						</p>
-					)}
-					<p className="max-w-2xl text-muted-foreground text-sm">
-						Software is declared by each server's owner; a status
-						check cannot detect it. Totals are refreshed every few
-						minutes.
-					</p>
-				</section>
-
-				{entry.versions.length > 0 ? (
-					<section className="flex max-w-xl flex-col gap-4">
-						<h2 className="font-bold text-2xl">
-							Minecraft versions supported
-						</h2>
-						<ul className="flex flex-col divide-y rounded-md border bg-card">
-							{entry.versions.map((item) => (
-								<li
-									className="flex items-center justify-between gap-4 px-4 py-2.5"
-									key={item.version}
-								>
-									<span className="font-mono">
-										{item.version}
-									</span>
-									<span className="text-muted-foreground text-sm">
-										{item.servers.toLocaleString()} server
-										{item.servers === 1 ? '' : 's'}
-									</span>
-								</li>
-							))}
-						</ul>
-					</section>
-				) : null}
-
-				{pluginsEnabled &&
-				(plugins.length > 0 || entry.supportsPlugins) ? (
+			<div className="grid items-start gap-x-10 gap-y-12 lg:grid-cols-[minmax(0,1fr)_19rem]">
+				<div className="flex min-w-0 flex-col gap-12">
 					<section className="flex flex-col gap-6">
 						<SectionHeading
-							href="/plugins"
-							linkLabel="All plugins"
-							title={`Plugins for ${entry.name}`}
+							href={`/servers?software=${entry.slug}`}
+							linkLabel={`All ${entry.name} servers`}
+							title="Busiest servers"
 						/>
-						{plugins.length > 0 ? (
-							<PluginGrid plugins={plugins} />
+						{entry.servers.length > 0 ? (
+							<div className={LISTING_GRID_CLASS}>
+								{entry.servers.map((server) => (
+									<ServerCard
+										key={server._id}
+										server={server}
+									/>
+								))}
+							</div>
 						) : (
-							<p className="rounded-md border border-dashed px-6 py-12 text-center text-muted-foreground">
-								Plugins appear here after their first reviewed
-								release is published.
+							<p className="rounded-lg border border-dashed px-6 py-12 text-center text-muted-foreground">
+								No listed server has declared {entry.name} yet.
 							</p>
 						)}
 					</section>
-				) : null}
+
+					{showPlugins ? (
+						<section className="flex flex-col gap-6">
+							<SectionHeading
+								href="/plugins"
+								linkLabel="All plugins"
+								title={`Plugins for ${entry.name}`}
+							/>
+							{plugins.length > 0 ? (
+								<PluginGrid plugins={plugins} />
+							) : (
+								<p className="rounded-lg border border-dashed px-6 py-12 text-center text-muted-foreground">
+									Plugins appear here after their first
+									reviewed release is published.
+								</p>
+							)}
+						</section>
+					) : null}
+				</div>
+
+				<aside className="flex flex-col gap-4 lg:sticky lg:top-24">
+					{entry.versions.length > 0 ? (
+						<VersionsPanel versions={entry.versions} />
+					) : null}
+					<section className="flex flex-col gap-2 rounded-lg border bg-surface-sunken/60 p-5 text-sm">
+						<h2 className="font-semibold">About these numbers</h2>
+						<p className="text-muted-foreground leading-relaxed">
+							Owners declare the software their servers run; a
+							status check cannot detect it. Totals refresh every
+							few minutes.
+						</p>
+					</section>
+				</aside>
 			</div>
 		</PageShell>
 	)

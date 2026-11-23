@@ -27,7 +27,6 @@
 	--color-ember: var(--ember);
 	--color-ember-text: var(--ember-text);
 	--color-edge: var(--edge);
-	--color-extrude: var(--extrude);
 	--color-stone: var(--stone);
 	--color-online: var(--online);
 	--color-offline: var(--offline);
@@ -152,7 +151,6 @@
 	--ember: #f59f2c;
 	--ember-text: #f7b65a;
 	--edge: #07080a;
-	--extrude: #9a6a12;
 	--stone: #2a303b;
 	--online: #4ade80;
 	--offline: #6b7280;
@@ -278,11 +276,6 @@
 		box-shadow:
 			inset 0 -3px 0 rgb(0 0 0 / 22%),
 			inset 0 1px 0 rgb(255 255 255 / 12%);
-	}
-
-	/* The drop under raised gold surfaces, like the logo's extrusion. */
-	.extrude {
-		box-shadow: 0 3px 0 var(--extrude);
 	}
 
 	/* Ambient gold light behind hero sections. */

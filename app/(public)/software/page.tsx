@@ -1,18 +1,15 @@
-import { ArrowRight01Icon, Package01Icon } from '@hugeicons/core-free-icons'
+import { ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { fetchQuery } from 'convex/nextjs'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { HeaderStats } from '@/components/header-stats'
 import { PageShell } from '@/components/page-shell'
-import { Badge } from '@/components/ui/badge'
-import {
-	Card,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui/card'
+import { SoftwareLogo } from '@/components/software/software-logo'
 import { api } from '@/convex/_generated/api'
+import { getSiteFeatures } from '@/lib/site-settings'
 import { socialMetadata } from '@/lib/social-metadata'
+import { cn } from '@/lib/utils'
 
 export async function generateMetadata(): Promise<Metadata> {
 	const title = 'Server software'
@@ -27,77 +24,135 @@ export async function generateMetadata(): Promise<Metadata> {
 	}
 }
 
-function plural(count: number, noun: string) {
-	return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`
+function CardStat({
+	label,
+	live = false,
+	value,
+}: {
+	label: string
+	live?: boolean
+	value: number
+}) {
+	return (
+		<div className="flex flex-col gap-0.5 px-3 py-2.5">
+			<dt className="order-2 text-muted-foreground text-xs">{label}</dt>
+			<dd
+				className={cn(
+					'flex items-center gap-1.5 font-mono font-semibold tabular-nums',
+					value === 0 && 'text-muted-foreground',
+				)}
+			>
+				{live && value > 0 ? (
+					<span
+						aria-hidden="true"
+						className="size-1.5 rounded-full bg-online"
+					/>
+				) : null}
+				{value.toLocaleString()}
+			</dd>
+		</div>
+	)
 }
 
 export default async function SoftwarePage() {
-	const software = await fetchQuery(
-		api.functions.servers.software.directory,
-		{},
+	const [software, features] = await Promise.all([
+		fetchQuery(api.functions.servers.software.directory, {}),
+		getSiteFeatures(),
+	])
+	const totalServers = software.reduce(
+		(sum, item) => sum + item.serverCount,
+		0,
+	)
+	const totalPlayers = software.reduce(
+		(sum, item) => sum + item.playersOnline,
+		0,
 	)
 
 	return (
 		<PageShell
 			description="The software Bedrock servers run, as declared by their owners."
+			headerContent={
+				<HeaderStats
+					stats={[
+						{ label: 'Server software', value: software.length },
+						{ label: 'Servers using them', value: totalServers },
+						{
+							label: 'Players online',
+							live: true,
+							value: totalPlayers,
+						},
+					]}
+				/>
+			}
 			title="Server software"
 		>
-			<div className="grid gap-5 md:grid-cols-2">
-				{software.map((item) => (
-					<Link
-						className="group rounded-md"
-						href={`/software/${item.slug}`}
-						key={item.slug}
-					>
-						<Card className="h-full transition-[transform,border-color] group-hover:-translate-y-1 group-hover:border-primary">
-							<CardHeader className="grid-cols-[auto_1fr_auto] items-center gap-x-4">
-								<span className="extrude row-span-3 grid size-12 place-items-center overflow-hidden rounded-md border-2 border-edge bg-primary text-primary-foreground">
-									{item.logoUrl ? (
-										// biome-ignore lint/performance/noImgElement: CDN logos are already 256px
-										<img
-											alt=""
-											className="size-full object-cover"
-											height={48}
-											src={item.logoUrl}
-											width={48}
-										/>
-									) : (
-										<HugeiconsIcon
-											aria-hidden="true"
-											className="size-5"
-											icon={Package01Icon}
-										/>
-									)}
-								</span>
-								<CardTitle className="col-start-2 text-lg">
-									{item.name}
-								</CardTitle>
-								<CardDescription className="col-start-2 line-clamp-1">
+			{software.length > 0 ? (
+				<ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+					{software.map((item) => (
+						<li key={item.slug}>
+							<Link
+								className="card-lift group flex h-full flex-col gap-4 rounded-lg border bg-card p-5"
+								href={`/software/${item.slug}`}
+							>
+								<div className="flex items-center gap-4">
+									<SoftwareLogo
+										className="size-13"
+										logoUrl={item.logoUrl}
+										size={52}
+									/>
+									<div className="flex min-w-0 flex-1 flex-col gap-1">
+										<h2 className="truncate font-bold font-display text-lg leading-tight">
+											{item.name}
+										</h2>
+										{features.pluginsEnabled &&
+										item.supportsPlugins ? (
+											<span className="text-primary text-xs">
+												Accepts plugins
+											</span>
+										) : null}
+									</div>
+									<HugeiconsIcon
+										aria-hidden="true"
+										className="size-5 shrink-0 text-muted-foreground transition-[color,translate] group-hover:translate-x-1 group-hover:text-foreground"
+										icon={ArrowRight02Icon}
+									/>
+								</div>
+								<p className="line-clamp-3 text-muted-foreground text-sm leading-relaxed">
 									{item.description}
-								</CardDescription>
-								<p className="col-start-2 font-mono text-muted-foreground text-xs">
-									{plural(item.serverCount, 'server')}
-									{item.playersOnline > 0
-										? ` · ${plural(item.playersOnline, 'player')} online`
-										: ''}
 								</p>
-								{item.pluginCount > 0 ? (
-									<Badge
-										className="col-start-3 row-start-1"
-										variant="outline"
-									>
-										{plural(item.pluginCount, 'plugin')}
-									</Badge>
-								) : null}
-								<HugeiconsIcon
-									className="col-start-3 row-start-2 size-4 justify-self-end text-muted-foreground transition-transform group-hover:translate-x-1"
-									icon={ArrowRight01Icon}
-								/>
-							</CardHeader>
-						</Card>
-					</Link>
-				))}
-			</div>
+								<dl
+									className={cn(
+										'mt-auto grid divide-x rounded-md border bg-surface-sunken/60',
+										features.pluginsEnabled
+											? 'grid-cols-3'
+											: 'grid-cols-2',
+									)}
+								>
+									<CardStat
+										label="Servers"
+										value={item.serverCount}
+									/>
+									<CardStat
+										label="Players online"
+										live
+										value={item.playersOnline}
+									/>
+									{features.pluginsEnabled ? (
+										<CardStat
+											label="Plugins"
+											value={item.pluginCount}
+										/>
+									) : null}
+								</dl>
+							</Link>
+						</li>
+					))}
+				</ul>
+			) : (
+				<p className="rounded-lg border border-dashed px-6 py-16 text-center text-muted-foreground">
+					No server software has been added yet.
+				</p>
+			)}
 		</PageShell>
 	)
 }

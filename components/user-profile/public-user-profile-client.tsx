@@ -17,7 +17,9 @@ import { useParams } from 'next/navigation'
 import { RoleBadgeList } from '@/components/auth/role-badge'
 import { UserAvatarImage } from '@/components/auth/user-avatar-image'
 import { ensureHttpUrl, SideCard } from '@/components/detail/detail-parts'
+import { LISTING_GRID_CLASS } from '@/components/listings/listing-layout'
 import { PluginGrid } from '@/components/plugins/plugin-card'
+import { ProfileHero, ProfileSection } from '@/components/profiles/profile-hero'
 import { ProjectCard } from '@/components/projects/project-card'
 import { ServerCard } from '@/components/servers/server-card'
 import { FollowButton } from '@/components/social/social-buttons'
@@ -28,6 +30,7 @@ import {
 	PROJECT_TYPE_PLURAL_LABELS,
 	PROJECT_TYPES,
 } from '@/lib/project-artifacts'
+import { cn } from '@/lib/utils'
 
 const SOCIAL_LABELS: Record<string, string> = {
 	github: 'GitHub',
@@ -38,17 +41,6 @@ const SOCIAL_LABELS: Record<string, string> = {
 	bluesky: 'Bluesky',
 	instagram: 'Instagram',
 	tiktok: 'TikTok',
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-	return (
-		<div className="flex flex-[1_1_9rem] flex-col gap-0.5 rounded-md border bg-card px-4 py-3.5">
-			<span className="font-mono font-semibold text-2xl tabular-nums">
-				{value.toLocaleString()}
-			</span>
-			<span className="text-[13px] text-muted-foreground">{label}</span>
-		</div>
-	)
 }
 
 function ProfileCollections({ username }: { username: string }) {
@@ -103,15 +95,19 @@ function ProfileCollections({ username }: { username: string }) {
 function ProfileSkeleton() {
 	return (
 		<div className="flex-1">
-			<Skeleton className="h-40 w-full rounded-none" />
-			<div className="container mx-auto flex flex-col gap-5 px-4 pb-12 md:px-6">
-				<Skeleton className="-mt-16 size-34" />
-				<Skeleton className="h-10 w-64" />
-				<Skeleton className="h-5 w-full max-w-lg" />
-				<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-					<Skeleton className="h-80" />
-					<Skeleton className="h-80" />
+			<div className="border-b bg-surface-sunken">
+				<Skeleton className="h-36 w-full rounded-none sm:h-48" />
+				<div className="container mx-auto flex flex-col gap-5 px-4 pb-8 md:px-6">
+					<div className="flex items-end gap-6">
+						<Skeleton className="-mt-16 size-32 rounded-xl sm:-mt-20" />
+						<Skeleton className="h-10 w-64" />
+					</div>
+					<Skeleton className="h-5 w-full max-w-lg" />
 				</div>
+			</div>
+			<div className="container mx-auto grid gap-6 px-4 pt-10 pb-12 md:px-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+				<Skeleton className="h-80" />
+				<Skeleton className="h-48" />
 			</div>
 		</div>
 	)
@@ -164,215 +160,173 @@ export default function PublicUserProfilePage() {
 	const socials = Object.entries(profile.socials ?? {}).filter(
 		(entry): entry is [string, string] => Boolean(entry[1]),
 	)
+	const sections = [
+		...PROJECT_TYPES.map((type) => {
+			const items = profile.projects.filter(
+				(item) => normalizeProjectType(item.type) === type,
+			)
+			return {
+				key: type,
+				title: PROJECT_TYPE_PLURAL_LABELS[type],
+				count: items.length,
+				content: (
+					<div className={LISTING_GRID_CLASS}>
+						{items.map((item) => (
+							<ProjectCard content={item} key={item._id} />
+						))}
+					</div>
+				),
+			}
+		}),
+		{
+			key: 'plugins',
+			title: 'Plugins',
+			count: plugins.projects.length,
+			content: <PluginGrid plugins={plugins.projects} />,
+		},
+		{
+			key: 'servers',
+			title: 'Servers',
+			count: profile.servers.length,
+			content: (
+				<div className={LISTING_GRID_CLASS}>
+					{profile.servers.map((server) => (
+						<ServerCard key={server._id} server={server} />
+					))}
+				</div>
+			),
+		},
+	].filter((section) => section.count > 0)
 	const hasSidebar = profile.organizations.length > 0
 
 	return (
 		<main className="flex-1">
-			<section className="border-b">
-				<div className="relative h-40 border-ember border-b-[3px]">
-					{profile.bannerUrl ? (
-						<Image
-							alt=""
-							className="object-cover"
-							fill
-							priority
-							sizes="100vw"
-							src={profile.bannerUrl}
-						/>
-					) : (
-						<div aria-hidden className="strata absolute inset-0" />
-					)}
-				</div>
-				<div className="container relative mx-auto flex flex-col gap-5 px-4 pb-7 md:px-6">
-					<div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-						<div className="-mt-16 shrink-0 rounded-md border-[3px] border-edge bg-stone">
-							<UserAvatarImage
-								avatarClassName="size-32"
-								image={profile.image}
-								size={128}
-								username={displayName}
+			<ProfileHero
+				actions={
+					<FollowButton targetId={profile.id} targetType="user" />
+				}
+				avatar={
+					<UserAvatarImage
+						avatarClassName="rounded-none"
+						image={profile.image}
+						size={128}
+						username={displayName}
+					/>
+				}
+				badges={<RoleBadgeList role={profile.role} />}
+				bannerUrl={profile.bannerUrl}
+				bio={profile.bio}
+				handle={profile.username ? `@${profile.username}` : undefined}
+				meta={
+					<>
+						<span className="inline-flex items-center gap-1.5">
+							<HugeiconsIcon
+								aria-hidden
+								className="size-4"
+								icon={Calendar03Icon}
 							/>
-						</div>
-						<div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-2 pt-4">
-							<div className="flex flex-col gap-1.5">
-								<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-									<h1 className="font-bold text-[clamp(2rem,4vw,2.875rem)] leading-none">
-										{displayName}
-									</h1>
-									<RoleBadgeList role={profile.role} />
-								</div>
-								{profile.username ? (
-									<span className="font-mono text-muted-foreground">
-										@{profile.username}
-									</span>
-								) : null}
-							</div>
-							{profile.bio ? (
-								<p className="max-w-2xl text-muted-foreground">
-									{profile.bio}
-								</p>
-							) : null}
-							<div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-muted-foreground text-sm">
-								<span className="inline-flex items-center gap-1.5">
-									<HugeiconsIcon
-										aria-hidden
-										className="size-4"
-										icon={Calendar03Icon}
-									/>
-									Joined{' '}
-									{new Date(
-										profile.joinedAt,
-									).toLocaleDateString('en-US', {
-										month: 'short',
-										year: 'numeric',
-									})}
-								</span>
-								{profile.location ? (
-									<span className="inline-flex items-center gap-1.5">
-										<HugeiconsIcon
-											aria-hidden
-											className="size-4"
-											icon={Location01Icon}
-										/>
-										{profile.location}
-									</span>
-								) : null}
-								{profile.website ? (
-									<a
-										className="inline-flex items-center gap-1.5 text-ember-text hover:text-foreground"
-										href={ensureHttpUrl(profile.website)}
-										rel="noopener noreferrer"
-										target="_blank"
-									>
-										<HugeiconsIcon
-											aria-hidden
-											className="size-4"
-											icon={GlobeIcon}
-										/>
-										Website
-									</a>
-								) : null}
-								{socials.map(([name, url]) => (
-									<a
-										className="text-ember-text hover:text-foreground"
-										href={ensureHttpUrl(url)}
-										key={name}
-										rel="noopener noreferrer"
-										target="_blank"
-									>
-										{SOCIAL_LABELS[name] ?? name}
-									</a>
-								))}
-							</div>
-						</div>
-						<div className="pt-4">
-							<FollowButton
-								targetId={profile.id}
-								targetType="user"
-							/>
-						</div>
-					</div>
-					<div className="flex flex-wrap gap-3">
-						<Stat
-							label="Addons & Resource Packs"
-							value={profile.stats.projects}
-						/>
-						<Stat label="Servers" value={profile.stats.servers} />
-						{plugins.projects.length > 0 ? (
-							<Stat
-								label="Plugins"
-								value={plugins.projects.length}
-							/>
+							Joined{' '}
+							{new Date(profile.joinedAt).toLocaleDateString(
+								'en-US',
+								{ month: 'short', year: 'numeric' },
+							)}
+						</span>
+						{profile.location ? (
+							<span className="inline-flex items-center gap-1.5">
+								<HugeiconsIcon
+									aria-hidden
+									className="size-4"
+									icon={Location01Icon}
+								/>
+								{profile.location}
+							</span>
 						) : null}
-						<Stat
-							label="Total downloads"
-							value={profile.stats.totalDownloads}
-						/>
-						<Stat
-							label="Reviews written"
-							value={profile.stats.reviewsWritten}
-						/>
-					</div>
-				</div>
-			</section>
+						{profile.website ? (
+							<a
+								className="inline-flex items-center gap-1.5 text-ember-text hover:text-foreground"
+								href={ensureHttpUrl(profile.website)}
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								<HugeiconsIcon
+									aria-hidden
+									className="size-4"
+									icon={GlobeIcon}
+								/>
+								Website
+							</a>
+						) : null}
+						{socials.map(([name, url]) => (
+							<a
+								className="text-ember-text hover:text-foreground"
+								href={ensureHttpUrl(url)}
+								key={name}
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								{SOCIAL_LABELS[name] ?? name}
+							</a>
+						))}
+					</>
+				}
+				name={displayName}
+				stats={[
+					{ label: 'Add-ons & packs', value: profile.stats.projects },
+					{ label: 'Servers', value: profile.stats.servers },
+					{ label: 'Plugins', value: plugins.projects.length },
+					{
+						label: 'Downloads',
+						value: profile.stats.totalDownloads,
+					},
+					{
+						label: 'Reviews written',
+						value: profile.stats.reviewsWritten,
+					},
+				]}
+			/>
 
 			<div
-				className={`container mx-auto grid gap-7 px-4 pt-8 pb-18 md:px-6 ${hasSidebar ? 'lg:grid-cols-[minmax(0,1fr)_18rem]' : ''}`}
+				className={cn(
+					'container mx-auto grid items-start gap-x-8 gap-y-10 px-4 pt-10 pb-18 md:px-6',
+					hasSidebar && 'lg:grid-cols-[minmax(0,1fr)_18rem]',
+				)}
 			>
-				<div className="flex min-w-0 flex-col gap-8">
-					{PROJECT_TYPES.map((type) => {
-						const items = profile.projects.filter(
-							(item) => normalizeProjectType(item.type) === type,
-						)
-						return (
-							<section className="flex flex-col gap-4" key={type}>
-								<h2 className="font-bold text-2xl">
-									{PROJECT_TYPE_PLURAL_LABELS[type]}
-								</h2>
-								{items.length ? (
-									<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))] gap-4">
-										{items.map((item) => (
-											<ProjectCard
-												content={item}
-												key={item._id}
-											/>
-										))}
-									</div>
-								) : (
-									<p className="rounded-md border border-dashed px-6 py-8 text-center text-muted-foreground">
-										No published{' '}
-										{PROJECT_TYPE_PLURAL_LABELS[
-											type
-										].toLowerCase()}{' '}
-										yet.
-									</p>
-								)}
-							</section>
-						)
-					})}
-					{plugins.projects.length > 0 ? (
-						<section className="flex flex-col gap-4">
-							<h2 className="font-bold text-2xl">Plugins</h2>
-							<PluginGrid plugins={plugins.projects} />
-						</section>
-					) : null}
-					<section className="flex flex-col gap-4">
-						<h2 className="font-bold text-2xl">Servers</h2>
-						{profile.servers.length > 0 ? (
-							<div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-4">
-								{profile.servers.map((server) => (
-									<ServerCard
-										key={server._id}
-										server={server}
-									/>
-								))}
-							</div>
-						) : (
-							<p className="rounded-md border border-dashed px-6 py-8 text-center text-muted-foreground">
-								No listed servers yet.
-							</p>
-						)}
-					</section>
+				<div className="flex min-w-0 flex-col gap-10">
+					{sections.length > 0 ? (
+						sections.map((section) => (
+							<ProfileSection
+								count={section.count}
+								key={section.key}
+								title={section.title}
+							>
+								{section.content}
+							</ProfileSection>
+						))
+					) : (
+						<p className="rounded-lg border border-dashed px-6 py-14 text-center text-muted-foreground">
+							{displayName} has not published anything yet.
+						</p>
+					)}
 					<ProfileCollections username={username} />
 				</div>
 
-				<aside className="flex min-w-0 flex-col gap-4 empty:hidden">
-					{profile.organizations.length > 0 ? (
+				{hasSidebar ? (
+					<aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-24">
 						<SideCard title="Organizations">
-							<div className="flex flex-col gap-2.5">
+							<div className="flex flex-col gap-1">
 								{profile.organizations.map((organization) => (
 									<Link
-										className="flex items-center gap-3 rounded-sm border bg-background p-3 transition-colors hover:border-ember"
+										className="group flex items-center gap-3 rounded-md p-2 transition-colors hover:bg-muted"
 										href={`/organizations/${organization.slug}`}
 										key={organization.slug}
 									>
-										<span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-md border-2 border-edge bg-primary text-primary-foreground">
+										<span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground">
 											{organization.logo ? (
 												<Image
 													alt=""
 													className="object-cover"
 													fill
-													sizes="44px"
+													sizes="40px"
 													src={organization.logo}
 												/>
 											) : (
@@ -384,7 +338,7 @@ export default function PublicUserProfilePage() {
 											)}
 										</span>
 										<span className="flex min-w-0 flex-1 flex-col">
-											<span className="truncate font-bold font-display">
+											<span className="truncate font-semibold">
 												{organization.name}
 											</span>
 											<span className="text-muted-foreground text-xs capitalize">
@@ -393,15 +347,15 @@ export default function PublicUserProfilePage() {
 										</span>
 										<HugeiconsIcon
 											aria-hidden
-											className="size-4 text-muted-foreground"
+											className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
 											icon={ArrowRight02Icon}
 										/>
 									</Link>
 								))}
 							</div>
 						</SideCard>
-					) : null}
-				</aside>
+					</aside>
+				) : null}
 			</div>
 		</main>
 	)

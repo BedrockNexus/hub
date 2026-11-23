@@ -435,6 +435,7 @@ describe('creator listings', () => {
 				pluginCount: 0,
 				totalDownloads: 100,
 				avgPlayers7d: 0,
+				followerCount: 0,
 			},
 			{
 				slug: 'host',
@@ -444,6 +445,7 @@ describe('creator listings', () => {
 				pluginCount: 0,
 				totalDownloads: 0,
 				avgPlayers7d: 3,
+				followerCount: 0,
 			},
 		])
 		expect(
