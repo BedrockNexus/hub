@@ -55,6 +55,15 @@ crons.interval(
 	{},
 )
 
+// Site-wide daily totals for the admin analytics page
+// (functions/site/siteAnalytics.ts). Rewrites today's and yesterday's rows.
+crons.interval(
+	'rollup-site-analytics',
+	{ hours: 1 },
+	internal.functions.site.siteAnalytics.rollup,
+	{},
+)
+
 // Order of /creators and /organizations (lib/creatorRank.ts).
 crons.interval(
 	'recompute-creator-ranks',

@@ -1,6 +1,7 @@
 'use client'
 
 import {
+	Analytics01Icon,
 	CheckmarkCircle01Icon,
 	DashboardBrowsingIcon,
 	GridIcon,
@@ -23,6 +24,11 @@ const data = {
 			url: '/admin',
 			icon: DashboardBrowsingIcon,
 			exactMatch: true,
+		},
+		{
+			title: 'Analytics',
+			url: '/admin/analytics',
+			icon: Analytics01Icon,
 		},
 		{
 			title: 'Moderation',

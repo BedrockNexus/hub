@@ -97,6 +97,7 @@ not commands to run on every release:
 | `projects/migrations:seedDefaultProjectCategories` | A deployment lacks the default add-on and resource pack categories |
 | `projects/migrations:backfillCategoryCounts` | Add-on or resource pack category counts have drifted |
 | `servers/migrations:backfillCategoryCounts` | Server category counts have drifted |
+| `site/siteAnalytics:rollup` with `{"days": 90}` | The admin analytics page lacks history (a new deployment, or after changing how a day is totalled) |
 
 These abbreviated module paths live below `functions/`. Inspect the target
 deployment and preserve existing data before running a repair.

@@ -241,6 +241,7 @@ query    functions/site/settings:getFeatures
 query    functions/site/settings:getSeo
 query    functions/site/settings:getSocials
 query    functions/site/settings:getStats
+query    functions/site/siteAnalytics:overview
 query    functions/site/users:getAdminUserStats
 query    functions/site/users:getMyMinecraftVersion
 query    functions/site/users:getMyProfile

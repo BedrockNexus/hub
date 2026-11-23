@@ -477,7 +477,10 @@ export const tables = {
 		apiDownloads: v.optional(v.number()),
 		// Detail page views, one per visitor per day (functions/site/engagement).
 		views: v.optional(v.number()),
-	}).index('by_projectId_and_dayKey', ['projectId', 'dayKey']),
+	})
+		.index('by_projectId_and_dayKey', ['projectId', 'dayKey'])
+		// Site analytics rollup (functions/site/siteAnalytics.ts).
+		.index('by_dayKey', ['dayKey']),
 
 	projectReviews: defineTable({
 		projectId: v.id('projects'),

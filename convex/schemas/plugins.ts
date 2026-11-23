@@ -668,7 +668,10 @@ export const tables = {
 		downloads: v.number(), // counted downloads from every source
 		apiDownloads: v.number(), // of those, through the public API
 		views: v.number(), // detail page views, one per visitor per day
-	}).index('by_pluginId_and_dayKey', ['pluginId', 'dayKey']),
+	})
+		.index('by_pluginId_and_dayKey', ['pluginId', 'dayKey'])
+		// Site analytics rollup (functions/site/siteAnalytics.ts).
+		.index('by_dayKey', ['dayKey']),
 
 	pluginDownloads: defineTable({
 		projectId: v.id('plugins'),

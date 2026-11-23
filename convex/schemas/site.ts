@@ -284,6 +284,48 @@ export const tables = {
 	}).index('by_key', ['key']),
 
 	// ===========================================================================
+	// SITE ANALYTICS (one row per UTC day for the admin analytics page)
+	// ===========================================================================
+	// Rolled up hourly from the per-item daily counters and creation times by
+	// functions/site/siteAnalytics:rollup, so the admin page reads one row per
+	// day instead of every item's rows. Today's row is rewritten each hour.
+	siteDailyStats: defineTable({
+		dayKey: v.string(), // YYYY-MM-DD
+		// Detail page views, one per visitor per day per item.
+		projectViews: v.number(),
+		pluginViews: v.number(),
+		serverViews: v.number(),
+		downloads: v.number(), // counted; addons, packs and plugins together
+		apiDownloads: v.number(), // of those, through the public API
+		addressCopies: v.number(),
+		// Average players online across every checked server that day.
+		avgPlayers: v.number(),
+		serversChecked: v.number(),
+		signups: v.number(),
+		newServers: v.number(),
+		newProjects: v.number(), // created, not necessarily published
+		newPlugins: v.number(),
+		newOrganizations: v.number(),
+		reviews: v.number(),
+		follows: v.number(),
+		// The day's busiest items per section, for the "top" lists.
+		top: v.array(
+			v.object({
+				section: v.union(
+					v.literal('project'),
+					v.literal('plugin'),
+					v.literal('server'),
+				),
+				id: v.string(),
+				views: v.number(),
+				downloads: v.number(),
+				addressCopies: v.number(),
+			}),
+		),
+		updatedAt: v.number(),
+	}).index('by_dayKey', ['dayKey']),
+
+	// ===========================================================================
 	// GAME VERSIONS
 	// ===========================================================================
 	gameVersions: defineTable({

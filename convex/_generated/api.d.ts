@@ -29,7 +29,6 @@ import type * as functions_plugins_github_webhookPayload from "../functions/plug
 import type * as functions_plugins_github_webhookSignature from "../functions/plugins/github/webhookSignature.js";
 import type * as functions_plugins_github_webhooks from "../functions/plugins/github/webhooks.js";
 import type * as functions_plugins_icons from "../functions/plugins/icons.js";
-import type * as functions_plugins_migrations from "../functions/plugins/migrations.js";
 import type * as functions_plugins_moderation from "../functions/plugins/moderation.js";
 import type * as functions_plugins_organizations from "../functions/plugins/organizations.js";
 import type * as functions_plugins_projects from "../functions/plugins/projects.js";
@@ -79,6 +78,7 @@ import type * as functions_site_organizations from "../functions/site/organizati
 import type * as functions_site_picks from "../functions/site/picks.js";
 import type * as functions_site_releases from "../functions/site/releases.js";
 import type * as functions_site_settings from "../functions/site/settings.js";
+import type * as functions_site_siteAnalytics from "../functions/site/siteAnalytics.js";
 import type * as functions_site_trending from "../functions/site/trending.js";
 import type * as functions_site_users from "../functions/site/users.js";
 import type * as functions_social_alerts from "../functions/social/alerts.js";
@@ -89,7 +89,6 @@ import type * as functions_social_follows from "../functions/social/follows.js";
 import type * as functions_social_library from "../functions/social/library.js";
 import type * as functions_social_notifications from "../functions/social/notifications.js";
 import type * as functions_storage from "../functions/storage.js";
-import type * as functions_storageMigrations from "../functions/storageMigrations.js";
 import type * as http from "../http.js";
 import type * as lib_activity from "../lib/activity.js";
 import type * as lib_audit from "../lib/audit.js";
@@ -188,7 +187,6 @@ declare const fullApi: ApiFromModules<{
   "functions/plugins/github/webhookSignature": typeof functions_plugins_github_webhookSignature;
   "functions/plugins/github/webhooks": typeof functions_plugins_github_webhooks;
   "functions/plugins/icons": typeof functions_plugins_icons;
-  "functions/plugins/migrations": typeof functions_plugins_migrations;
   "functions/plugins/moderation": typeof functions_plugins_moderation;
   "functions/plugins/organizations": typeof functions_plugins_organizations;
   "functions/plugins/projects": typeof functions_plugins_projects;
@@ -238,6 +236,7 @@ declare const fullApi: ApiFromModules<{
   "functions/site/picks": typeof functions_site_picks;
   "functions/site/releases": typeof functions_site_releases;
   "functions/site/settings": typeof functions_site_settings;
+  "functions/site/siteAnalytics": typeof functions_site_siteAnalytics;
   "functions/site/trending": typeof functions_site_trending;
   "functions/site/users": typeof functions_site_users;
   "functions/social/alerts": typeof functions_social_alerts;
@@ -248,7 +247,6 @@ declare const fullApi: ApiFromModules<{
   "functions/social/library": typeof functions_social_library;
   "functions/social/notifications": typeof functions_social_notifications;
   "functions/storage": typeof functions_storage;
-  "functions/storageMigrations": typeof functions_storageMigrations;
   http: typeof http;
   "lib/activity": typeof lib_activity;
   "lib/audit": typeof lib_audit;

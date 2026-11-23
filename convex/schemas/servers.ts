@@ -297,7 +297,10 @@ export const tables = {
 		// exist with zero checks when a visit came before the first check.
 		views: v.optional(v.number()),
 		addressCopies: v.optional(v.number()),
-	}).index('by_serverId_and_dayKey', ['serverId', 'dayKey']),
+	})
+		.index('by_serverId_and_dayKey', ['serverId', 'dayKey'])
+		// Site analytics rollup (functions/site/siteAnalytics.ts).
+		.index('by_dayKey', ['dayKey']),
 
 	// One row per server per hour (start of the hour, ms), like the daily
 	// rows. Feeds the 24-hour and 7-day charts; purged after 35 days.

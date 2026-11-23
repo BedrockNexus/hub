@@ -25,6 +25,21 @@ source of official listing and download totals. Install the relevant Bklit
 shadcn registry components when implementing those screens, using the site's
 existing theme and accessible loading, empty and error states.
 
+## Admin site analytics
+
+`/admin/analytics` shows site-wide traffic and growth to admins: page views by
+section, downloads (website and launcher), server address copies, average
+players online, new accounts, listings, reviews and follows, plus the busiest
+items of the period. Like creator analytics it reads only Convex counters.
+
+An hourly cron (`functions/site/siteAnalytics:rollup`) folds the per-item daily
+rows (`projectDailyStats`, `pluginDailyStats`, `serverDailyStats`, read through
+their `by_dayKey` indexes) and the day's creation times into one
+`siteDailyStats` row per UTC day, so the page reads at most 180 small rows. It
+rewrites today's and yesterday's rows each run; pass `{"days": N}` (up to 120)
+to rebuild history. The cron honours `PAUSE_BACKGROUND_JOBS`. Referrers,
+devices and countries stay in OpenPanel, which the page links to.
+
 ## URL contract
 
 | Consumer | Route |
