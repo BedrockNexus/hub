@@ -1,7 +1,9 @@
-name: Deploy
+name: Image
 
-# Builds the image (after the Dockerfile `test` stage passes), pushes it to
-# ghcr.io/bedrocknexus/hub and triggers the Coolify deployment.
+# Builds the image (after the Dockerfile `test` stage passes) and pushes it to
+# ghcr.io/bedrocknexus/hub. Nothing is deployed from here: production is
+# redeployed by hand in Coolify, which pulls the `latest` tag and never builds
+# source itself.
 # Pipeline: https://github.com/BedrockNexus/github-actions
 
 on:
@@ -13,6 +15,10 @@ on:
 permissions:
   contents: read
   packages: write
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   config:
@@ -38,10 +44,11 @@ jobs:
           done
           exit "$missing"
 
-  deploy:
+  image:
     needs: config
-    uses: BedrockNexus/github-actions/.github/workflows/docker-deploy.yml@main
+    uses: BedrockNexus/github-actions/.github/workflows/docker-build.yml@main
     with:
+      push: true
       test-target: test
       # Public values only: build arguments are visible in the image.
       build-args: |
@@ -49,4 +56,3 @@ jobs:
         NEXT_PUBLIC_CONVEX_SITE_URL=${{ vars.NEXT_PUBLIC_CONVEX_SITE_URL }}
         NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
         NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
-    secrets: inherit

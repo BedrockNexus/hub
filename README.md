@@ -99,17 +99,21 @@ CI/CD uses the shared workflows in
 - `Pull Request` builds the Dockerfile `test` stage (lint, typecheck, unit
   tests) and the production image, without pushing. `Quality` runs the same
   checks directly for fast feedback.
-- `Deploy` runs on pushes to `main`: the `test` stage must pass, then the image
-  is pushed to `ghcr.io/bedrocknexus/hub` with branch and commit tags, and
-  Coolify is asked to redeploy.
+- `Image` runs on pushes to `main`: the `test` stage must pass, then the image
+  is pushed to `ghcr.io/bedrocknexus/hub` with `latest`, branch and commit
+  tags. Nothing is deployed from GitHub Actions.
+
+Production runs the published image. To release, redeploy the application in
+Coolify once the `Image` run has finished: it is a *Docker Image* resource that
+pulls `latest` and never builds source. To roll back, point it at an earlier
+`sha-…` tag.
 
 Set these **repository variables** (Settings > Secrets and variables > Actions >
 Variables). They are public values inlined into the client bundle:
 `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`,
 `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_API_URL`.
 
-Set the `COOLIFY_WEBHOOK` secret on the repository (the `COOLIFY_TOKEN` secret
-can be shared at organization level). Hub server settings such as `SITE_URL`,
+Hub server settings such as `SITE_URL`,
 `DOWNLOAD_REDIRECT_SECRET` and the OpenPanel configuration are runtime values in
 Coolify. Convex-only settings, including `BEDROCKNEXUS_API_URL`, R2 credentials
 and auth secrets, belong on the Convex deployment. See [.env.example](./.env.example)

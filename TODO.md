@@ -37,7 +37,7 @@ Current work as of 2026-11-06. Keep product priorities here, regression checks i
   BedrockNexus browser and server clients. See
   [analytics and downloads](./docs/ANALYTICS_AND_DOWNLOADS.md).
 - [ ] Deploy the creator analytics daily counters (built on dev 2026-11-09) to
-  production Convex; a push to `main` deploys only the Next.js image.
+  production Convex; a push to `main` builds only the Next.js image.
 - [ ] Verify live public browsing, search and download events after activation.
   Official download totals, deduplication and rate limits remain in Convex.
 - [ ] Design creator-facing analytics and publication/signup funnels separately;
