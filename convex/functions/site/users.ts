@@ -3,7 +3,8 @@ import { ConvexError, v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { action, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
-import { toPublicProject, toPublicServer } from '../../lib/publicContent'
+import { toPublicProject } from '../../lib/publicContent'
+import { statsOf, toCards } from '../servers/listing'
 import { adminMutation, adminQuery } from '../../lib/functions'
 import type { QueryCtx } from '../../_generated/server'
 import { validateImageObjectMetadata } from '../../lib/media'
@@ -574,45 +575,15 @@ export const getPublicProfileByUsername = query({
 
 		const activeServers = servers.filter(isListedServer)
 
-		// Resolve server logos, categories, and status
-		const serversWithDetails = await Promise.all(
-			activeServers.map(async (server) => {
-				const logoUrl = server.logoR2Key
-					? await resolveCdnObjectUrl(
-							server.logoR2Key,
-							R2_IMAGE_URL_EXPIRES_IN,
-						)
-					: undefined
-
-				const categories = await Promise.all(
-					server.categoryIds.map((id) => ctx.db.get(id)),
-				)
-
-				const status = await ctx.db
-					.query('serverStatus')
-					.withIndex('by_server', (q) =>
-						q.eq('serverId', server._id),
-					)
-					.first()
-
-				const stats = await ctx.db
-					.query('serverStats')
-					.withIndex('by_server', (q) =>
-						q.eq('serverId', server._id),
-					)
-					.first()
-
-				return {
-					...toPublicServer(server),
-					logoUrl,
-					categories,
-					online: status?.online,
-					playerCount: status?.playerCount ?? 0,
-					maxPlayers: status?.maxPlayers,
-					averageRating: stats?.averageRating ?? 0,
-					reviewCount: stats?.reviewCount ?? 0,
-				}
-			}),
+		// The same cards as the server directory, banners included.
+		const serversWithDetails = await toCards(
+			ctx,
+			await Promise.all(
+				activeServers.map(async (server) => ({
+					server,
+					stats: await statsOf(ctx, server._id),
+				})),
+			),
 		)
 
 		// Fetch projects owned by this user

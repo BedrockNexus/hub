@@ -3,7 +3,8 @@ import { ConvexError, v } from 'convex/values'
 import { components } from '../../_generated/api'
 import { action, mutation, query } from '../../_generated/server'
 import { authComponent } from '../../auth'
-import { toPublicProject, toPublicServer } from '../../lib/publicContent'
+import { toPublicProject } from '../../lib/publicContent'
+import { statsOf, toCards } from '../servers/listing'
 import { adminQuery, authedQuery } from '../../lib/functions'
 import { ownerDisplayName } from '../../lib/ownerName'
 import { getOrganizationRole } from '../../lib/permissions'
@@ -143,22 +144,16 @@ export const getPublicBySlug = query({
 				username: users[index]?.username ?? undefined,
 				image: users[index]?.image ?? undefined,
 			})),
-			servers: await Promise.all(publicServers.map(async (server) => {
-				const [categories, stats, status] = await Promise.all([
-					Promise.all(server.categoryIds.map((id) => ctx.db.get(id))),
-					ctx.db.query('serverStats').withIndex('by_server', (q) => q.eq('serverId', server._id)).first(),
-					ctx.db.query('serverStatus').withIndex('by_server', (q) => q.eq('serverId', server._id)).first(),
-				])
-				return {
-					...toPublicServer(server),
-					logoUrl: server.logoR2Key ? await resolveCdnObjectUrl(server.logoR2Key, IMAGE_URL_EXPIRES_IN) : undefined,
-					categories: categories.filter(Boolean),
-					online: status?.online,
-					playerCount: status?.playerCount ?? 0,
-					averageRating: stats?.averageRating ?? 0,
-					reviewCount: stats?.reviewCount ?? 0,
-				}
-			})),
+			// The same cards as the server directory, banners included.
+			servers: await toCards(
+				ctx,
+				await Promise.all(
+					publicServers.map(async (server) => ({
+						server,
+						stats: await statsOf(ctx, server._id),
+					})),
+				),
+			),
 			projects: await Promise.all(publicProjects.map(async (project) => {
 				const [categories, stats] = await Promise.all([
 					Promise.all(project.categoryIds.map((id) => ctx.db.get(id))),

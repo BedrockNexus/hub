@@ -68,6 +68,7 @@ async function seed(t: TestClient, ownerId: string) {
 			categoryIds: [],
 			ipAddress: 'play.example.com',
 			logoR2Key: 'servers/logo.webp',
+			bannerR2Key: 'servers/banner.webp',
 			moderatedBy: SECRET,
 			moderationReason: SECRET,
 			draftChangesJson: JSON.stringify({ summary: SECRET }),
@@ -267,6 +268,10 @@ describe('public queries', () => {
 			{ username: 'owner' },
 		)
 		expect(profile?.servers.map((server) => server._id)).toEqual([serverId])
+		// Same cards as the directory, banner included.
+		expect(profile?.servers[0]?.bannerUrl).toBe(
+			'https://cdn.example.com/servers/banner.webp',
+		)
 		expect(profile?.projects.map((project) => project._id)).toEqual([
 			projectId,
 		])
@@ -301,6 +306,9 @@ describe('public queries', () => {
 			{ slug: 'org' },
 		)
 		expect(page?.servers.map((server) => server._id)).toEqual([serverId])
+		expect(page?.servers[0]?.bannerUrl).toBe(
+			'https://cdn.example.com/servers/banner.webp',
+		)
 		expect(page?.projects.map((project) => project._id)).toEqual([
 			projectId,
 		])
