@@ -45,6 +45,23 @@ describe('official download counts and canonical URLs', () => {
 		expect(await t.run(async (ctx) => (await ctx.db.get(versionId))?.downloads)).toBe(3)
 	})
 
+	it('serves but does not count crawlers or the project team', async () => {
+		vi.stubEnv('DOWNLOAD_REDIRECT_SECRET', 'test-secret')
+		const t = createTest()
+		const owner = await signIn(t, 'download-owner')
+		const projectId = await insertProject(t, { slug: 'own-pack', ownerId: owner.userId, createdBy: owner.userId })
+		const versionId = await insertRelease(t, projectId, '1.0')
+		const args = { versionId, downloadSecret: 'test-secret', clientKey: 'a'.repeat(64) }
+		expect(await owner.mutation(api.functions.projects.versions.createDownloadUrl, args)).toMatchObject({ ok: true })
+		expect(await t.mutation(api.functions.projects.versions.createDownloadUrl, { ...args, clientKey: 'c'.repeat(64), automated: true })).toMatchObject({ ok: true })
+		expect(await t.run(async (ctx) => (await ctx.db.get(versionId))?.downloads)).toBe(0)
+		const events = await t.run(async (ctx) => ctx.db.query('downloadEvents').collect())
+		expect(events.map((event) => event.counted)).toEqual([false, false])
+		// A visitor still counts.
+		await t.mutation(api.functions.projects.versions.createDownloadUrl, args)
+		expect(await t.run(async (ctx) => (await ctx.db.get(versionId))?.downloads)).toBe(1)
+	})
+
 	it('does not count missing files or accept untrusted mutation calls', async () => {
 		vi.stubEnv('DOWNLOAD_REDIRECT_SECRET', 'test-secret')
 		const t = createTest()

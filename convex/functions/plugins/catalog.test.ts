@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getProjectDownloadCount, getOwnerDownloadCount } from '../../lib/plugins/downloadCounts'
 
-import { createTest as createBackend } from '../../test.setup'
+import { createTest as createBackend, signIn } from '../../test.setup'
 import { api } from '../../_generated/api'
 import { insertProjectAggregates } from '../../lib/plugins/aggregates'
 import { writePluginDescription } from '../../lib/pluginDescriptions'
@@ -235,6 +235,28 @@ describe('download redirects', () => {
 			async (ctx) => await ctx.db.query('pluginDownloads').take(10),
 		)
 		expect(downloads).toHaveLength(0)
+	})
+
+	it('serves but does not count crawlers or the plugin team', async () => {
+		const t = createTest()
+		const fixture = await createPublishedFixture(t)
+		const owner = await signIn(t, 'plugin-download-owner')
+		await t.run(async (ctx) => {
+			await ctx.db.patch(fixture.projectId, { ownerId: owner.userId })
+		})
+		const args = {
+			projectSlug: 'trusted-plugin',
+			version: '1.0.0',
+			anonymousIdHash: 'a'.repeat(64),
+			redirectSecret,
+		}
+		const crawler = await t.mutation(api.functions.plugins.downloads.resolveAndRecord, { ...args, automated: true })
+		expect(crawler.counted).toBe(false)
+		const own = await owner.mutation(api.functions.plugins.downloads.resolveAndRecord, { ...args, anonymousIdHash: 'b'.repeat(64) })
+		expect(own.counted).toBe(false)
+		// The crawler's request did not use up the visitor's daily count.
+		const visitor = await t.mutation(api.functions.plugins.downloads.resolveAndRecord, args)
+		expect(visitor.counted).toBe(true)
 	})
 
 	it('does not serve a version whose release is not published', async () => {

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { fetchAuthMutation } from '@/lib/auth-server'
+import { isAutomatedClient } from '@/lib/automated-client'
 import { getClientAddress, hashClientKey } from '@/lib/client-address'
 
 const DOWNLOAD_ERROR_STATUS = {
@@ -57,6 +58,7 @@ export async function prepareContentDownload(
 			api.functions.projects.versions.createDownloadUrl,
 			{
 				source: 'website',
+				automated: isAutomatedClient(request.headers),
 				versionId: versionId as Id<'projectVersions'>,
 				downloadSecret,
 				clientKey: hashClientKey(

@@ -75,7 +75,9 @@ per fixed daily window. Signed-in website users are identified by account;
 anonymous website/API callers use a salted SHA-256 of the trusted client IP.
 Hub and API must share the same secret and equivalent proxy settings for the
 anonymous identity to match. HEAD and rejected/missing/unpublished files do not
-count. Historical totals are preserved; there is no retrospective backfill.
+count. Website downloads by crawlers and link-preview clients (matched by user
+agent, the same list as page views) and by the item's own team are served but
+not counted, and do not use up the requester's daily count. Historical totals are preserved; there is no retrospective backfill.
 
 Plugin totals use the existing sharded project and owner counters. Their stored
 catalog sort total is refreshed within five seconds after new counts. Legacy

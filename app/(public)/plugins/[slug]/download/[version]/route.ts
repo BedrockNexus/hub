@@ -1,6 +1,7 @@
 import { api } from '@/convex/_generated/api'
 import { logEvent } from '@/convex/lib/redact'
 import { fetchAuthMutation } from '@/lib/auth-server'
+import { isAutomatedClient } from '@/lib/automated-client'
 import { getClientAddress, hashClientKey } from '@/lib/client-address'
 import { parsePluginDashboardId } from '@/lib/plugins/plugin-dashboard-id'
 
@@ -75,6 +76,7 @@ export async function GET(
 				version,
 				anonymousIdHash,
 				source: 'website',
+				automated: isAutomatedClient(request.headers),
 				redirectSecret,
 			},
 		)

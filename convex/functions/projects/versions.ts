@@ -693,6 +693,8 @@ export const createDownloadUrl = mutation({
 		downloadSecret: v.string(),
 		clientKey: v.string(),
 		source: v.optional(v.union(v.literal('website'), v.literal('api'))),
+		/** A crawler or preview client: served, never counted. */
+		automated: v.optional(v.boolean()),
 	},
 	returns: v.union(
 		v.object({
@@ -792,12 +794,16 @@ export const createDownloadUrl = mutation({
 		)
 
 		// Repeated downloads of the same release by the same requester within a
-		// day still get a fresh link but are not counted again.
-		const countResult = await appRateLimiter.limit(
-			ctx,
-			'versionDownloadCount',
-			{ key: `${requesterKey}:${version._id}` },
-		)
+		// day still get a fresh link but are not counted again. Neither are
+		// crawlers, nor the project's own team.
+		const countable =
+			!args.automated &&
+			!(user && (await canModifyProject(ctx, project, user._id)))
+		const countResult = countable
+			? await appRateLimiter.limit(ctx, 'versionDownloadCount', {
+					key: `${requesterKey}:${version._id}`,
+				})
+			: { ok: false }
 		if (countResult.ok) {
 			await ctx.db.patch(args.versionId, {
 				downloads: version.downloads + 1,

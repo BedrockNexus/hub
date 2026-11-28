@@ -1,5 +1,6 @@
 import { api } from '@/convex/_generated/api'
 import { fetchAuthMutation } from '@/lib/auth-server'
+import { isAutomatedClient } from '@/lib/automated-client'
 import { getClientAddress, hashClientKey } from '@/lib/client-address'
 import { absoluteUrl } from '@/lib/seo'
 
@@ -12,8 +13,6 @@ import { absoluteUrl } from '@/lib/seo'
 
 const EVENTS = new Set(['view', 'address_copy'])
 const KINDS = new Set(['project', 'plugin', 'server'])
-const BOT =
-	/bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit|embedly|whatsapp|telegram/i
 const NO_CONTENT = { status: 204, headers: { 'Cache-Control': 'no-store' } }
 
 // Behind the reverse proxy the request URL is the container's own address,
@@ -39,7 +38,7 @@ export async function POST(request: Request) {
 	const secret = process.env.DOWNLOAD_REDIRECT_SECRET
 	if (
 		!(secret && isSameOrigin(request)) ||
-		BOT.test(request.headers.get('user-agent') ?? '')
+		isAutomatedClient(request.headers)
 	) {
 		return new Response(null, NO_CONTENT)
 	}

@@ -13,6 +13,7 @@ import { getCdnObjectUrl } from '../../lib/r2'
 import { rateLimiter } from '../../lib/plugins/rateLimits'
 import { adjustPluginDay } from '../../lib/dailyStats'
 import { recordDownloadEvent } from '../../lib/downloadEvents'
+import { canEditContent } from '../../lib/permissions'
 
 const notFound = () =>
 	new ConvexError({
@@ -51,6 +52,8 @@ export const resolveAndRecord = mutation({
 		userAgentHash: v.optional(v.string()),
 		redirectSecret: v.string(),
 		source: v.optional(v.union(v.literal('website'), v.literal('api'))),
+		/** A crawler or preview client: served, never counted. */
+		automated: v.optional(v.boolean()),
 	},
 	returns: v.object({
 		url: v.string(),
@@ -126,9 +129,18 @@ export const resolveAndRecord = mutation({
 			})
 		}
 
-		const count = await rateLimiter.limit(ctx, 'versionDownloadCount', {
-			key: `${requesterKey}:${version._id}`,
-		})
+		// Crawlers and the plugin's own team are served but not counted.
+		const countable =
+			!args.automated &&
+			!(
+				user &&
+				(await canEditContent(ctx, project, user, { allowSiteAdmin: false }))
+			)
+		const count = countable
+			? await rateLimiter.limit(ctx, 'versionDownloadCount', {
+					key: `${requesterKey}:${version._id}`,
+				})
+			: { ok: false }
 		if (count.ok) {
 			if (project.downloadCounterReadyAt) {
 				await projectDownloadCounts.add(ctx, project._id, 1)
